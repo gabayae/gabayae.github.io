@@ -302,7 +302,7 @@ ninja.data = [{
         title: 'LinkedIn',
         section: 'Socials',
         handler: () => {
-          window.open("https://www.linkedin.com/in/ola-g", "_blank");
+          window.open("https://www.linkedin.com/in/gabayae", "_blank");
         },
       },{
         id: 'social-rss',
