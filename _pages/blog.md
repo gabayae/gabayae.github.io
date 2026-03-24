@@ -1,9 +1,10 @@
 ---
 layout: default
-permalink: /blog/
+permalink: /en/blog/
 title: blog
 nav: true
-nav_order: 1
+nav_order: 4
+lang: en
 pagination:
   enabled: true
   collection: posts

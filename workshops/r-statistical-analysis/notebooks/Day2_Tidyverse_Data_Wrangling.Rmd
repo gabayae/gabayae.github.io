@@ -1,0 +1,597 @@
+---
+title: "Day 2: Tidyverse Data Wrangling"
+subtitle: "R for Statistical Analysis Workshop"
+author: "Dr. Yae Ulrich Gaba"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    theme: flatly
+    highlight: tango
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+# Introduction
+
+Welcome to Day 2. Today we learn the **tidyverse** ecosystem for data
+wrangling. The tidyverse is a collection of R packages that share a consistent
+design philosophy and grammar. We will focus on `dplyr` for data manipulation,
+`tidyr` for reshaping, and `readr` for reading data.
+
+```{r load-packages}
+library(tidyverse)  # loads dplyr, tidyr, readr, ggplot2, tibble, etc.
+```
+
+---
+
+# Reading Data with readr
+
+## read_csv
+
+`read_csv()` from the readr package is faster and more consistent than base
+`read.csv()`. It produces tibbles and does not convert strings to factors.
+
+```{r read-csv-demo}
+# Writing a temporary CSV to demonstrate read_csv
+temp_file <- tempfile(fileext = ".csv")
+writeLines(
+  c("name,age,country,score",
+    "Amina,24,Nigeria,88",
+    "Kofi,27,Ghana,76",
+    "Fatou,22,Senegal,92",
+    "Emeka,30,Nigeria,85",
+    "Ngozi,25,Nigeria,90"),
+  temp_file
+)
+
+students <- read_csv(temp_file)
+students
+```
+
+## Creating Sample Data Inline
+
+For workshops and reproducible examples, it is often convenient to create data
+directly in R.
+
+```{r inline-data}
+# Using tibble()
+health_workers <- tibble(
+  country = c("Nigeria", "Ghana", "Kenya", "Ethiopia", "South Africa",
+              "Senegal", "Tanzania", "Rwanda", "Uganda", "Benin"),
+  doctors_per_10k = c(3.8, 1.4, 2.0, 0.8, 9.1,
+                      0.7, 0.4, 1.3, 1.7, 1.6),
+  nurses_per_10k  = c(14.8, 9.3, 11.7, 7.0, 51.3,
+                      4.2, 4.4, 9.5, 13.1, 6.8),
+  region = c("West", "West", "East", "East", "Southern",
+             "West", "East", "East", "East", "West")
+)
+health_workers
+
+# Using tribble() for row-by-row entry
+gdp_data <- tribble(
+  ~country,        ~year, ~gdp_billion_usd,
+  "Nigeria",       2020,  432.3,
+  "Nigeria",       2021,  440.8,
+  "South Africa",  2020,  301.9,
+  "South Africa",  2021,  419.0,
+  "Kenya",         2020,  100.7,
+  "Kenya",         2021,  110.3
+)
+gdp_data
+```
+
+---
+
+# dplyr: Core Verbs
+
+The six core dplyr verbs handle the vast majority of data manipulation tasks.
+
+## filter() -- Select Rows
+
+```{r filter}
+# Countries with more than 2 doctors per 10k
+health_workers %>%
+  filter(doctors_per_10k > 2)
+
+# West African countries with nurses > 8 per 10k
+health_workers %>%
+  filter(region == "West", nurses_per_10k > 8)
+
+# Multiple conditions with OR
+health_workers %>%
+  filter(country == "Kenya" | country == "Rwanda")
+
+# Using %in%
+health_workers %>%
+  filter(country %in% c("Nigeria", "Ghana", "Benin"))
+```
+
+## select() -- Choose Columns
+
+```{r select}
+# Select specific columns
+health_workers %>%
+  select(country, doctors_per_10k)
+
+# Drop a column
+health_workers %>%
+  select(-region)
+
+# Select helpers
+health_workers %>%
+  select(country, starts_with("doctors"))
+
+health_workers %>%
+  select(country, ends_with("per_10k"))
+
+# Rename while selecting
+health_workers %>%
+  select(nation = country, docs = doctors_per_10k)
+```
+
+## mutate() -- Create / Modify Columns
+
+```{r mutate}
+health_workers %>%
+  mutate(
+    total_per_10k = doctors_per_10k + nurses_per_10k,
+    doctor_nurse_ratio = round(doctors_per_10k / nurses_per_10k, 2),
+    above_avg_docs = doctors_per_10k > mean(doctors_per_10k)
+  )
+```
+
+```{r mutate-case-when}
+# case_when for multiple conditions
+health_workers %>%
+  mutate(
+    doc_level = case_when(
+      doctors_per_10k >= 5  ~ "High",
+      doctors_per_10k >= 1.5 ~ "Medium",
+      TRUE                   ~ "Low"
+    )
+  )
+```
+
+## arrange() -- Sort Rows
+
+```{r arrange}
+# Ascending
+health_workers %>%
+  arrange(doctors_per_10k)
+
+# Descending
+health_workers %>%
+  arrange(desc(nurses_per_10k))
+
+# Multiple sort keys
+health_workers %>%
+  arrange(region, desc(doctors_per_10k))
+```
+
+## summarise() -- Aggregate
+
+```{r summarise}
+health_workers %>%
+  summarise(
+    n_countries = n(),
+    avg_docs = mean(doctors_per_10k),
+    sd_docs = sd(doctors_per_10k),
+    median_nurses = median(nurses_per_10k),
+    min_docs = min(doctors_per_10k),
+    max_docs = max(doctors_per_10k)
+  )
+```
+
+## group_by() + summarise()
+
+```{r group-by}
+health_workers %>%
+  group_by(region) %>%
+  summarise(
+    n = n(),
+    avg_docs = mean(doctors_per_10k),
+    avg_nurses = mean(nurses_per_10k),
+    .groups = "drop"
+  )
+```
+
+```{r group-mutate}
+# group_by + mutate for within-group calculations
+health_workers %>%
+  group_by(region) %>%
+  mutate(
+    region_avg_docs = mean(doctors_per_10k),
+    diff_from_avg = doctors_per_10k - region_avg_docs
+  ) %>%
+  ungroup()
+```
+
+## Chaining Multiple Verbs
+
+```{r chaining}
+health_workers %>%
+  filter(region %in% c("West", "East")) %>%
+  mutate(total_hw = doctors_per_10k + nurses_per_10k) %>%
+  group_by(region) %>%
+  summarise(
+    n = n(),
+    avg_total = mean(total_hw),
+    best_country = country[which.max(total_hw)],
+    .groups = "drop"
+  ) %>%
+  arrange(desc(avg_total))
+```
+
+## Other Useful dplyr Functions
+
+```{r other-dplyr}
+# count
+health_workers %>% count(region, sort = TRUE)
+
+# slice
+health_workers %>% slice_max(doctors_per_10k, n = 3)
+health_workers %>% slice_min(nurses_per_10k, n = 3)
+
+# distinct
+health_workers %>% distinct(region)
+
+# pull -- extract a column as a vector
+health_workers %>% pull(country)
+
+# rename
+health_workers %>% rename(nation = country)
+
+# relocate
+health_workers %>% relocate(region, .before = country)
+
+# across -- apply function to multiple columns
+health_workers %>%
+  summarise(across(where(is.numeric), list(mean = mean, sd = sd)))
+```
+
+---
+
+# tidyr: Reshaping Data
+
+## Sample Wide Data
+
+```{r wide-data}
+# Disease cases by year -- wide format
+disease_wide <- tibble(
+  country = c("Nigeria", "Ghana", "Kenya", "Ethiopia", "Senegal"),
+  cases_2019 = c(12000, 5400, 7800, 9200, 3100),
+  cases_2020 = c(15000, 6100, 8900, 10500, 3800),
+  cases_2021 = c(13500, 5800, 7200, 11000, 3500),
+  cases_2022 = c(11800, 5000, 6800, 10200, 3000)
+)
+disease_wide
+```
+
+## pivot_longer() -- Wide to Long
+
+```{r pivot-longer}
+disease_long <- disease_wide %>%
+  pivot_longer(
+    cols = starts_with("cases_"),
+    names_to = "year",
+    names_prefix = "cases_",
+    values_to = "cases"
+  ) %>%
+  mutate(year = as.integer(year))
+
+disease_long
+```
+
+## pivot_wider() -- Long to Wide
+
+```{r pivot-wider}
+# Convert back to wide
+disease_long %>%
+  pivot_wider(
+    names_from = year,
+    values_from = cases,
+    names_prefix = "cases_"
+  )
+```
+
+```{r pivot-wider-example}
+# Another example: metrics in long format
+metrics_long <- tribble(
+  ~country,     ~metric,         ~value,
+  "Nigeria",    "life_exp",       54.7,
+  "Nigeria",    "infant_mort",    72.0,
+  "Nigeria",    "literacy",       62.0,
+  "Ghana",      "life_exp",       64.1,
+  "Ghana",      "infant_mort",    35.0,
+  "Ghana",      "literacy",       79.0,
+  "Kenya",      "life_exp",       66.7,
+  "Kenya",      "infant_mort",    31.0,
+  "Kenya",      "literacy",       81.5
+)
+
+metrics_long %>%
+  pivot_wider(names_from = metric, values_from = value)
+```
+
+## separate() and unite()
+
+```{r separate}
+# Separate a combined column
+records <- tibble(
+  id = 1:5,
+  date_place = c("2022-03-15_Lagos", "2022-04-20_Accra",
+                  "2022-05-10_Nairobi", "2022-06-01_Addis",
+                  "2022-07-22_Dakar")
+)
+
+records %>%
+  separate(date_place, into = c("date", "city"), sep = "_") %>%
+  mutate(date = as.Date(date))
+```
+
+```{r unite}
+# Unite columns
+demographics <- tibble(
+  first = c("Amina", "Kofi", "Fatou"),
+  last = c("Bello", "Mensah", "Diallo"),
+  age = c(24, 27, 22)
+)
+
+demographics %>%
+  unite("full_name", first, last, sep = " ")
+```
+
+---
+
+# Joining Data
+
+## Creating Two Tables
+
+```{r join-data}
+# Country information
+country_info <- tibble(
+  country = c("Nigeria", "Ghana", "Kenya", "Ethiopia",
+              "South Africa", "Senegal", "Tanzania"),
+  population_million = c(211, 31, 54, 115, 60, 17, 62),
+  continent_region = c("West Africa", "West Africa", "East Africa",
+                       "East Africa", "Southern Africa", "West Africa",
+                       "East Africa")
+)
+
+# Health spending
+health_spending <- tibble(
+  country = c("Nigeria", "Ghana", "Kenya", "Ethiopia",
+              "Senegal", "Rwanda", "Benin"),
+  health_exp_pct_gdp = c(3.9, 3.4, 4.6, 3.5, 3.9, 6.6, 2.6),
+  year = rep(2021, 7)
+)
+```
+
+## left_join()
+
+Keep all rows from the left table; match from the right where possible.
+
+```{r left-join}
+country_info %>%
+  left_join(health_spending, by = "country")
+```
+
+## inner_join()
+
+Keep only rows present in both tables.
+
+```{r inner-join}
+country_info %>%
+  inner_join(health_spending, by = "country")
+```
+
+## Other Joins
+
+```{r other-joins}
+# right_join -- keep all rows from right table
+country_info %>%
+  right_join(health_spending, by = "country")
+
+# full_join -- keep all rows from both
+country_info %>%
+  full_join(health_spending, by = "country")
+
+# anti_join -- rows in left that have NO match in right
+country_info %>%
+  anti_join(health_spending, by = "country")
+
+# semi_join -- rows in left that HAVE a match in right (no columns added)
+country_info %>%
+  semi_join(health_spending, by = "country")
+```
+
+---
+
+# Lab: WHO-Style African Health Data
+
+In this lab we create, clean, and analyse an inline dataset that mimics
+WHO health indicators for African countries.
+
+## Step 1: Create the Raw Data
+
+```{r lab-raw-data}
+# Simulated WHO-style data with some messiness
+raw_health <- tibble(
+  country = c("Nigeria", "Nigeria", "Nigeria",
+              "Ghana", "Ghana", "Ghana",
+              "Kenya", "Kenya", "Kenya",
+              "Ethiopia", "Ethiopia", "Ethiopia",
+              "South Africa", "South Africa", "South Africa",
+              "Senegal", "Senegal", "Senegal",
+              "Tanzania", "Tanzania", "Tanzania",
+              "Rwanda", "Rwanda", "Rwanda"),
+  year = rep(c(2018, 2019, 2020), 8),
+  life_expectancy = c(54.3, 54.7, 53.9,
+                      63.8, 64.1, 63.5,
+                      66.3, 66.7, 65.9,
+                      65.5, 66.2, 65.0,
+                      64.1, 64.7, 63.5,
+                      67.5, 67.9, 67.0,
+                      65.0, 65.5, 64.8,
+                      68.7, 69.0, 68.3),
+  infant_mortality_per_1k = c(74.2, 72.0, 75.5,
+                               36.2, 35.0, 37.1,
+                               32.5, 31.0, 33.8,
+                               38.5, 37.0, 40.0,
+                               28.3, 27.0, 30.5,
+                               33.0, 32.0, 34.5,
+                               37.5, 36.0, 39.0,
+                               27.8, 26.5, 29.0),
+  malaria_cases_thousands = c(58400, 60800, 61700,
+                               5200, 5400, 5700,
+                               3400, 3600, 3900,
+                               2600, 2800, 3000,
+                               NA, NA, NA,
+                               4800, 5000, 5300,
+                               7100, 7400, 7800,
+                               1800, 1900, 2100),
+  hiv_prevalence_pct = c(1.3, 1.3, 1.3,
+                          1.7, 1.7, 1.7,
+                          4.5, 4.5, 4.4,
+                          0.9, 0.9, 0.9,
+                          19.1, 19.0, 18.8,
+                          0.4, 0.4, 0.4,
+                          4.7, 4.7, 4.6,
+                          2.5, 2.5, 2.4),
+  region = rep(c("West", "West", "East", "East",
+                 "Southern", "West", "East", "East"), each = 3)
+)
+
+raw_health
+```
+
+## Step 2: Inspect and Clean
+
+```{r lab-inspect}
+# Check for missing values
+raw_health %>%
+  summarise(across(everything(), ~ sum(is.na(.))))
+
+# South Africa has no malaria data -- expected
+```
+
+```{r lab-clean}
+# Clean: remove NAs for malaria analysis, add a computed column
+health_clean <- raw_health %>%
+  mutate(
+    year = as.integer(year),
+    country = factor(country),
+    # Health index: higher life expectancy + lower infant mortality = better
+    health_index = (life_expectancy / 100) - (infant_mortality_per_1k / 200)
+  )
+
+health_clean
+```
+
+## Step 3: Summary by Region and Year
+
+```{r lab-regional}
+regional_summary <- health_clean %>%
+  group_by(region, year) %>%
+  summarise(
+    n_countries = n_distinct(country),
+    avg_life_exp = round(mean(life_expectancy), 1),
+    avg_infant_mort = round(mean(infant_mortality_per_1k), 1),
+    total_malaria_k = sum(malaria_cases_thousands, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+regional_summary
+```
+
+## Step 4: Identify Trends
+
+```{r lab-trends}
+# Year-over-year change in life expectancy
+trends <- health_clean %>%
+  arrange(country, year) %>%
+  group_by(country) %>%
+  mutate(
+    le_change = life_expectancy - lag(life_expectancy),
+    im_change = infant_mortality_per_1k - lag(infant_mortality_per_1k)
+  ) %>%
+  ungroup() %>%
+  filter(!is.na(le_change))
+
+# Which countries improved in 2019 vs 2018?
+trends %>%
+  filter(year == 2019, le_change > 0) %>%
+  select(country, year, life_expectancy, le_change) %>%
+  arrange(desc(le_change))
+```
+
+## Step 5: Reshape for Reporting
+
+```{r lab-reshape}
+# Create a wide table of life expectancy by year
+le_wide <- health_clean %>%
+  select(country, year, life_expectancy) %>%
+  pivot_wider(
+    names_from = year,
+    values_from = life_expectancy,
+    names_prefix = "le_"
+  ) %>%
+  mutate(change_2018_2020 = le_2020 - le_2018)
+
+le_wide
+```
+
+## Step 6: Join with External Data
+
+```{r lab-join}
+# GDP per capita (simulated)
+gdp_pc <- tibble(
+  country = c("Nigeria", "Ghana", "Kenya", "Ethiopia",
+              "South Africa", "Senegal", "Tanzania", "Rwanda"),
+  gdp_per_capita = c(2097, 2328, 1838, 936, 5091, 1488, 1076, 822)
+)
+
+# Join and correlate
+combined <- health_clean %>%
+  filter(year == 2020) %>%
+  inner_join(gdp_pc, by = "country")
+
+combined %>%
+  select(country, life_expectancy, infant_mortality_per_1k, gdp_per_capita) %>%
+  arrange(desc(gdp_per_capita))
+
+# Quick correlation
+cor(combined$gdp_per_capita, combined$life_expectancy)
+cor(combined$gdp_per_capita, combined$infant_mortality_per_1k)
+```
+
+---
+
+# Summary
+
+Today we covered:
+
+1. **readr** -- `read_csv()` for fast, consistent data import
+2. **dplyr verbs** -- `filter`, `select`, `mutate`, `arrange`, `summarise`, `group_by`
+3. **tidyr** -- `pivot_longer`, `pivot_wider`, `separate`, `unite`
+4. **Joins** -- `left_join`, `inner_join`, `right_join`, `full_join`, `anti_join`
+5. **Lab** -- end-to-end wrangling of WHO-style health data for African countries
+
+Tomorrow we move to **ggplot2** for beautiful, publication-quality data
+visualisation.
+
+```{r session-info}
+sessionInfo()
+```

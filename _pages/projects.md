@@ -1,11 +1,12 @@
 ---
 layout: page
 title: projects
-permalink: /projects/
-description: A growing collection of your cool projects.
+permalink: /en/projects/
+description: Research projects, tools, and community initiatives at the intersection of topology, data science, and AI.
 nav: true
 nav_order: 3
-display_categories: [work, fun]
+lang: en
+display_categories: [research, teaching & outreach]
 horizontal: false
 ---
 

@@ -12,7 +12,42 @@ layout: default
       {% endif %}
     </h1>
     <p class="desc">{{ page.subtitle }}</p>
+    {% if page.typing_roles %}
+      <div class="typing-roles" style="min-height: 1.5em; margin-top: 0.5rem;">
+        <span class="typing-animation" id="typing-text"></span>
+      </div>
+      <script>
+        (function() {
+          var roles = {{ page.typing_roles | jsonify }};
+          var el = document.getElementById('typing-text');
+          var i = 0, j = 0, deleting = false;
+          function type() {
+            var word = roles[i];
+            if (!deleting) {
+              el.textContent = word.substring(0, j + 1);
+              j++;
+              if (j === word.length) { deleting = true; setTimeout(type, 1500); return; }
+              setTimeout(type, 80);
+            } else {
+              el.textContent = word.substring(0, j - 1);
+              j--;
+              if (j === 0) { deleting = false; i = (i + 1) % roles.length; setTimeout(type, 400); return; }
+              setTimeout(type, 40);
+            }
+          }
+          type();
+        })();
+      </script>
+    {% endif %}
   </header>
+
+  {% if page.stats %}
+    <div class="stats-strip">
+      {% for stat in page.stats %}
+        <span class="stat-item"><i class="fa-solid {{ stat.icon }}"></i> {{ stat.text }}</span>
+      {% endfor %}
+    </div>
+  {% endif %}
 
   <article>
     {% if page.profile %}
@@ -40,10 +75,18 @@ layout: default
 
     <div class="clearfix">{{ content }}</div>
 
+    {% assign current_lang = page.lang | default: "en" %}
+    {% assign t = site.data.translations[current_lang] %}
+    {% if current_lang == "fr" %}
+      {% assign lang_prefix = "/fr" %}
+    {% else %}
+      {% assign lang_prefix = "/en" %}
+    {% endif %}
+
     <!-- News -->
     {% if page.announcements and page.announcements.enabled %}
       <h2>
-        <a href="{{ '/news/' | relative_url }}" style="color: inherit">news</a>
+        <a href="{{ '/news/' | relative_url }}" style="color: inherit">{{ t.news_title | default: "news" }}</a>
       </h2>
       {% include news.liquid limit=true %}
     {% endif %}
@@ -51,7 +94,7 @@ layout: default
     <!-- Latest posts -->
     {% if page.latest_posts and page.latest_posts.enabled %}
       <h2>
-        <a href="{{ '/blog/' | relative_url }}" style="color: inherit">latest posts</a>
+        <a href="{{ lang_prefix | append: '/blog/' | relative_url }}" style="color: inherit">{{ t.latest_posts_title | default: "latest posts" }}</a>
       </h2>
       {% include latest_posts.liquid %}
     {% endif %}
@@ -59,7 +102,7 @@ layout: default
     <!-- Selected papers -->
     {% if page.selected_papers %}
       <h2>
-        <a href="{{ '/publications/' | relative_url }}" style="color: inherit">selected publications</a>
+        <a href="{{ lang_prefix | append: '/publications/' | relative_url }}" style="color: inherit">{{ t.selected_papers_title | default: "selected publications" }}</a>
       </h2>
       {% include selected_papers.liquid %}
     {% endif %}

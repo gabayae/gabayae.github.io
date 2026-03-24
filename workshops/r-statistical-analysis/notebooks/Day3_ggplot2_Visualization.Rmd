@@ -1,0 +1,572 @@
+---
+title: "Day 3: Data Visualisation with ggplot2"
+subtitle: "R for Statistical Analysis Workshop"
+author: "Dr. Yae Ulrich Gaba"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    theme: flatly
+    highlight: tango
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 8,
+  fig.height = 5,
+  dpi = 150
+)
+```
+
+# Introduction
+
+Today we master **ggplot2**, the most popular visualisation package in R. It
+implements the *Grammar of Graphics*: every plot is built from layers that
+combine data, aesthetic mappings, geometric objects, and scales.
+
+```{r load-packages}
+library(tidyverse)
+library(patchwork)   # for combining plots
+library(scales)      # for axis formatting
+```
+
+## Prepare Data
+
+We will reuse our African health data and also use built-in datasets.
+
+```{r data-prep}
+health <- tibble(
+  country = rep(c("Nigeria", "Ghana", "Kenya", "Ethiopia",
+                  "South Africa", "Senegal", "Tanzania", "Rwanda"), each = 3),
+  year = rep(c(2018, 2019, 2020), 8),
+  life_expectancy = c(54.3, 54.7, 53.9,  63.8, 64.1, 63.5,
+                      66.3, 66.7, 65.9,  65.5, 66.2, 65.0,
+                      64.1, 64.7, 63.5,  67.5, 67.9, 67.0,
+                      65.0, 65.5, 64.8,  68.7, 69.0, 68.3),
+  infant_mortality = c(74.2, 72.0, 75.5,  36.2, 35.0, 37.1,
+                       32.5, 31.0, 33.8,  38.5, 37.0, 40.0,
+                       28.3, 27.0, 30.5,  33.0, 32.0, 34.5,
+                       37.5, 36.0, 39.0,  27.8, 26.5, 29.0),
+  region = rep(c("West", "West", "East", "East",
+                 "Southern", "West", "East", "East"), each = 3),
+  gdp_per_capita = rep(c(2097, 2328, 1838, 936,
+                          5091, 1488, 1076, 822), each = 3),
+  population_m = rep(c(211, 31, 54, 115, 60, 17, 62, 13), each = 3)
+)
+
+health_2020 <- health %>% filter(year == 2020)
+```
+
+---
+
+# The Grammar of Graphics
+
+A ggplot is built with these components:
+
+| Component | Function | Purpose |
+|-----------|----------|---------|
+| Data | `ggplot(data)` | The dataset |
+| Aesthetics | `aes(x, y, color, ...)` | Map variables to visual properties |
+| Geometries | `geom_*()` | How to draw the data |
+| Facets | `facet_wrap()` / `facet_grid()` | Small multiples |
+| Scales | `scale_*()` | Control mappings (colours, axes) |
+| Theme | `theme_*()` | Non-data visual elements |
+
+```{r grammar-minimal}
+# Minimal ggplot
+ggplot(data = health_2020, aes(x = gdp_per_capita, y = life_expectancy)) +
+  geom_point()
+```
+
+---
+
+# Scatter Plots with geom_point()
+
+```{r scatter-basic}
+ggplot(health_2020, aes(x = gdp_per_capita, y = life_expectancy)) +
+  geom_point(size = 3) +
+  labs(title = "Life Expectancy vs GDP per Capita (2020)",
+       x = "GDP per Capita (USD)",
+       y = "Life Expectancy (years)")
+```
+
+```{r scatter-enhanced}
+ggplot(health_2020, aes(x = gdp_per_capita, y = life_expectancy,
+                         color = region, size = population_m)) +
+  geom_point(alpha = 0.8) +
+  geom_text(aes(label = country), vjust = -1, size = 3, show.legend = FALSE) +
+  scale_size_continuous(name = "Population (M)", range = c(3, 12)) +
+  scale_color_brewer(palette = "Set2", name = "Region") +
+  labs(title = "Life Expectancy vs GDP per Capita",
+       subtitle = "African countries, 2020",
+       x = "GDP per Capita (USD)",
+       y = "Life Expectancy (years)") +
+  theme_minimal(base_size = 13)
+```
+
+---
+
+# Line Plots with geom_line()
+
+```{r line-basic}
+ggplot(health, aes(x = year, y = life_expectancy, color = country)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  labs(title = "Life Expectancy Trends (2018-2020)",
+       x = "Year", y = "Life Expectancy (years)",
+       color = "Country") +
+  scale_x_continuous(breaks = 2018:2020) +
+  theme_minimal(base_size = 13)
+```
+
+```{r line-regional}
+regional_avg <- health %>%
+  group_by(region, year) %>%
+  summarise(avg_le = mean(life_expectancy), .groups = "drop")
+
+ggplot(regional_avg, aes(x = year, y = avg_le, color = region)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 3) +
+  scale_x_continuous(breaks = 2018:2020) +
+  scale_color_manual(values = c("East" = "#2C7BB6", "Southern" = "#D7191C",
+                                 "West" = "#FDAE61")) +
+  labs(title = "Average Life Expectancy by Region",
+       x = "Year", y = "Avg Life Expectancy", color = "Region") +
+  theme_light(base_size = 13)
+```
+
+---
+
+# Bar Charts with geom_bar() and geom_col()
+
+`geom_bar()` counts observations; `geom_col()` uses a pre-computed y value.
+
+```{r bar-col}
+ggplot(health_2020, aes(x = reorder(country, life_expectancy),
+                         y = life_expectancy, fill = region)) +
+  geom_col(width = 0.7) +
+  coord_flip() +
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "Life Expectancy by Country (2020)",
+       x = NULL, y = "Life Expectancy (years)", fill = "Region") +
+  theme_minimal(base_size = 13)
+```
+
+```{r bar-grouped}
+# Grouped bar chart: infant mortality across years
+health_subset <- health %>%
+  filter(country %in% c("Nigeria", "Ghana", "Kenya", "Rwanda"))
+
+ggplot(health_subset, aes(x = country, y = infant_mortality,
+                           fill = factor(year))) +
+  geom_col(position = "dodge", width = 0.7) +
+  scale_fill_viridis_d(name = "Year", option = "D", begin = 0.3, end = 0.9) +
+  labs(title = "Infant Mortality by Country and Year",
+       x = NULL, y = "Infant Mortality (per 1,000)") +
+  theme_minimal(base_size = 13)
+```
+
+---
+
+# Histograms with geom_histogram()
+
+```{r histogram}
+set.seed(42)
+exam_scores <- tibble(
+  score = c(rnorm(120, mean = 65, sd = 12),
+            rnorm(80, mean = 78, sd = 8)),
+  group = c(rep("Group A", 120), rep("Group B", 80))
+)
+
+ggplot(exam_scores, aes(x = score)) +
+  geom_histogram(binwidth = 5, fill = "steelblue", color = "white",
+                 alpha = 0.8) +
+  labs(title = "Distribution of Exam Scores",
+       x = "Score", y = "Count") +
+  theme_minimal(base_size = 13)
+```
+
+```{r histogram-grouped}
+ggplot(exam_scores, aes(x = score, fill = group)) +
+  geom_histogram(binwidth = 5, alpha = 0.6, position = "identity",
+                 color = "white") +
+  scale_fill_manual(values = c("Group A" = "#E69F00", "Group B" = "#56B4E9")) +
+  labs(title = "Score Distributions by Group",
+       x = "Score", y = "Count", fill = "Group") +
+  theme_minimal(base_size = 13)
+```
+
+---
+
+# Density Plots with geom_density()
+
+```{r density}
+ggplot(exam_scores, aes(x = score, fill = group, color = group)) +
+  geom_density(alpha = 0.4, linewidth = 1) +
+  scale_fill_manual(values = c("#E69F00", "#56B4E9")) +
+  scale_color_manual(values = c("#E69F00", "#56B4E9")) +
+  labs(title = "Score Density by Group",
+       x = "Score", y = "Density") +
+  theme_minimal(base_size = 13)
+```
+
+---
+
+# Box Plots with geom_boxplot()
+
+```{r boxplot}
+ggplot(health, aes(x = region, y = life_expectancy, fill = region)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = 21) +
+  geom_jitter(width = 0.15, alpha = 0.5, size = 2) +
+  scale_fill_brewer(palette = "Pastel1") +
+  labs(title = "Life Expectancy Distribution by Region",
+       x = "Region", y = "Life Expectancy (years)") +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none")
+```
+
+```{r boxplot-year}
+ggplot(health, aes(x = factor(year), y = infant_mortality, fill = factor(year))) +
+  geom_boxplot(alpha = 0.6) +
+  scale_fill_viridis_d(option = "C", begin = 0.3, end = 0.9) +
+  labs(title = "Infant Mortality Distribution by Year",
+       x = "Year", y = "Infant Mortality (per 1,000)") +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none")
+```
+
+---
+
+# Customisation
+
+## Themes
+
+```{r themes, fig.height=8}
+base <- ggplot(health_2020, aes(x = gdp_per_capita, y = life_expectancy)) +
+  geom_point(size = 3, color = "steelblue") +
+  labs(title = "Theme Comparison", x = "GDP/capita", y = "Life Exp.")
+
+p1 <- base + theme_gray() + ggtitle("theme_gray (default)")
+p2 <- base + theme_minimal() + ggtitle("theme_minimal")
+p3 <- base + theme_classic() + ggtitle("theme_classic")
+p4 <- base + theme_dark() + ggtitle("theme_dark")
+
+(p1 | p2) / (p3 | p4)
+```
+
+## Colour Scales
+
+```{r colour-scales}
+# Continuous colour
+ggplot(health_2020, aes(x = gdp_per_capita, y = life_expectancy,
+                         color = infant_mortality)) +
+  geom_point(size = 5) +
+  scale_color_viridis_c(option = "plasma", name = "Infant\nMortality") +
+  labs(title = "Colour by Infant Mortality",
+       x = "GDP per Capita", y = "Life Expectancy") +
+  theme_minimal(base_size = 13)
+```
+
+## Labels and Annotations
+
+```{r annotations}
+ggplot(health_2020, aes(x = gdp_per_capita, y = life_expectancy)) +
+  geom_point(aes(color = region), size = 4) +
+  geom_smooth(method = "lm", se = TRUE, color = "gray40", linetype = "dashed") +
+  annotate("text", x = 4000, y = 55, label = "Nigeria stands out\nwith low life expectancy",
+           hjust = 0, size = 3.5, color = "gray30", fontface = "italic") +
+  annotate("rect", xmin = 4500, xmax = 5500, ymin = 62.5, ymax = 64.5,
+           alpha = 0.15, fill = "red") +
+  scale_color_brewer(palette = "Set2") +
+  labs(title = "Life Expectancy vs GDP per Capita",
+       subtitle = "With linear trend and annotations",
+       x = "GDP per Capita (USD)",
+       y = "Life Expectancy (years)",
+       color = "Region",
+       caption = "Source: Simulated WHO-style data") +
+  theme_minimal(base_size = 13)
+```
+
+---
+
+# Faceting
+
+## facet_wrap()
+
+```{r facet-wrap}
+ggplot(health, aes(x = year, y = life_expectancy)) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  geom_point(color = "steelblue", size = 2) +
+  facet_wrap(~ country, ncol = 4, scales = "free_y") +
+  scale_x_continuous(breaks = 2018:2020) +
+  labs(title = "Life Expectancy Trends by Country",
+       x = "Year", y = "Life Expectancy") +
+  theme_light(base_size = 11) +
+  theme(strip.background = element_rect(fill = "steelblue"),
+        strip.text = element_text(color = "white", face = "bold"))
+```
+
+## facet_grid()
+
+```{r facet-grid, fig.height=7}
+# Create a factor for better ordering
+health <- health %>%
+  mutate(region_f = factor(region, levels = c("West", "East", "Southern")))
+
+ggplot(health, aes(x = year, y = infant_mortality, color = country)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  facet_grid(region_f ~ ., scales = "free_y") +
+  scale_x_continuous(breaks = 2018:2020) +
+  labs(title = "Infant Mortality Trends",
+       subtitle = "Faceted by region",
+       x = "Year", y = "Infant Mortality (per 1,000)",
+       color = "Country") +
+  theme_minimal(base_size = 12) +
+  theme(strip.text.y = element_text(angle = 0, face = "bold"))
+```
+
+---
+
+# Combining Plots with patchwork
+
+The `patchwork` package makes it easy to compose multiple ggplots.
+
+```{r patchwork-demo, fig.width=10, fig.height=8}
+p1 <- ggplot(health_2020, aes(x = reorder(country, life_expectancy),
+                                y = life_expectancy)) +
+  geom_col(fill = "steelblue", width = 0.7) +
+  coord_flip() +
+  labs(title = "A) Life Expectancy", x = NULL, y = "Years") +
+  theme_minimal(base_size = 11)
+
+p2 <- ggplot(health_2020, aes(x = reorder(country, -infant_mortality),
+                                y = infant_mortality)) +
+  geom_col(fill = "coral", width = 0.7) +
+  coord_flip() +
+  labs(title = "B) Infant Mortality", x = NULL, y = "Per 1,000 births") +
+  theme_minimal(base_size = 11)
+
+p3 <- ggplot(health_2020, aes(x = gdp_per_capita, y = life_expectancy,
+                                color = region)) +
+  geom_point(size = 4) +
+  geom_smooth(method = "lm", se = FALSE, color = "gray50",
+              linetype = "dashed") +
+  scale_color_brewer(palette = "Set2") +
+  labs(title = "C) GDP vs Life Expectancy",
+       x = "GDP per Capita", y = "Life Exp.") +
+  theme_minimal(base_size = 11)
+
+p4 <- ggplot(health_2020, aes(x = infant_mortality, y = life_expectancy)) +
+  geom_point(aes(size = population_m), alpha = 0.7, color = "purple") +
+  geom_smooth(method = "lm", se = TRUE, color = "gray40") +
+  scale_size_continuous(name = "Pop. (M)") +
+  labs(title = "D) Infant Mortality vs Life Expectancy",
+       x = "Infant Mortality", y = "Life Exp.") +
+  theme_minimal(base_size = 11)
+
+# Compose
+(p1 | p2) / (p3 | p4) +
+  plot_annotation(
+    title = "Health Indicators Across African Countries (2020)",
+    subtitle = "A multi-panel overview",
+    caption = "Source: Simulated WHO-style data",
+    theme = theme(plot.title = element_text(size = 16, face = "bold"))
+  )
+```
+
+---
+
+# Lab: Create 6+ Publication-Quality Figures
+
+## Figure 1: Lollipop Chart
+
+```{r lab-fig1, fig.width=8, fig.height=5}
+ggplot(health_2020, aes(x = reorder(country, life_expectancy),
+                         y = life_expectancy)) +
+  geom_segment(aes(xend = country, y = 50, yend = life_expectancy),
+               color = "gray60", linewidth = 0.8) +
+  geom_point(aes(color = region), size = 5) +
+  coord_flip() +
+  scale_color_brewer(palette = "Dark2") +
+  scale_y_continuous(limits = c(50, 72)) +
+  labs(title = "Life Expectancy in African Countries (2020)",
+       subtitle = "Lollipop chart ordered by life expectancy",
+       x = NULL, y = "Life Expectancy (years)", color = "Region") +
+  theme_minimal(base_size = 13) +
+  theme(panel.grid.major.y = element_blank())
+```
+
+## Figure 2: Heatmap
+
+```{r lab-fig2, fig.width=9, fig.height=5}
+health_scaled <- health %>%
+  group_by(year) %>%
+  mutate(le_zscore = (life_expectancy - mean(life_expectancy)) / sd(life_expectancy)) %>%
+  ungroup()
+
+ggplot(health_scaled, aes(x = factor(year), y = reorder(country, le_zscore),
+                           fill = le_zscore)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  scale_fill_gradient2(low = "#d73027", mid = "#ffffbf", high = "#1a9850",
+                       midpoint = 0, name = "Z-score") +
+  geom_text(aes(label = round(life_expectancy, 1)), size = 3.5) +
+  labs(title = "Life Expectancy Heatmap",
+       subtitle = "Colour indicates relative standing (z-score) within each year",
+       x = "Year", y = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid = element_blank())
+```
+
+## Figure 3: Dumbbell Chart (Change from 2018 to 2020)
+
+```{r lab-fig3, fig.width=8, fig.height=5}
+change_data <- health %>%
+  filter(year %in% c(2018, 2020)) %>%
+  select(country, year, life_expectancy) %>%
+  pivot_wider(names_from = year, values_from = life_expectancy,
+              names_prefix = "le_")
+
+ggplot(change_data, aes(y = reorder(country, le_2020))) +
+  geom_segment(aes(x = le_2018, xend = le_2020, yend = country),
+               color = "gray60", linewidth = 1) +
+  geom_point(aes(x = le_2018), color = "#E69F00", size = 4) +
+  geom_point(aes(x = le_2020), color = "#0072B2", size = 4) +
+  annotate("text", x = 56, y = 8.3, label = "2018", color = "#E69F00",
+           fontface = "bold", size = 4) +
+  annotate("text", x = 57.5, y = 8.3, label = "2020", color = "#0072B2",
+           fontface = "bold", size = 4) +
+  labs(title = "Change in Life Expectancy (2018 vs 2020)",
+       subtitle = "Most countries saw a decline in 2020",
+       x = "Life Expectancy (years)", y = NULL) +
+  theme_minimal(base_size = 13) +
+  theme(panel.grid.major.y = element_blank())
+```
+
+## Figure 4: Scatter with Marginal Density (using cowplot approach)
+
+```{r lab-fig4, fig.width=8, fig.height=7}
+main_plot <- ggplot(health_2020, aes(x = gdp_per_capita, y = life_expectancy,
+                                      color = region)) +
+  geom_point(size = 5, alpha = 0.8) +
+  scale_color_brewer(palette = "Set1") +
+  labs(x = "GDP per Capita (USD)", y = "Life Expectancy (years)") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+
+top_density <- ggplot(health_2020, aes(x = gdp_per_capita, fill = region)) +
+  geom_density(alpha = 0.4) +
+  scale_fill_brewer(palette = "Set1") +
+  theme_void() +
+  theme(legend.position = "none")
+
+right_density <- ggplot(health_2020, aes(x = life_expectancy, fill = region)) +
+  geom_density(alpha = 0.4) +
+  scale_fill_brewer(palette = "Set1") +
+  coord_flip() +
+  theme_void() +
+  theme(legend.position = "none")
+
+top_density + plot_spacer() + main_plot + right_density +
+  plot_layout(ncol = 2, widths = c(4, 1), heights = c(1, 4)) +
+  plot_annotation(title = "GDP vs Life Expectancy with Marginal Densities")
+```
+
+## Figure 5: Stacked Area Chart
+
+```{r lab-fig5, fig.width=9, fig.height=5}
+malaria_data <- tibble(
+  country = rep(c("Nigeria", "Ghana", "Kenya", "Ethiopia",
+                  "Senegal", "Tanzania"), each = 5),
+  year = rep(2016:2020, 6),
+  cases_k = c(55000, 56500, 58400, 60800, 61700,
+              4800, 5000, 5200, 5400, 5700,
+              3000, 3200, 3400, 3600, 3900,
+              2200, 2400, 2600, 2800, 3000,
+              4200, 4500, 4800, 5000, 5300,
+              6500, 6800, 7100, 7400, 7800)
+)
+
+ggplot(malaria_data %>% filter(country != "Nigeria"),
+       aes(x = year, y = cases_k / 1000, fill = country)) +
+  geom_area(alpha = 0.8, color = "white", linewidth = 0.3) +
+  scale_fill_viridis_d(option = "turbo", begin = 0.1, end = 0.9) +
+  scale_x_continuous(breaks = 2016:2020) +
+  scale_y_continuous(labels = label_comma()) +
+  labs(title = "Malaria Cases in Selected African Countries",
+       subtitle = "Nigeria excluded due to scale (>55M cases)",
+       x = "Year", y = "Cases (thousands)", fill = "Country") +
+  theme_minimal(base_size = 13)
+```
+
+## Figure 6: Diverging Bar Chart
+
+```{r lab-fig6, fig.width=8, fig.height=5}
+avg_le <- mean(health_2020$life_expectancy)
+
+diverging <- health_2020 %>%
+  mutate(
+    diff = life_expectancy - avg_le,
+    above = diff > 0
+  )
+
+ggplot(diverging, aes(x = reorder(country, diff), y = diff, fill = above)) +
+  geom_col(width = 0.7, show.legend = FALSE) +
+  coord_flip() +
+  scale_fill_manual(values = c("TRUE" = "#2C7BB6", "FALSE" = "#D7191C")) +
+  geom_hline(yintercept = 0, linewidth = 0.8) +
+  labs(title = "Deviation from Average Life Expectancy (2020)",
+       subtitle = paste0("Average = ", round(avg_le, 1), " years"),
+       x = NULL, y = "Difference from average (years)") +
+  theme_minimal(base_size = 13) +
+  theme(panel.grid.major.y = element_blank())
+```
+
+## Figure 7 (Bonus): Ridgeline-Style Density with facet
+
+```{r lab-fig7, fig.width=8, fig.height=6}
+set.seed(123)
+sim_scores <- tibble(
+  country = rep(c("Nigeria", "Ghana", "Kenya", "Rwanda",
+                  "South Africa", "Senegal"), each = 200),
+  score = c(rnorm(200, 52, 15), rnorm(200, 60, 12), rnorm(200, 65, 10),
+            rnorm(200, 70, 8), rnorm(200, 63, 14), rnorm(200, 58, 11))
+)
+
+ggplot(sim_scores, aes(x = score, fill = country, color = country)) +
+  geom_density(alpha = 0.5) +
+  facet_wrap(~ country, ncol = 2, scales = "free_y") +
+  scale_fill_viridis_d(option = "D") +
+  scale_color_viridis_d(option = "D") +
+  labs(title = "Simulated Exam Score Distributions by Country",
+       x = "Score", y = "Density") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none",
+        strip.text = element_text(face = "bold"))
+```
+
+---
+
+# Summary
+
+Today we covered:
+
+1. **Grammar of Graphics** -- data, aesthetics, geometries, scales, themes
+2. **Core geoms** -- `geom_point`, `geom_line`, `geom_bar`/`geom_col`, `geom_histogram`, `geom_boxplot`, `geom_density`
+3. **Customisation** -- themes, colour scales, labels, annotations
+4. **Faceting** -- `facet_wrap` and `facet_grid`
+5. **patchwork** -- composing multiple plots
+6. **Lab** -- 7 publication-quality figures (lollipop, heatmap, dumbbell, scatter with marginals, stacked area, diverging bar, faceted density)
+
+Tomorrow we bring it all together with **statistical modelling** and
+**reproducible reporting** in R Markdown.
+
+```{r session-info}
+sessionInfo()
+```

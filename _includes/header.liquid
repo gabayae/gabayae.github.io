@@ -2,8 +2,15 @@
   <!-- Nav Bar -->
   <nav id="navbar" class="navbar navbar-light navbar-expand-sm {% if site.navbar_fixed %}fixed-top{% else %}sticky-top{% endif %}" role="navigation">
     <div class="container">
+      {% assign current_lang = page.lang | default: "en" %}
+      {% if current_lang == "fr" %}
+        {% assign lang_prefix = "/fr" %}
+      {% else %}
+        {% assign lang_prefix = "/en" %}
+      {% endif %}
+
       {% if page.permalink != '/' %}
-        <a class="navbar-brand title font-weight-lighter" href="{{ site.baseurl }}/">
+        <a class="navbar-brand title font-weight-lighter" href="{{ lang_prefix | append: '/' | relative_url }}">
           {% if site.title == 'blank' %}
             {% if site.first_name %}
               <span class="font-weight-bold">
@@ -42,24 +49,21 @@
 
       <div class="collapse navbar-collapse text-right" id="navbarNav">
         <ul class="navbar-nav ml-auto flex-nowrap">
-          {% for page in site.pages %}
-            {% if page.permalink == '/' %} {% assign about_title = page.title %} {% endif %}
-          {% endfor %}
-
-          <!-- About -->
-          <li class="nav-item {% if page.permalink == '/' %}active{% endif %}">
-            <a class="nav-link" href="{{ '/' | relative_url }}">
-              {{- about_title }}
-              {% if page.permalink == '/' %}
+          <!-- About link -->
+          {% assign about_permalink = lang_prefix | append: '/' %}
+          <li class="nav-item {% if page.permalink == about_permalink %}active{% endif %}">
+            <a class="nav-link" href="{{ about_permalink | relative_url }}">
+              {% if current_lang == "fr" %}à propos{% else %}about{% endif %}
+              {% if page.permalink == about_permalink %}
                 <span class="sr-only">(current)</span>
               {% endif %}
             </a>
           </li>
 
-          <!-- Other pages -->
+          <!-- Other pages filtered by language -->
           {% assign sorted_pages = site.pages | sort: 'nav_order' %}
           {% for p in sorted_pages %}
-            {% if p.nav and p.autogen == null %}
+            {% if p.nav and p.autogen == null and p.lang == current_lang and p.permalink != about_permalink %}
               {% if p.dropdown %}
                 {% assign has_active_child = false %}
                 {% for child in p.children %}
@@ -102,8 +106,6 @@
                 <li class="nav-item {% if page.url contains parent_link %}active{% endif %}">
                   {%- if p.permalink contains '://' -%}
                     {%- assign url = p.permalink -%}
-                  {%- elsif p.permalink contains '/blog/' -%}
-                    {%- assign url = '/blog/' -%}
                   {%- else -%}
                     {%- assign url = p.url -%}
                   {%- endif %}
@@ -126,13 +128,25 @@
             </li>
           {% endif %}
           {% if site.enable_darkmode %}
-            <!-- Toogle theme mode -->
+            <!-- Toggle theme mode -->
             <li class="toggle-container">
               <button id="light-toggle" title="Change theme">
                 <i class="fa-half-sun-moon" id="light-toggle-system"></i>
                 <i class="fa-solid fa-moon" id="light-toggle-dark"></i>
                 <i class="fa-solid fa-sun" id="light-toggle-light"></i>
               </button>
+            </li>
+          {% endif %}
+          <!-- Language Switcher -->
+          {% if page.lang %}
+            <li class="lang-toggle-container">
+              {% if current_lang == "fr" %}
+                {% assign switch_url = page.permalink | replace: '/fr/', '/en/' %}
+                <a class="lang-switcher" href="{{ switch_url | relative_url }}" title="Switch to English">EN</a>
+              {% else %}
+                {% assign switch_url = page.permalink | replace: '/en/', '/fr/' %}
+                <a class="lang-switcher" href="{{ switch_url | relative_url }}" title="Passer en français">FR</a>
+              {% endif %}
             </li>
           {% endif %}
         </ul>

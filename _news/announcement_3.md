@@ -1,8 +1,9 @@
 ---
 layout: post
-date: 2016-01-15 07:59:00-0400
+date: 2025-05-20
 inline: true
 related_posts: false
 ---
 
-A simple inline announcement with Markdown emoji! :sparkles: :smile:
+New preprint: **Bellman Operator Convergence Enhancements in Reinforcement Learning Algorithms** is now on [arXiv](https://arxiv.org/abs/2505.14564), with David Krame Kadurha and Domini Jocema Leko Moutouo.
+

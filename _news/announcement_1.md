@@ -1,8 +1,8 @@
 ---
 layout: post
-date: 2015-10-22 15:59:00-0400
+date: 2024-10-04
 inline: true
 related_posts: false
 ---
 
-A simple inline announcement.
+New preprint: **Topological Foundations of Reinforcement Learning** is now available on [arXiv](https://arxiv.org/abs/2410.03706). We explore how algebraic topology illuminates the structure of RL state, action, and policy spaces.

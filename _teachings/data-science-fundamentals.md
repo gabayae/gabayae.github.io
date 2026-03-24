@@ -1,97 +1,73 @@
 ---
 layout: course
-title: Data Science Fundamentals
-description: This course covers the foundational aspects of data science, including data collection, cleaning, analysis, and visualization. Students will learn practical skills for working with real-world datasets.
-instructor: Prof. Data
+title: "Introduction to Topological Data Analysis"
+description: "A workshop-style course introducing the foundations of TDA — persistent homology, filtrations, and applications to data science. Designed for graduate students and researchers at AIMS and partner institutions."
+instructor: Dr. Yae Ulrich Gaba
 year: 2024
-term: Spring
-location: Science Building, Room 202
-time: Mondays and Wednesdays, 2:00-3:30 PM
-course_id: data-science-fundamentals
+term: Workshop
+location: AIMS Rwanda / Quantum Leap Africa, Kigali
+time: "Self-paced / Workshop sessions"
+course_id: intro-tda
 schedule:
   - week: 1
-    date: Feb 5
-    topic: Introduction to Data Science
-    description: Overview of the data science workflow and key concepts.
+    date: "Session 1"
+    topic: "What is Topology? From Abstract Spaces to Data"
+    description: "Topological spaces, continuous maps, homeomorphisms. Motivation: why shape matters in data."
     materials:
-      - name: Syllabus
-        url: /assets/pdf/example_pdf.pdf
       - name: Slides
-        url: /assets/pdf/example_pdf.pdf
+        url: https://github.com/gabayae
 
   - week: 2
-    date: Feb 12
-    topic: Data Collection and APIs
-    description: Methods for collecting data through APIs, web scraping, and databases.
+    date: "Session 2"
+    topic: "Simplicial Complexes and Filtrations"
+    description: "Simplices, Vietoris-Rips complexes, Cech complexes. Building filtrations from point clouds."
     materials:
-      - name: Lecture Notes
-        url: /assets/pdf/example_pdf.pdf
-      - name: Assignment 1
-        url: /assets/pdf/example_pdf.pdf
+      - name: Notebook
+        url: https://github.com/gabayae
 
   - week: 3
-    date: Feb 19
-    topic: Data Cleaning and Preprocessing
-    description: Techniques for handling missing values, outliers, and data transformation.
+    date: "Session 3"
+    topic: "Persistent Homology"
+    description: "Homology groups, Betti numbers, persistence diagrams and barcodes. The stability theorem."
     materials:
-      - name: Lecture Notes
-        url: /assets/pdf/example_pdf.pdf
-      - name: Coding Lab
-        url: https://github.com/
+      - name: Notebook
+        url: https://github.com/gabayae
 
   - week: 4
-    date: Feb 26
-    topic: Exploratory Data Analysis
-    description: Descriptive statistics, visualization, and pattern discovery.
+    date: "Session 4"
+    topic: "TDA in Practice: Python Tools"
+    description: "Hands-on: Ripser, GUDHI, scikit-tda. Computing persistence from real datasets."
     materials:
-      - name: Lecture Notes
-        url: /assets/pdf/example_pdf.pdf
-      - name: Assignment 2
-        url: /assets/pdf/example_pdf.pdf
+      - name: Coding Lab
+        url: https://github.com/gabayae
 
   - week: 5
-    date: Mar 4
-    topic: Statistical Analysis
-    description: Hypothesis testing, confidence intervals, and statistical inference.
+    date: "Session 5"
+    topic: "Applications: TDA Meets Machine Learning"
+    description: "Persistence landscapes, vectorization, TDA features in ML pipelines. Case studies."
     materials:
-      - name: Lecture Notes
-        url: /assets/pdf/example_pdf.pdf
-      - name: Review Materials
-        url: /assets/pdf/example_pdf.pdf
-
-  - week: 6
-    date: Mar 11
-    topic: Data Visualization
-    description: Principles and tools for effective data visualization.
-    materials:
-      - name: Lecture Notes
-        url: /assets/pdf/example_pdf.pdf
-      - name: Assignment 3
-        url: /assets/pdf/example_pdf.pdf
+      - name: Notebook
+        url: https://github.com/gabayae
 ---
 
 ## Course Overview
 
-This course provides a comprehensive introduction to data science principles and practices. Students will:
+This workshop-style course introduces the mathematical foundations of **Topological Data Analysis (TDA)** and demonstrates how topological methods can extract meaningful structure from complex datasets.
 
-- Learn the end-to-end data science workflow
-- Gain practical experience with data manipulation tools
-- Develop skills in data visualization and communication
-- Apply statistical methods to derive insights from data
+Participants will learn:
+- The mathematical language of topology relevant to data analysis
+- How to compute persistent homology from point clouds and graphs
+- Practical Python tools for TDA (Ripser, GUDHI, scikit-tda)
+- How to integrate TDA features into machine learning pipelines
 
 ## Prerequisites
 
-- Basic programming knowledge (preferably in Python)
-- Introductory statistics
-- Comfort with basic algebra
+- Linear algebra fundamentals
+- Basic Python programming
+- Familiarity with data science concepts (helpful but not required)
 
-## Textbooks
+## References
 
-- "Python for Data Analysis" by Wes McKinney
-- "Data Science from Scratch" by Joel Grus
-
-## Grading
-
-- Assignments: 50%
-- Project: 40%
-- Participation: 10%
+- *The Shape of Data* by Farrelly & Gaba (No Starch Press)
+- *Computational Topology* by Edelsbrunner & Harer
+- *Topological Data Analysis with Applications* by Carlsson & Vejdemo-Johansson

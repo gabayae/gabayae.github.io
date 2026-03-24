@@ -1,0 +1,613 @@
+---
+title: "Day 4: Statistical Modelling & Reproducible Reporting"
+subtitle: "R for Statistical Analysis Workshop"
+author: "Dr. Yae Ulrich Gaba"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    theme: flatly
+    highlight: tango
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 8,
+  fig.height = 5,
+  dpi = 150
+)
+```
+
+# Introduction
+
+On this final day we cover **statistical modelling** in R -- from descriptive
+statistics through linear and logistic regression -- and learn how to turn
+analyses into **reproducible reports** using R Markdown features.
+
+```{r load-packages}
+library(tidyverse)
+library(broom)       # tidy model output
+library(knitr)       # kable tables
+library(patchwork)
+```
+
+## Prepare Data
+
+```{r data}
+set.seed(42)
+
+# African health dataset
+health <- tibble(
+  country = rep(c("Nigeria", "Ghana", "Kenya", "Ethiopia",
+                  "South Africa", "Senegal", "Tanzania", "Rwanda",
+                  "Uganda", "Benin"), each = 3),
+  year = rep(2018:2020, 10),
+  life_expectancy = c(54.3, 54.7, 53.9,  63.8, 64.1, 63.5,
+                      66.3, 66.7, 65.9,  65.5, 66.2, 65.0,
+                      64.1, 64.7, 63.5,  67.5, 67.9, 67.0,
+                      65.0, 65.5, 64.8,  68.7, 69.0, 68.3,
+                      63.0, 63.5, 62.8,  61.5, 61.8, 61.0),
+  infant_mortality = c(74.2, 72.0, 75.5,  36.2, 35.0, 37.1,
+                       32.5, 31.0, 33.8,  38.5, 37.0, 40.0,
+                       28.3, 27.0, 30.5,  33.0, 32.0, 34.5,
+                       37.5, 36.0, 39.0,  27.8, 26.5, 29.0,
+                       41.0, 39.5, 43.0,  55.0, 53.5, 57.0),
+  gdp_per_capita = rep(c(2097, 2328, 1838, 936, 5091,
+                          1488, 1076, 822, 817, 1291), each = 3),
+  health_exp_pct = rep(c(3.9, 3.4, 4.6, 3.5, 8.3,
+                          3.9, 3.6, 6.6, 3.8, 2.6), each = 3),
+  region = rep(c("West", "West", "East", "East", "Southern",
+                 "West", "East", "East", "East", "West"), each = 3)
+)
+
+health_2020 <- health %>% filter(year == 2020)
+```
+
+---
+
+# Descriptive Statistics
+
+## Numerical Summaries
+
+```{r descriptive}
+# Full summary
+summary(health_2020[, c("life_expectancy", "infant_mortality",
+                         "gdp_per_capita", "health_exp_pct")])
+```
+
+```{r descriptive-custom}
+# Custom summary table
+desc_table <- health_2020 %>%
+  summarise(
+    across(
+      c(life_expectancy, infant_mortality, gdp_per_capita),
+      list(
+        mean = ~ mean(.x),
+        sd = ~ sd(.x),
+        median = ~ median(.x),
+        min = ~ min(.x),
+        max = ~ max(.x)
+      ),
+      .names = "{.col}__{.fn}"
+    )
+  ) %>%
+  pivot_longer(everything(),
+               names_to = c("variable", "statistic"),
+               names_sep = "__",
+               values_to = "value") %>%
+  pivot_wider(names_from = statistic, values_from = value)
+
+kable(desc_table, digits = 2, caption = "Descriptive Statistics (2020)")
+```
+
+## Group Summaries
+
+```{r group-desc}
+health_2020 %>%
+  group_by(region) %>%
+  summarise(
+    n = n(),
+    mean_le = mean(life_expectancy),
+    sd_le = sd(life_expectancy),
+    mean_im = mean(infant_mortality),
+    .groups = "drop"
+  ) %>%
+  kable(digits = 2, caption = "Summary by Region")
+```
+
+---
+
+# Hypothesis Tests
+
+## Two-Sample t-test
+
+We test whether life expectancy differs between West and East African countries.
+
+```{r t-test}
+west <- health_2020 %>% filter(region == "West") %>% pull(life_expectancy)
+east <- health_2020 %>% filter(region == "East") %>% pull(life_expectancy)
+
+t_result <- t.test(west, east, alternative = "two.sided")
+t_result
+```
+
+```{r t-test-tidy}
+# Tidy output with broom
+tidy(t_result) %>%
+  kable(digits = 3, caption = "Two-sample t-test: West vs East Life Expectancy")
+```
+
+**Interpretation:** The p-value is `r round(t_result$p.value, 4)`. At the 0.05
+significance level, we
+`r ifelse(t_result$p.value < 0.05, "reject", "fail to reject")` the null
+hypothesis of equal means.
+
+## Paired t-test
+
+Compare 2018 vs 2020 life expectancy within countries.
+
+```{r paired-t}
+le_2018 <- health %>% filter(year == 2018) %>% pull(life_expectancy)
+le_2020 <- health %>% filter(year == 2020) %>% pull(life_expectancy)
+
+paired_result <- t.test(le_2018, le_2020, paired = TRUE)
+tidy(paired_result) %>%
+  kable(digits = 3, caption = "Paired t-test: 2018 vs 2020 Life Expectancy")
+```
+
+## Chi-Squared Test
+
+Test whether there is an association between region and a binary health
+indicator.
+
+```{r chi-sq}
+health_2020 <- health_2020 %>%
+  mutate(high_le = ifelse(life_expectancy > median(life_expectancy),
+                           "Above Median", "Below Median"))
+
+# Contingency table
+ct <- table(health_2020$region, health_2020$high_le)
+ct
+
+chi_result <- chisq.test(ct, simulate.p.value = TRUE, B = 5000)
+chi_result
+
+tidy(chi_result) %>%
+  kable(digits = 3, caption = "Chi-squared Test: Region vs Life Expectancy Category")
+```
+
+---
+
+# Simple Linear Regression
+
+We model life expectancy as a function of GDP per capita.
+
+```{r slr}
+model1 <- lm(life_expectancy ~ gdp_per_capita, data = health_2020)
+summary(model1)
+```
+
+```{r slr-tidy}
+# Tidy coefficients
+tidy(model1, conf.int = TRUE) %>%
+  kable(digits = 4, caption = "Simple Linear Regression Coefficients")
+
+# Model-level summary
+glance(model1) %>%
+  kable(digits = 3, caption = "Model Fit Statistics")
+```
+
+## Visualise the Fit
+
+```{r slr-plot}
+ggplot(health_2020, aes(x = gdp_per_capita, y = life_expectancy)) +
+  geom_point(aes(color = region), size = 4) +
+  geom_smooth(method = "lm", se = TRUE, color = "gray30") +
+  geom_text(aes(label = country), vjust = -1, size = 3) +
+  scale_color_brewer(palette = "Set2") +
+  labs(title = "Life Expectancy ~ GDP per Capita",
+       subtitle = paste0("R-squared = ", round(summary(model1)$r.squared, 3)),
+       x = "GDP per Capita (USD)", y = "Life Expectancy (years)") +
+  theme_minimal(base_size = 13)
+```
+
+## Residual Diagnostics
+
+```{r residual-diag, fig.height=8}
+par(mfrow = c(2, 2))
+plot(model1)
+par(mfrow = c(1, 1))
+```
+
+```{r residual-tidy}
+# Augmented data with residuals and fitted values
+augmented1 <- augment(model1)
+head(augmented1) %>% kable(digits = 3)
+```
+
+```{r residual-ggplot}
+p_resid <- ggplot(augmented1, aes(x = .fitted, y = .resid)) +
+  geom_point(size = 3) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  geom_smooth(se = FALSE, color = "steelblue") +
+  labs(title = "Residuals vs Fitted", x = "Fitted Values", y = "Residuals") +
+  theme_minimal()
+
+p_qq <- ggplot(augmented1, aes(sample = .resid)) +
+  stat_qq() +
+  stat_qq_line(color = "red") +
+  labs(title = "Normal Q-Q Plot") +
+  theme_minimal()
+
+p_resid | p_qq
+```
+
+---
+
+# Multiple Regression
+
+Now we add infant mortality and health expenditure as predictors.
+
+```{r multiple-reg}
+model2 <- lm(life_expectancy ~ gdp_per_capita + infant_mortality + health_exp_pct,
+             data = health_2020)
+summary(model2)
+```
+
+```{r multiple-reg-tidy}
+tidy(model2, conf.int = TRUE) %>%
+  kable(digits = 4, caption = "Multiple Regression Coefficients")
+
+glance(model2) %>%
+  select(r.squared, adj.r.squared, sigma, statistic, p.value, AIC, BIC) %>%
+  kable(digits = 3, caption = "Multiple Regression Fit")
+```
+
+## Comparing Models
+
+```{r compare-models}
+# Compare R-squared
+tibble(
+  model = c("Simple (GDP only)", "Multiple (GDP + IM + Health Exp)"),
+  r_squared = c(summary(model1)$r.squared, summary(model2)$r.squared),
+  adj_r_squared = c(summary(model1)$adj.r.squared, summary(model2)$adj.r.squared),
+  AIC = c(AIC(model1), AIC(model2)),
+  BIC = c(BIC(model1), BIC(model2))
+) %>%
+  kable(digits = 3, caption = "Model Comparison")
+
+# F-test for nested models
+anova(model1, model2)
+```
+
+---
+
+# ANOVA
+
+We use one-way ANOVA to test whether life expectancy differs across regions.
+
+```{r anova}
+# Using the full dataset for more observations
+aov_model <- aov(life_expectancy ~ region, data = health)
+summary(aov_model)
+```
+
+```{r anova-tidy}
+tidy(aov_model) %>%
+  kable(digits = 3, caption = "One-way ANOVA: Life Expectancy by Region")
+```
+
+```{r tukey}
+# Post-hoc pairwise comparisons
+tukey <- TukeyHSD(aov_model)
+tukey
+
+tidy(tukey) %>%
+  kable(digits = 3, caption = "Tukey HSD Pairwise Comparisons")
+```
+
+```{r anova-plot}
+ggplot(health, aes(x = region, y = life_expectancy, fill = region)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.15, alpha = 0.5, size = 2) +
+  scale_fill_brewer(palette = "Pastel1") +
+  labs(title = "ANOVA: Life Expectancy by Region",
+       subtitle = paste0("F = ", round(summary(aov_model)[[1]][["F value"]][1], 2),
+                         ", p = ", format.pval(summary(aov_model)[[1]][["Pr(>F)"]][1],
+                                               digits = 3)),
+       x = "Region", y = "Life Expectancy (years)") +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none")
+```
+
+---
+
+# Logistic Regression
+
+We create a binary outcome: whether a country achieves "good" life expectancy
+(above 65 years).
+
+```{r logistic-data}
+health_logit <- health %>%
+  mutate(good_le = as.integer(life_expectancy > 65))
+
+table(health_logit$good_le)
+```
+
+```{r logistic-model}
+logit_model <- glm(good_le ~ gdp_per_capita + infant_mortality + health_exp_pct,
+                   data = health_logit, family = binomial(link = "logit"))
+summary(logit_model)
+```
+
+```{r logistic-tidy}
+tidy(logit_model, conf.int = TRUE, exponentiate = TRUE) %>%
+  kable(digits = 3, caption = "Logistic Regression: Odds Ratios")
+```
+
+```{r logistic-interpret}
+# Model fit
+glance(logit_model) %>%
+  kable(digits = 3, caption = "Logistic Regression Fit Statistics")
+```
+
+```{r logistic-predict}
+# Predicted probabilities
+health_logit <- health_logit %>%
+  mutate(pred_prob = predict(logit_model, type = "response"),
+         pred_class = ifelse(pred_prob > 0.5, 1, 0))
+
+# Confusion matrix
+table(Predicted = health_logit$pred_class, Actual = health_logit$good_le) %>%
+  kable(caption = "Confusion Matrix")
+
+# Accuracy
+accuracy <- mean(health_logit$pred_class == health_logit$good_le)
+cat("Accuracy:", round(accuracy * 100, 1), "%\n")
+```
+
+```{r logistic-plot}
+ggplot(health_logit, aes(x = infant_mortality, y = pred_prob,
+                          color = factor(good_le))) +
+  geom_point(size = 3, alpha = 0.7) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "gray50") +
+  scale_color_manual(values = c("0" = "#D7191C", "1" = "#1A9850"),
+                     labels = c("LE <= 65", "LE > 65"),
+                     name = "Actual") +
+  labs(title = "Predicted Probability of Good Life Expectancy",
+       x = "Infant Mortality (per 1,000)", y = "Predicted Probability") +
+  theme_minimal(base_size = 13)
+```
+
+---
+
+# Tidy Modelling with broom
+
+The `broom` package provides three key functions for working with model objects.
+
+```{r broom-overview}
+# tidy() -- coefficient-level summary
+tidy(model2) %>% kable(digits = 4)
+
+# glance() -- model-level summary
+glance(model2) %>% kable(digits = 3)
+
+# augment() -- observation-level data (fitted, residuals, etc.)
+augment(model2) %>%
+  head(5) %>%
+  kable(digits = 3)
+```
+
+```{r broom-multiple-models}
+# Fit models for each region and tidy the output
+health %>%
+  group_by(region) %>%
+  group_modify(~ {
+    mod <- lm(life_expectancy ~ infant_mortality, data = .x)
+    tidy(mod, conf.int = TRUE)
+  }) %>%
+  filter(term != "(Intercept)") %>%
+  kable(digits = 3, caption = "Infant Mortality Effect on Life Expectancy by Region")
+```
+
+---
+
+# R Markdown Features
+
+This entire document is itself an R Markdown report. Here we highlight key
+features.
+
+## Code Chunk Options
+
+Code chunks accept options that control their behaviour:
+
+- `echo = FALSE` -- hide code, show output
+- `eval = FALSE` -- show code, do not run
+- `include = FALSE` -- run code but show neither code nor output
+- `fig.width`, `fig.height`, `fig.cap` -- figure sizing and captions
+- `cache = TRUE` -- cache results for faster re-knitting
+
+## Inline Code
+
+You can embed R results directly in text. For example:
+
+The dataset has `r nrow(health)` observations across
+`r n_distinct(health$country)` countries. The mean life expectancy in 2020 was
+`r round(mean(health_2020$life_expectancy), 1)` years.
+
+This is written as:
+
+````
+The dataset has `r knitr::inline_expr("nrow(health)")` observations across
+`r knitr::inline_expr("n_distinct(health$country)")` countries.
+````
+
+## kable Tables
+
+The `knitr::kable()` function creates clean tables for HTML and PDF output.
+
+```{r kable-demo}
+health_2020 %>%
+  select(country, region, life_expectancy, infant_mortality, gdp_per_capita) %>%
+  arrange(desc(life_expectancy)) %>%
+  kable(digits = 1,
+        col.names = c("Country", "Region", "Life Exp.", "Infant Mort.",
+                       "GDP/capita"),
+        caption = "Health Indicators by Country (2020)",
+        format.args = list(big.mark = ","))
+```
+
+## Cross-Referencing Values
+
+When writing a report, refer to computed values rather than hard-coding numbers:
+
+```{r compute-for-report}
+model_r2 <- round(summary(model2)$r.squared * 100, 1)
+best_country <- health_2020 %>%
+  slice_max(life_expectancy) %>%
+  pull(country)
+worst_country <- health_2020 %>%
+  slice_min(life_expectancy) %>%
+  pull(country)
+```
+
+Our multiple regression model explains `r model_r2`% of the variance in life
+expectancy. `r best_country` had the highest life expectancy, while
+`r worst_country` had the lowest.
+
+---
+
+# Lab: Complete Reproducible Report
+
+Below is a self-contained mini-report that demonstrates the full workflow:
+data, analysis, visualisation, and narrative.
+
+## Research Question
+
+**Does health expenditure as a percentage of GDP predict life expectancy in
+African countries, after controlling for GDP per capita?**
+
+## Data Overview
+
+```{r lab-overview}
+health_2020 %>%
+  select(country, region, life_expectancy, gdp_per_capita, health_exp_pct) %>%
+  kable(digits = 1, caption = "Study Data (2020)")
+```
+
+We have data on `r nrow(health_2020)` African countries. The mean life
+expectancy is `r round(mean(health_2020$life_expectancy), 1)` years (SD =
+`r round(sd(health_2020$life_expectancy), 1)`).
+
+## Exploratory Analysis
+
+```{r lab-explore, fig.height=4}
+p1 <- ggplot(health_2020, aes(x = gdp_per_capita, y = life_expectancy)) +
+  geom_point(aes(color = region), size = 4) +
+  geom_smooth(method = "lm", se = TRUE, color = "gray40") +
+  scale_color_brewer(palette = "Set2") +
+  labs(title = "GDP vs Life Expectancy", x = "GDP/capita", y = "Life Exp.") +
+  theme_minimal()
+
+p2 <- ggplot(health_2020, aes(x = health_exp_pct, y = life_expectancy)) +
+  geom_point(aes(color = region), size = 4) +
+  geom_smooth(method = "lm", se = TRUE, color = "gray40") +
+  scale_color_brewer(palette = "Set2") +
+  labs(title = "Health Exp. vs Life Expectancy", x = "Health Exp. (% GDP)",
+       y = "Life Exp.") +
+  theme_minimal()
+
+p1 + p2 + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+## Correlation Matrix
+
+```{r lab-corr}
+health_2020 %>%
+  select(life_expectancy, gdp_per_capita, health_exp_pct, infant_mortality) %>%
+  cor() %>%
+  round(3) %>%
+  kable(caption = "Correlation Matrix")
+```
+
+## Statistical Model
+
+```{r lab-model}
+report_model <- lm(life_expectancy ~ gdp_per_capita + health_exp_pct,
+                   data = health_2020)
+
+tidy(report_model, conf.int = TRUE) %>%
+  kable(digits = 4, caption = "Regression Results")
+
+glance(report_model) %>%
+  select(r.squared, adj.r.squared, sigma, p.value, AIC) %>%
+  kable(digits = 3, caption = "Model Fit")
+```
+
+```{r lab-diagnostics, fig.height=4}
+aug <- augment(report_model)
+
+p_resid <- ggplot(aug, aes(x = .fitted, y = .resid)) +
+  geom_point(size = 3) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residuals vs Fitted", x = "Fitted", y = "Residuals") +
+  theme_minimal()
+
+p_qq <- ggplot(aug, aes(sample = .resid)) +
+  stat_qq() + stat_qq_line(color = "red") +
+  labs(title = "Q-Q Plot") +
+  theme_minimal()
+
+p_resid | p_qq
+```
+
+## Conclusions
+
+```{r lab-conclusions}
+coefs <- tidy(report_model)
+gdp_coef <- coefs %>% filter(term == "gdp_per_capita")
+health_coef <- coefs %>% filter(term == "health_exp_pct")
+r2 <- round(summary(report_model)$r.squared * 100, 1)
+```
+
+The model explains `r r2`% of the variance in life expectancy.
+
+- **GDP per capita**: For each additional dollar in GDP per capita, life
+  expectancy changes by `r round(gdp_coef$estimate, 4)` years (p =
+  `r round(gdp_coef$p.value, 3)`).
+- **Health expenditure**: For each 1 percentage point increase in health
+  spending as a share of GDP, life expectancy changes by
+  `r round(health_coef$estimate, 2)` years (p =
+  `r round(health_coef$p.value, 3)`).
+
+These results suggest that both economic development and investment in health
+systems play a role in determining population health outcomes across African
+countries.
+
+---
+
+# Summary
+
+Today we covered:
+
+1. **Descriptive statistics** -- `summary()`, custom tables, group summaries
+2. **Hypothesis tests** -- `t.test()`, `chisq.test()`, paired tests
+3. **Linear regression** -- `lm()`, interpretation, residual diagnostics
+4. **Multiple regression** -- adding predictors, model comparison, ANOVA
+5. **Logistic regression** -- `glm()` with binomial family, odds ratios
+6. **broom** -- `tidy()`, `glance()`, `augment()` for clean model output
+7. **R Markdown** -- code chunks, inline code, `kable()` tables
+8. **Lab** -- a complete reproducible report from data to conclusions
+
+Congratulations on completing the **R for Statistical Analysis** workshop!
+
+```{r session-info}
+sessionInfo()
+```
