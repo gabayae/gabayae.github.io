@@ -54,21 +54,21 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Undergraduate</h5>
 <ul class="course-list">
-<li><a href="{{ '/courses/topologie-generale/index.html' | relative_url }}"><strong>General Topology</strong></a> — Open/closed sets, continuity, compactness, connectedness, product & quotient spaces
+<li><a href="{{ '/courses/topologie-generale/index.html' | relative_url }}"><strong><i class="fa-solid fa-circle-nodes" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> General Topology</strong></a> — Open/closed sets, continuity, compactness, connectedness, product & quotient spaces
 <br><a href="{{ '/courses/topologie-generale/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/analyse-reelle/index.html' | relative_url }}"><strong>Real Analysis I & II</strong></a> — Sequences, series, limits, continuity, differentiation, Riemann integration, metric spaces
+<li><a href="{{ '/courses/analyse-reelle/index.html' | relative_url }}"><strong><i class="fa-solid fa-chart-line" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Real Analysis I & II</strong></a> — Sequences, series, limits, continuity, differentiation, Riemann integration, metric spaces
 <br><a href="{{ '/courses/analyse-reelle/I/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR (I)</a> <a href="{{ '/courses/analyse-reelle/II/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR (II)</a></li>
-<li><a href="{{ '/courses/algebre-abstraite/index.html' | relative_url }}"><strong>Abstract Algebra I & II</strong></a> — Groups, rings, fields, homomorphisms, quotient structures, Galois theory
+<li><a href="{{ '/courses/algebre-abstraite/index.html' | relative_url }}"><strong><i class="fa-solid fa-cubes" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Abstract Algebra I & II</strong></a> — Groups, rings, fields, homomorphisms, quotient structures, Galois theory
 <br><a href="{{ '/courses/algebre-abstraite/I/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR (I)</a> <a href="{{ '/courses/algebre-abstraite/II/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR (II)</a></li>
-<li><a href="{{ '/courses/LinearAlgebra/index.html' | relative_url }}"><strong>Linear Algebra</strong></a> — Vector spaces, linear maps, eigenvalues, inner product spaces, canonical forms
+<li><a href="{{ '/courses/LinearAlgebra/index.html' | relative_url }}"><strong><i class="fa-solid fa-cubes" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Linear Algebra</strong></a> — Vector spaces, linear maps, eigenvalues, inner product spaces, canonical forms
 <br><a href="{{ '/courses/LinearAlgebra/linear-algebra/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/analyse-complexe/index.html' | relative_url }}"><strong>Complex Analysis</strong></a> — Analytic functions, Cauchy's theorem, residues, conformal mappings
+<li><a href="{{ '/courses/analyse-complexe/index.html' | relative_url }}"><strong><i class="fa-solid fa-chart-line" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Complex Analysis</strong></a> — Analytic functions, Cauchy's theorem, residues, conformal mappings
 <br><a href="{{ '/courses/analyse-complexe/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/edo/index.html' | relative_url }}"><strong>Differential Equations (ODE)</strong></a> — First & second order equations, systems, Laplace transforms, stability
+<li><a href="{{ '/courses/edo/index.html' | relative_url }}"><strong><i class="fa-solid fa-wave-square" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Differential Equations (ODE)</strong></a> — First & second order equations, systems, Laplace transforms, stability
 <br><a href="{{ '/courses/edo/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/theorie-nombres/index.html' | relative_url }}"><strong>Number Theory</strong></a> — Divisibility, congruences, primes, quadratic reciprocity, arithmetic functions
+<li><a href="{{ '/courses/theorie-nombres/index.html' | relative_url }}"><strong><i class="fa-solid fa-hashtag" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Number Theory</strong></a> — Divisibility, congruences, primes, quadratic reciprocity, arithmetic functions
 <br><a href="{{ '/courses/theorie-nombres/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/maths-discretes/index.html' | relative_url }}"><strong>Discrete Mathematics</strong></a> — Combinatorics, graph theory, logic, proof techniques
+<li><a href="{{ '/courses/maths-discretes/index.html' | relative_url }}"><strong><i class="fa-solid fa-diagram-project" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Discrete Mathematics</strong></a> — Combinatorics, graph theory, logic, proof techniques
 <br><a href="{{ '/courses/maths-discretes/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
 </ul>
 </div></div></div>
@@ -76,21 +76,21 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Graduate</h5>
 <ul class="course-list">
-<li><a href="{{ '/courses/topologie-algebrique/index.html' | relative_url }}"><strong>Algebraic Topology</strong></a> — Fundamental group, covering spaces, singular homology, cohomology, exact sequences
+<li><a href="{{ '/courses/topologie-algebrique/index.html' | relative_url }}"><strong><i class="fa-solid fa-circle-nodes" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Algebraic Topology</strong></a> — Fundamental group, covering spaces, singular homology, cohomology, exact sequences
 <br><a href="{{ '/courses/topologie-algebrique/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/topologie-differentielle/index.html' | relative_url }}"><strong>Differential Topology</strong></a> — Smooth manifolds, tangent bundles, transversality, Morse theory
+<li><a href="{{ '/courses/topologie-differentielle/index.html' | relative_url }}"><strong><i class="fa-solid fa-circle-nodes" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Differential Topology</strong></a> — Smooth manifolds, tangent bundles, transversality, Morse theory
 <br><a href="{{ '/courses/topologie-differentielle/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/topologie-ponctuelle-avancee/index.html' | relative_url }}"><strong>Point-Set Topology (Advanced)</strong></a> — Quasi-metric spaces, asymmetric topology, T0-spaces, bitopological spaces
+<li><a href="{{ '/courses/topologie-ponctuelle-avancee/index.html' | relative_url }}"><strong><i class="fa-solid fa-circle-nodes" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Point-Set Topology (Advanced)</strong></a> — Quasi-metric spaces, asymmetric topology, T0-spaces, bitopological spaces
 <br><a href="{{ '/courses/topologie-ponctuelle-avancee/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/points-fixes/index.html' | relative_url }}"><strong>Fixed Point Theory</strong></a> — Banach contraction principle, Brouwer & Schauder theorems, generalized metric spaces
+<li><a href="{{ '/courses/points-fixes/index.html' | relative_url }}"><strong><i class="fa-solid fa-thumbtack" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Fixed Point Theory</strong></a> — Banach contraction principle, Brouwer & Schauder theorems, generalized metric spaces
 <br><a href="{{ '/courses/points-fixes/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/analyse-fonctionnelle/index.html' | relative_url }}"><strong>Functional Analysis</strong></a> — Banach & Hilbert spaces, bounded operators, spectral theory, Hahn-Banach theorem
+<li><a href="{{ '/courses/analyse-fonctionnelle/index.html' | relative_url }}"><strong><i class="fa-solid fa-chart-line" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Functional Analysis</strong></a> — Banach & Hilbert spaces, bounded operators, spectral theory, Hahn-Banach theorem
 <br><a href="{{ '/courses/analyse-fonctionnelle/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/mesure-integration/index.html' | relative_url }}"><strong>Measure Theory & Integration</strong></a> — sigma-algebras, Lebesgue measure, Lp spaces, Radon-Nikodym theorem
+<li><a href="{{ '/courses/mesure-integration/index.html' | relative_url }}"><strong><i class="fa-solid fa-ruler-combined" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Measure Theory & Integration</strong></a> — sigma-algebras, Lebesgue measure, Lp spaces, Radon-Nikodym theorem
 <br><a href="{{ '/courses/mesure-integration/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/geometrie-riemannienne/index.html' | relative_url }}"><strong>Riemannian Geometry</strong></a> — Connections, curvature, geodesics, comparison theorems
+<li><a href="{{ '/courses/geometrie-riemannienne/index.html' | relative_url }}"><strong><i class="fa-solid fa-draw-polygon" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Riemannian Geometry</strong></a> — Connections, curvature, geodesics, comparison theorems
 <br><a href="{{ '/courses/geometrie-riemannienne/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/theorie-categories/index.html' | relative_url }}"><strong>Category Theory</strong></a> — Functors, natural transformations, limits, adjunctions, Yoneda lemma
+<li><a href="{{ '/courses/theorie-categories/index.html' | relative_url }}"><strong><i class="fa-solid fa-arrows-split-up-and-left" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Category Theory</strong></a> — Functors, natural transformations, limits, adjunctions, Yoneda lemma
 <br><a href="{{ '/courses/theorie-categories/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
 </ul>
 </div></div></div>
@@ -104,17 +104,17 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Undergraduate</h5>
 <ul class="course-list">
-<li><a href="{{ '/courses/probabilites/index.html' | relative_url }}"><strong>Probability Theory</strong></a> — Sample spaces, random variables, distributions, expectation, law of large numbers
+<li><a href="{{ '/courses/probabilites/index.html' | relative_url }}"><strong><i class="fa-solid fa-dice" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Probability Theory</strong></a> — Sample spaces, random variables, distributions, expectation, law of large numbers
 <br><a href="{{ '/courses/probabilites/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/statistique/index.html' | relative_url }}"><strong>Mathematical Statistics</strong></a> — Estimation, hypothesis testing, confidence intervals, regression
+<li><a href="{{ '/courses/statistique/index.html' | relative_url }}"><strong><i class="fa-solid fa-dice" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Mathematical Statistics</strong></a> — Estimation, hypothesis testing, confidence intervals, regression
 <br><a href="{{ '/courses/statistique/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/analyse-numerique/index.html' | relative_url }}"><strong>Numerical Analysis</strong></a> — Root finding, interpolation, numerical integration, error analysis
+<li><a href="{{ '/courses/analyse-numerique/index.html' | relative_url }}"><strong><i class="fa-solid fa-calculator" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Numerical Analysis</strong></a> — Root finding, interpolation, numerical integration, error analysis
 <br><a href="{{ '/courses/analyse-numerique/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/edp/index.html' | relative_url }}"><strong>Partial Differential Equations</strong></a> — Heat, wave & Laplace equations, separation of variables, Fourier series
+<li><a href="{{ '/courses/edp/index.html' | relative_url }}"><strong><i class="fa-solid fa-wave-square" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Partial Differential Equations</strong></a> — Heat, wave & Laplace equations, separation of variables, Fourier series
 <br><a href="{{ '/courses/edp/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/recherche-operationnelle/index.html' | relative_url }}"><strong>Operations Research</strong></a> — Linear programming, optimization, simplex method, duality, network flows
+<li><a href="{{ '/courses/recherche-operationnelle/index.html' | relative_url }}"><strong><i class="fa-solid fa-route" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Operations Research</strong></a> — Linear programming, optimization, simplex method, duality, network flows
 <br><a href="{{ '/courses/recherche-operationnelle/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/modelisation/index.html' | relative_url }}"><strong>Mathematical Modelling</strong></a> — Formulation, dimensional analysis, dynamical systems, epidemiological models
+<li><a href="{{ '/courses/modelisation/index.html' | relative_url }}"><strong><i class="fa-solid fa-flask" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Mathematical Modelling</strong></a> — Formulation, dimensional analysis, dynamical systems, epidemiological models
 <br><a href="{{ '/courses/modelisation/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
 </ul>
 </div></div></div>
@@ -122,17 +122,17 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Graduate</h5>
 <ul class="course-list">
-<li><a href="{{ '/courses/processus-stochastiques/index.html' | relative_url }}"><strong>Stochastic Processes</strong></a> — Markov chains, Poisson processes, Brownian motion, martingales
+<li><a href="{{ '/courses/processus-stochastiques/index.html' | relative_url }}"><strong><i class="fa-solid fa-random" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Stochastic Processes</strong></a> — Markov chains, Poisson processes, Brownian motion, martingales
 <br><a href="{{ '/courses/processus-stochastiques/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/optimisation-convexe/index.html' | relative_url }}"><strong>Convex Optimization</strong></a> — Convex sets & functions, duality, gradient descent, interior-point methods
+<li><a href="{{ '/courses/optimisation-convexe/index.html' | relative_url }}"><strong><i class="fa-solid fa-bullseye" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Convex Optimization</strong></a> — Convex sets & functions, duality, gradient descent, interior-point methods
 <br><a href="{{ '/courses/optimisation-convexe/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/systemes-dynamiques/index.html' | relative_url }}"><strong>Dynamical Systems & Chaos</strong></a> — Stability, bifurcation, Lyapunov exponents, strange attractors
+<li><a href="{{ '/courses/systemes-dynamiques/index.html' | relative_url }}"><strong><i class="fa-solid fa-hurricane" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Dynamical Systems & Chaos</strong></a> — Stability, bifurcation, Lyapunov exponents, strange attractors
 <br><a href="{{ '/courses/systemes-dynamiques/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/finance-quantitative/index.html' | relative_url }}"><strong>Quantitative Finance</strong></a> — Black-Scholes, stochastic calculus, portfolio optimization, risk measures
+<li><a href="{{ '/courses/finance-quantitative/index.html' | relative_url }}"><strong><i class="fa-solid fa-coins" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Quantitative Finance</strong></a> — Black-Scholes, stochastic calculus, portfolio optimization, risk measures
 <br><a href="{{ '/courses/finance-quantitative/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/series-temporelles/index.html' | relative_url }}"><strong>Time Series Analysis</strong></a> — ARIMA, GARCH, spectral analysis, state-space models, forecasting
+<li><a href="{{ '/courses/series-temporelles/index.html' | relative_url }}"><strong><i class="fa-solid fa-timeline" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Time Series Analysis</strong></a> — ARIMA, GARCH, spectral analysis, state-space models, forecasting
 <br><a href="{{ '/courses/series-temporelles/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/statistique-bayesienne/index.html' | relative_url }}"><strong>Bayesian Statistics</strong></a> — Prior/posterior, MCMC, hierarchical models, Bayesian inference
+<li><a href="{{ '/courses/statistique-bayesienne/index.html' | relative_url }}"><strong><i class="fa-solid fa-scale-balanced" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Bayesian Statistics</strong></a> — Prior/posterior, MCMC, hierarchical models, Bayesian inference
 <br><a href="{{ '/courses/statistique-bayesienne/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
 </ul>
 </div></div></div>
@@ -146,13 +146,13 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Undergraduate / introductory</h5>
 <ul class="course-list">
-<li><a href="{{ '/courses/intro-data-science/index.html' | relative_url }}"><strong>Introduction to Data Science</strong></a> — Data wrangling, visualization, exploratory analysis (Python/R)
+<li><a href="{{ '/courses/intro-data-science/index.html' | relative_url }}"><strong><i class="fa-solid fa-database" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Introduction to Data Science</strong></a> — Data wrangling, visualization, exploratory analysis (Python/R)
 <br><a href="{{ '/courses/intro-data-science/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/apprentissage-automatique/index.html' | relative_url }}"><strong>Machine Learning Foundations</strong></a> — Supervised & unsupervised learning, model evaluation, bias-variance
+<li><a href="{{ '/courses/apprentissage-automatique/index.html' | relative_url }}"><strong><i class="fa-solid fa-brain" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Machine Learning Foundations</strong></a> — Supervised & unsupervised learning, model evaluation, bias-variance
 <br><a href="{{ '/courses/apprentissage-automatique/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/programmation-scientifiques/index.html' | relative_url }}"><strong>Programming for Scientists</strong></a> — Python, R, NumPy, Pandas, Matplotlib, scientific computing
+<li><a href="{{ '/courses/programmation-scientifiques/index.html' | relative_url }}"><strong><i class="fa-solid fa-code" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Programming for Scientists</strong></a> — Python, R, NumPy, Pandas, Matplotlib, scientific computing
 <br><a href="{{ '/courses/programmation-scientifiques/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/bases-donnees/index.html' | relative_url }}"><strong>Database Systems & SQL</strong></a> — Relational databases, queries, normalization, data pipelines
+<li><a href="{{ '/courses/bases-donnees/index.html' | relative_url }}"><strong><i class="fa-solid fa-server" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Database Systems & SQL</strong></a> — Relational databases, queries, normalization, data pipelines
 <br><a href="{{ '/courses/bases-donnees/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
 </ul>
 </div></div></div>
@@ -160,17 +160,17 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Graduate / advanced</h5>
 <ul class="course-list">
-<li><a href="{{ '/courses/tda/index.html' | relative_url }}"><strong>Topological Data Analysis (TDA)</strong></a> — Persistent homology, simplicial complexes, Mapper, stability theorems
+<li><a href="{{ '/courses/tda/index.html' | relative_url }}"><strong><i class="fa-solid fa-circle-nodes" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Topological Data Analysis (TDA)</strong></a> — Persistent homology, simplicial complexes, Mapper, stability theorems
 <br><a href="{{ '/courses/tda/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/apprentissage-geometrique/index.html' | relative_url }}"><strong>Geometric Deep Learning</strong></a> — Graph neural networks, manifold learning, equivariant architectures
+<li><a href="{{ '/courses/apprentissage-geometrique/index.html' | relative_url }}"><strong><i class="fa-solid fa-project-diagram" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Geometric Deep Learning</strong></a> — Graph neural networks, manifold learning, equivariant architectures
 <br><a href="{{ '/courses/apprentissage-geometrique/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/apprentissage-renforcement/index.html' | relative_url }}"><strong>Deep Reinforcement Learning</strong></a> — MDPs, policy gradients, DQN, actor-critic, multi-agent RL
+<li><a href="{{ '/courses/apprentissage-renforcement/index.html' | relative_url }}"><strong><i class="fa-solid fa-robot" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Deep Reinforcement Learning</strong></a> — MDPs, policy gradients, DQN, actor-critic, multi-agent RL
 <br><a href="{{ '/courses/apprentissage-renforcement/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/apprentissage-profond/index.html' | relative_url }}"><strong>Deep Learning</strong></a> — CNNs, RNNs, transformers, attention, generative models (GANs, VAEs, diffusion)
+<li><a href="{{ '/courses/apprentissage-profond/index.html' | relative_url }}"><strong><i class="fa-solid fa-network-wired" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Deep Learning</strong></a> — CNNs, RNNs, transformers, attention, generative models (GANs, VAEs, diffusion)
 <br><a href="{{ '/courses/apprentissage-profond/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/tal-nlp/index.html' | relative_url }}"><strong>Natural Language Processing</strong></a> — Embeddings, sequence models, LLMs, fine-tuning, RAG
+<li><a href="{{ '/courses/tal-nlp/index.html' | relative_url }}"><strong><i class="fa-solid fa-language" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Natural Language Processing</strong></a> — Embeddings, sequence models, LLMs, fine-tuning, RAG
 <br><a href="{{ '/courses/tal-nlp/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/mlops/index.html' | relative_url }}"><strong>MLOps & Reproducible Research</strong></a> — Experiment tracking, model deployment, Docker, CI/CD for ML
+<li><a href="{{ '/courses/mlops/index.html' | relative_url }}"><strong><i class="fa-solid fa-gears" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> MLOps & Reproducible Research</strong></a> — Experiment tracking, model deployment, Docker, CI/CD for ML
 <br><a href="{{ '/courses/mlops/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
 </ul>
 </div></div></div>
@@ -184,11 +184,11 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 <div class="card hoverable mb-4">
 <div class="card-body">
 <ul class="course-list">
-<li><strong>Workshop on Computational Topology & Quantum Computing (WoComToQC)</strong> — Organizer & lecturer</li>
-<li><strong>Data Science Africa</strong> — Machine learning tutorials for African researchers</li>
-<li><strong>Python for Mathematical Research</strong> — Hands-on computing for mathematicians</li>
-<li><strong>Introduction to TDA with GUDHI & Ripser</strong> — Persistent homology in practice</li>
-<li><strong>The Shape of Data</strong> — Book-based workshop on geometry-driven ML and data analysis in R</li>
+<li><strong><i class="fa-solid fa-circle-nodes" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Workshop on Computational Topology & Quantum Computing (WoComToQC)</strong> — Organizer & lecturer</li>
+<li><strong><i class="fa-solid fa-database" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Data Science Africa</strong> — Machine learning tutorials for African researchers</li>
+<li><strong><i class="fa-solid fa-code" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Python for Mathematical Research</strong> — Hands-on computing for mathematicians</li>
+<li><strong><i class="fa-solid fa-circle-nodes" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Introduction to TDA with GUDHI & Ripser</strong> — Persistent homology in practice</li>
+<li><strong><i class="fa-solid fa-draw-polygon" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> The Shape of Data</strong> — Book-based workshop on geometry-driven ML and data analysis in R</li>
 </ul>
 </div>
 </div>

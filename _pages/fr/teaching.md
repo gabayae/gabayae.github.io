@@ -54,28 +54,28 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Licence</h5>
 <ul class="course-list">
-<li><strong>Topologie Générale</strong> — Ouverts/fermés, continuité, compacité, connexité, espaces produits & quotients</li>
-<li><strong>Analyse Réelle I & II</strong> — Suites, séries, limites, continuité, dérivation, intégration de Riemann, espaces métriques</li>
-<li><strong>Algèbre Abstraite I & II</strong> — Groupes, anneaux, corps, homomorphismes, structures quotients, théorie de Galois</li>
-<li><strong>Algèbre Linéaire</strong> — Espaces vectoriels, applications linéaires, valeurs propres, espaces à produit scalaire, formes canoniques</li>
-<li><strong>Analyse Complexe</strong> — Fonctions analytiques, théorème de Cauchy, résidus, applications conformes</li>
-<li><strong>Équations Différentielles (EDO)</strong> — Équations du 1er & 2nd ordre, systèmes, transformées de Laplace, stabilité</li>
-<li><strong>Théorie des Nombres</strong> — Divisibilité, congruences, nombres premiers, réciprocité quadratique, fonctions arithmétiques</li>
-<li><strong>Mathématiques Discrètes</strong> — Combinatoire, théorie des graphes, logique, techniques de démonstration</li>
+<li><strong><i class="fa-solid fa-circle-nodes" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Topologie Générale</strong> — Ouverts/fermés, continuité, compacité, connexité, espaces produits & quotients</li>
+<li><strong><i class="fa-solid fa-chart-line" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Analyse Réelle I & II</strong> — Suites, séries, limites, continuité, dérivation, intégration de Riemann, espaces métriques</li>
+<li><strong><i class="fa-solid fa-cubes" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Algèbre Abstraite I & II</strong> — Groupes, anneaux, corps, homomorphismes, structures quotients, théorie de Galois</li>
+<li><strong><i class="fa-solid fa-cubes" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Algèbre Linéaire</strong> — Espaces vectoriels, applications linéaires, valeurs propres, espaces à produit scalaire, formes canoniques</li>
+<li><strong><i class="fa-solid fa-chart-line" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Analyse Complexe</strong> — Fonctions analytiques, théorème de Cauchy, résidus, applications conformes</li>
+<li><strong><i class="fa-solid fa-wave-square" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Équations Différentielles (EDO)</strong> — Équations du 1er & 2nd ordre, systèmes, transformées de Laplace, stabilité</li>
+<li><strong><i class="fa-solid fa-hashtag" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Théorie des Nombres</strong> — Divisibilité, congruences, nombres premiers, réciprocité quadratique, fonctions arithmétiques</li>
+<li><strong><i class="fa-solid fa-diagram-project" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Mathématiques Discrètes</strong> — Combinatoire, théorie des graphes, logique, techniques de démonstration</li>
 </ul>
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Master / Doctorat</h5>
 <ul class="course-list">
-<li><strong>Topologie Algébrique</strong> — Groupe fondamental, revêtements, homologie singulière, cohomologie, suites exactes</li>
-<li><strong>Topologie Différentielle</strong> — Variétés lisses, fibrés tangents, transversalité, théorie de Morse</li>
-<li><strong>Topologie Ponctuelle (Avancée)</strong> — Espaces quasi-métriques, topologie asymétrique, espaces T₀, espaces bitopologiques</li>
-<li><strong>Théorie des Points Fixes</strong> — Principe de contraction de Banach, théorèmes de Brouwer & Schauder, espaces métriques généralisés</li>
-<li><strong>Analyse Fonctionnelle</strong> — Espaces de Banach & Hilbert, opérateurs bornés, théorie spectrale, théorème de Hahn-Banach</li>
-<li><strong>Théorie de la Mesure & Intégration</strong> — σ-algèbres, mesure de Lebesgue, espaces Lp, théorème de Radon-Nikodym</li>
-<li><strong>Géométrie Riemannienne</strong> — Connexions, courbure, géodésiques, théorèmes de comparaison</li>
-<li><strong>Théorie des Catégories</strong> — Foncteurs, transformations naturelles, limites, adjonctions, lemme de Yoneda</li>
+<li><strong><i class="fa-solid fa-circle-nodes" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Topologie Algébrique</strong> — Groupe fondamental, revêtements, homologie singulière, cohomologie, suites exactes</li>
+<li><strong><i class="fa-solid fa-circle-nodes" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Topologie Différentielle</strong> — Variétés lisses, fibrés tangents, transversalité, théorie de Morse</li>
+<li><strong><i class="fa-solid fa-circle-nodes" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Topologie Ponctuelle (Avancée)</strong> — Espaces quasi-métriques, topologie asymétrique, espaces T₀, espaces bitopologiques</li>
+<li><strong><i class="fa-solid fa-thumbtack" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Théorie des Points Fixes</strong> — Principe de contraction de Banach, théorèmes de Brouwer & Schauder, espaces métriques généralisés</li>
+<li><strong><i class="fa-solid fa-chart-line" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Analyse Fonctionnelle</strong> — Espaces de Banach & Hilbert, opérateurs bornés, théorie spectrale, théorème de Hahn-Banach</li>
+<li><strong><i class="fa-solid fa-ruler-combined" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Théorie de la Mesure & Intégration</strong> — σ-algèbres, mesure de Lebesgue, espaces Lp, théorème de Radon-Nikodym</li>
+<li><strong><i class="fa-solid fa-draw-polygon" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Géométrie Riemannienne</strong> — Connexions, courbure, géodésiques, théorèmes de comparaison</li>
+<li><strong><i class="fa-solid fa-arrows-split-up-and-left" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Théorie des Catégories</strong> — Foncteurs, transformations naturelles, limites, adjonctions, lemme de Yoneda</li>
 </ul>
 </div></div></div>
 
@@ -88,24 +88,24 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Licence</h5>
 <ul class="course-list">
-<li><strong>Théorie des Probabilités</strong> — Espaces probabilisés, variables aléatoires, distributions, espérance, loi des grands nombres</li>
-<li><strong>Statistique Mathématique</strong> — Estimation, tests d'hypothèses, intervalles de confiance, régression</li>
-<li><strong>Analyse Numérique</strong> — Recherche de racines, interpolation, intégration numérique, analyse d'erreurs</li>
-<li><strong>Équations aux Dérivées Partielles</strong> — Équations de la chaleur, des ondes & de Laplace, séparation de variables, séries de Fourier</li>
-<li><strong>Recherche Opérationnelle</strong> — Programmation linéaire, optimisation, méthode du simplexe, dualité, flots dans les réseaux</li>
-<li><strong>Modélisation Mathématique</strong> — Formulation, analyse dimensionnelle, systèmes dynamiques, modèles épidémiologiques</li>
+<li><strong><i class="fa-solid fa-dice" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Théorie des Probabilités</strong> — Espaces probabilisés, variables aléatoires, distributions, espérance, loi des grands nombres</li>
+<li><strong><i class="fa-solid fa-dice" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Statistique Mathématique</strong> — Estimation, tests d'hypothèses, intervalles de confiance, régression</li>
+<li><strong><i class="fa-solid fa-calculator" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Analyse Numérique</strong> — Recherche de racines, interpolation, intégration numérique, analyse d'erreurs</li>
+<li><strong><i class="fa-solid fa-wave-square" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Équations aux Dérivées Partielles</strong> — Équations de la chaleur, des ondes & de Laplace, séparation de variables, séries de Fourier</li>
+<li><strong><i class="fa-solid fa-route" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Recherche Opérationnelle</strong> — Programmation linéaire, optimisation, méthode du simplexe, dualité, flots dans les réseaux</li>
+<li><strong><i class="fa-solid fa-flask" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Modélisation Mathématique</strong> — Formulation, analyse dimensionnelle, systèmes dynamiques, modèles épidémiologiques</li>
 </ul>
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Master / Doctorat</h5>
 <ul class="course-list">
-<li><strong>Processus Stochastiques</strong> — Chaînes de Markov, processus de Poisson, mouvement brownien, martingales</li>
-<li><strong>Optimisation Convexe</strong> — Ensembles & fonctions convexes, dualité, descente de gradient, méthodes de points intérieurs</li>
-<li><strong>Systèmes Dynamiques & Chaos</strong> — Stabilité, bifurcation, exposants de Lyapunov, attracteurs étranges</li>
-<li><strong>Finance Quantitative</strong> — Black-Scholes, calcul stochastique, optimisation de portefeuille, mesures de risque</li>
-<li><strong>Analyse des Séries Temporelles</strong> — ARIMA, GARCH, analyse spectrale, modèles espace-état, prévision</li>
-<li><strong>Statistique Bayésienne</strong> — Prior/postérieur, MCMC, modèles hiérarchiques, inférence bayésienne</li>
+<li><strong><i class="fa-solid fa-random" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Processus Stochastiques</strong> — Chaînes de Markov, processus de Poisson, mouvement brownien, martingales</li>
+<li><strong><i class="fa-solid fa-bullseye" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Optimisation Convexe</strong> — Ensembles & fonctions convexes, dualité, descente de gradient, méthodes de points intérieurs</li>
+<li><strong><i class="fa-solid fa-hurricane" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Systèmes Dynamiques & Chaos</strong> — Stabilité, bifurcation, exposants de Lyapunov, attracteurs étranges</li>
+<li><strong><i class="fa-solid fa-coins" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Finance Quantitative</strong> — Black-Scholes, calcul stochastique, optimisation de portefeuille, mesures de risque</li>
+<li><strong><i class="fa-solid fa-timeline" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Analyse des Séries Temporelles</strong> — ARIMA, GARCH, analyse spectrale, modèles espace-état, prévision</li>
+<li><strong><i class="fa-solid fa-scale-balanced" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Statistique Bayésienne</strong> — Prior/postérieur, MCMC, modèles hiérarchiques, inférence bayésienne</li>
 </ul>
 </div></div></div>
 
@@ -118,22 +118,22 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Licence / Introduction</h5>
 <ul class="course-list">
-<li><strong>Introduction à la Science des Données</strong> — Manipulation de données, visualisation, analyse exploratoire (Python/R)</li>
-<li><strong>Fondements de l'Apprentissage Automatique</strong> — Apprentissage supervisé & non supervisé, évaluation de modèles, biais-variance</li>
-<li><strong>Programmation pour Scientifiques</strong> — Python, R, NumPy, Pandas, Matplotlib, calcul scientifique</li>
-<li><strong>Bases de Données & SQL</strong> — Bases relationnelles, requêtes, normalisation, pipelines de données</li>
+<li><strong><i class="fa-solid fa-database" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Introduction à la Science des Données</strong> — Manipulation de données, visualisation, analyse exploratoire (Python/R)</li>
+<li><strong><i class="fa-solid fa-brain" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Fondements de l'Apprentissage Automatique</strong> — Apprentissage supervisé & non supervisé, évaluation de modèles, biais-variance</li>
+<li><strong><i class="fa-solid fa-code" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Programmation pour Scientifiques</strong> — Python, R, NumPy, Pandas, Matplotlib, calcul scientifique</li>
+<li><strong><i class="fa-solid fa-server" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Bases de Données & SQL</strong> — Bases relationnelles, requêtes, normalisation, pipelines de données</li>
 </ul>
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Master / Doctorat / Avancé</h5>
 <ul class="course-list">
-<li><strong>Analyse Topologique des Données (TDA)</strong> — Homologie persistante, complexes simpliciaux, Mapper, théorèmes de stabilité</li>
-<li><strong>Apprentissage Géométrique Profond</strong> — Réseaux de neurones sur graphes, apprentissage de variétés, architectures équivariantes</li>
-<li><strong>Apprentissage par Renforcement Profond</strong> — MDP, gradients de politique, DQN, acteur-critique, RL multi-agents</li>
-<li><strong>Apprentissage Profond</strong> — CNN, RNN, transformers, attention, modèles génératifs (GAN, VAE, diffusion)</li>
-<li><strong>Traitement Automatique du Langage</strong> — Embeddings, modèles séquentiels, LLM, fine-tuning, RAG</li>
-<li><strong>MLOps & Recherche Reproductible</strong> — Suivi d'expériences, déploiement de modèles, Docker, CI/CD pour ML</li>
+<li><strong><i class="fa-solid fa-circle-nodes" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Analyse Topologique des Données (TDA)</strong> — Homologie persistante, complexes simpliciaux, Mapper, théorèmes de stabilité</li>
+<li><strong><i class="fa-solid fa-project-diagram" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Apprentissage Géométrique Profond</strong> — Réseaux de neurones sur graphes, apprentissage de variétés, architectures équivariantes</li>
+<li><strong><i class="fa-solid fa-robot" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Apprentissage par Renforcement Profond</strong> — MDP, gradients de politique, DQN, acteur-critique, RL multi-agents</li>
+<li><strong><i class="fa-solid fa-network-wired" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Apprentissage Profond</strong> — CNN, RNN, transformers, attention, modèles génératifs (GAN, VAE, diffusion)</li>
+<li><strong><i class="fa-solid fa-language" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Traitement Automatique du Langage</strong> — Embeddings, modèles séquentiels, LLM, fine-tuning, RAG</li>
+<li><strong><i class="fa-solid fa-gears" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> MLOps & Recherche Reproductible</strong> — Suivi d'expériences, déploiement de modèles, Docker, CI/CD pour ML</li>
 </ul>
 </div></div></div>
 
@@ -146,11 +146,11 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 <div class="card hoverable mb-4">
 <div class="card-body">
 <ul class="course-list">
-<li><strong>Workshop on Computational Topology & Quantum Computing (WoComToQC)</strong> — Organisateur & intervenant</li>
-<li><strong>Data Science Africa</strong> — Tutoriels d'apprentissage automatique pour les chercheurs africains</li>
-<li><strong>Python pour la Recherche Mathématique</strong> — Calcul scientifique pratique pour mathématiciens</li>
-<li><strong>Introduction à la TDA avec GUDHI & Ripser</strong> — Homologie persistante en pratique</li>
-<li><strong>The Shape of Data</strong> — Atelier basé sur le livre, ML géométrique et analyse de données en R</li>
+<li><strong><i class="fa-solid fa-circle-nodes" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Workshop on Computational Topology & Quantum Computing (WoComToQC)</strong> — Organisateur & intervenant</li>
+<li><strong><i class="fa-solid fa-database" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Data Science Africa</strong> — Tutoriels d'apprentissage automatique pour les chercheurs africains</li>
+<li><strong><i class="fa-solid fa-code" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Python pour la Recherche Mathématique</strong> — Calcul scientifique pratique pour mathématiciens</li>
+<li><strong><i class="fa-solid fa-circle-nodes" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Introduction à la TDA avec GUDHI & Ripser</strong> — Homologie persistante en pratique</li>
+<li><strong><i class="fa-solid fa-draw-polygon" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> The Shape of Data</strong> — Atelier basé sur le livre, ML géométrique et analyse de données en R</li>
 </ul>
 </div>
 </div>
