@@ -1,0 +1,117 @@
+% ============================================================
+% Chapter 8: Simple Linear Regression
+% ============================================================
+\chapter{Simple Linear Regression}
+\label{ch:simple-regression}
+
+\begin{center}
+\textit{``Regression is the most useful and most misused tool in statistics.''}
+\end{center}
+
+\section{Motivating Example}
+Data on living area (m$^2$) and sale price (kEUR) for 15 apartments. Goal: model $\text{Price}=f(\text{Area})$.
+
+\section{The Model}
+
+\begin{definition}[Simple Linear Regression Model]
+\index{linear regression!simple}
+$Y_i = \beta_0 + \beta_1 x_i + \varepsilon_i$, $i=1,\ldots,n$, with $\E[\varepsilon_i]=0$, $\Var(\varepsilon_i)=\sigma^2$ (homoscedasticity), $\Cov(\varepsilon_i,\varepsilon_j)=0$, and optionally $\varepsilon_i\sim\mathcal{N}(0,\sigma^2)$.
+\end{definition}
+
+\section{OLS Estimation}
+
+\begin{theorem}[OLS Estimators]
+\index{OLS}
+\[
+\hat{\beta}_1 = \frac{S_{xy}}{S_{xx}} = \frac{\sum(x_i-\bar{x})(Y_i-\bar{Y})}{\sum(x_i-\bar{x})^2}, \qquad \hat{\beta}_0 = \bar{Y}-\hat{\beta}_1\bar{x}.
+\]
+\end{theorem}
+
+\begin{proof}
+Minimize $Q=\sum(Y_i-\beta_0-\beta_1 x_i)^2$. Setting $\partial Q/\partial\beta_0=0$ gives $\beta_0=\bar{Y}-\beta_1\bar{x}$. Substituting and solving $\partial Q/\partial\beta_1=0$ yields the result.
+\end{proof}
+
+\begin{theorem}[Gauss--Markov]
+\index{Gauss--Markov}
+Under assumptions (1)--(3), OLS estimators are BLUE (Best Linear Unbiased Estimators).
+\end{theorem}
+
+\section{Variance Decomposition}
+
+\begin{theorem}
+$\underbrace{\sum(Y_i-\bar{Y})^2}_{\text{SST}} = \underbrace{\sum(\hat{Y}_i-\bar{Y})^2}_{\text{SSR}} + \underbrace{\sum(Y_i-\hat{Y}_i)^2}_{\text{SSE}}$.
+\end{theorem}
+
+\begin{definition}[$R^2$]
+\index{R-squared@$R^2$}
+$R^2 = \text{SSR}/\text{SST} = 1-\text{SSE}/\text{SST} = r_{xy}^2$ in simple regression.
+\end{definition}
+
+\section{Inference under Normality}
+
+$T_1 = \hat{\beta}_1/\mathrm{SE}(\hat{\beta}_1) \sim t(n-2)$. Test $H_0:\beta_1=0$.
+
+$F = \text{SSR}/1 \;/\; \text{SSE}/(n-2) \sim F(1,n-2)$. In simple regression, $F=T_1^2$.
+
+\subsection{Prediction}
+
+CI for $\E[Y|x_0]$: $\hat{Y}_0\pm t_{\alpha/2,n-2}\hat{\sigma}\sqrt{1/n+(x_0-\bar{x})^2/S_{xx}}$.
+
+PI for $Y_{\text{new}}$: add 1 under the square root.
+
+\section{Residual Diagnostics}
+\index{residuals}
+Check: (1) residuals vs fitted (linearity, homoscedasticity), (2) QQ-plot (normality), (3) residuals vs order (autocorrelation).
+
+\section{Python Implementation}
+
+\begin{python}
+\begin{minted}{python}
+import numpy as np
+from scipy import stats
+import statsmodels.api as sm
+import matplotlib.pyplot as plt
+
+area = np.array([25,30,35,40,45,50,55,60,65,70,75,80,90,100,120])
+price = np.array([95,110,125,140,148,160,175,185,195,210,220,240,260,290,350])
+
+slope, intercept, r, p, se = stats.linregress(area, price)
+print(f"beta_1={slope:.4f} (p={p:.6f}), R^2={r**2:.4f}")
+
+X = sm.add_constant(area)
+model = sm.OLS(price, X).fit()
+print(model.summary())
+
+fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+axes[0,0].scatter(area, price); axes[0,0].plot(area, model.fittedvalues, 'r-')
+axes[0,0].set_title('Regression line')
+axes[0,1].scatter(model.fittedvalues, model.resid)
+axes[0,1].axhline(0, color='r', ls='--'); axes[0,1].set_title('Residuals vs Fitted')
+stats.probplot(model.resid, plot=axes[1,0]); axes[1,0].set_title('QQ-plot')
+axes[1,1].hist(model.resid, bins=6, edgecolor='black')
+axes[1,1].set_title('Residual distribution')
+plt.tight_layout(); plt.savefig("ch08_regression.pdf"); plt.show()
+\end{minted}
+\end{python}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+Compute $\hat{\beta}_0$, $\hat{\beta}_1$, $R^2$ by hand for $x=(1,2,3,4,5)$, $y=(2.1,3.8,6.2,7.9,10.3)$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Prove Gauss--Markov for simple regression: among $\hat{\beta}_1=\sum c_i Y_i$ linear unbiased, OLS has minimum variance.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Project]
+Collect real data, fit a simple regression, test $\beta_1=0$, analyze residuals, construct prediction intervals.
+\end{exercise}
+
+\begin{keyformulas}
+\begin{align*}
+\hat{\beta}_1 &= S_{xy}/S_{xx}, \quad \hat{\beta}_0=\bar{Y}-\hat{\beta}_1\bar{x} \\
+R^2 &= 1-\text{SSE}/\text{SST} \\
+T &= \hat{\beta}_1/(\hat{\sigma}/\sqrt{S_{xx}}) \sim t(n-2)
+\end{align*}
+\end{keyformulas}

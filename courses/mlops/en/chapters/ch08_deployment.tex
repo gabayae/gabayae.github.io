@@ -1,0 +1,436 @@
+% ============================================================
+\chapter{Model Deployment --- REST APIs, FastAPI, Streamlit}
+\label{ch:deployment}
+\index{deployment}
+% ============================================================
+
+\section{Deployment Patterns}
+\label{sec:deployment-patterns}
+
+Once a model is trained, it must be made available for inference.
+Three major patterns exist:
+
+\begin{definition}[Deployment pattern]
+A \textbf{deployment pattern}\index{deployment!pattern} defines how a
+trained model serves predictions: in batch on stored data, in real time
+via an API, or continuously on a data stream.
+\end{definition}
+
+\begin{center}
+\begin{tabular}{@{}llp{5.5cm}l@{}}
+\toprule
+\textbf{Pattern} & \textbf{Latency} & \textbf{Use Case} & \textbf{Example} \\
+\midrule
+Batch & Minutes--hours & Nightly scoring, report generation &
+  Spark job, Airflow \\
+Online (REST) & Milliseconds & Real-time predictions, user-facing
+  applications & FastAPI, TorchServe \\
+Streaming & Sub-second & Fraud detection, real-time
+  recommendations & Kafka, Flink \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, rounded corners, minimum width=2.5cm,
+    minimum height=1.2cm, align=center, font=\small},
+  arr/.style={-{Stealth[length=2.5mm]}, thick, steelblue}
+]
+  % Client
+  \node[box, fill=blue!10] (client) {\textbf{Client}\\Web / Mobile};
+  % API Gateway
+  \node[box, fill=cyan!10, right=2cm of client] (gw) {\textbf{API}\\
+    \textbf{Gateway}};
+  % Model service
+  \node[box, fill=green!10, right=2cm of gw] (model) {\textbf{Model}\\
+    \textbf{Service}};
+  % Model store
+  \node[box, fill=orange!10, above=1cm of model] (store) {\textbf{Model}\\
+    \textbf{Store}};
+  % Feature store
+  \node[box, fill=purple!10, below=1cm of model] (feat) {\textbf{Feature}\\
+    \textbf{Store}};
+  % Monitoring
+  \node[box, fill=red!10, right=2cm of model] (mon) {\textbf{Monitoring}\\
+    Prometheus};
+
+  \draw[arr] (client) -- node[above, font=\scriptsize] {REST} (gw);
+  \draw[arr] (gw) -- node[above, font=\scriptsize] {JSON} (model);
+  \draw[arr] (store) -- node[right, font=\scriptsize] {load} (model);
+  \draw[arr] (feat) -- node[right, font=\scriptsize] {features} (model);
+  \draw[arr] (model) -- node[above, font=\scriptsize] {metrics} (mon);
+\end{tikzpicture}
+\end{center}
+
+\section{REST API Fundamentals for ML}
+\label{sec:rest-api}
+\index{REST API}
+
+A REST API exposes the model through HTTP endpoints. The typical
+contract for an ML service:
+
+\begin{center}
+\begin{tabular}{@{}lllp{4.5cm}@{}}
+\toprule
+\textbf{Endpoint} & \textbf{Method} & \textbf{Status} & \textbf{Description} \\
+\midrule
+\texttt{/health} & GET & 200 & Service health check \\
+\texttt{/predict} & POST & 200 & Single prediction \\
+\texttt{/predict/batch} & POST & 200 & Batch prediction \\
+\texttt{/model/info} & GET & 200 & Model metadata (version, metrics) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Model Serialization}
+\label{sec:serialization}
+\index{serialization}
+
+Before serving, the model must be serialized to a portable format.
+
+\begin{center}
+\begin{tabular}{@{}lllp{4cm}@{}}
+\toprule
+\textbf{Format} & \textbf{Framework} & \textbf{Speed} &
+  \textbf{Notes} \\
+\midrule
+joblib / pickle & scikit-learn & Fast & Python-only, security risk \\
+ONNX & Any $\to$ ONNX Runtime & Very fast & Cross-framework,
+  optimized \\
+TorchScript & PyTorch & Fast & No Python dependency at inference \\
+SavedModel & TensorFlow & Fast & TF Serving compatible \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{codeblock}[title=\textbf{Model serialization examples}]
+\begin{minted}{python}
+import joblib
+import torch
+import onnxruntime as ort
+
+# --- scikit-learn with joblib ---
+joblib.dump(model, "model.joblib")
+model = joblib.load("model.joblib")
+
+# --- PyTorch with TorchScript ---
+scripted = torch.jit.script(model)
+scripted.save("model.pt")
+loaded = torch.jit.load("model.pt")
+
+# --- ONNX export from PyTorch ---
+dummy_input = torch.randn(1, 10)
+torch.onnx.export(model, dummy_input, "model.onnx",
+                   input_names=["input"],
+                   output_names=["output"],
+                   dynamic_axes={"input": {0: "batch"}})
+
+# --- ONNX inference ---
+session = ort.InferenceSession("model.onnx")
+result = session.run(None, {"input": input_array})
+\end{minted}
+\end{codeblock}
+
+\section{FastAPI for ML Serving}
+\label{sec:fastapi}
+\index{FastAPI}
+
+\textbf{FastAPI}\index{FastAPI} is a modern, high-performance Python
+web framework ideal for ML serving: automatic validation via Pydantic,
+async support, and auto-generated OpenAPI documentation.
+
+\begin{codeblock}[title=\textbf{Complete FastAPI ML serving application}]
+\begin{minted}{python}
+"""ML model serving API with FastAPI."""
+import time
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+import joblib
+import numpy as np
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
+
+# ---------- Pydantic schemas ----------
+
+class PredictionRequest(BaseModel):
+    features: list[float] = Field(
+        ..., min_length=1,
+        description="Input feature vector"
+    )
+
+class PredictionResponse(BaseModel):
+    prediction: int
+    probability: float
+    model_version: str
+    latency_ms: float
+
+class HealthResponse(BaseModel):
+    status: str
+    model_loaded: bool
+    model_version: str
+
+class BatchRequest(BaseModel):
+    instances: list[list[float]] = Field(
+        ..., min_length=1,
+        description="List of feature vectors"
+    )
+
+class BatchResponse(BaseModel):
+    predictions: list[int]
+    probabilities: list[float]
+    count: int
+
+# ---------- Application ----------
+
+MODEL_PATH = Path("models/model.joblib")
+MODEL_VERSION = "1.0.0"
+ml_model = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Load model on startup, cleanup on shutdown."""
+    global ml_model
+    if not MODEL_PATH.exists():
+        raise FileNotFoundError(f"Model not found: {MODEL_PATH}")
+    ml_model = joblib.load(MODEL_PATH)
+    print(f"Model loaded from {MODEL_PATH}")
+    yield
+    ml_model = None
+
+app = FastAPI(
+    title="ML Prediction API",
+    version=MODEL_VERSION,
+    lifespan=lifespan,
+)
+
+@app.get("/health", response_model=HealthResponse)
+async def health():
+    """Health check endpoint."""
+    return HealthResponse(
+        status="healthy",
+        model_loaded=ml_model is not None,
+        model_version=MODEL_VERSION,
+    )
+
+@app.post("/predict", response_model=PredictionResponse)
+async def predict(request: PredictionRequest):
+    """Single prediction endpoint."""
+    if ml_model is None:
+        raise HTTPException(503, "Model not loaded")
+    start = time.perf_counter()
+    X = np.array(request.features).reshape(1, -1)
+    pred = int(ml_model.predict(X)[0])
+    proba = float(ml_model.predict_proba(X).max())
+    latency = (time.perf_counter() - start) * 1000
+    return PredictionResponse(
+        prediction=pred,
+        probability=proba,
+        model_version=MODEL_VERSION,
+        latency_ms=round(latency, 2),
+    )
+
+@app.post("/predict/batch", response_model=BatchResponse)
+async def predict_batch(request: BatchRequest):
+    """Batch prediction endpoint."""
+    if ml_model is None:
+        raise HTTPException(503, "Model not loaded")
+    X = np.array(request.instances)
+    preds = ml_model.predict(X).tolist()
+    probas = ml_model.predict_proba(X).max(axis=1).tolist()
+    return BatchResponse(
+        predictions=preds,
+        probabilities=[round(p, 4) for p in probas],
+        count=len(preds),
+    )
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Running and testing the API}]
+\begin{minted}{bash}
+# Run the API
+uvicorn src.api:app --host 0.0.0.0 --port 8000 --reload
+
+# Test health endpoint
+curl http://localhost:8000/health
+
+# Test prediction
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"features": [5.1, 3.5, 1.4, 0.2]}'
+
+# Interactive docs
+# Open http://localhost:8000/docs in a browser
+\end{minted}
+\end{codeblock}
+
+\section{Streamlit for ML Demos}
+\label{sec:streamlit}
+\index{Streamlit}
+
+\textbf{Streamlit}\index{Streamlit} enables rapid creation of
+interactive ML demos without front-end knowledge.
+
+\begin{codeblock}[title=\textbf{Streamlit ML demo application}]
+\begin{minted}{python}
+"""Interactive ML demo with Streamlit."""
+import streamlit as st
+import requests
+import pandas as pd
+
+API_URL = "http://localhost:8000"
+
+st.title("ML Model Explorer")
+st.markdown("Interactive prediction demo")
+
+# Sidebar for input
+st.sidebar.header("Input Features")
+feature_1 = st.sidebar.slider("Sepal Length", 4.0, 8.0, 5.1)
+feature_2 = st.sidebar.slider("Sepal Width", 2.0, 4.5, 3.5)
+feature_3 = st.sidebar.slider("Petal Length", 1.0, 7.0, 1.4)
+feature_4 = st.sidebar.slider("Petal Width", 0.1, 2.5, 0.2)
+
+if st.button("Predict"):
+    response = requests.post(
+        f"{API_URL}/predict",
+        json={"features": [feature_1, feature_2,
+                           feature_3, feature_4]},
+    )
+    if response.status_code == 200:
+        result = response.json()
+        st.success(f"Prediction: {result['prediction']}")
+        st.metric("Confidence", f"{result['probability']:.2%}")
+        st.metric("Latency", f"{result['latency_ms']:.1f} ms")
+    else:
+        st.error(f"API error: {response.status_code}")
+\end{minted}
+\end{codeblock}
+
+\section{Serving Framework Comparison}
+\label{sec:serving-comparison}
+
+\begin{center}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Criterion} & \textbf{FastAPI} & \textbf{Flask} &
+  \textbf{TorchServe} & \textbf{Triton} \\
+\midrule
+Ease of use & High & High & Medium & Low \\
+Performance & High & Medium & High & Very high \\
+Auto-scaling & Manual & Manual & Built-in & Built-in \\
+Multi-model & Manual & Manual & Yes & Yes \\
+GPU batching & Manual & No & Yes & Yes \\
+Framework lock-in & None & None & PyTorch & None \\
+OpenAPI docs & Auto & Manual & No & No \\
+Best for & Custom APIs & Simple APIs & PyTorch prod & High-perf prod \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{remark}
+FastAPI is the best starting point for most ML projects: it is simple,
+performant, and flexible. Migrate to TorchServe or Triton when you
+need advanced features like dynamic batching, multi-model serving, or
+GPU-optimized inference at scale.
+\end{remark}
+
+\section{Best Practices and Anti-patterns}
+
+\begin{bestpractice}[title=\textbf{Deployment best practices}]
+\begin{enumerate}
+  \item \textbf{Version your models}: include the model version in
+    every response.
+  \item \textbf{Validate inputs}: use Pydantic schemas with
+    constraints.
+  \item \textbf{Health checks}: always expose a \texttt{/health}
+    endpoint.
+  \item \textbf{Measure latency}: return inference time in the
+    response.
+  \item \textbf{Graceful startup}: load the model before accepting
+    requests (lifespan events).
+  \item \textbf{Log predictions}: store inputs and outputs for
+    monitoring and debugging.
+  \item \textbf{Separate model and API}: the API code should not
+    contain training logic.
+\end{enumerate}
+\end{bestpractice}
+
+\begin{antipattern}[title=\textbf{Deployment anti-patterns}]
+\begin{itemize}
+  \item Loading the model on every request instead of at startup.
+  \item No input validation---malformed data causes cryptic errors.
+  \item Returning raw numpy arrays instead of JSON-serializable types.
+  \item Hardcoding model paths without environment variable overrides.
+  \item No error handling---a failed prediction crashes the server.
+  \item Running the API without HTTPS in production.
+\end{itemize}
+\end{antipattern}
+
+\section{Mini-project: End-to-end Deployment}
+\label{sec:mini-project-ch8}
+
+\begin{miniproject}[title=\textbf{Mini-project 8: Deploy an ML model}]
+\begin{enumerate}
+  \item Train a scikit-learn classifier and serialize it with
+    \pkg{joblib}.
+  \item Build a FastAPI application with \texttt{/health},
+    \texttt{/predict}, and \texttt{/predict/batch} endpoints.
+  \item Add Pydantic input validation with meaningful error messages.
+  \item Write a Streamlit front-end that calls the API.
+  \item Containerize both services with Docker Compose.
+  \item Export the model to ONNX format and compare inference latency
+    against joblib.
+\end{enumerate}
+\end{miniproject}
+
+\section{Exercises}
+\label{sec:exercises-ch8}
+
+\begin{exercise}[$\bigstar$ --- Basic API]
+Create a FastAPI application that serves a pre-trained
+\pkg{scikit-learn} model. The API must have a \texttt{/health}
+endpoint and a \texttt{/predict} endpoint with Pydantic validation.
+Test with \cli{curl} or the automatic Swagger documentation.
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar$ --- ONNX conversion]
+Take a trained PyTorch model and:
+\begin{enumerate}
+  \item Export it to ONNX format with dynamic batch size
+  \item Build a FastAPI endpoint that uses ONNX Runtime for inference
+  \item Benchmark the latency of PyTorch vs ONNX Runtime on 100
+    requests
+  \item Document the performance difference
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar\bigstar$ --- Production-grade API]
+Build a production-ready ML API with:
+\begin{enumerate}
+  \item FastAPI with async endpoints
+  \item A/B testing support (serve two model versions, route by header)
+  \item Request logging to a database (async writes)
+  \item Rate limiting with \pkg{slowapi}
+  \item Prometheus metrics endpoint (\texttt{/metrics})
+  \item Docker Compose deployment with Nginx reverse proxy
+\end{enumerate}
+\end{exercise}
+
+\section{Cheatsheet}
+
+\begin{cheatsheet}[title=\textbf{Chapter 8 Summary}]
+\begin{tabular}{@{}p{4cm}p{8.5cm}@{}}
+\toprule
+\textbf{Concept} & \textbf{Key Point} \\
+\midrule
+Batch vs Online & Batch = scheduled; Online = real-time REST API \\
+FastAPI & High-perf Python API with Pydantic + async \\
+Pydantic & Input/output validation via type annotations \\
+Model formats & joblib (sklearn), ONNX (cross-framework), TorchScript \\
+Streamlit & Rapid ML demos with pure Python \\
+Health check & Always expose \texttt{GET /health} \\
+Lifespan events & Load model at startup, not per request \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}

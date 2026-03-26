@@ -1,0 +1,258 @@
+% ============================================================
+\chapter{Applications}
+\label{ch:applications}
+% ============================================================
+
+La TDA est n\'ee dans les d\'epartements de math\'ematiques, mais elle a prouv\'e sa valeur dans les laboratoires, les h\^opitaux et les entreprises. En 2011, Lum et al.\ utilisent Mapper pour d\'ecouvrir un sous-groupe de cancer du sein invisible aux m\'ethodes statistiques classiques. En neurosciences, Giusti et al.\ (2015) d\'etectent des structures topologiques dans l'activit\'e neuronale du cortex visuel. En mat\'eriaux, Kramar et al.\ analysent la structure granulaire sous compression. En finance, Gidea et Katz (2018) utilisent l'homologie persistante pour d\'etecter les signaux pr\'ecurseurs de krachs boursiers. Ce chapitre passe en revue ces applications, montrant comment les invariants topologiques apportent un \'eclairage compl\'ementaire aux m\'ethodes statistiques et g\'eom\'etriques traditionnelles.
+
+\begin{intuition}
+La TDA a trouv\'e des applications dans de nombreux domaines
+scientifiques. Sa force r\'eside dans sa capacit\'e \`a extraire
+des informations \textbf{qualitatives} (nombre de trous, de
+composantes, de cavit\'es) \`a partir de donn\'ees quantitatives,
+et ce de mani\`ere \textbf{robuste au bruit} et
+\textbf{invariante par d\'eformation}.
+\end{intuition}
+
+% ============================================================
+\section{Analyse de formes}
+\label{sec:formes}
+% ============================================================
+
+\begin{definition}[Descripteur topologique de forme]
+\index{analyse de formes}
+Soit $\mathcal{S} \subset \R^3$ une surface triangul\'ee. On
+peut construire plusieurs filtrations~:
+\begin{enumerate}
+  \item \textbf{Filtration g\'eod\'esique}~: $f(x) = d_{\mathcal{S}}(x, x_0)$
+        pour un point base $x_0$.
+  \item \textbf{Filtration par courbure}~: $f(x) = \kappa(x)$ o\`u
+        $\kappa$ est la courbure gaussienne.
+  \item \textbf{Heat kernel signature}~: $f(x) = h_t(x, x)$ la
+        diagonale du noyau de la chaleur \`a temps $t$.
+\end{enumerate}
+Le diagramme de persistance de chaque filtration donne un
+descripteur topologique de la forme.
+\end{definition}
+
+\begin{exemple}[Classification de formes 3D]
+On consid\`ere une base de donn\'ees de mod\`eles 3D (SHREC, ModelNet).
+Pour chaque objet~:
+\begin{enumerate}
+  \item On calcule la filtration par la distance g\'eod\'esique depuis
+        plusieurs points base.
+  \item On obtient un ensemble de diagrammes de persistance en
+        dimensions $0$ et $1$.
+  \item On vectorise (images de persistance) et on classifie (SVM).
+\end{enumerate}
+Cette approche est naturellement invariante par isom\'etrie.
+\end{exemple}
+
+\begin{proposition}[Invariance]
+Les descripteurs topologiques issus de filtrations g\'eod\'esiques
+sont invariants par isom\'etrie de la surface. Ceux issus de
+filtrations par courbure sont invariants par mouvements rigides.
+\end{proposition}
+
+% ============================================================
+\section{Structure des prot\'eines}
+\label{sec:proteines}
+% ============================================================
+
+\begin{definition}[Repr\'esentation topologique d'une prot\'eine]
+\index{prot\'eine}
+Une prot\'eine est mod\'elis\'ee comme un nuage de points dans $\R^3$
+(les positions des atomes $C_\alpha$ de la cha\^\i ne principale).
+La filtration de Rips--Vietoris sur ce nuage capture~:
+\begin{itemize}
+  \item $H_0$~: la connectivit\'e de la cha\^\i ne.
+  \item $H_1$~: les boucles et les structures secondaires
+        ($\alpha$-h\'elices, feuillets $\beta$).
+  \item $H_2$~: les cavit\'es et poches.
+\end{itemize}
+\end{definition}
+
+\begin{exemple}[D\'etection de poches de liaison]
+Les poches de liaison d'une prot\'eine (sites o\`u se fixent les
+ligands) correspondent \`a des cavit\'es topologiques ($H_2$).
+Les g\'en\'erateurs persistants en $H_2$ identifient ces poches~:
+un point $(b, d)$ avec une grande persistance $d - b$ signale
+une cavit\'e \textbf{stable} \`a travers les \'echelles.
+\end{exemple}
+
+\begin{minted}{python}
+import numpy as np
+from gudhi import RipsComplex
+
+# Positions des C-alpha (extrait d'un fichier PDB)
+coords = np.loadtxt("protein_ca.xyz")
+
+# Complexe de Rips
+rips = RipsComplex(points=coords, max_edge_length=12.0)
+simplex_tree = rips.create_simplex_tree(max_dimension=3)
+dgm = simplex_tree.persistence()
+
+# Filtrer H2 (cavites)
+h2 = [(b, d) for dim, (b, d) in dgm if dim == 2 and d - b > 1.0]
+print(f"Nombre de poches significatives: {len(h2)}")
+\end{minted}
+
+% ============================================================
+\section{Analyse de s\'eries temporelles}
+\label{sec:series_temporelles}
+% ============================================================
+
+\begin{definition}[Plongement de Takens]
+\index{plongement de Takens}
+Soit $(x_t)_{t=0}^{T}$ une s\'erie temporelle. Le \textbf{plongement
+de Takens}\index{Takens} avec dimension $d$ et d\'elai $\tau$ est~:
+\[
+  \mathbf{x}_t = (x_t, x_{t+\tau}, x_{t+2\tau}, \ldots, x_{t+(d-1)\tau})
+  \in \R^d.
+\]
+\end{definition}
+
+\begin{theoreme}[Takens, 1981]
+Si la s\'erie temporelle est issue d'un syst\`eme dynamique sur
+une vari\'et\'e $\mathcal{M}$ de dimension $m$, alors pour $d > 2m$
+g\'en\'eriquement, le plongement de Takens est un plongement de
+$\mathcal{M}$ dans $\R^d$.
+\end{theoreme}
+
+\begin{intuition}
+L'id\'ee est de reconstruire l'espace des phases du syst\`eme
+dynamique \`a partir de la seule observation scalaire. Ensuite,
+la TDA sur le nuage de points reconstruit d\'etecte la topologie
+de l'attracteur~: un cycle limite donne $\beta_1 = 1$, un tore
+donne $\beta_1 = 2, \beta_2 = 1$, etc.
+\end{intuition}
+
+\begin{exemple}[D\'etection de p\'eriodicit\'e]
+Pour une s\'erie p\'eriodique $x_t = \sin(2\pi t / T)$, le
+plongement de Takens avec $d = 2$ trace une ellipse dans $\R^2$.
+Le diagramme $H_1$ contient un point tr\`es persistant,
+confirmant la p\'eriodicit\'e.
+\end{exemple}
+
+\begin{minted}{python}
+import numpy as np
+from gudhi.representations import PersistenceImage
+from gtda.time_series import SingleTakensEmbedding
+
+# Serie temporelle periodique
+t = np.linspace(0, 10 * np.pi, 1000)
+x = np.sin(t) + 0.1 * np.random.randn(len(t))
+
+# Plongement de Takens
+embedder = SingleTakensEmbedding(
+    time_delay=10, dimension=3, parameters_type="fixed"
+)
+X_embedded = embedder.fit_transform(x)
+\end{minted}
+
+% ============================================================
+\section{Analyse d'images}
+\label{sec:images}
+% ============================================================
+
+\begin{definition}[Filtration de sous-niveau pour images]
+\index{filtration de sous-niveau}
+Soit $I : \{0, \ldots, W\} \times \{0, \ldots, H\} \to \R$ une
+image en niveaux de gris. La \textbf{filtration de sous-niveau} est~:
+\[
+  I^{-1}(-\infty, t] = \{(i,j) : I(i,j) \leq t\}.
+\]
+La persistance de cette filtration capture les composantes connexes
+sombres ($H_0$) et les r\'egions claires entour\'ees de sombre ($H_1$).
+\end{definition}
+
+\begin{exemple}[Segmentation topologique]
+En imagerie m\'edicale, les tumeurs apparaissent comme des r\'egions
+d'intensit\'e diff\'erente. Les composantes persistantes en $H_0$ de
+la filtration de sous-niveau identifient ces r\'egions de mani\`ere
+robuste, sans seuillage arbitraire.
+\end{exemple}
+
+% ============================================================
+\section{R\'eseaux de capteurs}
+\label{sec:capteurs}
+% ============================================================
+
+\begin{definition}[Couverture topologique]
+\index{r\'eseau de capteurs}
+Un r\'eseau de $n$ capteurs avec port\'ee $r$ couvre un domaine
+$\Omega \subset \R^2$. Le complexe de \v{C}ech \`a rayon $r$
+construit sur les positions des capteurs permet de d\'etecter
+les \textbf{trous de couverture}~: $\beta_1 > 0$ signale un
+trou dans la couverture.
+\end{definition}
+
+\begin{theoreme}[De Silva--Ghrist, 2007]
+\index{De Silva--Ghrist}
+Si le complexe de Rips $\mathrm{Rips}_{2r}$ des positions de
+capteurs a une homologie r\'eduite triviale et si les capteurs
+ont une port\'ee de d\'etection $r_s \geq 2r$, alors le domaine
+est couvert.
+\end{theoreme}
+
+\begin{remarque}
+L'avantage de cette approche est qu'elle ne n\'ecessite pas de
+conna\^\i tre les positions exactes des capteurs (seulement les
+distances), et elle fonctionne sans coordonn\'ees.
+\end{remarque}
+
+% ============================================================
+\section{Science des mat\'eriaux}
+\label{sec:materiaux}
+% ============================================================
+
+\begin{exemple}[Analyse de mat\'eriaux poreux]
+\index{mat\'eriaux poreux}
+Les mat\'eriaux poreux (z\'eolithes, a\'erogels) sont caract\'eris\'es
+par leur structure de pores. La TDA sur la repr\'esentation atomique
+capture~:
+\begin{itemize}
+  \item $H_0$~: les grains et agr\'egats.
+  \item $H_1$~: les canaux et tunnels.
+  \item $H_2$~: les cavit\'es ferm\'ees.
+\end{itemize}
+La persistance de ces structures est corr\'el\'ee aux propri\'et\'es
+macroscopiques (perm\'eabilit\'e, surface sp\'ecifique).
+\end{exemple}
+
+\begin{exemple}[Verres m\'etalliques amorphes]
+Nakamura et al.\ (2015) ont utilis\'e la persistance pour distinguer
+les verres m\'etalliques des liquides~: les diagrammes $H_1$ et $H_2$
+montrent des structures persistantes dans le verre absentes dans le
+liquide, sans n\'ecessiter de param\`etre d'ordre.
+\end{exemple}
+
+% ============================================================
+\section{Exercices}
+% ============================================================
+
+\begin{exercice}
+Calculer le diagramme de persistance $H_0$ et $H_1$ d'une s\'erie
+temporelle $x_t = \sin(t) + 0.5 \sin(3t)$ apr\`es plongement de
+Takens avec $d = 3$. Interpr\'eter les r\'esultats.
+\end{exercice}
+
+\begin{exercice}
+Pour une image binaire $100 \times 100$ contenant trois disques et
+un anneau, pr\'edire le diagramme de persistance de la filtration
+de sous-niveau, puis v\'erifier avec \texttt{gudhi}.
+\end{exercice}
+
+\begin{exercice}[R\'eseau de capteurs]
+G\'en\'erer al\'eatoirement $50$ capteurs dans le carr\'e unit\'e.
+Utiliser la persistance $H_1$ pour d\'etecter les trous de couverture
+en fonction du rayon $r$. Tracer la courbe du nombre de trous en
+fonction de $r$.
+\end{exercice}
+
+\begin{exercice}[Projet]
+Appliquer la TDA \`a un jeu de donn\'ees r\'eel de votre choix
+(par exemple~: signaux EEG, donn\'ees financi\`eres, images
+satellitaires). Pr\'esenter la filtration choisie, les diagrammes
+obtenus et leur interpr\'etation.
+\end{exercice}

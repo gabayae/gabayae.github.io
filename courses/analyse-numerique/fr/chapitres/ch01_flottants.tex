@@ -1,0 +1,187 @@
+% ============================================================
+\chapter{Arithm\'etique Flottante, Erreurs et Stabilit\'e}
+\label{ch:flottants}
+% ============================================================
+
+\begin{center}
+\textit{<<~Le calcul num\'erique est l'art de donner la bonne r\'eponse \`a un probl\`eme l\'eg\`erement diff\'erent.~>>}
+\end{center}
+
+\section{Exemple motivant}
+
+Calculons $f(x)=\frac{1-\cos x}{x^2}$ pour $x=10^{-8}$ en double pr\'ecision. Le r\'esultat th\'eorique est $\approx 0{,}5$, mais Python donne $0{,}0$ ! La \textbf{cancellation catastrophique} entre $1$ et $\cos x$ \'elimine tous les chiffres significatifs. Comprendre l'arithm\'etique flottante est indispensable.
+
+\section{Repr\'esentation des nombres en machine}
+
+\begin{definition}[Nombre flottant]\index{nombre flottant}
+En base $\beta$ avec $t$ chiffres significatifs, un nombre flottant s'\'ecrit :
+\[
+x = \pm m \times \beta^e, \quad m = d_0.d_1d_2\cdots d_{t-1}, \quad d_0\neq 0,
+\]
+o\`u $e_{\min}\leq e\leq e_{\max}$ et $0\leq d_i<\beta$.
+\end{definition}
+
+\begin{definition}[Standard IEEE 754]\index{IEEE 754}
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Format} & \textbf{Bits} & \textbf{Mantisse} & \textbf{$\eps_{\mathrm{mach}}$} \\
+\midrule
+Simple pr\'ecision & 32 & 23+1 bits & $\approx 1{,}19\times 10^{-7}$ \\
+Double pr\'ecision & 64 & 52+1 bits & $\approx 2{,}22\times 10^{-16}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{definition}
+
+\begin{definition}[Epsilon machine]\index{epsilon machine}
+L'\textbf{epsilon machine} $\eps_{\mathrm{mach}}$ est le plus petit $\eps>0$ tel que $\fl(1+\eps)>1$ :
+\[
+\eps_{\mathrm{mach}} = \frac{1}{2}\beta^{1-t}.
+\]
+Pour tout $x\in\R$ repr\'esentable, $\fl(x)=x(1+\delta)$ avec $|\delta|\leq\eps_{\mathrm{mach}}$.
+\end{definition}
+
+\section{Erreurs d'arrondi et propagation}
+
+\begin{definition}[Erreur absolue et relative]\index{erreur absolue}\index{erreur relative}
+\begin{align}
+\text{Erreur absolue} &: E_a = |x-\tilde{x}|, \\
+\text{Erreur relative} &: E_r = \frac{|x-\tilde{x}|}{|x|} \quad (x\neq 0).
+\end{align}
+\end{definition}
+
+\begin{theoreme}[Propagation des erreurs]
+Si $\tilde{x}=x(1+\eps_x)$ et $\tilde{y}=y(1+\eps_y)$ :
+\begin{itemize}
+\item $\tilde{x}\cdot\tilde{y}\approx xy(1+\eps_x+\eps_y)$ : erreurs relatives s'ajoutent.
+\item $\tilde{x}-\tilde{y}\approx(x-y)+x\eps_x-y\eps_y$ : si $x\approx y$, l'erreur relative explose.
+\end{itemize}
+\end{theoreme}
+
+\begin{attention}
+La \textbf{cancellation catastrophique} se produit lors de la soustraction de nombres presque \'egaux. Exemple : $1-\cos x$ pour $x$ petit. Rem\`ede : utiliser $2\sin^2(x/2)$.
+\end{attention}
+
+\section{Conditionnement d'un probl\`eme}
+
+\begin{definition}[Conditionnement]\index{conditionnement}
+Le \textbf{conditionnement} d'un probl\`eme $f$ au point $x$ est :
+\[
+\kappa(f,x) = \left|\frac{xf'(x)}{f(x)}\right|.
+\]
+Un probl\`eme est \textbf{bien conditionn\'e} si $\kappa\sim 1$, \textbf{mal conditionn\'e} si $\kappa\gg 1$.
+\end{definition}
+
+\begin{definition}[Conditionnement matriciel]\index{conditionnement matriciel}
+Pour $Ax=b$ :
+\[
+\cond(A) = \|A\|\cdot\|A^{-1}\|.
+\]
+L'erreur relative sur $x$ est amplifi\'ee par $\cond(A)$ :
+\[
+\frac{\|\delta x\|}{\|x\|} \leq \cond(A)\frac{\|\delta b\|}{\|b\|}.
+\]
+\end{definition}
+
+\section{Stabilit\'e num\'erique}
+
+\begin{definition}[Algorithme stable]\index{stabilite@stabilit\'e}
+Un algorithme est \textbf{stable} s'il donne la solution exacte d'un probl\`eme \textbf{l\'eg\`erement perturb\'e}. Il est \textbf{r\'etrograde stable} (backward stable) si la perturbation est de l'ordre de $\eps_{\mathrm{mach}}$.
+\end{definition}
+
+\begin{methode}
+La pr\'ecision du r\'esultat d\'epend de deux facteurs :
+\begin{enumerate}
+\item Le \textbf{conditionnement} du probl\`eme (inh\'erent, on ne peut le changer).
+\item La \textbf{stabilit\'e} de l'algorithme (choix du programmeur).
+\end{enumerate}
+R\`egle : erreur $\lesssim \cond \times \eps_{\mathrm{mach}}$.
+\end{methode}
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, rounded corners, minimum width=2.5cm, minimum height=1.2cm, text centered, font=\small},
+  arr/.style={-{Stealth}, thick}
+]
+\node[box,fill=blue!10,align=center] (prob) at (0,0) {Probl\`eme\\$f(x)$};
+\node[box,fill=green!10,align=center] (algo) at (5,0) {Algorithme\\$\tilde{f}(\tilde{x})$};
+\node[box,fill=orange!10,align=center] (res) at (10,0) {R\'esultat\\$\tilde{y}$};
+\draw[arr] (prob) -- node[above]{\small Conditionnement $\kappa$} (algo);
+\draw[arr] (algo) -- node[above]{\small Stabilit\'e} (res);
+\draw[arr,dashed,red] (prob) to[bend left=30] node[above]{\small Erreur totale $\leq\kappa\cdot\eps$} (res);
+\end{tikzpicture}
+\end{center}
+
+\section{Impl\'ementation}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+
+# Epsilon machine
+eps = np.finfo(float).eps
+print(f"eps_mach = {eps}")  # 2.220446049250313e-16
+
+# Cancellation catastrophique
+x = 1e-8
+f_bad = (1 - np.cos(x)) / x**2
+f_good = 2 * np.sin(x/2)**2 / x**2
+print(f"Mauvais : {f_bad}")   # 0.0
+print(f"Bon     : {f_good}")  # 0.49999999...
+
+# Conditionnement d'une matrice
+A = np.array([[1, 1], [1, 1.0001]])
+print(f"cond(A) = {np.linalg.cond(A):.1f}")  # ~40000
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Julia}]
+\begin{minted}{julia}
+# Epsilon machine
+println("eps_mach = ", eps(Float64))
+
+# Cancellation
+x = 1e-8
+f_bad = (1 - cos(x)) / x^2
+f_good = 2sin(x/2)^2 / x^2
+println("Mauvais : $f_bad")
+println("Bon     : $f_good")
+
+# Conditionnement
+using LinearAlgebra
+A = [1.0 1.0; 1.0 1.0001]
+println("cond(A) = ", cond(A))
+\end{minted}
+\end{codeblock}
+
+\section{Exercices}
+
+\begin{exercice}[$\star$ -- Epsilon machine]
+\'Ecrire un programme qui calcule $\eps_{\mathrm{mach}}$ par dichotomie. Comparer avec \texttt{np.finfo(float).eps}.
+\end{exercice}
+
+\begin{exercice}[$\star$ -- Cancellation]
+Proposer un calcul stable de $\sqrt{x+1}-\sqrt{x}$ pour $x$ grand. V\'erifier num\'eriquement.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- Conditionnement]
+Calculer le conditionnement du probl\`eme $f(x)=\ln x$ au point $x=1$. Interpr\'eter.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- Matrice de Hilbert]
+Soit $H_n$ la matrice de Hilbert ($h_{ij}=1/(i+j-1)$). Calculer $\cond(H_n)$ pour $n=2,\ldots,15$. Que constate-t-on ?
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Projet]
+\'Etudier la stabilit\'e num\'erique de l'\'evaluation du polyn\^ome $p(x)=\sum a_ix^i$ par l'algorithme de Horner vs.\ l'\'evaluation na\"ive. Comparer les erreurs relatives pour des polyn\^omes de degr\'e \'elev\'e.
+\end{exercice}
+
+\begin{formules}
+\begin{align*}
+\fl(x) &= x(1+\delta),\;|\delta|\leq\eps_{\mathrm{mach}} &
+\eps_{\mathrm{mach}} &= \tfrac{1}{2}\beta^{1-t} \\
+\kappa(f,x) &= |xf'(x)/f(x)| &
+\cond(A) &= \|A\|\cdot\|A^{-1}\|
+\end{align*}
+\end{formules}

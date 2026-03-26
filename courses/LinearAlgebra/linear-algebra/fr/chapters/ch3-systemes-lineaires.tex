@@ -1,0 +1,1056 @@
+% ch3-systemes-lineaires.tex — Chapitre 3 : Systèmes d'équations linéaires et élimination de Gauss
+% Ce chapitre développe la théorie des systèmes linéaires, l'algorithme de
+% Gauss, le théorème de Rouché–Capelli, et la structure de l'ensemble des
+% solutions (sous-espace affine). Des applications aux réseaux de flux et
+% circuits électriques sont présentées.
+
+\chapter{Systèmes d'équations linéaires et élimination de Gauss}\label{ch:systemes-lineaires}
+
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+
+Les systèmes d'équations linéaires\index{système linéaire} apparaissent
+dans pratiquement tous les domaines des mathématiques appliquées et des
+sciences. En physique, l'analyse des circuits électriques conduit à des
+systèmes linéaires via les lois de Kirchhoff\index{Kirchhoff (lois de)}~;
+en économie, les modèles d'équilibre de Leontief\index{Leontief (modèle de)}
+se ramènent à la résolution d'un système $A\vec{x}=\vec{b}$~; en
+informatique, les moteurs de recherche, la compression d'images et
+l'apprentissage automatique reposent tous, in fine, sur la résolution
+efficace de systèmes linéaires de grande taille.
+
+\medskip
+
+Ce chapitre introduit un outil fondamental pour l'étude de ces systèmes~:
+l'\emph{élimination de Gauss}\index{élimination de Gauss}, un algorithme
+systématique qui ramène tout système linéaire à une forme échelonnée
+facile à résoudre. Nous établirons le lien entre le rang d'une matrice et
+l'existence de solutions (théorème de Rouché--Capelli), et nous montrerons
+que l'ensemble des solutions d'un système linéaire possède une structure
+géométrique précise~: c'est un sous-espace affine.
+
+\medskip
+
+\begin{center}
+\begin{tikzpicture}[scale=1.1, >=Stealth]
+  % Système 2x2 : intersection de deux droites
+  \begin{scope}
+    \draw[->] (-0.5,0) -- (4.2,0) node[right] {$x_1$};
+    \draw[->] (0,-0.5) -- (0,3.7) node[above] {$x_2$};
+    % Droite 1: x1 + x2 = 3  =>  x2 = 3 - x1
+    \draw[thick, blue!70!black, domain=0:3.5] plot (\x, {3 - \x})
+      node[right, font=\small] {$x_1+x_2=3$};
+    % Droite 2: 2x1 - x2 = 0  =>  x2 = 2*x1
+    \draw[thick, red!70!black, domain=0:1.8] plot (\x, {2*\x})
+      node[right, font=\small] {$2x_1-x_2=0$};
+    % Intersection
+    \filldraw[black] (1,2) circle (2pt) node[above right, font=\small] {$(1,2)$};
+    \node[below, font=\small] at (2,-0.8) {Système compatible déterminé};
+  \end{scope}
+  % Système 2x2 : droites parallèles (incompatible)
+  \begin{scope}[xshift=6.5cm]
+    \draw[->] (-0.5,0) -- (4.2,0) node[right] {$x_1$};
+    \draw[->] (0,-0.5) -- (0,3.7) node[above] {$x_2$};
+    % Droite 1: x1 + x2 = 2
+    \draw[thick, blue!70!black, domain=0:2.5] plot (\x, {2 - \x})
+      node[right, font=\small] {$x_1+x_2=2$};
+    % Droite 2: x1 + x2 = 4
+    \draw[thick, red!70!black, domain=0:3.8] plot (\x, {4 - \x})
+      node[right, font=\small] {$x_1+x_2=4$};
+    \node[below, font=\small] at (2,-0.8) {Système incompatible};
+  \end{scope}
+\end{tikzpicture}
+\captionof{figure}{Interprétation géométrique d'un système de deux équations à deux inconnues~: solution unique (gauche) ou absence de solution (droite).}
+\label{fig:systemes-2x2-intro}
+\end{center}
+
+% ============================================================
+\section{Systèmes d'équations linéaires}\label{sec:systemes-def}
+% ============================================================
+
+\subsection{Définition et notation}\label{subsec:systemes-notation}
+
+\begin{definition}{Système d'équations linéaires}{def:systeme-lineaire}
+  Un \emph{système de $m$ équations linéaires à $n$ inconnues}\index{système linéaire!définition}
+  sur un corps $\K$ est un ensemble d'équations de la forme~:
+  \begin{equation}\label{eq:systeme-general}
+    \left\{
+    \begin{aligned}
+      a_{11}x_1 + a_{12}x_2 + \cdots + a_{1n}x_n &= b_1,\\
+      a_{21}x_1 + a_{22}x_2 + \cdots + a_{2n}x_n &= b_2,\\
+      &\;\,\vdots\\
+      a_{m1}x_1 + a_{m2}x_2 + \cdots + a_{mn}x_n &= b_m,
+    \end{aligned}
+    \right.
+  \end{equation}
+  où les \emph{coefficients} $a_{ij}\in\K$ et les \emph{seconds membres}
+  $b_i\in\K$ sont donnés, et les $x_j$ sont les \emph{inconnues}.
+\end{definition}
+
+\subsection{Écriture matricielle}\label{subsec:ecriture-matricielle}
+
+Le système~\eqref{eq:systeme-general} se réécrit de manière compacte
+sous la forme
+\begin{equation}\label{eq:Axb}
+  A\vec{x}=\vec{b},
+\end{equation}
+où
+\[
+  A = \begin{pmatrix}
+    a_{11} & a_{12} & \cdots & a_{1n}\\
+    a_{21} & a_{22} & \cdots & a_{2n}\\
+    \vdots & \vdots & \ddots & \vdots\\
+    a_{m1} & a_{m2} & \cdots & a_{mn}
+  \end{pmatrix}\in\Mat_{m,n}(\K),\qquad
+  \vec{x} = \begin{pmatrix}x_1\\\vdots\\x_n\end{pmatrix}\in\K^n,\qquad
+  \vec{b} = \begin{pmatrix}b_1\\\vdots\\b_m\end{pmatrix}\in\K^m.
+\]
+La matrice $A$ est la \emph{matrice des coefficients}\index{matrice!des coefficients}
+du système. La \emph{matrice augmentée}\index{matrice!augmentée} est la
+matrice $(A\mid\vec{b})\in\Mat_{m,n+1}(\K)$ obtenue en juxtaposant $\vec{b}$
+comme colonne supplémentaire~:
+\begin{equation}\label{eq:matrice-augmentee}
+  (A\mid\vec{b}) = \left(\begin{array}{cccc|c}
+    a_{11} & a_{12} & \cdots & a_{1n} & b_1\\
+    a_{21} & a_{22} & \cdots & a_{2n} & b_2\\
+    \vdots & \vdots & \ddots & \vdots & \vdots\\
+    a_{m1} & a_{m2} & \cdots & a_{mn} & b_m
+  \end{array}\right).
+\end{equation}
+
+\begin{definition}{Solution d'un système}{def:solution-systeme}
+  Un vecteur $\vec{s}=(s_1,\ldots,s_n)\in\K^n$ est une \emph{solution}%
+  \index{solution d'un système} du système~\eqref{eq:Axb} si $A\vec{s}=\vec{b}$.
+  L'\emph{ensemble des solutions}\index{ensemble des solutions} est
+  \[
+    \cS \deff \setcond{\vec{x}\in\K^n}{A\vec{x}=\vec{b}}.
+  \]
+  Le système est dit \emph{compatible}\index{système linéaire!compatible}
+  (ou \emph{consistant}) si $\cS\neq\varnothing$, et
+  \emph{incompatible}\index{système linéaire!incompatible} sinon.
+\end{definition}
+
+\subsection{Systèmes homogènes et non homogènes}\label{subsec:homogene-non}
+
+\begin{definition}{Système homogène}{def:systeme-homogene}
+  Le système~\eqref{eq:Axb} est dit \emph{homogène}\index{système linéaire!homogène}
+  si $\vec{b}=\vzero$, c'est-à-dire si toutes les constantes du second
+  membre sont nulles. Le système homogène associé à~\eqref{eq:Axb} est~:
+  \begin{equation}\label{eq:systeme-homogene}
+    A\vec{x}=\vzero.
+  \end{equation}
+\end{definition}
+
+\begin{remark}{Compatibilité d'un système homogène}{rem:homogene-compatible}
+  Un système homogène est toujours compatible car $\vec{x}=\vzero$ est
+  solution. Cette solution est dite \emph{triviale}\index{solution!triviale}.
+  La question est donc de savoir s'il existe des solutions
+  \emph{non triviales}.
+\end{remark}
+
+\begin{proposition}{Solutions d'un système homogène}{prop:sol-homogene-sev}
+  L'ensemble des solutions du système homogène $A\vec{x}=\vzero$ est un
+  sous-espace vectoriel\index{sous-espace vectoriel} de $\K^n$. C'est
+  exactement le noyau $\Ker(A)$ de l'application linéaire
+  $\vec{x}\mapsto A\vec{x}$.
+\end{proposition}
+
+\begin{proof}
+  Posons $f\colon\K^n\to\K^m$, $\vec{x}\mapsto A\vec{x}$. L'application
+  $f$ est linéaire (cf.~ef{ch:applications-lineaires}). L'ensemble des
+  solutions de $A\vec{x}=\vzero$ est $\Ker(f)$, qui est un sous-espace
+  vectoriel de $\K^n$ d'après la ef{ch:applications-lineaires}.
+\end{proof}
+
+% ============================================================
+\section{Opérations élémentaires sur les lignes}\label{sec:operations-elementaires}
+% ============================================================
+
+L'idée clé de l'élimination de Gauss est de transformer un système en un
+système \emph{équivalent} (c'est-à-dire ayant le même ensemble de solutions)
+mais de forme plus simple. Les transformations autorisées sont les
+\emph{opérations élémentaires sur les lignes}\index{opérations élémentaires}.
+
+\begin{definition}{Opérations élémentaires sur les lignes}{def:ops-elem}
+  Soit $M\in\Mat_{m,n}(\K)$. On appelle \emph{opérations élémentaires
+  sur les lignes}\index{opérations élémentaires!sur les lignes} les trois
+  types de transformations suivants~:
+  \begin{enumerate}[label=(\roman*)]
+    \item \textbf{Échange de deux lignes~:}\index{échange de lignes}
+      $L_i \leftrightarrow L_j$ \quad ($i\neq j$).
+    \item \textbf{Multiplication d'une ligne par un scalaire non nul~:}%
+      \index{multiplication d'une ligne}
+      $L_i \leftarrow \lambda L_i$ \quad ($\lambda\in\K^{*}$).
+    \item \textbf{Ajout d'un multiple d'une ligne à une autre~:}%
+      \index{combinaison de lignes}
+      $L_i \leftarrow L_i + \lambda L_j$ \quad ($\lambda\in\K$, $i\neq j$).
+  \end{enumerate}
+\end{definition}
+
+\begin{proposition}{Conservation de l'ensemble des solutions}{prop:ops-elem-equiv}
+  Les opérations élémentaires sur les lignes ne modifient pas l'ensemble
+  des solutions du système linéaire. Autrement dit, si la matrice augmentée
+  $(A'\mid\vec{b}')$ est obtenue à partir de $(A\mid\vec{b})$ par une suite
+  d'opérations élémentaires, alors les systèmes $A\vec{x}=\vec{b}$ et
+  $A'\vec{x}=\vec{b}'$ ont le même ensemble de solutions.
+\end{proposition}
+
+\begin{proof}
+  Chaque opération élémentaire correspond à la multiplication à gauche par
+  une matrice inversible\index{matrice!inversible} $E\in\GL_{m}(\K)$ (matrice
+  élémentaire). Ainsi $A'\vec{x}=\vec{b}'$ s'écrit $EA\vec{x}=E\vec{b}$.
+  Comme $E$ est inversible, $EA\vec{x}=E\vec{b}$ si et seulement si
+  $A\vec{x}=\vec{b}$ (il suffit de multiplier à gauche par $\inv{E}$).
+  Par composition, toute suite finie d'opérations élémentaires préserve
+  l'ensemble des solutions.
+\end{proof}
+
+\begin{example}{Matrices élémentaires}{ex:matrices-elem}
+  Dans $\Mat_{3,3}(\R)$, les trois types de matrices élémentaires sont~:
+  \[
+    E_{L_1\leftrightarrow L_2}=\begin{pmatrix}0&1&0\\1&0&0\\0&0&1\end{pmatrix},\qquad
+    E_{L_2\leftarrow 3L_2}=\begin{pmatrix}1&0&0\\0&3&0\\0&0&1\end{pmatrix},\qquad
+    E_{L_3\leftarrow L_3+2L_1}=\begin{pmatrix}1&0&0\\0&1&0\\2&0&1\end{pmatrix}.
+  \]
+  Chacune est inversible~; par exemple,
+  $\inv{E}_{L_3\leftarrow L_3+2L_1}=E_{L_3\leftarrow L_3-2L_1}$.
+\end{example}
+
+% ============================================================
+\section{Forme échelonnée et forme échelonnée réduite}\label{sec:echelon}
+% ============================================================
+
+\begin{definition}{Pivot}{def:pivot}
+  Soit $M=(m_{ij})$ une matrice. Pour une ligne $L_i$ non nulle, le
+  \emph{pivot}\index{pivot} de $L_i$ est le premier coefficient non nul de
+  cette ligne, c'est-à-dire $m_{ij}$ où $j=\min\setcond{k}{m_{ik}\neq 0}$.
+\end{definition}
+
+\begin{definition}{Forme échelonnée (en lignes)}{def:forme-echelonnee}
+  Une matrice est sous \emph{forme échelonnée}\index{forme échelonnée}
+  (ou \emph{forme échelonnée en lignes}, \emph{row echelon form}) si~:
+  \begin{enumerate}[label=(\roman*)]
+    \item toutes les lignes nulles sont en bas de la matrice~;
+    \item le pivot de chaque ligne non nulle est strictement à droite du
+      pivot de la ligne précédente.
+  \end{enumerate}
+  Si, de plus~:
+  \begin{enumerate}[label=(\roman*),resume]
+    \item chaque pivot vaut~$1$~;
+    \item chaque pivot est le seul élément non nul de sa colonne~;
+  \end{enumerate}
+  la matrice est sous \emph{forme échelonnée réduite}\index{forme échelonnée réduite}
+  (\emph{reduced row echelon form}, abrégée RREF\index{RREF}).
+\end{definition}
+
+\begin{example}{Formes échelonnées}{ex:formes-echelonnees}
+  La matrice suivante est sous forme échelonnée (les pivots sont encadrés)~:
+  \[
+    \begin{pmatrix}
+      \boxed{2} & 3 & -1 & 7\\
+      0 & \boxed{1} & 4 & 2\\
+      0 & 0 & 0 & \boxed{5}\\
+      0 & 0 & 0 & 0
+    \end{pmatrix}.
+  \]
+  La forme échelonnée réduite correspondante est~:
+  \[
+    \begin{pmatrix}
+      \boxed{1} & 0 & -13 & 0\\
+      0 & \boxed{1} & 4 & 0\\
+      0 & 0 & 0 & \boxed{1}\\
+      0 & 0 & 0 & 0
+    \end{pmatrix}.
+  \]
+\end{example}
+
+\begin{theorem}{Unicité de la forme échelonnée réduite}{thm:unicite-rref}
+  Toute matrice $A\in\Mat_{m,n}(\K)$ est équivalente par lignes à une
+  unique matrice sous forme échelonnée réduite.
+\end{theorem}
+
+\begin{proof}
+  \emph{Existence.} L'algorithme de Gauss--Jordan (ef{sec:gauss-jordan})
+  produit une forme échelonnée réduite en un nombre fini d'opérations
+  élémentaires.
+
+  \emph{Unicité.} Soient $R$ et $R'$ deux formes échelonnées réduites
+  de~$A$, de sorte que $R=PA$ et $R'=QA$ pour des matrices inversibles $P$
+  et $Q$. Comme $R$ et $R'$ sont équivalentes par lignes, il existe $S$
+  inversible telle que $R'=SR$. Montrons que $R=R'$.
+
+  Les colonnes pivots de $R$ et $R'$ sont identiques~: en effet, la colonne
+  $j$ de $R$ (resp.~$R'$) est une colonne pivot si et seulement si elle
+  n'est pas combinaison linéaire des colonnes précédentes de $R$
+  (resp.~$R'$), propriété qui ne dépend que de l'espace des colonnes, lequel
+  est le même pour $R$ et $R'$ (car elles sont équivalentes par lignes et
+  l'espace des lignes est préservé, ce qui entraîne que les relations de
+  dépendance entre colonnes sont identiques).
+
+  Notons $j_1<j_2<\cdots<j_r$ les indices des colonnes pivots communs.
+  Pour $k=1,\ldots,r$, la colonne $j_k$ de $R$ est le vecteur $\vece{k}$
+  de $\R^m$ (vecteur avec $1$ en position $k$ et $0$ ailleurs), et de même
+  pour $R'$. Pour une colonne non pivot $j$, les coefficients de la colonne
+  $j$ dans $R$ sont déterminés de façon unique par les relations de
+  dépendance linéaire entre les colonnes de $A$, qui sont les mêmes pour
+  $R$ et $R'$. Donc $R=R'$.
+\end{proof}
+
+% ============================================================
+\section{Élimination de Gauss}\label{sec:gauss}
+% ============================================================
+
+L'\emph{élimination de Gauss}\index{élimination de Gauss} (ou
+\emph{méthode du pivot de Gauss}\index{pivot de Gauss}) est un algorithme
+qui transforme la matrice augmentée $(A\mid\vec{b})$ en une forme
+échelonnée par des opérations élémentaires sur les lignes.
+
+\subsection{Algorithme}\label{subsec:algo-gauss}
+
+\begin{enumerate}[label=\textbf{Étape \arabic*.},leftmargin=*]
+  \item\label{step:gauss-pivot} \textbf{Choix du pivot.} On considère la
+    colonne la plus à gauche qui contient un élément non nul sous la ligne
+    courante (ou sur cette ligne). Si un tel élément se trouve sur une ligne
+    $L_k$ avec $k>i$ (où $i$ est la ligne courante), on effectue l'échange
+    $L_i\leftrightarrow L_k$.
+  \item\label{step:gauss-elim} \textbf{Élimination.} Pour chaque ligne
+    $L_j$ avec $j>i$, on effectue
+    $L_j\leftarrow L_j - \frac{a_{ji}}{a_{ii}}L_i$,
+    ce qui annule le coefficient en position $(j,i)$.
+  \item\label{step:gauss-iter} \textbf{Itération.} On passe à la ligne
+    suivante $i\leftarrow i+1$ et on recommence à l'étape~\ref{step:gauss-pivot}
+    tant qu'il reste des lignes et des colonnes à traiter.
+\end{enumerate}
+
+Le résultat est une matrice sous forme échelonnée. On résout alors le
+système par \emph{substitution arrière}\index{substitution arrière}
+(\emph{back substitution}).
+
+\subsection{Exemple détaillé}\label{subsec:ex-gauss}
+
+\begin{example}{Élimination de Gauss sur un système $3\times 3$}{ex:gauss-3x3}
+  Résolvons le système~:
+  \[
+    \left\{
+    \begin{aligned}
+      2x_1 + x_2 - x_3 &= 8,\\
+      -3x_1 - x_2 + 2x_3 &= -11,\\
+      -2x_1 + x_2 + 2x_3 &= -3.
+    \end{aligned}
+    \right.
+  \]
+  Matrice augmentée~:
+  \[
+    \left(\begin{array}{ccc|c}
+      2 & 1 & -1 & 8\\
+      -3 & -1 & 2 & -11\\
+      -2 & 1 & 2 & -3
+    \end{array}\right).
+  \]
+
+  \textbf{Étape 1~:} $L_2\leftarrow L_2+\frac{3}{2}L_1$,\quad
+  $L_3\leftarrow L_3+L_1$~:
+  \[
+    \left(\begin{array}{ccc|c}
+      2 & 1 & -1 & 8\\[3pt]
+      0 & \frac{1}{2} & \frac{1}{2} & 1\\[3pt]
+      0 & 2 & 1 & 5
+    \end{array}\right).
+  \]
+
+  \textbf{Étape 2~:} $L_3\leftarrow L_3-4L_2$~:
+  \[
+    \left(\begin{array}{ccc|c}
+      2 & 1 & -1 & 8\\[3pt]
+      0 & \frac{1}{2} & \frac{1}{2} & 1\\[3pt]
+      0 & 0 & -1 & 1
+    \end{array}\right).
+  \]
+
+  \textbf{Substitution arrière~:}
+  \begin{itemize}
+    \item $L_3$~: $-x_3=1$, d'où $x_3=-1$.
+    \item $L_2$~: $\frac{1}{2}x_2+\frac{1}{2}(-1)=1$, d'où $x_2=3$.
+    \item $L_1$~: $2x_1+3-(-1)=8$, d'où $x_1=2$.
+  \end{itemize}
+  L'unique solution est $(x_1,x_2,x_3)=(2,3,-1)$.
+\end{example}
+
+\begin{example}{Système avec infinité de solutions}{ex:gauss-infini}
+  Résolvons~:
+  \[
+    \left\{
+    \begin{aligned}
+      x_1 - 2x_2 + x_3 &= 0,\\
+      2x_1 + x_2 - x_3 &= 3,\\
+      4x_1 - 3x_2 + x_3 &= 3.
+    \end{aligned}
+    \right.
+  \]
+  Matrice augmentée~:
+  \[
+    \left(\begin{array}{ccc|c}
+      1 & -2 & 1 & 0\\
+      2 & 1 & -1 & 3\\
+      4 & -3 & 1 & 3
+    \end{array}\right)
+    \xrightarrow{L_2\leftarrow L_2-2L_1}
+    \left(\begin{array}{ccc|c}
+      1 & -2 & 1 & 0\\
+      0 & 5 & -3 & 3\\
+      4 & -3 & 1 & 3
+    \end{array}\right)
+    \xrightarrow{L_3\leftarrow L_3-4L_1}
+    \left(\begin{array}{ccc|c}
+      1 & -2 & 1 & 0\\
+      0 & 5 & -3 & 3\\
+      0 & 5 & -3 & 3
+    \end{array}\right).
+  \]
+  Puis $L_3\leftarrow L_3-L_2$~:
+  \[
+    \left(\begin{array}{ccc|c}
+      1 & -2 & 1 & 0\\
+      0 & 5 & -3 & 3\\
+      0 & 0 & 0 & 0
+    \end{array}\right).
+  \]
+  On a deux pivots et trois inconnues~: $x_3$ est une variable libre.
+  En posant $x_3=t\in\R$~:
+  \[
+    x_2=\frac{3+3t}{5},\qquad
+    x_1=2\cdot\frac{3+3t}{5}-t=\frac{6+6t-5t}{5}=\frac{6+t}{5}.
+  \]
+  L'ensemble des solutions est~:
+  \[
+    \cS=\setcond{\frac{1}{5}\begin{pmatrix}6\\3\\0\end{pmatrix}
+      +t\,\frac{1}{5}\begin{pmatrix}1\\3\\5\end{pmatrix}}{t\in\R}
+    =\set{\vec{x}_p+t\,\vec{v}\mid t\in\R},
+  \]
+  qui est une droite affine de $\R^3$.
+\end{example}
+
+% ============================================================
+\section{Élimination de Gauss--Jordan}\label{sec:gauss-jordan}
+% ============================================================
+
+L'\emph{élimination de Gauss--Jordan}\index{élimination de Gauss--Jordan}
+prolonge l'élimination de Gauss pour obtenir la forme échelonnée réduite
+(RREF). Après avoir obtenu une forme échelonnée par l'algorithme de Gauss,
+on effectue les étapes supplémentaires suivantes~:
+
+\begin{enumerate}[label=\textbf{Étape \arabic*.},leftmargin=*]
+  \item\label{step:gj-norm} \textbf{Normalisation des pivots.} Pour chaque
+    ligne non nulle $L_i$ de pivot $a_{ij}$, on effectue
+    $L_i\leftarrow\frac{1}{a_{ij}}L_i$ pour rendre le pivot égal à~$1$.
+  \item\label{step:gj-elim-haut} \textbf{Élimination vers le haut.}
+    En partant du dernier pivot et en remontant, pour chaque pivot en
+    position $(i,j)$, on annule tous les coefficients au-dessus du pivot~:
+    $L_k\leftarrow L_k-a_{kj}L_i$ pour $k<i$.
+\end{enumerate}
+
+\begin{example}{Gauss--Jordan complet}{ex:gauss-jordan}
+  Reprenons la matrice échelonnée de l'ef{ex:ex:gauss-3x3}~:
+  \[
+    \left(\begin{array}{ccc|c}
+      2 & 1 & -1 & 8\\[3pt]
+      0 & \frac{1}{2} & \frac{1}{2} & 1\\[3pt]
+      0 & 0 & -1 & 1
+    \end{array}\right).
+  \]
+  \textbf{Normalisation~:}
+  $L_1\leftarrow\frac{1}{2}L_1$, $L_2\leftarrow 2L_2$,
+  $L_3\leftarrow -L_3$~:
+  \[
+    \left(\begin{array}{ccc|c}
+      1 & \frac{1}{2} & -\frac{1}{2} & 4\\[3pt]
+      0 & 1 & 1 & 2\\[3pt]
+      0 & 0 & 1 & -1
+    \end{array}\right).
+  \]
+  \textbf{Élimination vers le haut~:}
+  $L_2\leftarrow L_2-L_3$, puis $L_1\leftarrow L_1+\frac{1}{2}L_3$,
+  puis $L_1\leftarrow L_1-\frac{1}{2}L_2$~:
+  \[
+    \left(\begin{array}{ccc|c}
+      1 & 0 & 0 & 2\\
+      0 & 1 & 0 & 3\\
+      0 & 0 & 1 & -1
+    \end{array}\right).
+  \]
+  On lit directement la solution~: $(x_1,x_2,x_3)=(2,3,-1)$.
+\end{example}
+
+% ============================================================
+\section{Rang d'une matrice}\label{sec:rang-ch3}
+% ============================================================
+
+\begin{definition}{Rang d'une matrice}{def:rang-ch3}
+  Le \emph{rang}\index{rang} d'une matrice $A\in\Mat_{m,n}(\K)$, noté
+  $\rg(A)$, est le nombre de pivots dans toute forme échelonnée de $A$.
+  De manière équivalente~:
+  \begin{enumerate}[label=(\roman*)]
+    \item $\rg(A)$ est la dimension de l'espace vectoriel engendré par les
+      lignes de $A$ (rang ligne)\index{rang!ligne}~;
+    \item $\rg(A)$ est la dimension de l'espace vectoriel engendré par les
+      colonnes de $A$ (rang colonne)\index{rang!colonne}~;
+    \item $\rg(A)=\dim(\im(f))$, où $f\colon\K^n\to\K^m$,
+      $\vec{x}\mapsto A\vec{x}$.
+  \end{enumerate}
+\end{definition}
+
+\begin{remark}{Rang ligne = rang colonne}{rem:rang-egal}
+  L'égalité entre le rang ligne et le rang colonne est un résultat
+  fondamental. On l'établit en remarquant que les opérations élémentaires
+  sur les lignes ne changent pas les relations de dépendance linéaire entre
+  les colonnes, et que dans une forme échelonnée, les colonnes pivots
+  forment une famille libre de cardinal égal au nombre de lignes non nulles.
+\end{remark}
+
+\begin{proposition}{Propriétés du rang}{prop:proprietes-rang}
+  Soit $A\in\Mat_{m,n}(\K)$. Alors~:
+  \begin{enumerate}[label=(\roman*)]
+    \item $0\leqslant\rg(A)\leqslant\min(m,n)$.
+    \item $\rg(A)=\rg(\transpose{A})$.
+    \item Si $P\in\GL_m(\K)$ et $Q\in\GL_n(\K)$, alors $\rg(PAQ)=\rg(A)$.
+    \item Pour $A$ carrée d'ordre $n$~: $A$ est inversible si et seulement
+      si $\rg(A)=n$.
+  \end{enumerate}
+\end{proposition}
+
+\begin{proof}
+  (i) est immédiat. (ii) découle de l'égalité rang ligne = rang colonne.
+  (iii)~: la multiplication à gauche par $P$ inversible correspond à des
+  opérations élémentaires sur les lignes (qui ne changent pas le rang), et
+  la multiplication à droite par $Q$ inversible correspond à des opérations
+  élémentaires sur les colonnes (qui ne changent pas le rang non plus).
+  (iv)~: $A$ est inversible si et seulement si sa forme échelonnée réduite
+  est $I_n$, c'est-à-dire si et seulement si elle a $n$ pivots.
+\end{proof}
+
+% ============================================================
+\section{Théorème de Rouché--Capelli}\label{sec:rouche-capelli}
+% ============================================================
+
+Le théorème suivant, connu sous le nom de \emph{théorème de
+Rouché--Capelli}\index{Rouché--Capelli (théorème de)} (ou
+\emph{Kronecker--Capelli}\index{Kronecker--Capelli (théorème de)} dans
+la tradition allemande), fournit le critère fondamental d'existence de
+solutions.
+
+\begin{theorem}{Théorème de Rouché--Capelli}{thm:rouche-capelli}
+  Soit $A\vec{x}=\vec{b}$ un système linéaire avec $A\in\Mat_{m,n}(\K)$
+  et $\vec{b}\in\K^m$. Alors~:
+  \begin{enumerate}[label=(\roman*)]
+    \item Le système est compatible si et seulement si
+      $\rg(A)=\rg(A\mid\vec{b})$.
+    \item Lorsque le système est compatible, la dimension de l'ensemble des
+      solutions du système homogène associé $A\vec{x}=\vzero$ est
+      $n-\rg(A)$.
+    \item En particulier, la solution est unique si et seulement si
+      $\rg(A)=n$.
+  \end{enumerate}
+\end{theorem}
+
+\begin{proof}
+  \emph{(i)} Le système $A\vec{x}=\vec{b}$ est compatible si et seulement
+  si $\vec{b}$ appartient à l'espace des colonnes de $A$, c'est-à-dire si
+  $\vec{b}\in\im(A)$. Or $\vec{b}\in\im(A)$ si et seulement si l'ajout de
+  $\vec{b}$ comme colonne supplémentaire ne change pas la dimension de
+  l'espace des colonnes, c'est-à-dire
+  $\rg(A\mid\vec{b})=\rg(A)$.
+
+  Inversement, si $\vec{b}\notin\im(A)$, alors $\vec{b}$ est linéairement
+  indépendant de l'espace des colonnes de $A$, et
+  $\rg(A\mid\vec{b})=\rg(A)+1>\rg(A)$.
+
+  \emph{(ii)} Posons $r=\rg(A)$ et considérons l'application linéaire
+  $f\colon\K^n\to\K^m$, $\vec{x}\mapsto A\vec{x}$. On a $\im(f)$
+  de dimension $r$, et le théorème du rang
+  (cf.~ef{ch:applications-lineaires}) donne~:
+  \[
+    \dim(\Ker(f))=n-\dim(\im(f))=n-r.
+  \]
+  Or $\Ker(f)$ est exactement l'ensemble des solutions du système homogène.
+
+  \emph{(iii)} La solution est unique si et seulement si l'ensemble des
+  solutions du système homogène est réduit à $\set{\vzero}$, c'est-à-dire
+  $\dim(\Ker(f))=0$, ce qui équivaut à $r=n$.
+\end{proof}
+
+\begin{corollary}{Nombre de paramètres libres}{cor:params-libres}
+  Si le système $A\vec{x}=\vec{b}$ ($A\in\Mat_{m,n}(\K)$) est compatible,
+  l'ensemble des solutions est paramétré par $n-\rg(A)$ paramètres libres.
+\end{corollary}
+
+% ============================================================
+\section{Structure de l'ensemble des solutions}\label{sec:structure-solutions}
+% ============================================================
+
+\begin{theorem}{Structure affine des solutions}{thm:structure-solutions}
+  Soit $A\vec{x}=\vec{b}$ un système linéaire compatible, et soit
+  $\vec{x}_p$ une solution particulière. Alors l'ensemble des solutions
+  est le sous-espace affine\index{sous-espace affine}~:
+  \begin{equation}\label{eq:structure-sol}
+    \cS = \vec{x}_p + \Ker(A) = \setcond{\vec{x}_p+\vec{h}}{\vec{h}\in\Ker(A)}.
+  \end{equation}
+  Autrement dit, toute solution $\vec{x}$ du système s'écrit de manière
+  unique~:
+  \[
+    \vec{x} = \vec{x}_p + \vec{x}_h,
+  \]
+  où $\vec{x}_p$ est une solution particulière de $A\vec{x}=\vec{b}$ et
+  $\vec{x}_h$ est une solution du système homogène $A\vec{x}=\vzero$.
+\end{theorem}
+
+\begin{proof}
+  Montrons la double inclusion.
+
+  \emph{($\supseteq$)} Soit $\vec{h}\in\Ker(A)$. Alors
+  $A(\vec{x}_p+\vec{h})=A\vec{x}_p+A\vec{h}=\vec{b}+\vzero=\vec{b}$,
+  donc $\vec{x}_p+\vec{h}\in\cS$.
+
+  \emph{($\subseteq$)} Soit $\vec{x}\in\cS$. Posons
+  $\vec{h}=\vec{x}-\vec{x}_p$. Alors
+  $A\vec{h}=A\vec{x}-A\vec{x}_p=\vec{b}-\vec{b}=\vzero$, donc
+  $\vec{h}\in\Ker(A)$, et $\vec{x}=\vec{x}_p+\vec{h}\in\vec{x}_p+\Ker(A)$.
+
+  \emph{Unicité de la décomposition.} Si $\vec{x}=\vec{x}_p+\vec{h}_1=
+  \vec{x}_p+\vec{h}_2$ avec $\vec{h}_1,\vec{h}_2\in\Ker(A)$, alors
+  $\vec{h}_1=\vec{h}_2$.
+\end{proof}
+
+\begin{remark}{Interprétation géométrique}{rem:interpretation-geom-sol}
+  Le ef{thm:thm:structure-solutions} dit que l'ensemble des solutions
+  est une \og copie translatée\fg{} du noyau de $A$. En dimension finie~:
+  \begin{itemize}
+    \item Si $\rg(A)=n$~: $\cS=\set{\vec{x}_p}$ est un point.
+    \item Si $\rg(A)=n-1$~: $\cS$ est une droite affine.
+    \item Si $\rg(A)=n-2$~: $\cS$ est un plan affine.
+    \item En général~: $\cS$ est un sous-espace affine de dimension
+      $n-\rg(A)$.
+  \end{itemize}
+\end{remark}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[scale=0.9, >=Stealth, 3d view={115}{25}]
+  % Plan homogène passant par l'origine
+  \filldraw[blue!15, opacity=0.6]
+    (-2,-2,0) -- (2,-2,0) -- (2,2,0) -- (-2,2,0) -- cycle;
+  \node[blue!70!black, font=\small] at (2.3,1.5,0) {$\Ker(A)$};
+
+  % Plan affine (translaté)
+  \filldraw[red!15, opacity=0.6]
+    (-2,-2,2) -- (2,-2,2) -- (2,2,2) -- (-2,2,2) -- cycle;
+  \node[red!70!black, font=\small] at (2.3,1.5,2) {$\vec{x}_p+\Ker(A)$};
+
+  % Vecteur xp
+  \draw[->, thick, black!60!green] (0,0,0) -- (0,0,2)
+    node[midway, right, font=\small] {$\vec{x}_p$};
+
+  % Origine
+  \filldraw[black] (0,0,0) circle (1.5pt) node[below left, font=\small] {$\vzero$};
+  \filldraw[black!60!green] (0,0,2) circle (1.5pt) node[above left, font=\small] {$\vec{x}_p$};
+\end{tikzpicture}
+\caption{L'ensemble des solutions $\cS=\vec{x}_p+\Ker(A)$ est un translaté du noyau.}
+\label{fig:structure-solutions}
+\end{figure}
+
+% ============================================================
+\section{Représentation paramétrique des solutions}\label{sec:parametrique}
+% ============================================================
+
+Lorsqu'un système compatible admet des variables libres, on exprime les
+\emph{variables liées}\index{variable!liée} (correspondant aux colonnes
+pivots) en fonction des \emph{variables libres}\index{variable!libre}
+(correspondant aux colonnes non pivots).
+
+\begin{example}{Représentation paramétrique}{ex:param-sol}
+  Considérons le système de rang $2$ à $4$ inconnues~:
+  \[
+    \left(\begin{array}{cccc|c}
+      1 & 2 & 0 & -1 & 3\\
+      0 & 0 & 1 & 3 & -2
+    \end{array}\right).
+  \]
+  Les colonnes pivots sont les colonnes $1$ et $3$~; les variables libres
+  sont $x_2$ et $x_4$. En posant $x_2=s$, $x_4=t$~:
+  \[
+    \vec{x}=\begin{pmatrix}3-2s+t\\s\\-2-3t\\t\end{pmatrix}
+    =\underbrace{\begin{pmatrix}3\\0\\-2\\0\end{pmatrix}}_{\vec{x}_p}
+    +s\underbrace{\begin{pmatrix}-2\\1\\0\\0\end{pmatrix}}_{\vec{v}_1}
+    +t\underbrace{\begin{pmatrix}1\\0\\-3\\1\end{pmatrix}}_{\vec{v}_2},
+    \qquad s,t\in\K.
+  \]
+  Les vecteurs $\vec{v}_1$ et $\vec{v}_2$ forment une base de $\Ker(A)$,
+  et $\cS$ est un plan affine de $\K^4$.
+\end{example}
+
+% ============================================================
+\section{Interprétation géométrique}\label{sec:interpretation-geom}
+% ============================================================
+
+\subsection{Systèmes \texorpdfstring{$2\times 2$}{2x2}}\label{subsec:geom-2x2}
+
+Chaque équation linéaire en deux inconnues $a_1 x_1+a_2 x_2=b$ définit
+une droite\index{droite} dans $\R^2$. Un système de deux équations
+correspond à l'intersection de deux droites~:
+\begin{itemize}
+  \item \textbf{Un point} si les droites sont sécantes ($\rg(A)=2$).
+  \item \textbf{Une droite} si les droites sont confondues ($\rg(A)=1$
+    et $\rg(A\mid\vec{b})=1$).
+  \item \textbf{L'ensemble vide} si les droites sont parallèles
+    distinctes ($\rg(A)=1$ et $\rg(A\mid\vec{b})=2$).
+\end{itemize}
+
+\subsection{Systèmes \texorpdfstring{$3\times 3$}{3x3}}\label{subsec:geom-3x3}
+
+Chaque équation linéaire en trois inconnues définit un plan\index{plan}
+dans $\R^3$. Un système de trois équations correspond à l'intersection de
+trois plans.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[scale=1.0, >=Stealth, 3d view={115}{20}]
+  % Plan 1
+  \filldraw[blue!20, opacity=0.5]
+    (-2,-2,{-2*0.5+(-2)*0.3+1}) -- (2,-2,{2*0.5+(-2)*0.3+1})
+    -- (2,2,{2*0.5+2*0.3+1}) -- (-2,2,{-2*0.5+2*0.3+1}) -- cycle;
+  \node[blue!70!black, font=\footnotesize] at (2.3,2,{2*0.5+2*0.3+1}) {$\pi_1$};
+  % Plan 2
+  \filldraw[red!20, opacity=0.5]
+    (-2,-2,{-2*(-0.3)+(-2)*0.7+0.5}) -- (2,-2,{2*(-0.3)+(-2)*0.7+0.5})
+    -- (2,2,{2*(-0.3)+2*0.7+0.5}) -- (-2,2,{-2*(-0.3)+2*0.7+0.5}) -- cycle;
+  \node[red!70!black, font=\footnotesize] at (2.3,2,{2*(-0.3)+2*0.7+0.5}) {$\pi_2$};
+  % Plan 3
+  \filldraw[green!20, opacity=0.5]
+    (-2,-2,{-2*0.2+(-2)*(-0.4)+2}) -- (2,-2,{2*0.2+(-2)*(-0.4)+2})
+    -- (2,2,{2*0.2+2*(-0.4)+2}) -- (-2,2,{-2*0.2+2*(-0.4)+2}) -- cycle;
+  \node[green!60!black, font=\footnotesize] at (2.3,2,{2*0.2+2*(-0.4)+2}) {$\pi_3$};
+  % Point d'intersection (approximatif)
+  \filldraw[black] (0,0,1.2) circle (2pt)
+    node[above right, font=\small] {solution unique};
+\end{tikzpicture}
+\caption{Trois plans en position générale dans $\R^3$ se coupent en un unique point.}
+\label{fig:3plans}
+\end{figure}
+
+% ============================================================
+\section{Applications}\label{sec:applications-systemes}
+% ============================================================
+
+\subsection{Réseaux de flux}\label{subsec:reseaux-flux}
+
+\begin{example}{Réseau routier}{ex:reseau-routier}
+  Considérons un réseau de quatre carrefours $A$, $B$, $C$, $D$ reliés par
+  des routes à sens unique. À chaque carrefour, le flux entrant doit égaler
+  le flux sortant (conservation du flux)\index{conservation du flux}.
+
+  \begin{center}
+  \begin{tikzpicture}[>=Stealth, node distance=2.5cm]
+    \node[draw, circle] (A) {$A$};
+    \node[draw, circle, right of=A] (B) {$B$};
+    \node[draw, circle, below of=B] (C) {$C$};
+    \node[draw, circle, below of=A] (D) {$D$};
+    \draw[->] (A) -- node[above, font=\small] {$x_1$} (B);
+    \draw[->] (B) -- node[right, font=\small] {$x_2$} (C);
+    \draw[->] (C) -- node[below, font=\small] {$x_3$} (D);
+    \draw[->] (D) -- node[left, font=\small] {$x_4$} (A);
+    % Flux externes
+    \draw[->] (-1.5,0) -- node[above, font=\small] {$100$} (A);
+    \draw[->] (B) -- node[above, font=\small] {$60$} ++(1.5,0);
+    \draw[->] ++($(C)+(1.5,0)$) -- node[above, font=\small] {$50$} (C);
+    \draw[->] (D) -- node[below, font=\small] {$90$} ++(-1.5,0);
+  \end{tikzpicture}
+  \end{center}
+
+  Les équations de conservation sont~:
+  \[
+    \left\{
+    \begin{aligned}
+      A&: & 100+x_4 &= x_1, \\
+      B&: & x_1 &= x_2+60, \\
+      C&: & x_2+50 &= x_3, \\
+      D&: & x_3 &= x_4+90.
+    \end{aligned}
+    \right.
+    \quad\Longleftrightarrow\quad
+    \left\{
+    \begin{aligned}
+      x_1 - x_4 &= 100, \\
+      x_1 - x_2 &= 60, \\
+      x_2 - x_3 &= -50, \\
+      x_3 - x_4 &= 90.
+    \end{aligned}
+    \right.
+  \]
+  La matrice augmentée se réduit en~:
+  \[
+    \left(\begin{array}{cccc|c}
+      1 & 0 & 0 & -1 & 100\\
+      0 & 1 & 0 & -1 & 40\\
+      0 & 0 & 1 & -1 & 90\\
+      0 & 0 & 0 & 0 & 0
+    \end{array}\right).
+  \]
+  Le rang est $3$ avec $4$ inconnues~: il y a un paramètre libre $x_4=t$.
+  L'ensemble des solutions est~:
+  \[
+    (x_1,x_2,x_3,x_4)=(100+t,\;40+t,\;90+t,\;t),\qquad t\geqslant 0.
+  \]
+  La contrainte $t\geqslant 0$ (flux positifs) n'est pas une condition
+  linéaire, mais elle limite le paramètre.
+\end{example}
+
+\subsection{Circuits électriques}\label{subsec:circuits}
+
+\begin{example}{Lois de Kirchhoff}{ex:kirchhoff}
+  Dans un circuit à deux mailles partageant une branche commune, les lois
+  de Kirchhoff (loi des n\oe{}uds et loi des mailles) donnent un système
+  linéaire dont les inconnues sont les courants $I_1$, $I_2$, $I_3$.
+  Par exemple, avec des résistances $R_1=2\,\Omega$, $R_2=4\,\Omega$,
+  $R_3=6\,\Omega$ et des tensions $V_1=12\,$V, $V_2=8\,$V~:
+  \[
+    \left\{
+    \begin{aligned}
+      I_1 - I_2 - I_3 &= 0 \quad\text{(loi des n\oe{}uds)},\\
+      2I_1 + 6I_3 &= 12 \quad\text{(maille 1)},\\
+      4I_2 - 6I_3 &= 8 \quad\text{(maille 2)}.
+    \end{aligned}
+    \right.
+  \]
+  La résolution par Gauss donne
+  $(I_1, I_2, I_3)=\bigl(\frac{18}{5},\,\frac{13}{5},\,\frac{1}{1}\bigr)
+  =\bigl(3{,}6\;;\;2{,}6\;;\;1{,}0\bigr)$ A.
+\end{example}
+
+\subsection{Aperçu~: moindres carrés}\label{subsec:moindres-carres}
+
+Lorsqu'un système surdéterminé $A\vec{x}=\vec{b}$ (avec $m>n$) n'a pas de
+solution exacte, on cherche le vecteur $\vec{x}^{*}$ qui minimise
+$\norm{A\vec{x}-\vec{b}}^2$. Ce problème de \emph{moindres carrés}%
+\index{moindres carrés} conduit aux \emph{équations normales}\index{équations normales}~:
+\begin{equation}\label{eq:equations-normales}
+  \transpose{A}A\,\vec{x}^{*}=\transpose{A}\vec{b},
+\end{equation}
+qui forment un système linéaire carré de taille $n\times n$. Ce sujet sera
+développé dans le chapitre sur les espaces euclidiens.
+
+% ============================================================
+\section*{Résumé du chapitre}
+\addcontentsline{toc}{section}{Résumé du chapitre}
+% ============================================================
+
+\begin{enumerate}[label=\textbf{\arabic*.}]
+  \item Un \textbf{système linéaire}\index{système linéaire} $A\vec{x}=\vec{b}$
+    se représente par sa matrice augmentée $(A\mid\vec{b})$.
+  \item Les \textbf{opérations élémentaires} sur les lignes (échange,
+    multiplication par un scalaire non nul, ajout d'un multiple) ne
+    changent pas l'ensemble des solutions.
+  \item L'\textbf{élimination de Gauss} transforme la matrice augmentée en
+    \textbf{forme échelonnée}~; le prolongement de Gauss--Jordan produit la
+    \textbf{forme échelonnée réduite} (unique).
+  \item Le \textbf{rang} $\rg(A)$ est le nombre de pivots dans une forme
+    échelonnée.
+  \item \textbf{Théorème de Rouché--Capelli~:} le système est compatible si
+    et seulement si $\rg(A)=\rg(A\mid\vec{b})$~; dans ce cas, l'ensemble
+    des solutions est paramétré par $n-\rg(A)$ variables libres.
+  \item \textbf{Structure des solutions~:} si $\vec{x}_p$ est une solution
+    particulière, alors $\cS=\vec{x}_p+\Ker(A)$ (sous-espace affine).
+  \item Les systèmes linéaires modélisent des problèmes concrets~: réseaux
+    de flux, circuits électriques, moindres carrés, etc.
+\end{enumerate}
+
+% ============================================================
+\section*{Exercices}
+\addcontentsline{toc}{section}{Exercices}
+% ============================================================
+
+\begin{exercise}{Résolution par Gauss \basic}{exo:gauss-basique}
+  Résoudre le système suivant par élimination de Gauss~:
+  \[
+    \left\{
+    \begin{aligned}
+      x_1 + 2x_2 + 3x_3 &= 9,\\
+      2x_1 - x_2 + x_3 &= 8,\\
+      3x_1 + x_2 - 2x_3 &= 3.
+    \end{aligned}
+    \right.
+  \]
+\end{exercise}
+
+\begin{exercise}{Forme échelonnée réduite \basic}{exo:rref-basique}
+  Mettre la matrice suivante sous forme échelonnée réduite~:
+  \[
+    A=\begin{pmatrix}
+      1 & 3 & 5 & 7\\
+      2 & 4 & 6 & 8\\
+      3 & 5 & 7 & 9
+    \end{pmatrix}.
+  \]
+  En déduire le rang de $A$.
+\end{exercise}
+
+\begin{exercise}{Système homogène \basic}{exo:homogene-basique}
+  Déterminer l'ensemble des solutions du système homogène~:
+  \[
+    \left\{
+    \begin{aligned}
+      x_1 - x_2 + 2x_3 - x_4 &= 0,\\
+      2x_1 + x_2 - x_3 + x_4 &= 0,\\
+      x_1 + 2x_2 - 3x_3 + 2x_4 &= 0.
+    \end{aligned}
+    \right.
+  \]
+  Donner une base du noyau de la matrice des coefficients.
+\end{exercise}
+
+\begin{exercise}{Compatibilité d'un système \basic}{exo:compatibilite}
+  Déterminer pour quelles valeurs du paramètre $a\in\R$ le système
+  suivant est compatible~:
+  \[
+    \left\{
+    \begin{aligned}
+      x_1 + x_2 + x_3 &= 1,\\
+      x_1 + 2x_2 + 3x_3 &= 3,\\
+      x_1 + 3x_2 + ax_3 &= 5.
+    \end{aligned}
+    \right.
+  \]
+\end{exercise}
+
+\begin{exercise}{Système paramétrique \intermediate}{exo:param-systeme}
+  Résoudre en fonction du paramètre $\lambda\in\R$~:
+  \[
+    \left\{
+    \begin{aligned}
+      \lambda x_1 + x_2 + x_3 &= 1,\\
+      x_1 + \lambda x_2 + x_3 &= 1,\\
+      x_1 + x_2 + \lambda x_3 &= 1.
+    \end{aligned}
+    \right.
+  \]
+  Distinguer les cas selon les valeurs de $\lambda$.
+\end{exercise}
+
+\begin{exercise}{Calcul de rang \intermediate}{exo:rang-calcul}
+  Calculer le rang des matrices suivantes en fonction de $\alpha\in\R$~:
+  \[
+    A_1=\begin{pmatrix}
+      1 & 2 & 3\\
+      4 & 5 & 6\\
+      7 & 8 & 9
+    \end{pmatrix},\qquad
+    A_2=\begin{pmatrix}
+      1 & 1 & 1 & 1\\
+      1 & 2 & 3 & 4\\
+      1 & 3 & \alpha & 10
+    \end{pmatrix}.
+  \]
+\end{exercise}
+
+\begin{exercise}{Structure affine \intermediate}{exo:structure-affine}
+  On considère le système $A\vec{x}=\vec{b}$ avec~:
+  \[
+    A=\begin{pmatrix}1&1&0&1\\0&1&1&1\\1&2&1&2\end{pmatrix},\qquad
+    \vec{b}=\begin{pmatrix}2\\1\\3\end{pmatrix}.
+  \]
+  \begin{enumerate}[label=(\alph*)]
+    \item Vérifier que le système est compatible.
+    \item Trouver une solution particulière.
+    \item Déterminer une base de $\Ker(A)$.
+    \item Écrire l'ensemble des solutions sous la forme
+      $\cS=\vec{x}_p+\Vect(\ldots)$.
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Réseau de flux \intermediate}{exo:reseau-flux}
+  Dans le réseau ci-dessous, les flux entrants et sortants aux n\oe{}uds
+  sont indiqués~:
+  \[
+    \begin{array}{ccc}
+      & \xrightarrow{x_1} & \\[-3pt]
+      A & & B\\[-3pt]
+      & & \downarrow\, x_2\\[-3pt]
+      & & C\\[-3pt]
+      & \xleftarrow{x_3} &
+    \end{array}
+  \]
+  Flux externe entrant en $A$~: $200$~; flux externe sortant en $B$~: $80$~;
+  flux externe sortant en $C$~: $120$.
+  \begin{enumerate}[label=(\alph*)]
+    \item Écrire le système de conservation du flux.
+    \item Résoudre le système et interpréter.
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Inversibilité et rang \intermediate}{exo:inversibilite-rang}
+  Soit $A\in\Mat_n(\K)$ une matrice carrée. Montrer que les assertions
+  suivantes sont équivalentes~:
+  \begin{enumerate}[label=(\roman*)]
+    \item $A$ est inversible.
+    \item $\rg(A)=n$.
+    \item Le système $A\vec{x}=\vec{b}$ a une unique solution pour tout
+      $\vec{b}\in\K^n$.
+    \item Le système homogène $A\vec{x}=\vzero$ n'a que la solution triviale.
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Gauss--Jordan et inverse \challenging}{exo:gauss-jordan-inverse}
+  Utiliser l'élimination de Gauss--Jordan pour calculer l'inverse de la
+  matrice~:
+  \[
+    A=\begin{pmatrix}
+      1 & 2 & 1\\
+      2 & 5 & 3\\
+      1 & 3 & 3
+    \end{pmatrix}.
+  \]
+  \textit{Indication~: appliquer Gauss--Jordan à la matrice augmentée
+  $(A\mid I_3)$.}
+\end{exercise}
+
+\begin{exercise}{Systèmes et applications linéaires \challenging}{exo:syst-applin}
+  Soit $f\colon\R^4\to\R^3$ l'application linéaire définie par~:
+  \[
+    f(x_1,x_2,x_3,x_4)=(x_1+x_2+x_3+x_4,\;
+    2x_1+x_2-x_3+2x_4,\;
+    3x_1+2x_2+x_4).
+  \]
+  \begin{enumerate}[label=(\alph*)]
+    \item Écrire la matrice de $f$ dans les bases canoniques.
+    \item Calculer $\rg(f)$ et $\dim(\Ker(f))$.
+    \item Déterminer une base de $\Ker(f)$ et une base de $\im(f)$.
+    \item L'équation $f(\vec{x})=(1,2,3)$ a-t-elle des solutions~? Si oui,
+      les déterminer toutes.
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Théorème de Rouché--Capelli \challenging}{exo:rouche-capelli-preuve}
+  Soit $A\in\Mat_{m,n}(\K)$ et $\vec{b}\in\K^m$. On suppose que
+  $\rg(A)=\rg(A\mid\vec{b})=r$.
+  \begin{enumerate}[label=(\alph*)]
+    \item Montrer que si $r=n$, la solution est unique.
+    \item Montrer que si $r<n$ et si $\vec{v}_1,\ldots,\vec{v}_{n-r}$ est
+      une base de $\Ker(A)$, alors toute solution s'écrit~:
+      \[
+        \vec{x}=\vec{x}_p+t_1\vec{v}_1+\cdots+t_{n-r}\vec{v}_{n-r},
+        \qquad t_1,\ldots,t_{n-r}\in\K.
+      \]
+    \item En déduire que le nombre de solutions est soit $0$, soit $1$,
+      soit infini (lorsque $\K$ est infini).
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Système surdéterminé et moindres carrés \challenging}{exo:moindres-carres}
+  On mesure les points $(0,1)$, $(1,2)$, $(2,4)$, $(3,5)$ et on cherche la
+  droite $y=a+bx$ au sens des moindres carrés.
+  \begin{enumerate}[label=(\alph*)]
+    \item Écrire le système surdéterminé $A\vec{x}=\vec{b}$ correspondant.
+    \item Former les équations normales $\transpose{A}A\,\vec{x}^{*}=\transpose{A}\vec{b}$.
+    \item Résoudre et déterminer la droite de régression.
+  \end{enumerate}
+\end{exercise}
+
+\printindex

@@ -1,0 +1,355 @@
+% ============================================================
+\chapter{Variantes de GNN (GAT, GIN, GraphSAGE)}
+\label{ch:variantes}
+% ============================================================
+
+Le GCN de Kipf et Welling (2017) a ouvert la voie, mais ses limitations sont vite apparues~: agr\'egation isotrope, expressivit\'e plafonn\'ee au test de Weisfeiler-Leman d'ordre 1, incapacit\'e \`a traiter des graphes de grande taille de mani\`ere inductive. En r\'eponse, une vague d'architectures alternatives a d\'eferl\'e~: les \emph{Graph Attention Networks} (GAT) introduisent des m\'ecanismes d'attention pour pond\'erer les voisins~; les \emph{Graph Isomorphism Networks} (GIN) maximisent l'expressivit\'e th\'eorique~; \emph{GraphSAGE} permet l'apprentissage inductif par \'echantillonnage de voisinages. Ce chapitre explore ces variantes et les compromis qu'elles incarnent.
+
+\section{Au-del\`a du GCN~: motivations}
+
+Le GCN de Kipf et Welling pr\'esente plusieurs limitations~:
+\begin{itemize}
+    \item Agr\'egation \textbf{isotrope}~: tous les voisins sont trait\'es de la m\^eme
+          mani\`ere (pond\'er\'es uniquement par le degr\'e).
+    \item \textbf{Expressivit\'e limit\'ee}~: \'equivalence stricte au 1-WL.
+    \item \textbf{Scalabilit\'e}~: n\'ecessite la matrice d'adjacence compl\`ete.
+\end{itemize}
+
+Ce chapitre pr\'esente trois variantes majeures qui r\'epondent \`a ces limitations.
+
+\section{Graph Attention Networks (GAT)}
+
+\subsection{Principe de l'attention sur graphes}
+
+\begin{definition}[Couche GAT --- Veli\v{c}kovi\'c et al., 2018]
+La couche GAT utilise un m\'ecanisme d'\textbf{attention} pour pond\'erer les
+contributions des voisins~:
+\[
+    \mathbf{h}_v^{(\ell+1)} = \sigma\!\left(\sum_{u \in \mathcal{N}(v) \cup \{v\}}
+    \alpha_{vu}^{(\ell)}\, \mathbf{W}^{(\ell)} \mathbf{h}_u^{(\ell)}\right)
+\]
+o\`u les coefficients d'attention $\alpha_{vu}$ sont calcul\'es par~:
+\begin{align}
+    e_{vu}^{(\ell)} &= \text{LeakyReLU}\!\left(\mathbf{a}^{\top}\!
+    \left[\mathbf{W}\mathbf{h}_v^{(\ell)} \| \mathbf{W}\mathbf{h}_u^{(\ell)}\right]\right) \\
+    \alpha_{vu}^{(\ell)} &= \frac{\exp(e_{vu}^{(\ell)})}{\sum_{w \in \mathcal{N}(v) \cup \{v\}}
+    \exp(e_{vw}^{(\ell)})}
+\end{align}
+o\`u $\mathbf{a} \in \R^{2d'}$ est le vecteur d'attention appris et $\|$ d\'enote
+la concat\'enation.
+\end{definition}
+
+\begin{remarque}[Attention multi-t\^ete]
+Pour stabiliser l'apprentissage, GAT utilise $K$ t\^etes d'attention
+ind\'ependantes~:
+\[
+    \mathbf{h}_v^{(\ell+1)} = \Big\|_{k=1}^{K} \sigma\!\left(\sum_{u \in \mathcal{N}(v)}
+    \alpha_{vu}^{k} \mathbf{W}^k \mathbf{h}_u^{(\ell)}\right)
+\]
+La derni\`ere couche utilise typiquement la moyenne au lieu de la concat\'enation.
+\end{remarque}
+
+\begin{intuition}[title=\textbf{Pourquoi l'attention~?}]
+L'attention permet au mod\`ele d'apprendre \textbf{quels voisins sont importants}
+pour chaque n\oe ud, contrairement au GCN o\`u la pond\'eration est fix\'ee par
+la structure du graphe. Cela est particuli\`erement utile quand~:
+\begin{itemize}
+    \item Les voisins ont des \textbf{pertinences variables}.
+    \item Le graphe contient du \textbf{bruit} (ar\^etes non informatives).
+    \item Les relations sont \textbf{asym\'etriques} (graphes dirig\'es).
+\end{itemize}
+\end{intuition}
+
+\begin{codeblock}[title=\textbf{Impl\'ementation GAT avec PyTorch Geometric}]
+\begin{minted}{python}
+import torch
+import torch.nn.functional as F
+from torch_geometric.nn import GATConv
+from torch_geometric.datasets import Planetoid
+
+class GAT(torch.nn.Module):
+    def __init__(self, in_channels, hidden_channels, out_channels,
+                 heads=8, dropout=0.6):
+        super().__init__()
+        self.conv1 = GATConv(in_channels, hidden_channels,
+                             heads=heads, dropout=dropout)
+        self.conv2 = GATConv(hidden_channels * heads, out_channels,
+                             heads=1, concat=False, dropout=dropout)
+        self.dropout = dropout
+
+    def forward(self, x, edge_index):
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        x = F.elu(self.conv1(x, edge_index))
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        x = self.conv2(x, edge_index)
+        return x
+
+dataset = Planetoid(root='/tmp/Cora', name='Cora')
+data = dataset[0]
+model = GAT(dataset.num_features, 8, dataset.num_classes, heads=8)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=5e-4)
+
+for epoch in range(200):
+    model.train()
+    optimizer.zero_grad()
+    out = model(data.x, data.edge_index)
+    loss = F.cross_entropy(out[data.train_mask], data.y[data.train_mask])
+    loss.backward()
+    optimizer.step()
+
+model.eval()
+pred = model(data.x, data.edge_index).argmax(dim=1)
+acc = (pred[data.test_mask] == data.y[data.test_mask]).float().mean()
+print(f"GAT - Precision test: {acc:.4f}")
+\end{minted}
+\end{codeblock}
+
+\subsection{GATv2~: attention dynamique}
+
+\begin{definition}[GATv2 --- Brody et al., 2022]
+GATv2 corrige une limitation de GAT o\`u l'attention est \textbf{statique}
+(le classement des voisins ne d\'epend pas du n\oe ud requête). GATv2 utilise~:
+\[
+    e_{vu} = \mathbf{a}^\top \text{LeakyReLU}\!\left(\mathbf{W}\!\left[
+    \mathbf{h}_v \| \mathbf{h}_u\right]\right)
+\]
+La non-lin\'earit\'e est appliqu\'ee \textbf{avant} le produit scalaire avec
+$\mathbf{a}$, rendant l'attention v\'eritablement \textbf{dynamique}.
+\end{definition}
+
+\section{Graph Isomorphism Network (GIN)}
+
+\subsection{Maximiser le pouvoir expressif}
+
+\begin{theoreme}[GIN --- Xu et al., 2019]
+Pour qu'un MPNN atteigne la puissance maximale du test 1-WL, les conditions
+suivantes sont n\'ecessaires et suffisantes~:
+\begin{enumerate}
+    \item L'agr\'egation doit \^etre \textbf{injective} sur les multi-ensembles.
+    \item La fonction de mise \`a jour doit \^etre \textbf{injective}.
+\end{enumerate}
+\end{theoreme}
+
+\begin{definition}[Couche GIN]
+La couche GIN r\'ealise~:
+\[
+    \mathbf{h}_v^{(\ell+1)} = \text{MLP}^{(\ell)}\!\left((1 + \epsilon^{(\ell)})
+    \cdot \mathbf{h}_v^{(\ell)} + \sum_{u \in \mathcal{N}(v)}
+    \mathbf{h}_u^{(\ell)}\right)
+\]
+o\`u $\epsilon$ est un param\`etre appris ou fix\'e.
+\end{definition}
+
+\begin{proposition}[Injectivit\'e de la somme]
+Parmi les agr\'egations classiques (somme, moyenne, max), seule la \textbf{somme}
+est injective sur les multi-ensembles~:
+\begin{itemize}
+    \item $\text{max}\{1, 1, 2\} = \text{max}\{1, 2\} = 2$ (perte d'information).
+    \item $\text{mean}\{1, 1\} = \text{mean}\{1\} = 1$ (perte de cardinalit\'e).
+    \item $\text{sum}\{1, 1, 2\} = 4 \neq \text{sum}\{1, 2\} = 3$ (injectif).
+\end{itemize}
+\end{proposition}
+
+\begin{codeblock}[title=\textbf{Impl\'ementation GIN}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch_geometric.nn import GINConv, global_add_pool
+from torch_geometric.datasets import TUDataset
+from torch_geometric.loader import DataLoader
+
+class GIN(nn.Module):
+    def __init__(self, num_features, hidden_dim, num_classes, num_layers=5):
+        super().__init__()
+        self.convs = nn.ModuleList()
+        self.bns = nn.ModuleList()
+        for i in range(num_layers):
+            in_dim = num_features if i == 0 else hidden_dim
+            mlp = nn.Sequential(
+                nn.Linear(in_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, hidden_dim),
+            )
+            self.convs.append(GINConv(mlp, train_eps=True))
+            self.bns.append(nn.BatchNorm1d(hidden_dim))
+        self.classifier = nn.Linear(hidden_dim, num_classes)
+
+    def forward(self, data):
+        x, edge_index, batch = data.x, data.edge_index, data.batch
+        for conv, bn in zip(self.convs, self.bns):
+            x = F.relu(bn(conv(x, edge_index)))
+        x = global_add_pool(x, batch)
+        return self.classifier(x)
+
+dataset = TUDataset(root='/tmp/MUTAG', name='MUTAG')
+loader = DataLoader(dataset, batch_size=32, shuffle=True)
+model = GIN(dataset.num_features, 64, dataset.num_classes)
+print(f"Parametres: {sum(p.numel() for p in model.parameters()):,}")
+\end{minted}
+\end{codeblock}
+
+\section{GraphSAGE~: apprentissage inductif}
+
+\subsection{Motivation~: passage \`a l'\'echelle}
+
+\begin{definition}[GraphSAGE --- Hamilton et al., 2017]
+GraphSAGE (\textit{SAmple and aggreGatE}) utilise un \textbf{\'echantillonnage
+de voisinage} pour permettre le passage \`a l'\'echelle~:
+\[
+    \mathbf{h}_v^{(\ell+1)} = \sigma\!\left(\mathbf{W}^{(\ell)} \cdot
+    \text{CONCAT}\!\left(\mathbf{h}_v^{(\ell)},\;
+    \text{AGG}(\{\mathbf{h}_u^{(\ell)} : u \in \mathcal{S}(v)\})\right)\right)
+\]
+o\`u $\mathcal{S}(v) \subseteq \mathcal{N}(v)$ est un sous-ensemble
+\'echantillonn\'e de voisins (typiquement $\abs{\mathcal{S}(v)} \leq k$).
+\end{definition}
+
+\begin{proposition}[Avantages de GraphSAGE]
+\begin{enumerate}
+    \item \textbf{Inductif}~: peut g\'en\'eraliser \`a des n\oe uds non vus.
+    \item \textbf{Scalable}~: complexit\'e contr\^ol\'ee par le nombre d'\'echantillons.
+    \item \textbf{Mini-batch}~: compatible avec l'entra\^inement par mini-lots.
+\end{enumerate}
+\end{proposition}
+
+\begin{algorithme}[title=\textbf{\'Echantillonnage de sous-graphes pour GraphSAGE}]
+\begin{enumerate}
+    \item Pour chaque n\oe ud cible $v$, \'echantillonner $k_1$ voisins directs.
+    \item Pour chacun de ces voisins, \'echantillonner $k_2$ voisins (2-hop).
+    \item Former le sous-graphe induit et propager les messages.
+    \item La complexit\'e par batch est $\mathcal{O}(B \cdot k_1 \cdot k_2)$
+          au lieu de $\mathcal{O}(n)$.
+\end{enumerate}
+\end{algorithme}
+
+\begin{codeblock}[title=\textbf{GraphSAGE avec \'echantillonnage}]
+\begin{minted}{python}
+import torch
+import torch.nn.functional as F
+from torch_geometric.nn import SAGEConv
+from torch_geometric.loader import NeighborLoader
+from torch_geometric.datasets import Planetoid
+
+dataset = Planetoid(root='/tmp/Cora', name='Cora')
+data = dataset[0]
+
+class GraphSAGE(torch.nn.Module):
+    def __init__(self, in_channels, hidden_channels, out_channels):
+        super().__init__()
+        self.conv1 = SAGEConv(in_channels, hidden_channels)
+        self.conv2 = SAGEConv(hidden_channels, out_channels)
+
+    def forward(self, x, edge_index):
+        x = F.relu(self.conv1(x, edge_index))
+        x = F.dropout(x, p=0.5, training=self.training)
+        x = self.conv2(x, edge_index)
+        return x
+
+# Echantillonnage de voisinage pour mini-batch
+train_loader = NeighborLoader(
+    data,
+    num_neighbors=[25, 10],  # k1=25, k2=10
+    batch_size=256,
+    input_nodes=data.train_mask,
+)
+
+model = GraphSAGE(dataset.num_features, 64, dataset.num_classes)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+
+for epoch in range(20):
+    model.train()
+    for batch in train_loader:
+        optimizer.zero_grad()
+        out = model(batch.x, batch.edge_index)[:batch.batch_size]
+        loss = F.cross_entropy(out, batch.y[:batch.batch_size])
+        loss.backward()
+        optimizer.step()
+\end{minted}
+\end{codeblock}
+
+\section{Comparaison des variantes}
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Propri\'et\'e} & \textbf{GCN} & \textbf{GAT} & \textbf{GIN} & \textbf{SAGE} \\
+\midrule
+Attention & Non & Oui & Non & Non \\
+Expressivit\'e 1-WL & $<$ & $<$ & $=$ & $<$ \\
+Inductif & Non & Oui & Oui & Oui \\
+Scalable (mini-batch) & Difficile & Mod\'er\'e & Mod\'er\'e & Oui \\
+Attributs d'ar\^etes & Non & Oui (v2) & Non & Non \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Architectures avanc\'ees}
+
+\subsection{PNA --- Principal Neighbourhood Aggregation}
+
+\begin{definition}[PNA --- Corso et al., 2020]
+PNA combine \textbf{plusieurs agr\'egateurs} et \textbf{scalers}~:
+\[
+    \mathbf{h}_v^{(\ell+1)} = U\!\left(\mathbf{h}_v^{(\ell)},
+    \underset{\substack{\oplus \in \{\text{sum, mean,}\\\text{max, std}\}}}
+    {\Big\|}
+    \underset{s \in \{1, \sqrt{d}, 1/\sqrt{d}\}}{\Big\|}
+    s \cdot \bigoplus_{u \in \mathcal{N}(v)} M(\mathbf{h}_v^{(\ell)},
+    \mathbf{h}_u^{(\ell)})\right)
+\]
+La concat\'enation de $4 \times 3 = 12$ canaux capture diff\'erents aspects
+de la distribution du voisinage.
+\end{definition}
+
+\subsection{Connexions r\'esiduelles pour GNN profonds}
+
+\begin{definition}[GCNII --- Chen et al., 2020]
+GCNII ajoute une \textbf{connexion r\'esiduelle initiale} et un
+\textbf{r\'etr\'ecissement d'identit\'e} pour \'eviter le sur-lissage~:
+\[
+    \mathbf{H}^{(\ell+1)} = \sigma\!\left(\left((1-\alpha_\ell)\hat{\mathbf{P}}
+    \mathbf{H}^{(\ell)} + \alpha_\ell \mathbf{H}^{(0)}\right)
+    \left((1-\beta_\ell)\mathbf{I} + \beta_\ell \mathbf{W}^{(\ell)}\right)\right)
+\]
+o\`u $\hat{\mathbf{P}} = \hat{\mathbf{D}}^{-1/2}\hat{\mathbf{A}}\hat{\mathbf{D}}^{-1/2}$
+et $\alpha_\ell, \beta_\ell$ sont des hyperparam\`etres.
+\end{definition}
+
+\section*{Exercices}
+
+\begin{exercice}[Comparaison exp\'erimentale]
+Comparer GCN, GAT, GIN et GraphSAGE sur le dataset Cora~:
+\begin{enumerate}
+    \item Impl\'ementer les quatre mod\`eles avec le m\^eme nombre de param\`etres.
+    \item Entra\^iner 200 \'epoques avec les m\^emes hyperparam\`etres.
+    \item Reporter la pr\'ecision test et la courbe de perte.
+    \item Analyser les diff\'erences de performance.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Visualisation de l'attention GAT]
+\begin{enumerate}
+    \item Entra\^iner un GAT sur Cora et extraire les coefficients d'attention $\alpha_{vu}$.
+    \item Visualiser les poids d'attention sur un sous-graphe de 20 n\oe uds.
+    \item Les coefficients d'attention sont-ils corr\'el\'es avec les labels des n\oe uds~?
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Pouvoir expressif du GIN]
+\begin{enumerate}
+    \item Construire deux graphes que le GCN ne distingue pas mais que le GIN distingue.
+    \item V\'erifier exp\'erimentalement.
+    \item Construire deux graphes que m\^eme le GIN ne distingue pas (\'echec du 1-WL).
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Mini-batch training]
+Impl\'ementer l'entra\^inement par mini-batch avec \'echantillonnage de voisinage
+pour un GCN (sans utiliser \texttt{NeighborLoader}).
+\begin{enumerate}
+    \item Impl\'ementer la strat\'egie d'\'echantillonnage.
+    \item Comparer la vitesse d'entra\^inement avec le mode full-batch.
+    \item \'Evaluer l'impact du nombre de voisins \'echantillonn\'es sur la pr\'ecision.
+\end{enumerate}
+\end{exercice}

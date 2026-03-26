@@ -1,0 +1,281 @@
+% ============================================================
+\chapter{Point Cloud Representations}
+\label{ch:point_clouds}
+% ============================================================
+
+In 2017, Charles Qi and collaborators at Stanford published PointNet, a neural network architecture capable of processing 3D point clouds directly --- without converting them to voxels or meshes. The key idea is elegant: since a point cloud is an \emph{unordered} set, the architecture must be \emph{permutation invariant}. PointNet achieves this by applying a shared function to each point and then aggregating via a global max. PointNet++, Dynamic Graph CNN (DGCNN), and transformer-based methods subsequently extended this approach by capturing local structures and neighbourhood relationships. This chapter explores these architectures, from theoretical foundations (Zaheer's theorem on set functions) to applications in autonomous driving, robotics, and 3D reconstruction.
+
+\begin{intuition}
+A 3D point cloud\index{point cloud} is an \textbf{unordered} set
+of points $\{x_1, \ldots, x_n\} \subset \R^3$. Unlike images
+(regular grids) or graphs (combinatorial structure), it has no
+canonical connectivity. The challenge is to design architectures
+that are \textbf{permutation invariant} and, ideally,
+\textbf{equivariant} with respect to geometric transformations
+(rotations, translations).
+\end{intuition}
+
+% ============================================================
+\section{The permutation invariance problem}
+% ============================================================
+
+\begin{definition}[Permutation-invariant function]
+\index{permutation invariance}
+A function $f : \R^{n \times d} \to \R^k$ is
+\textbf{permutation invariant} if for every permutation matrix
+$\Pi \in \{0,1\}^{n \times n}$:
+\[
+  f(\Pi X) = f(X).
+\]
+\end{definition}
+
+\begin{theorem}[Characterization --- Zaheer et al.\ 2017]
+\label{thm:deepsets}
+\index{Deep Sets}
+Any continuous permutation-invariant function
+$f : 2^{\R^d} \to \R$ can be written as:
+\[
+  f(\{x_1, \ldots, x_n\}) = \rho\!\left(
+  \sum_{i=1}^n \phi(x_i)\right)
+\]
+for continuous functions $\phi : \R^d \to \R^q$ and
+$\rho : \R^q \to \R$ (provided $q$ is sufficiently large).
+\end{theorem}
+
+\begin{remark}
+This theorem underpins the \textbf{Deep Sets} architecture and,
+by extension, \textbf{PointNet}. The key operation is sum (or max)
+aggregation, which guarantees permutation invariance.
+\end{remark}
+
+% ============================================================
+\section{PointNet}
+\label{sec:pointnet}
+% ============================================================
+
+\begin{definition}[PointNet architecture --- Qi et al.\ 2017]
+\index{PointNet}
+\textbf{PointNet} directly processes a point cloud of $n$ points
+$X \in \R^{n \times 3}$:
+\begin{enumerate}
+  \item \textbf{Spatial transformer}: a mini-network (T-Net)
+        predicts a matrix $T \in \R^{3 \times 3}$ to align the
+        cloud: $X' = X \cdot T$.
+  \item \textbf{Shared MLP}: each point is transformed
+        independently by an MLP $\phi : \R^3 \to \R^{1024}$:
+        $h_i = \phi(x_i')$.
+  \item \textbf{Symmetric aggregation}: global max-pooling
+        produces a global feature vector:
+        $g = \max_{i=1}^n h_i$.
+  \item \textbf{Classification/segmentation head}: a final MLP
+        on $g$ (or $[g; h_i]$ for segmentation).
+\end{enumerate}
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{PointNet --- fundamental equation}]
+\[
+  f(X) = \rho\!\left(\max_{i=1}^n \phi(x_i)\right)
+\]
+where $\phi$ is a pointwise MLP and $\rho$ a global MLP.
+\end{keyformulas}
+
+\begin{proposition}[Universal approximation of PointNet]
+PointNet can approximate any continuous permutation-invariant
+function on compact point clouds, in the sense of
+Theorem~\ref{thm:deepsets}.
+\end{proposition}
+
+\begin{attention}[title=\textbf{Limitations of PointNet}]
+PointNet processes each point \textbf{independently} before
+aggregation: it does not capture local structures (neighborhoods).
+Two point clouds with the same points but different local
+geometries may yield the same global vector.
+\end{attention}
+
+% ============================================================
+\section{PointNet++}
+\label{sec:pointnetpp}
+% ============================================================
+
+\begin{definition}[PointNet++ architecture --- Qi et al.\ 2017]
+\index{PointNet++}
+\textbf{PointNet++} introduces a hierarchy of local processing:
+\begin{enumerate}
+  \item \textbf{Sampling}: select $n'$ centers via farthest point
+        sampling (FPS).
+  \item \textbf{Grouping}: for each center $c_j$, select the $K$
+        nearest neighbors (or ball query of radius $r$).
+  \item \textbf{Local PointNet}: apply PointNet on each group,
+        producing a feature $g_j \in \R^{d'}$.
+  \item \textbf{Iteration}: repeat on the centers with their
+        features, creating a multi-scale pyramid.
+\end{enumerate}
+\end{definition}
+
+\begin{definition}[Set Abstraction Layer]
+\index{Set Abstraction}
+The \textbf{Set Abstraction} (SA) layer combines the three
+operations:
+\[
+  \mathrm{SA}(X) = \{g_j\}_{j=1}^{n'}, \qquad
+  g_j = \max_{x_i \in \mathcal{N}(c_j)} \phi(x_i - c_j)
+\]
+where $\mathcal{N}(c_j)$ is the neighborhood of center $c_j$.
+\end{definition}
+
+\begin{intuition}
+PointNet++ is to point clouds what CNNs are to images: it applies
+local operations hierarchically. The difference is the absence of
+a grid: neighborhoods are determined dynamically.
+\end{intuition}
+
+% ============================================================
+\section{Point cloud convolutions}
+\label{sec:convolutions}
+% ============================================================
+
+\begin{definition}[Continuous convolution on point clouds]
+\index{continuous convolution}
+A \textbf{continuous convolution} on a point cloud is:
+\[
+  (f * g)(x_i) = \sum_{x_j \in \mathcal{N}(x_i)}
+  g(x_j - x_i) \cdot h_j
+\]
+where $g : \R^3 \to \R^{d' \times d}$ is a continuous filter
+and $h_j \in \R^d$ are the features of point $x_j$.
+\end{definition}
+
+\begin{example}[Convolution-based architectures]
+\begin{itemize}
+  \item \textbf{PointConv} (Wu et al.\ 2019): $g$ is parameterized
+        by an MLP applied to relative position and local density.
+  \item \textbf{KPConv} (Thomas et al.\ 2019): $g$ is defined
+        by fixed kernel points\index{KPConv} $\{y_k\}_{k=1}^K$
+        with correlation functions:
+        $g(x) = \sum_k W_k \cdot \max(0, 1 - \norm{x - y_k}/\sigma)$.
+  \item \textbf{DGCNN} (Wang et al.\ 2019): convolution on a
+        dynamic $k$-nearest neighbor graph in feature space.
+\end{itemize}
+\end{example}
+
+% ============================================================
+\section{Rotation equivariance}
+\label{sec:rotation_equivariance}
+% ============================================================
+
+\begin{definition}[$\mathrm{SO}(3)$ equivariance]
+\index{SO(3) equivariance}
+A function $f : \R^{n \times 3} \to \R^{n \times d}$ is
+\textbf{$\mathrm{SO}(3)$-equivariant} if for every rotation
+$R \in \mathrm{SO}(3)$:
+\[
+  f(R \cdot X) = \rho(R) \cdot f(X)
+\]
+where $\rho(R)$ is a representation of $R$ acting on the output
+space.
+\end{definition}
+
+\begin{theorem}[Equivariant convolutions --- Thomas et al.\ 2018]
+\index{Tensor Field Networks}
+Equivariant filters under $\mathrm{SO}(3)$ are expressed in the
+spherical harmonics basis:
+\[
+  g^{(\ell)}(r, \hat{x}) = R^{(\ell)}(r) \cdot Y^{(\ell)}(\hat{x})
+\]
+where $Y^{(\ell)}$ are spherical harmonics of degree $\ell$,
+$R^{(\ell)}$ is a learned radial function, and
+$\hat{x} = x / \norm{x}$.
+\end{theorem}
+
+\begin{remark}
+Equivariant architectures (Tensor Field Networks, SE(3)-Transformers,
+EGNN) guarantee that predictions transform correctly under rotation.
+This eliminates the need for data augmentation with random rotations.
+\end{remark}
+
+% ============================================================
+\section{Applications}
+\label{sec:applications_pc}
+% ============================================================
+
+\begin{example}[3D object classification]
+\index{3D classification}
+On the \textbf{ModelNet40} benchmark (12,311 models, 40 classes):
+\begin{center}
+\begin{tabular}{lc}
+\toprule
+\textbf{Method} & \textbf{Accuracy (\%)} \\
+\midrule
+PointNet & 89.2 \\
+PointNet++ & 91.9 \\
+DGCNN & 92.9 \\
+KPConv & 92.9 \\
+Point Transformer & 93.7 \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{example}
+
+\begin{example}[Semantic scene segmentation]
+\index{semantic segmentation}
+For LiDAR point cloud segmentation (S3DIS, ScanNet), PointNet++
+and KPConv achieve competitive performance. Segmentation assigns
+each point a semantic label (floor, wall, furniture, etc.).
+\end{example}
+
+\begin{minted}{python}
+import torch
+from torch_geometric.nn import PointNetConv, fps, radius
+
+class PointNetPPLayer(torch.nn.Module):
+    """A Set Abstraction layer from PointNet++."""
+    def __init__(self, ratio, r, nn):
+        super().__init__()
+        self.ratio = ratio
+        self.r = r
+        self.conv = PointNetConv(nn)
+
+    def forward(self, x, pos, batch):
+        # Farthest Point Sampling
+        idx = fps(pos, batch, ratio=self.ratio)
+        # Ball query
+        row, col = radius(
+            pos, pos[idx], self.r, batch, batch[idx]
+        )
+        edge_index = torch.stack([col, row], dim=0)
+        # Local PointNet
+        x_out = self.conv(x, (pos, pos[idx]), edge_index)
+        return x_out, pos[idx], batch[idx]
+\end{minted}
+
+% ============================================================
+\section{Exercises}
+% ============================================================
+
+\begin{exercise}
+Show that global max-pooling is permutation invariant. Give a
+counterexample showing that concatenation is not.
+\end{exercise}
+
+\begin{exercise}
+Compute the number of parameters in PointNet for a cloud of
+$n = 1024$ points in 3D, with a pointwise MLP
+$[3, 64, 128, 1024]$ and a classifier $[1024, 512, 256, 40]$.
+\end{exercise}
+
+\begin{exercise}[Equivariance]
+Show that PointNet with T-Net is \textbf{approximately}
+rotation invariant but not exactly equivariant. What property
+is missing?
+\end{exercise}
+
+\begin{exercise}[Implementation]
+Implement a simple PointNet in PyTorch and train it on ModelNet10.
+Compare with and without the T-Net.
+\end{exercise}
+
+\begin{exercise}[Point cloud convolution]
+Explain why KPConv uses fixed kernel points rather than an MLP
+to define the filter. What advantage does this provide in terms
+of efficiency and interpretability?
+\end{exercise}

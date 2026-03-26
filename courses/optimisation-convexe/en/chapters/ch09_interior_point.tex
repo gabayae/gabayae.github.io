@@ -1,0 +1,206 @@
+% ============================================================
+\chapter{Interior Point Methods}
+\label{ch:interior_point}
+% ============================================================
+
+\section{Introduction}
+
+In 1984, Narendra Karmarkar, an engineer at AT\&T Bell Labs, published an algorithm that shook the optimization world: a polynomial-time linear programming method that, unlike Dantzig's simplex, does not traverse the vertices of the polyhedron but passes through its \emph{interior}. The community was electrified --- and divided. Some saw a revolution; others dismissed it as hype (the simplex, though exponential in the worst case, is fast in practice). But history would decide: interior point methods, refined by Nesterov and Nemirovski in the 1990s, proved decisive for semidefinite optimization, conic optimization, and large-scale problems. The idea is elegant: replace inequality constraints with a logarithmic barrier, then follow the \emph{central path} toward the optimum.
+
+\begin{intuition}
+Imagine you are inside a room (the feasible polyhedron) searching for the
+lowest point (the optimum). The simplex walks along the walls and corners.
+Interior point methods walk through the middle of the room, gradually
+approaching the optimal solution (often near a wall). An invisible barrier
+prevents you from touching the walls, but this barrier weakens over
+iterations.
+\end{intuition}
+
+\section{Barrier method}
+
+\subsection{Formulation}
+
+\begin{definition}[Inequality-constrained problem]
+Consider the convex problem:
+\[
+  \min_{x \in \R^n} f_0(x) \quad \text{s.t.} \quad
+  f_i(x) \leq 0,\; i = 1, \ldots, m, \qquad Ax = b,
+\]
+where $f_0, f_1, \ldots, f_m$ are convex and twice differentiable.
+\end{definition}
+
+\begin{definition}[Logarithmic barrier function]
+\index{logarithmic barrier}
+The \textbf{logarithmic barrier function} is:
+\[
+  \phi(x) = -\sum_{i=1}^m \ln(-f_i(x)),
+\]
+defined on the strict interior $\{x : f_i(x) < 0,\; \forall i\}$.
+\end{definition}
+
+\begin{definition}[Barrier problem]
+\index{barrier method}
+The \textbf{barrier problem} for parameter $t > 0$ is:
+\[
+  \min_x\; t\, f_0(x) + \phi(x) \quad \text{s.t.} \quad Ax = b.
+\]
+Its solution $x^*(t)$ is called the \textbf{central point} for parameter $t$.
+\end{definition}
+
+\subsection{Central path}
+
+\begin{definition}[Central path]
+\index{central path}
+The \textbf{central path} is the set $\{x^*(t) : t > 0\}$. As
+$t \to +\infty$, $x^*(t) \to x^*$, the solution of the original problem.
+\end{definition}
+
+\begin{theorem}[Suboptimality bound]
+For any $t > 0$, the central point $x^*(t)$ satisfies:
+\[
+  f_0(x^*(t)) - p^* \leq \frac{m}{t},
+\]
+where $p^*$ is the optimal value and $m$ is the number of inequality
+constraints.
+\end{theorem}
+
+\begin{proof}
+The KKT conditions of the barrier problem show that $x^*(t)$ is feasible for
+the original problem, with multipliers
+$\lambda_i^*(t) = -1/(t\, f_i(x^*(t)))$. By weak duality:
+\[
+  f_0(x^*(t)) - p^* \leq \sum_{i=1}^m \lambda_i^*(t)(-f_i(x^*(t)))
+  = \sum_{i=1}^m \frac{1}{t} = \frac{m}{t}.
+\]
+\end{proof}
+
+\begin{algorithme}[title=\textbf{Barrier Method}]
+\begin{enumerate}
+  \item Choose strictly feasible $x_0$, $t_0 > 0$, factor $\mu > 1$,
+        tolerance $\varepsilon > 0$.
+  \item For $k = 0, 1, 2, \ldots$:
+    \begin{enumerate}
+      \item \textbf{Centering}: solve (via Newton)
+            $\min_x t_k f_0(x) + \phi(x)$ s.t.\ $Ax = b$,
+            starting from $x_k$, to obtain $x_{k+1} = x^*(t_k)$.
+      \item \textbf{Stopping}: if $m / t_k < \varepsilon$, \textbf{stop}.
+      \item \textbf{Update}: $t_{k+1} = \mu \cdot t_k$.
+    \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+\begin{keyformulas}[title=\textbf{Barrier method complexity}]
+\begin{itemize}
+  \item Number of outer iterations (barrier steps):
+        $\lceil \frac{\ln(m / (t_0 \varepsilon))}{\ln \mu} \rceil$.
+  \item Typical choice: $\mu = 10$ to $20$, yielding few outer iterations.
+  \item Each centering step requires a few Newton steps (6--40 in practice).
+\end{itemize}
+\end{keyformulas}
+
+\section{Short-step and long-step methods}
+
+\begin{definition}[Short-step method]
+\index{short-step method}
+The \textbf{short-step} method chooses $\mu$ close to 1 (e.g.,
+$\mu = 1 + 1/\sqrt{m}$) and performs a single Newton step per centering
+phase. The iteration count is $\mathcal{O}(\sqrt{m} \ln(m/\varepsilon))$.
+\end{definition}
+
+\begin{definition}[Long-step method]
+\index{long-step method}
+The \textbf{long-step} method chooses a large $\mu$ and performs multiple
+Newton steps to re-center. The total Newton step count is also
+$\mathcal{O}(\sqrt{m} \ln(m/\varepsilon))$ but with a larger constant.
+\end{definition}
+
+\begin{theorem}[Polynomial complexity]
+\index{polynomial complexity}
+Interior point methods solve a linear program with $n$ variables and $m$
+constraints in $\mathcal{O}(\sqrt{m} \ln(1/\varepsilon))$ Newton steps, each
+costing $\mathcal{O}(n^3)$ (or less when exploiting sparsity). The total
+complexity is polynomial.
+\end{theorem}
+
+\section{Primal-dual interior point method}
+
+\begin{definition}[Modified KKT system]
+The \textbf{primal-dual} method simultaneously solves the perturbed KKT
+conditions:
+\[
+  \begin{cases}
+    \nabla f_0(x) + \sum_i \lambda_i \nabla f_i(x) + A^\top \nu = 0, \\
+    -\lambda_i f_i(x) = 1/t, \quad i = 1, \ldots, m, \\
+    Ax = b.
+  \end{cases}
+\]
+Newton's method is applied to this system.
+\end{definition}
+
+\begin{remark}
+The primal-dual method is more efficient in practice than the pure barrier
+method because it does not require solving the centering problem exactly at
+each stage. Modern solvers (MOSEK, CVXOPT) use this approach.
+\end{remark}
+
+\begin{theorem}[Primal-dual convergence]
+The primal-dual method achieves $\varepsilon$-accuracy in
+$\mathcal{O}(\sqrt{m} \ln(1/\varepsilon))$ Newton iterations under standard
+regularity assumptions.
+\end{theorem}
+
+\section{Application to linear programming}
+
+\begin{example}[LP in standard form]
+For the LP $\min\; c^\top x$ s.t.\ $Ax = b$, $x \geq 0$, the barrier
+function is:
+\[
+  \phi(x) = -\sum_{j=1}^n \ln(x_j).
+\]
+The Newton system for centering is:
+\[
+  \begin{pmatrix}
+    X^{-2} & A^\top \\
+    A & 0
+  \end{pmatrix}
+  \begin{pmatrix} \Delta x \\ \Delta \nu \end{pmatrix}
+  = -\begin{pmatrix} t\, c - X^{-1} e \\ 0 \end{pmatrix},
+\]
+where $X = \mathrm{diag}(x)$ and $e = (1, \ldots, 1)^\top$.
+\end{example}
+
+\begin{example}[Semidefinite programming]
+Interior point methods extend naturally to \textbf{semidefinite programs}
+(SDPs), where the constraint $x \geq 0$ is replaced by $X \succeq 0$
+(positive semidefinite matrix). The barrier function becomes
+$\phi(X) = -\ln \det(X)$.
+\end{example}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$ -- Logarithmic barrier]
+For the LP $\min -x_1 - x_2$ s.t.\ $x_1 + x_2 \leq 1$, $x_1, x_2 \geq 0$,
+write the barrier function and compute $x^*(t)$ for $t = 1, 10, 100$. Verify
+that $x^*(t) \to x^*$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$ -- Central path]
+Plot the central path for $\min x_1$ s.t.\ $x_1^2 + x_2^2 \leq 1$ for
+$t \in \{0.1, 1, 10, 100\}$. Show it converges to $(-1, 0)$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$ -- Newton step]
+Derive the Newton system for the barrier method applied to the constrained
+QP: $\min \frac{1}{2} x^\top Q x + c^\top x$ s.t.\ $Ax \leq b$.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Suboptimality bound]
+Prove in detail that $f_0(x^*(t)) - p^* \leq m/t$. Deduce the number of
+outer iterations needed to achieve accuracy $\varepsilon$ with factor $\mu$.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Primal-dual implementation]
+Implement the primal-dual interior point method for LP in standard form.
+Test on a problem with 50 variables and 20 constraints. Compare iteration
+counts with the pure barrier method.
+\end{exercise}

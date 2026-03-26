@@ -1,0 +1,345 @@
+% ============================================================
+\chapter{Optimisation et Mod\`eles Variationnels}
+\label{ch:optimisation}
+% ============================================================
+
+\section{Introduction}
+
+La nature est \'econome. La lumi\`ere suit le chemin le plus rapide (principe de Fermat), une bulle de savon minimise sa surface (probl\`eme de Plateau), une cha\^inette adopt\'e la forme qui minimise son \'energie potentielle. Cette id\'ee --- que les lois de la physique sont des probl\`emes d'optimisation --- a fascin\'e les math\'ematiciens depuis Euler et Lagrange au XVIII\ieme{} si\`ecle. Le \emph{calcul des variations}, qui cherche la fonction optimisant une fonctionnelle, est l'outil qui en d\'ecoule. Mais l'optimisation irrigue aussi les sciences appliqu\'ees~: programmation lin\'eaire pour la logistique, conditions de Karush--Kuhn--Tucker pour l'optimisation sous contraintes, m\'ethodes num\'eriques pour les probl\`emes de grande taille. Ce chapitre couvre ces trois facettes, de la th\'eorie classique aux algorithmes modernes.
+
+% ------------------------------------------------------------
+\section{Programmation lin\'eaire}
+\label{sec:pl}
+% ------------------------------------------------------------
+
+\begin{definition}[Probl\`eme de programmation lin\'eaire]
+Un \textbf{probl\`eme de programmation lin\'eaire} (PL) consiste \`a
+minimiser une fonction lin\'eaire sous contraintes lin\'eaires :
+\[
+  \min_{\mathbf{x}\in\R^n}\;\mathbf{c}^\top\mathbf{x}
+  \quad\text{s.c.}\quad
+  A\mathbf{x}\leq\mathbf{b},\quad \mathbf{x}\geq\mathbf{0}.
+\]
+\end{definition}
+
+\begin{theoreme}[Th\'eor\`eme fondamental de la PL]
+Si un probl\`eme de PL admet une solution optimale, alors il en
+admet une qui est un \textbf{sommet} (point extr\^eme) du poly\`edre
+des contraintes.
+\end{theoreme}
+
+\begin{exemple}[Probl\`eme de production]
+Une usine fabrique deux produits $x_1$, $x_2$ avec les contraintes
+de ressources et les profits unitaires suivants :
+\begin{align*}
+  \max\quad & 40x_1 + 30x_2 \\
+  \text{s.c.}\quad & x_1 + x_2 \leq 40, \\
+  & 2x_1 + x_2 \leq 60, \\
+  & x_1, x_2 \geq 0.
+\end{align*}
+\end{exemple}
+
+\begin{codeblock}[title=\textbf{Programmation lin\'eaire avec \texttt{scipy}}]
+\begin{minted}{python}
+import numpy as np
+from scipy.optimize import linprog
+
+# min c^T x  =>  max 40x1 + 30x2  =>  min -40x1 - 30x2
+c = [-40, -30]
+A_ub = [[1, 1], [2, 1]]
+b_ub = [40, 60]
+bounds = [(0, None), (0, None)]
+
+result = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds,
+                 method='highs')
+print(f"Solution optimale : x1 = {result.x[0]:.1f}, "
+      f"x2 = {result.x[1]:.1f}")
+print(f"Profit maximal : {-result.fun:.1f}")
+\end{minted}
+\end{codeblock}
+
+\begin{definition}[Dualit\'e]
+Le \textbf{probl\`eme dual} associ\'e au PL primal
+$\min \mathbf{c}^\top\mathbf{x}$ s.c.\ $A\mathbf{x}\geq\mathbf{b}$,
+$\mathbf{x}\geq 0$ est :
+\[
+  \max_{\mathbf{y}\geq 0}\;\mathbf{b}^\top\mathbf{y}
+  \quad\text{s.c.}\quad
+  A^\top\mathbf{y}\leq\mathbf{c}.
+\]
+\end{definition}
+
+\begin{theoreme}[Th\'eor\`eme de dualit\'e forte]
+Si le primal et le dual ont des solutions r\'ealisables, alors les
+valeurs optimales sont \'egales :
+$\mathbf{c}^\top\mathbf{x}^* = \mathbf{b}^\top\mathbf{y}^*$.
+\end{theoreme}
+
+% ------------------------------------------------------------
+\section{Optimisation non lin\'eaire sans contraintes}
+\label{sec:sans_contraintes}
+% ------------------------------------------------------------
+
+\begin{definition}[Conditions n\'ecessaires d'optimalit\'e]
+Pour $f:\R^n\to\R$ de classe $\mathcal{C}^2$, si $\mathbf{x}^*$
+est un minimum local, alors :
+\begin{enumerate}
+  \item $\nabla f(\mathbf{x}^*) = \mathbf{0}$ (condition du premier ordre).
+  \item $\nabla^2 f(\mathbf{x}^*)$ est semi-d\'efinie positive
+    (condition du second ordre).
+\end{enumerate}
+\end{definition}
+
+\begin{definition}[M\'ethode de descente de gradient]
+La m\'ethode de descente de gradient it\`ere :
+\[
+  \mathbf{x}_{k+1} = \mathbf{x}_k - \alpha_k\nabla f(\mathbf{x}_k),
+\]
+o\`u $\alpha_k>0$ est le pas d'apprentissage.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Descente de gradient en Python}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+def f(x):
+    return (x[0]-1)**2 + 10*(x[1]-x[0]**2)**2  # Rosenbrock
+
+def grad_f(x):
+    dx0 = 2*(x[0]-1) - 40*x[0]*(x[1]-x[0]**2)
+    dx1 = 20*(x[1]-x[0]**2)
+    return np.array([dx0, dx1])
+
+x = np.array([-1.0, 1.0])
+alpha = 0.002
+trajectory = [x.copy()]
+
+for _ in range(5000):
+    x = x - alpha * grad_f(x)
+    trajectory.append(x.copy())
+
+trajectory = np.array(trajectory)
+print(f"Minimum trouvé : x = ({x[0]:.6f}, {x[1]:.6f})")
+print(f"f(x) = {f(x):.8f}")
+
+# Visualisation
+x1 = np.linspace(-2, 2, 200)
+x2 = np.linspace(-1, 3, 200)
+X1, X2 = np.meshgrid(x1, x2)
+Z = (X1-1)**2 + 10*(X2-X1**2)**2
+
+plt.figure(figsize=(8, 6))
+plt.contour(X1, X2, Z, levels=np.logspace(-1, 3, 30), cmap='viridis')
+plt.plot(trajectory[:, 0], trajectory[:, 1], 'r-', lw=0.5)
+plt.plot(1, 1, 'r*', markersize=15)
+plt.xlabel('$x_1$'); plt.ylabel('$x_2$')
+plt.title('Descente de gradient sur la fonction de Rosenbrock')
+plt.tight_layout(); plt.savefig('gradient_descent.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Optimisation sous contraintes : conditions KKT}
+\label{sec:kkt}
+% ------------------------------------------------------------
+
+\begin{theoreme}[Conditions de Karush--Kuhn--Tucker]
+Consid\'erons le probl\`eme :
+\[
+  \min_{\mathbf{x}}\;f(\mathbf{x})
+  \quad\text{s.c.}\quad
+  g_i(\mathbf{x})\leq 0,\;i=1,\ldots,m, \qquad
+  h_j(\mathbf{x})=0,\;j=1,\ldots,p.
+\]
+Si $\mathbf{x}^*$ est un minimum local et qu'une condition de
+qualification des contraintes est satisfaite, alors il existe
+des multiplicateurs $\lambda_i\geq 0$ et $\mu_j$ tels que :
+\begin{enumerate}
+  \item $\nabla f(\mathbf{x}^*) + \sum_i\lambda_i\nabla g_i(\mathbf{x}^*)
+    + \sum_j\mu_j\nabla h_j(\mathbf{x}^*) = \mathbf{0}$ (stationnarit\'e).
+  \item $g_i(\mathbf{x}^*)\leq 0$ pour tout $i$ (faisabilit\'e primale).
+  \item $\lambda_i\geq 0$ pour tout $i$ (faisabilit\'e duale).
+  \item $\lambda_i g_i(\mathbf{x}^*)=0$ pour tout $i$
+    (compl\'ementarit\'e).
+\end{enumerate}
+\end{theoreme}
+
+\begin{exemple}
+Minimiser $f(x,y)=x^2+y^2$ sous la contrainte $x+y\geq 1$.
+Le lagrangien est $\mathcal{L}=x^2+y^2-\lambda(x+y-1)$.
+Conditions KKT : $2x=\lambda$, $2y=\lambda$, $\lambda(x+y-1)=0$,
+$\lambda\geq 0$.  D'o\`u $x=y=\lambda/2$.  Si $\lambda>0$ :
+$x+y=1$, donc $\lambda=1$, $x^*=y^*=1/2$.
+\end{exemple}
+
+\begin{codeblock}[title=\textbf{Optimisation sous contraintes avec \texttt{scipy}}]
+\begin{minted}{python}
+from scipy.optimize import minimize
+
+def objective(x):
+    return x[0]**2 + x[1]**2
+
+constraints = [{'type': 'ineq', 'fun': lambda x: x[0] + x[1] - 1}]
+x0 = [0.0, 0.0]
+result = minimize(objective, x0, method='SLSQP',
+                  constraints=constraints)
+print(f"Solution : x = ({result.x[0]:.4f}, {result.x[1]:.4f})")
+print(f"f(x*) = {result.fun:.4f}")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Calcul des variations}
+\label{sec:variations}
+% ------------------------------------------------------------
+
+\begin{definition}[Probl\`eme du calcul des variations]
+On cherche la fonction $y:[a,b]\to\R$ rendant stationnaire la
+fonctionnelle :
+\[
+  J[y] = \int_a^b F(x,y,y')\,dx,
+\]
+avec conditions aux limites $y(a)=y_a$, $y(b)=y_b$.
+\end{definition}
+
+\begin{theoreme}[\'Equation d'Euler--Lagrange]
+Si $y^*$ rend $J$ stationnaire, alors $y^*$ satisfait :
+\[
+  \frac{\partial F}{\partial y}
+  - \frac{d}{dx}\frac{\partial F}{\partial y'} = 0.
+\]
+\end{theoreme}
+
+\begin{proof}
+Soit $\eta$ une variation admissible ($\eta(a)=\eta(b)=0$).  Posons
+$y_\varepsilon = y^* + \varepsilon\eta$.  La condition de
+stationnarit\'e est :
+\[
+  \frac{d}{d\varepsilon}J[y_\varepsilon]\bigg|_{\varepsilon=0} = 0.
+\]
+On calcule :
+\[
+  \int_a^b\left(\frac{\partial F}{\partial y}\eta
+  + \frac{\partial F}{\partial y'}\eta'\right)dx = 0.
+\]
+Int\'egration par parties du second terme (les termes de bord
+s'annulent) et application du lemme fondamental du calcul des
+variations donne l'\'equation d'Euler--Lagrange.
+\end{proof}
+
+\begin{exemple}[G\'eod\'esiques dans le plan]
+La longueur d'une courbe $y(x)$ entre $(a,y_a)$ et $(b,y_b)$ est
+$J[y]=\int_a^b\sqrt{1+y'^2}\,dx$.  Ici $F=\sqrt{1+y'^2}$,
+$\partial F/\partial y=0$.  L'\'equation d'Euler--Lagrange donne
+$y''/({1+y'^2})^{3/2}=0$, soit $y''=0$ : les g\'eod\'esiques sont
+des droites.
+\end{exemple}
+
+\begin{exemple}[Brachistochrone]
+Trouver la courbe $y(x)$ le long de laquelle une bille glisse sans
+frottement de $(0,0)$ \`a $(x_1,y_1)$ en un temps minimal.  Le temps
+de descente est :
+\[
+  T[y] = \int_0^{x_1}\frac{\sqrt{1+y'^2}}{\sqrt{2gy}}\,dx.
+\]
+L'\'equation d'Euler--Lagrange conduit \`a une \textbf{cyclo\"ide}.
+\end{exemple}
+
+\begin{codeblock}[title=\textbf{Brachistochrone num\'erique}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.optimize import minimize
+
+# Discrétisation : y aux N points intérieurs
+N = 30
+x1, y1 = 1.0, 0.5
+x = np.linspace(0, x1, N + 2)
+dx = x[1] - x[0]
+g = 9.81
+
+def travel_time(y_inner):
+    y = np.concatenate([[0], y_inner, [y1]])
+    dy = np.diff(y) / dx
+    y_mid = 0.5 * (y[:-1] + y[1:])
+    y_mid = np.maximum(y_mid, 1e-10)  # éviter division par zéro
+    ds = np.sqrt(dx**2 + (np.diff(y))**2)
+    v = np.sqrt(2 * g * y_mid)
+    return np.sum(ds / v)
+
+y0_inner = np.linspace(0, y1, N + 2)[1:-1]
+result = minimize(travel_time, y0_inner, method='L-BFGS-B',
+                  bounds=[(0.001, 2.0)] * N)
+y_opt = np.concatenate([[0], result.x, [y1]])
+
+plt.figure(figsize=(8, 5))
+plt.plot(x, y_opt, 'b-', lw=2, label='Brachistochrone numérique')
+plt.plot(x, np.linspace(0, y1, N+2), 'r--', label='Droite')
+plt.gca().invert_yaxis()
+plt.xlabel('$x$'); plt.ylabel('$y$')
+plt.legend(); plt.title('Courbe brachistochrone')
+plt.tight_layout(); plt.savefig('brachistochrone.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Probl\`emes isop\'erim\'etriques}
+% ------------------------------------------------------------
+
+\begin{theoreme}[Probl\`eme isop\'erim\'etrique]
+Parmi toutes les courbes ferm\'ees de p\'erim\`etre fix\'e $L$,
+celle qui enferme l'aire maximale est le \textbf{cercle}.
+\end{theoreme}
+
+\begin{definition}[Multiplicateur de Lagrange pour les fonctionnelles]
+Pour un probl\`eme variationnel avec contrainte int\'egrale
+$\int_a^b G(x,y,y')\,dx = C$, on forme le lagrangien augment\'e :
+\[
+  \tilde{J}[y] = \int_a^b \bigl[F(x,y,y') + \lambda G(x,y,y')\bigr]\,dx,
+\]
+et on applique l'\'equation d'Euler--Lagrange \`a $\tilde{F}=F+\lambda G$.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}
+R\'esoudre graphiquement et avec \texttt{linprog} le probl\`eme :
+\begin{align*}
+  \max\quad & 5x_1 + 4x_2 \\
+  \text{s.c.}\quad & 6x_1+4x_2\leq 24,\; x_1+2x_2\leq 6,\;
+  x_1,x_2\geq 0.
+\end{align*}
+\end{exercice}
+
+\begin{exercice}
+Montrer que la m\'ethode de descente de gradient converge pour une
+fonction $f$ fortement convexe et $L$-lisse avec un pas
+$\alpha=1/L$.  Quelle est la vitesse de convergence ?
+\end{exercice}
+
+\begin{exercice}
+R\'esoudre par les conditions KKT :
+$\min\;x_1^2+x_2^2$ s.c.\ $x_1+2x_2=3$, $x_1\geq 0$.
+\end{exercice}
+
+\begin{exercice}
+Trouver l'\'equation de la cha\^inette (courbe d'un c\^able
+suspendu) en minimisant l'\'energie potentielle gravitationnelle
+$J[y]=\int_{-a}^{a}\rho g y\sqrt{1+y'^2}\,dx$ sous la contrainte
+de longueur fix\'ee $\int\sqrt{1+y'^2}\,dx=L$.
+\end{exercice}
+
+\begin{exercice}
+Impl\'ementer la m\'ethode de Newton pour l'optimisation sans
+contraintes et comparer sa convergence avec la descente de gradient
+sur la fonction de Rosenbrock.
+\end{exercice}
+
+\begin{exercice}
+R\'esoudre num\'eriquement le probl\`eme de la brachistochrone pour
+diff\'erentes positions du point d'arriv\'ee et comparer avec la
+solution analytique (cyclo\"ide).
+\end{exercice}

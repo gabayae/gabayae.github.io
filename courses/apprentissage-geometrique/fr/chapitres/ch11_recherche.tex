@@ -1,0 +1,269 @@
+% ============================================================
+\chapter{Directions de Recherche}
+\label{ch:recherche}
+% ============================================================
+
+\begin{intuition}
+L'apprentissage g\'eom\'etrique est un domaine en pleine expansion.
+Ce chapitre pr\'esente les directions de recherche les plus actives
+et les probl\`emes ouverts qui d\'efiniront les prochaines avanc\'ees
+du domaine.
+\end{intuition}
+
+% ============================================================
+\section{Mod\`eles de fondation g\'eom\'etriques}
+\label{sec:foundation_models}
+% ============================================================
+
+\begin{definition}[Mod\`ele de fondation g\'eom\'etrique]
+\index{mod\`ele de fondation}
+Un \textbf{mod\`ele de fondation g\'eom\'etrique} est un mod\`ele
+pr\'e-entra\^\i n\'e \`a grande \'echelle sur des donn\'ees
+structur\'ees (graphes, mol\'ecules, nuages de points) et
+transf\'erable \`a de multiples t\^aches en aval par
+\emph{fine-tuning} ou \emph{prompting}.
+\end{definition}
+
+\begin{exemple}[Exemples de mod\`eles de fondation g\'eom\'etriques]
+\begin{itemize}
+  \item \textbf{GEM} (Fang et al.\ 2022)~: mod\`ele de fondation
+        pour les mol\'ecules, pr\'e-entra\^\i n\'e sur 20M de
+        structures.
+  \item \textbf{Uni-Mol} (Zhou et al.\ 2023)~: repr\'esentation
+        unifi\'ee 2D/3D pour les mol\'ecules.
+  \item \textbf{Point-MAE} (Pang et al.\ 2022)~: auto-encodeur
+        masqu\'e pour les nuages de points 3D.
+\end{itemize}
+\end{exemple}
+
+\begin{remarque}
+Contrairement aux mod\`eles de fondation textuels (GPT, Claude),
+les mod\`eles g\'eom\'etriques doivent respecter les
+\textbf{sym\'etries} des donn\'ees (invariance par permutation,
+\'equivariance par rotation). Cela impose des contraintes
+architecturales fortes.
+\end{remarque}
+
+\begin{proposition}[D\'efis du scaling]
+Le passage \`a l'\'echelle des GNN pose des probl\`emes sp\'ecifiques~:
+\begin{enumerate}
+  \item \textbf{Explosion du voisinage}~: $k$ couches impliquent
+        $\mathcal{O}(d^k)$ voisins ($d$ = degr\'e moyen).
+  \item \textbf{Over-smoothing}~: les repr\'esentations convergent
+        avec la profondeur.
+  \item \textbf{Over-squashing}~: l'information longue distance est
+        compress\'ee dans des bottlenecks.
+  \item \textbf{Graphes de taille variable}~: le batching est
+        non trivial.
+\end{enumerate}
+\end{proposition}
+
+% ============================================================
+\section{Transformers \'equivariants}
+\label{sec:equivariant_transformers}
+% ============================================================
+
+\begin{definition}[Transformer g\'eom\'etrique]
+\index{Transformer g\'eom\'etrique}
+Un \textbf{Transformer g\'eom\'etrique} est un Transformer dont
+l'attention int\`egre des informations g\'eom\'etriques tout en
+respectant les sym\'etries~:
+\[
+  \alpha_{ij} = \frac{\exp\!\left(\frac{q_i^\top k_j}{\sqrt{d}}
+  + b(x_i, x_j)\right)}{\sum_{l} \exp\!\left(
+  \frac{q_i^\top k_l}{\sqrt{d}} + b(x_i, x_l)\right)}
+\]
+o\`u $b(x_i, x_j)$ est un biais d'attention d\'ependant de la
+g\'eom\'etrie (distance, angle, orientation relative).
+\end{definition}
+
+\begin{exemple}[Exemples d'architectures]
+\begin{itemize}
+  \item \textbf{SE(3)-Transformer} (Fuchs et al.\ 2020)~: attention
+        $\mathrm{SE}(3)$-\'equivariante avec features tensorielles.
+  \item \textbf{Equiformer} (Liao \& Smidt, 2023)~: Transformer
+        \'equivariant avec produits tensoriels dans l'attention.
+  \item \textbf{GPS} (Ramp\'a\v{s}ek et al.\ 2022)~: combine
+        message passing local et attention globale.
+\end{itemize}
+\end{exemple}
+
+\begin{theoreme}[Expressivit\'e des Graph Transformers]
+\index{Graph Transformer}
+Un Graph Transformer avec encodage positionnel spectral et attention
+globale est \textbf{strictement plus expressif} que le $1$-WL test.
+Avec des encodages positionnels $\mathrm{SE}(3)$-\'equivariants,
+il peut approcher toute fonction \'equivariante continue.
+\end{theoreme}
+
+\begin{formules}[title=\textbf{Attention \'equivariante}]
+\[
+  h_i' = \sum_{j} \alpha_{ij} \cdot V(h_j, x_j - x_i)
+\]
+o\`u $V : \R^d \times \R^3 \to \R^{d'}$ est une fonction de valeur
+qui d\'epend de la position relative, et $\alpha_{ij}$ est invariant
+par $\mathrm{SE}(3)$.
+\end{formules}
+
+% ============================================================
+\section{Mod\`eles de diffusion sur vari\'et\'es}
+\label{sec:diffusion_manifolds}
+% ============================================================
+
+\begin{definition}[Diffusion riemannienne]
+\index{diffusion riemannienne}
+Un \textbf{mod\`ele de diffusion riemannien} (De Bortoli et al.\
+2022) g\'en\'eralise les mod\`eles de diffusion (DDPM) aux
+vari\'et\'es riemanniennes $(\mathcal{M}, g)$~:
+\begin{enumerate}
+  \item \textbf{Processus forward}~: mouvement brownien riemannien
+        $dX_t = \sqrt{2\beta_t}\, dB_t^{\mathcal{M}}$.
+  \item \textbf{Score matching}~: apprentissage du score
+        $\nabla_{\mathcal{M}} \log p_t(x)$ sur la vari\'et\'e.
+  \item \textbf{Processus reverse}~: int\'egration de l'\'equation
+        reverse sur $\mathcal{M}$ avec le score appris.
+\end{enumerate}
+\end{definition}
+
+\begin{exemple}[Applications de la diffusion g\'eom\'etrique]
+\begin{itemize}
+  \item \textbf{G\'en\'eration de mol\'ecules 3D}~: diffusion sur
+        $\R^{3n}$ avec \'equivariance $\mathrm{SE}(3)$
+        (EDM, Hoogeboom et al.\ 2022).
+  \item \textbf{G\'en\'eration de conformations}~: diffusion
+        sur les angles de torsion (vari\'et\'e torique).
+  \item \textbf{G\'en\'eration de prot\'eines}~: diffusion sur
+        $\mathrm{SO}(3)^n$ pour les frames des r\'esidus
+        (RFDiffusion, Watson et al.\ 2023).
+\end{itemize}
+\end{exemple}
+
+\begin{attention}[title=\textbf{Difficult\'es techniques}]
+La diffusion sur vari\'et\'es n\'ecessite~:
+\begin{itemize}
+  \item La carte exponentielle $\exp_x : T_x\mathcal{M} \to
+        \mathcal{M}$ pour les pas d'int\'egration.
+  \item Le logarithme riemannien $\log_x : \mathcal{M} \to
+        T_x\mathcal{M}$ pour le score.
+  \item Le transport parall\`ele pour d\'eplacer les vecteurs
+        entre espaces tangents.
+\end{itemize}
+\end{attention}
+
+% ============================================================
+\section{Apprentissage auto-supervis\'e g\'eom\'etrique}
+\label{sec:ssl_geometrique}
+% ============================================================
+
+\begin{definition}[Apprentissage auto-supervis\'e sur graphes]
+\index{apprentissage auto-supervis\'e}
+L'\textbf{apprentissage auto-supervis\'e} (SSL) sur graphes
+apprend des repr\'esentations sans labels via des t\^aches
+auxiliaires~:
+\begin{enumerate}
+  \item \textbf{Contrastif}~: maximiser la similarit\'e entre
+        deux vues augment\'ees du m\^eme graphe (GraphCL, GCA).
+  \item \textbf{Pr\'edictif}~: pr\'edire des propri\'et\'es
+        masqu\'ees (features de n\oe uds, ar\^etes, sous-graphes).
+  \item \textbf{G\'en\'eratif}~: reconstruire le graphe \`a
+        partir d'une repr\'esentation compress\'ee (GraphMAE).
+\end{enumerate}
+\end{definition}
+
+\begin{proposition}[Augmentations g\'eom\'etriques]
+Les augmentations pour les graphes incluent~:
+\begin{itemize}
+  \item Suppression al\'eatoire de n\oe uds ou d'ar\^etes.
+  \item Perturbation des features.
+  \item Sous-graphe al\'eatoire.
+  \item Diffusion de chaleur (lissage des features).
+\end{itemize}
+Pour les donn\'ees 3D, on ajoute~: rotation, translation,
+bruit gaussien, \'echantillonnage partiel.
+\end{proposition}
+
+\begin{theoreme}[Garanties du SSL contrastif]
+\index{apprentissage contrastif}
+Sous des hypoth\`eses de r\'egularit\'e sur la distribution des
+donn\'ees et des augmentations, les repr\'esentations contrastives
+sont \textbf{lin\'eairement s\'eparables} pour les t\^aches en
+aval, avec une borne d'erreur contr\^ol\'ee par l'alignement et
+l'uniformit\'e des repr\'esentations.
+\end{theoreme}
+
+% ============================================================
+\section{Probl\`emes ouverts}
+\label{sec:problemes_ouverts}
+% ============================================================
+
+\begin{remarque}[Probl\`emes ouverts majeurs]
+\index{probl\`emes ouverts}
+\begin{enumerate}
+  \item \textbf{Expressivit\'e optimale}~: quelle est l'architecture
+        GNN minimale pour \'egaler $k$-WL pour un $k$ donn\'e~?
+  \item \textbf{Over-squashing}~: comment permettre l'information
+        longue distance sans attention globale co\^uteuse
+        ($\mathcal{O}(n^2)$)~?
+  \item \textbf{G\'en\'eralisation hors distribution}~: les GNN
+        g\'en\'eralisent-ils \`a des graphes de structures tr\`es
+        diff\'erentes de l'entra\^\i nement~?
+  \item \textbf{\'Equivariance approch\'ee}~: comment g\'erer les
+        sym\'etries approximatives (quasi-sym\'etries) des donn\'ees
+        r\'eelles~?
+  \item \textbf{Interpr\'etabilit\'e}~: comment expliquer les
+        d\'ecisions d'un GNN en termes de sous-structures
+        significatives~?
+  \item \textbf{Passage \`a l'\'echelle}~: comment entra\^\i ner
+        des GNN sur des graphes \`a des milliards de n\oe uds~?
+\end{enumerate}
+\end{remarque}
+
+\begin{definition}[Over-squashing]
+\index{over-squashing}
+L'\textbf{over-squashing} d\'esigne le ph\'enom\`ene o\`u
+l'information provenant de n\oe uds distants est compress\'ee
+de mani\`ere exponentielle en traversant les couches de message
+passing. Formellement, le jacobien~:
+\[
+  \left\|\frac{\partial h_v^{(L)}}{\partial h_u^{(0)}}\right\|
+  \leq C \cdot \lambda_{\max}^L \cdot
+  \prod_{\ell=1}^L \mathrm{Lip}(\sigma_\ell)
+\]
+d\'ecro\^\i t exponentiellement avec la distance dans le graphe
+si $\lambda_{\max} < 1$.
+\end{definition}
+
+% ============================================================
+\section{Exercices}
+% ============================================================
+
+\begin{exercice}
+Expliquer pourquoi les encodages positionnels laplaciens ne sont
+pas uniques (signe, ordre). Proposer une solution pour les rendre
+invariants.
+\end{exercice}
+
+\begin{exercice}
+Pour un graphe mol\'eculaire, proposer trois augmentations
+contrastives qui pr\'eservent l'identit\'e chimique et trois qui
+ne la pr\'eservent pas. Justifier.
+\end{exercice}
+
+\begin{exercice}[Over-squashing]
+Calculer la borne sur $\left\|\frac{\partial h_v^{(L)}}
+{\partial h_u^{(0)}}\right\|$ pour un graphe en chemin de
+longueur $L$ avec un GCN \`a poids unitaires et activation ReLU.
+\end{exercice}
+
+\begin{exercice}
+Montrer que le mouvement brownien sur la sph\`ere $S^2$ converge
+vers la distribution uniforme. Quel est le taux de convergence
+en fonction de la premi\`ere valeur propre non nulle du laplacien~?
+\end{exercice}
+
+\begin{exercice}[Projet]
+Impl\'ementer un mod\`ele de diffusion \'equivariant simple pour
+g\'en\'erer des nuages de points 3D (par exemple, des formes de
+la base ShapeNet). \'Evaluer la qualit\'e par la Chamfer distance
+et les nombres de Betti.
+\end{exercice}

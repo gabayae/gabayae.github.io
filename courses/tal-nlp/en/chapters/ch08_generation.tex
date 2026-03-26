@@ -1,0 +1,273 @@
+% ============================================================
+\chapter{Text Generation and Decoding}
+\label{ch:generation}
+% ============================================================
+
+A language model that predicts the next word is, quite literally, a text generator in waiting. But between the distribution $P(x_t \mid x_{<t})$ and coherent, fluent, informative text lies a chasm --- that of the \emph{decoding strategy}. Systematically choosing the most probable word (greedy decoding) produces repetitive, dull text. Na\"ively sampling from the distribution produces incoherent text. The solutions --- beam search, top-$k$, nucleus sampling (top-$p$), temperature --- are all trade-offs between \emph{quality} and \emph{diversity}. Ari Holtzman and collaborators, in their paper ``The Curious Case of Neural Text Degeneration'' (2020), showed that nucleus sampling elegantly solves the degeneration problem. This chapter explores these strategies and their probabilistic foundations.
+
+\begin{intuition}[title=\textbf{From language model to generator}]
+An autoregressive language model defines $P(x_t \mid x_{<t})$. Generating text
+amounts to sequentially sampling from this distribution. The choice of decoding
+strategy radically influences the quality, diversity, and coherence of the
+produced text.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Greedy Decoding}
+\label{sec:gen:greedy}
+% ------------------------------------------------------------
+
+\begin{definition}[Greedy Decoding]
+Greedy decoding selects the most probable token at each step:
+\[
+x_t = \argmax_{w \in \mathcal{V}} P(w \mid x_{<t})
+\]
+\end{definition}
+
+\begin{warning}[title=\textbf{Limitations of greedy decoding}]
+Greedy decoding does not guarantee the globally optimal sequence. It can produce
+repetitions and lacks diversity. The most probable sequence is not always the
+most natural one.
+\end{warning}
+
+% ------------------------------------------------------------
+\section{Beam Search}
+\label{sec:gen:beam}
+% ------------------------------------------------------------
+
+\begin{definition}[Beam Search]
+Beam search maintains the $B$ most probable partial sequences (\emph{beams})
+at each decoding step:
+\[
+\mathcal{B}_t = \text{top-}B\left\{(s \oplus w, \text{score}(s) + \log P(w \mid s)) : s \in \mathcal{B}_{t-1}, w \in \mathcal{V}\right\}
+\]
+where $B$ is the beam width.
+\end{definition}
+
+\begin{proposition}[Properties of Beam Search]
+\begin{enumerate}
+    \item For $B = 1$: equivalent to greedy decoding.
+    \item For $B = \abs{\mathcal{V}}^T$: equivalent to exhaustive search.
+    \item In practice, $B \in [4, 10]$ offers a good trade-off.
+\end{enumerate}
+\end{proposition}
+
+\subsection{Length Normalization}
+
+Beam search favors shorter sequences (more $\log P < 0$ terms for longer ones).
+We normalize the score by length:
+\[
+\text{score}_{\text{norm}}(s) = \frac{1}{\abs{s}^\alpha} \sum_{t=1}^{\abs{s}} \log P(x_t \mid x_{<t})
+\]
+where $\alpha \in [0.6, 1.0]$ is a hyperparameter (Wu et al., 2016).
+
+% ------------------------------------------------------------
+\section{Stochastic Sampling}
+\label{sec:gen:sampling}
+% ------------------------------------------------------------
+
+\begin{definition}[Temperature Sampling]
+Temperature sampling with $\tau > 0$ modifies the distribution:
+\[
+P_\tau(w \mid x_{<t}) = \frac{\exp(\text{logit}_w / \tau)}{\sum_{w'} \exp(\text{logit}_{w'} / \tau)}
+\]
+\begin{itemize}
+    \item $\tau \to 0$: converges to greedy decoding.
+    \item $\tau = 1$: original distribution.
+    \item $\tau > 1$: more uniform distribution (more diversity).
+\end{itemize}
+\end{definition}
+
+\begin{definition}[Top-$k$ Sampling]
+Top-$k$ sampling (Fan et al., 2018) restricts sampling to the $k$ most probable
+tokens:
+\[
+P_{\text{top-}k}(w \mid x_{<t}) = \begin{cases}
+\frac{P(w \mid x_{<t})}{\sum_{w' \in \mathcal{V}_k} P(w' \mid x_{<t})} & \text{if } w \in \mathcal{V}_k \\
+0 & \text{otherwise}
+\end{cases}
+\]
+where $\mathcal{V}_k$ contains the $k$ most probable tokens.
+\end{definition}
+
+\begin{definition}[Top-$p$ Sampling (Nucleus)]
+Top-$p$ sampling (Holtzman et al., 2020) selects the smallest set
+$\mathcal{V}_p$ such that:
+\[
+\sum_{w \in \mathcal{V}_p} P(w \mid x_{<t}) \geq p
+\]
+then samples from $\mathcal{V}_p$ (after renormalization).
+\end{definition}
+
+\begin{bestpractice}[title=\textbf{Combining strategies}]
+In practice, temperature, top-$k$, and top-$p$ are often combined. For example,
+$\tau = 0.7$, $k = 50$, $p = 0.9$ offers a good balance between coherence and
+diversity for creative generation.
+\end{bestpractice}
+
+% ------------------------------------------------------------
+\section{Repetition Penalties}
+\label{sec:gen:repetition}
+% ------------------------------------------------------------
+
+\begin{definition}[Repetition Penalty]
+To avoid repetitions, already-generated tokens are penalized:
+\[
+\text{logit}'_w = \begin{cases}
+\text{logit}_w / \theta & \text{if } w \in x_{<t} \text{ and } \text{logit}_w > 0 \\
+\text{logit}_w \cdot \theta & \text{if } w \in x_{<t} \text{ and } \text{logit}_w \leq 0
+\end{cases}
+\]
+where $\theta > 1$ is the penalty factor.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Contrastive Decoding}
+\label{sec:gen:contrastive}
+% ------------------------------------------------------------
+
+\begin{definition}[Contrastive Decoding]
+Contrastive decoding (Li et al., 2023) selects tokens that maximize the
+log-probability difference between an expert model $\pi_{\text{exp}}$ and an
+amateur model $\pi_{\text{ama}}$:
+\[
+x_t = \argmax_{w \in \mathcal{V}_p} \left[\log \pi_{\text{exp}}(w \mid x_{<t}) - \alpha \log \pi_{\text{ama}}(w \mid x_{<t})\right]
+\]
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Speculative Decoding}
+\label{sec:gen:speculative}
+% ------------------------------------------------------------
+
+\begin{definition}[Speculative Decoding]
+Speculative decoding (Leviathan et al., 2023) uses a small fast model
+(\emph{draft model}) to propose $K$ tokens, then a large model verifies them in
+parallel. Accepted tokens are those whose probability under the large model is
+sufficient, accelerating generation without changing the output distribution.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Generation Quality Metrics}
+\label{sec:gen:metrics}
+% ------------------------------------------------------------
+
+\begin{keyformulas}[title=\textbf{Generation metrics}]
+\begin{align}
+\text{BLEU} &= \text{BP} \cdot \exp\!\left(\sum_{n=1}^{N} w_n \log p_n\right) & \text{($n$-gram precision)} \\
+\text{ROUGE-L} &= F_1(\text{LCS}) & \text{(longest common subsequence)} \\
+\text{METEOR} &= F_1 \cdot (1 - \text{Penalty}) & \text{(flexible alignment)} \\
+\text{BERTScore} &= F_1(\text{BERT cosine sim}) & \text{(contextual similarity)}
+\end{align}
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Implementation}
+\label{sec:gen:implementation}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Decoding strategies with Hugging Face}]
+\begin{minted}{python}
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+model_name = "gpt2-medium"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(model_name)
+
+prompt = "The future of artificial intelligence"
+input_ids = tokenizer.encode(prompt, return_tensors="pt")
+
+# Greedy decoding
+greedy = model.generate(input_ids, max_length=50)
+
+# Beam search
+beam = model.generate(input_ids, max_length=50, num_beams=5,
+                      length_penalty=0.8, no_repeat_ngram_size=3)
+
+# Top-k + Top-p sampling
+sampled = model.generate(input_ids, max_length=50, do_sample=True,
+                         temperature=0.7, top_k=50, top_p=0.9,
+                         repetition_penalty=1.2)
+
+for name, ids in [("Greedy", greedy), ("Beam", beam), ("Sampled", sampled)]:
+    print(f"{name}: {tokenizer.decode(ids[0], skip_special_tokens=True)}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Step-by-step decoding}]
+\begin{minted}{python}
+import torch
+import torch.nn.functional as F
+
+def generate_top_p(model, input_ids, max_new_tokens=50, temperature=0.8,
+                   top_p=0.9):
+    generated = input_ids.clone()
+    for _ in range(max_new_tokens):
+        with torch.no_grad():
+            outputs = model(generated)
+            logits = outputs.logits[:, -1, :] / temperature
+
+        # Top-p filtering
+        sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+        cumulative_probs = torch.cumsum(
+            F.softmax(sorted_logits, dim=-1), dim=-1
+        )
+        mask = cumulative_probs - F.softmax(sorted_logits, dim=-1) >= top_p
+        sorted_logits[mask] = float('-inf')
+        logits.scatter_(1, sorted_indices, sorted_logits)
+
+        probs = F.softmax(logits, dim=-1)
+        next_token = torch.multinomial(probs, num_samples=1)
+        generated = torch.cat([generated, next_token], dim=-1)
+
+        if next_token.item() == tokenizer.eos_token_id:
+            break
+    return generated
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Controlled Generation}
+\label{sec:gen:controlled}
+% ------------------------------------------------------------
+
+\begin{definition}[Controlled Generation]
+\emph{Controlled generation} aims to steer a language model's output according
+to specified attributes (tone, topic, style) without retraining. Approaches:
+\begin{itemize}
+    \item \textbf{PPLM} (Dathathri et al., 2020): gradient perturbation.
+    \item \textbf{Classifier-free guidance}: interpolation between conditional
+          and unconditional distributions.
+    \item \textbf{Constrained decoding}: hard lexical constraints.
+\end{itemize}
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Exercises}
+\label{sec:gen:exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}[$\star$]
+Show that greedy decoding is a special case of beam search with $B = 1$.
+\end{exercise}
+
+\begin{exercise}[$\star$]
+Compute the top-$p$ distribution for $p = 0.9$ given the probabilities
+$(0.4, 0.3, 0.15, 0.1, 0.05)$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Implement beam search with length normalization. Test with different values of
+$\alpha$ and $B$ on GPT-2.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Quantitatively compare (BLEU, diversity) generation via greedy, beam search
+($B=5$), and nucleus sampling ($p=0.9$) on a test corpus.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+Implement speculative decoding with a draft model (GPT-2 small) and a target
+model (GPT-2 large). Measure the speedup obtained and verify that the output
+distribution is preserved.
+\end{exercise}

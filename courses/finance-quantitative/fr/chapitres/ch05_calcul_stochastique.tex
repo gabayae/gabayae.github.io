@@ -1,0 +1,353 @@
+% ============================================================
+\chapter{Calcul Stochastique en Finance}
+\label{ch:calcul_stochastique}
+% ============================================================
+
+Le mouvement brownien est la brique fondamentale de la finance quantitative --- mais c'est un objet math\'ematiquement monstrueux~: ses trajectoires sont continues mais \emph{nulle part diff\'erentiables}. On ne peut pas d\'eriver au sens classique, et l'int\'egrale ordinaire ne fonctionne plus. C'est Kiyosi It\^o qui, dans les ann\'ees 1940 au Japon, a construit le calcul diff\'erentiel adapt\'e \`a cette situation~: l'\emph{int\'egrale d'It\^o} et la c\'el\`ebre \emph{formule d'It\^o}, qui est au calcul stochastique ce que la r\`egle de la cha\^ine est au calcul classique --- avec un terme correctif suppl\'ementaire, le terme en $\frac{1}{2}\sigma^2 f''$, qui change tout. Ce chapitre construit ces outils et montre comment ils s'appliquent \`a la mod\'elisation financi\`ere.
+
+\section{Mouvement brownien}
+
+\begin{definition}[Mouvement brownien standard]
+Un \textbf{mouvement brownien standard} (ou processus de Wiener)
+$(W_t)_{t \geq 0}$ est un processus stochastique continu tel que~:
+\begin{enumerate}
+    \item $W_0 = 0$ p.s.
+    \item Les trajectoires $t \mapsto W_t(\omega)$ sont continues p.s.
+    \item Les accroissements sont ind\'ependants~: pour $0 \leq s < t \leq u < v$,
+          $W_t - W_s$ et $W_v - W_u$ sont ind\'ependants.
+    \item Les accroissements sont gaussiens~: $W_t - W_s \sim \mathcal{N}(0, t-s)$.
+\end{enumerate}
+\end{definition}
+
+\begin{proposition}[Propri\'et\'es du mouvement brownien]
+\begin{enumerate}
+    \item $\E[W_t] = 0$ et $\Var(W_t) = t$ pour tout $t \geq 0$.
+    \item $\Cov(W_s, W_t) = \min(s,t)$.
+    \item $W_t$ est une martingale par rapport \`a sa filtration naturelle.
+    \item $W_t^2 - t$ est une martingale.
+    \item Les trajectoires sont p.s.\ nulle part diff\'erentiables.
+    \item La variation quadratique satisfait $\langle W \rangle_t = t$.
+\end{enumerate}
+\end{proposition}
+
+\begin{codeblock}[title=\textbf{Simulation de trajectoires browniennes}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+def brownian_paths(T, N, M):
+    """Simule M trajectoires browniennes sur [0, T] avec N pas."""
+    dt = T / N
+    dW = np.sqrt(dt) * np.random.standard_normal((M, N))
+    W = np.zeros((M, N + 1))
+    W[:, 1:] = np.cumsum(dW, axis=1)
+    t = np.linspace(0, T, N + 1)
+    return t, W
+
+np.random.seed(42)
+t, W = brownian_paths(1.0, 1000, 5)
+for i in range(5):
+    plt.plot(t, W[i])
+plt.xlabel('t'); plt.ylabel('$W_t$')
+plt.title('Trajectoires browniennes')
+plt.grid(True)
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\section{Int\'egrale d'It\^o}
+
+\subsection{Construction}
+
+L'int\'egrale stochastique \'etend l'int\'egrale classique aux int\'egrandes
+al\'eatoires par rapport au mouvement brownien.
+
+\begin{definition}[Int\'egrale d'It\^o]
+Pour un processus adapt\'e $(H_t)_{t \geq 0}$ v\'erifiant
+$\E\!\left[\int_0^T H_t^2\,dt\right] < \infty$, l'\textbf{int\'egrale
+d'It\^o} est d\'efinie comme~:
+\[
+    I_T(H) = \int_0^T H_t\,dW_t
+           = \lim_{n \to \infty} \sum_{i=0}^{n-1}
+             H_{t_i}(W_{t_{i+1}} - W_{t_i}).
+\]
+La limite est prise en moyenne quadratique ($L^2$).
+\end{definition}
+
+\begin{theoreme}[Propri\'et\'es de l'int\'egrale d'It\^o]
+\label{thm:ito_integral_props}
+Soit $I_t = \int_0^t H_s\,dW_s$. Alors~:
+\begin{enumerate}
+    \item $I_t$ est une martingale~: $\E[I_t \mid \mathcal{F}_s] = I_s$
+          pour $s \leq t$.
+    \item \textbf{Isom\'etrie d'It\^o}~:
+          $\E[I_T^2] = \E\!\left[\int_0^T H_t^2\,dt\right]$.
+    \item $\E[I_T] = 0$.
+    \item La variation quadratique est
+          $\langle I \rangle_t = \int_0^t H_s^2\,ds$.
+\end{enumerate}
+\end{theoreme}
+
+\begin{attention}[title=\textbf{It\^o vs Stratonovich}]
+L'int\'egrale d'It\^o \'evalue l'int\'egrande au bord \textbf{gauche}
+de chaque intervalle~: $H_{t_i}$ et non $H_{t_{i+1}}$ ou
+$\frac{1}{2}(H_{t_i} + H_{t_{i+1}})$. Le choix de Stratonovich
+(\'evaluation au milieu) donne un r\'esultat diff\'erent et satisfait
+les r\`egles de calcul classiques, mais l'int\'egrale d'It\^o est
+privil\'egi\'ee en finance car elle pr\'eserve la propri\'et\'e de
+martingale (et donc le pricing risque-neutre).
+\end{attention}
+
+\subsection{R\`egles de calcul}
+
+Les r\`egles de calcul diff\`erent du calcul classique. On retient~:
+\[
+    (dW_t)^2 = dt, \quad (dt)^2 = 0, \quad dW_t \cdot dt = 0.
+\]
+
+\section{Formule d'It\^o}
+
+\begin{theoreme}[Formule d'It\^o --- cas unidimensionnel]
+\label{thm:ito_formula}
+Soit $(X_t)$ un processus d'It\^o satisfaisant
+$dX_t = \mu_t\,dt + \sigma_t\,dW_t$
+et $f \in C^{1,2}(\R^+ \times \R)$. Alors~:
+\[
+    df(t, X_t) = \frac{\partial f}{\partial t}\,dt
+    + \frac{\partial f}{\partial x}\,dX_t
+    + \frac{1}{2}\frac{\partial^2 f}{\partial x^2}\sigma_t^2\,dt.
+\]
+Sous forme d\'evelopp\'ee~:
+\[
+    df(t, X_t) = \left(\frac{\partial f}{\partial t}
+    + \mu_t\frac{\partial f}{\partial x}
+    + \frac{1}{2}\sigma_t^2\frac{\partial^2 f}{\partial x^2}\right)dt
+    + \sigma_t\frac{\partial f}{\partial x}\,dW_t.
+\]
+\end{theoreme}
+
+\begin{formules}[title=\textbf{Formule d'It\^o --- forme compacte}]
+\[
+    df = \left(\partial_t f + \mu\,\partial_x f
+    + \tfrac{1}{2}\sigma^2\partial_{xx} f\right)dt
+    + \sigma\,\partial_x f\,dW_t.
+\]
+Le terme suppl\'ementaire $\frac{1}{2}\sigma^2\partial_{xx}f\,dt$
+n'a pas d'analogue en calcul d\'eterministe~; il provient de la
+variation quadratique non nulle du brownien.
+\end{formules}
+
+\begin{exemple}
+Appliquons la formule d'It\^o \`a $f(x) = x^2$ avec $X_t = W_t$~:
+\[
+    d(W_t^2) = 2W_t\,dW_t + \frac{1}{2}\cdot 2\,dt = 2W_t\,dW_t + dt.
+\]
+En int\'egrant~: $W_T^2 = 2\int_0^T W_t\,dW_t + T$, d'o\`u~:
+\[
+    \int_0^T W_t\,dW_t = \frac{W_T^2 - T}{2}.
+\]
+On note la diff\'erence avec le calcul classique qui donnerait $W_T^2/2$.
+\end{exemple}
+
+\begin{theoreme}[Formule d'It\^o multidimensionnelle]
+Soient $dX_t^i = \mu_t^i\,dt + \sum_j \sigma_t^{ij}\,dW_t^j$ et
+$f \in C^{1,2}$. Alors~:
+\[
+    df = \partial_t f\,dt + \sum_i \partial_{x_i}f\,dX_t^i
+    + \frac{1}{2}\sum_{i,j}\partial_{x_i x_j}f\,
+    d\langle X^i, X^j\rangle_t.
+\]
+\end{theoreme}
+
+\section{Th\'eor\`eme de Girsanov}
+
+\begin{theoreme}[Girsanov]
+\label{thm:girsanov}
+Soit $(W_t)$ un $\PP$-brownien et $(\theta_t)$ un processus adapt\'e
+v\'erifiant la condition de Novikov~:
+\[
+    \E^\PP\!\left[\exp\!\left(\frac{1}{2}\int_0^T \theta_t^2\,dt\right)\right]
+    < \infty.
+\]
+D\'efinissons la densit\'e de Radon--Nikodym~:
+\[
+    \frac{d\mathbb{Q}}{d\PP}\bigg|_{\mathcal{F}_T}
+    = \mathcal{E}_T(\theta) = \exp\!\left(-\int_0^T \theta_t\,dW_t
+    - \frac{1}{2}\int_0^T \theta_t^2\,dt\right).
+\]
+Alors sous $\mathbb{Q}$, le processus
+$\tilde{W}_t = W_t + \int_0^t \theta_s\,ds$
+est un mouvement brownien standard.
+\end{theoreme}
+
+\begin{intuition}[title=\textbf{Application \`a la finance}]
+Le th\'eor\`eme de Girsanov permet de passer de la mesure historique $\PP$
+(sous laquelle $dS_t/S_t = \mu\,dt + \sigma\,dW_t$) \`a la mesure
+risque-neutre $\mathbb{Q}$ (sous laquelle $dS_t/S_t = r\,dt +
+\sigma\,d\tilde{W}_t$) en posant $\theta = (\mu - r)/\sigma$.
+La quantit\'e $\theta$ est le \textbf{prix du risque de march\'e}
+(\textit{market price of risk}).
+\end{intuition}
+
+\section{Th\'eor\`eme de repr\'esentation des martingales}
+
+\begin{theoreme}[Repr\'esentation des martingales]
+\label{thm:representation}
+Toute martingale de carr\'e int\'egrable $(M_t)_{0 \leq t \leq T}$
+adapt\'ee \`a la filtration du brownien peut s'\'ecrire~:
+\[
+    M_t = M_0 + \int_0^t H_s\,dW_s,
+\]
+pour un unique processus pr\'evisible $(H_t)$ v\'erifiant
+$\E\!\left[\int_0^T H_t^2\,dt\right] < \infty$.
+\end{theoreme}
+
+\begin{remarque}
+Ce th\'eor\`eme garantit que dans le mod\`ele de Black--Scholes
+(march\'e complet), tout actif contingent de carr\'e int\'egrable
+est r\'eplicable. Le processus $H_t$ fournit la strat\'egie de couverture.
+\end{remarque}
+
+\section{\'Equations diff\'erentielles stochastiques}
+
+\begin{definition}[\'EDS g\'en\'erale]
+Une \textbf{\'equation diff\'erentielle stochastique} (EDS) est de la forme~:
+\[
+    dX_t = b(t, X_t)\,dt + \sigma(t, X_t)\,dW_t, \quad X_0 = x_0,
+\]
+o\`u $b$ est le coefficient de drift et $\sigma$ le coefficient de diffusion.
+\end{definition}
+
+\begin{theoreme}[Existence et unicit\'e]
+Si $b$ et $\sigma$ sont lipschitziennes en $x$ uniform\'ement en $t$
+et \`a croissance lin\'eaire, alors l'EDS admet une unique solution
+forte $(X_t)_{0 \leq t \leq T}$.
+\end{theoreme}
+
+\begin{theoreme}[Lien EDP--EDS (Feynman--Kac)]
+\label{thm:feynman_kac}
+Soit $u(t,x)$ solution de~:
+\[
+    \partial_t u + b(t,x)\partial_x u
+    + \frac{1}{2}\sigma^2(t,x)\partial_{xx}u - r\,u = 0,
+    \quad u(T,x) = g(x).
+\]
+Alors~:
+\[
+    u(t,x) = \E\!\left[e^{-r(T-t)}g(X_T) \mid X_t = x\right],
+\]
+o\`u $dX_s = b(s,X_s)\,ds + \sigma(s,X_s)\,dW_s$.
+\end{theoreme}
+
+\begin{remarque}
+Le th\'eor\`eme de Feynman--Kac \'etablit le lien fondamental entre le
+pricing par EDP (Black--Scholes) et le pricing par esp\'erance
+risque-neutre (Monte Carlo).
+\end{remarque}
+
+\section{Exponentielle stochastique}
+
+\begin{definition}[Exponentielle stochastique]
+L'\textbf{exponentielle stochastique} (ou de Dol\'eans-Dade) d'un
+processus d'It\^o $X_t$ est~:
+\[
+    \mathcal{E}_t(X) = \exp\!\left(X_t - X_0 - \frac{1}{2}\langle X\rangle_t\right).
+\]
+Elle satisfait $d\mathcal{E}_t = \mathcal{E}_t\,dX_t$,
+$\mathcal{E}_0 = 1$.
+\end{definition}
+
+\begin{proposition}
+Le MBG $S_t = S_0\exp\!\left[(\mu - \sigma^2/2)t + \sigma W_t\right]$
+est l'exponentielle stochastique de $\mu t + \sigma W_t$~:
+\[
+    S_t = S_0\,\mathcal{E}_t(\mu\,\cdot + \sigma W).
+\]
+\end{proposition}
+
+\section{Impl\'ementation~: sch\'emas de discr\'etisation}
+
+\begin{codeblock}[title=\textbf{Sch\'emas d'Euler et de Milstein}]
+\begin{minted}{python}
+import numpy as np
+
+def euler_maruyama(x0, b, sigma, T, N, M):
+    """Schema d'Euler-Maruyama pour dX = b(X)dt + sigma(X)dW."""
+    dt = T / N
+    X = np.full(M, x0, dtype=float)
+    for i in range(N):
+        dW = np.sqrt(dt) * np.random.standard_normal(M)
+        X = X + b(X)*dt + sigma(X)*dW
+    return X
+
+def milstein(x0, b, sigma, sigma_prime, T, N, M):
+    """Schema de Milstein (ordre 1.0 fort)."""
+    dt = T / N
+    X = np.full(M, x0, dtype=float)
+    for i in range(N):
+        dW = np.sqrt(dt) * np.random.standard_normal(M)
+        X = (X + b(X)*dt + sigma(X)*dW
+             + 0.5*sigma(X)*sigma_prime(X)*(dW**2 - dt))
+    return X
+
+# Application au MBG: dS = r*S*dt + sig*S*dW
+r_val, sig = 0.05, 0.20
+S0, T, N, M = 100, 1.0, 100, 100000
+
+np.random.seed(42)
+ST_euler = euler_maruyama(S0, lambda S: r_val*S, lambda S: sig*S,
+                          T, N, M)
+ST_milstein = milstein(S0, lambda S: r_val*S, lambda S: sig*S,
+                       lambda S: sig, T, N, M)
+# Solution exacte
+Z = np.random.standard_normal(M)
+ST_exact = S0 * np.exp((r_val - 0.5*sig**2)*T + sig*np.sqrt(T)*Z)
+
+print(f"Euler:    E[S_T] = {np.mean(ST_euler):.2f}")
+print(f"Milstein: E[S_T] = {np.mean(ST_milstein):.2f}")
+print(f"Exact:    E[S_T] = {S0*np.exp(r_val*T):.2f}")
+\end{minted}
+\end{codeblock}
+
+\section{Exercices}
+
+\begin{exercice}[Formule d'It\^o]
+\begin{enumerate}
+    \item Calculer $d(e^{W_t})$ et $d(e^{\alpha W_t - \alpha^2 t/2})$.
+    \item Montrer que $\mathcal{E}_t = e^{\sigma W_t - \sigma^2 t/2}$ est
+          une martingale.
+    \item Appliquer la formule d'It\^o \`a $f(t,x) = e^{-rt}x$ pour
+          retrouver que $e^{-rt}S_t$ est une $\mathbb{Q}$-martingale.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Girsanov]
+\begin{enumerate}
+    \item V\'erifier explicitement le changement de mesure pour le MBG~:
+          \'ecrire $S_t$ sous $\PP$ puis sous $\mathbb{Q}$.
+    \item Calculer le prix du risque de march\'e $\theta = (\mu-r)/\sigma$
+          pour $\mu = 0.10$, $r = 0.03$, $\sigma = 0.25$.
+    \item Montrer que la densit\'e de Radon--Nikodym $\mathcal{E}_T(\theta)$
+          est une $\PP$-martingale.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Convergence des sch\'emas]
+\begin{enumerate}
+    \item Comparer l'erreur forte $\E[\abs{S_T^N - S_T}]$ des sch\'emas
+          d'Euler et de Milstein en fonction de $N$.
+    \item V\'erifier que l'ordre de convergence forte est $1/2$ pour
+          Euler et $1$ pour Milstein.
+    \item Impl\'ementer un sch\'ema d'ordre faible 2 (Platen) et comparer.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Feynman--Kac]
+\begin{enumerate}
+    \item V\'erifier le th\'eor\`eme de Feynman--Kac pour le call
+          europ\'een en comparant la solution de l'EDP de Black--Scholes
+          avec l'esp\'erance Monte Carlo.
+    \item Appliquer Feynman--Kac \`a l'\'equation de la chaleur
+          $\partial_t u = \frac{1}{2}\partial_{xx}u$ et interpr\'eter.
+\end{enumerate}
+\end{exercice}

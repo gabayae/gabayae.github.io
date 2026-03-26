@@ -1,0 +1,264 @@
+% ============================================================
+\chapter{Indexation et Structures de Donn\'ees}
+\label{ch:indexation}
+% ============================================================
+
+Imaginez une biblioth\`eque de dix millions de livres sans catalogue. Pour trouver un ouvrage, il faudrait parcourir chaque \'etag\`ere, un livre \`a la fois. C'est exactement ce que fait un SGBD lors d'un \emph{full table scan}~: il examine chaque ligne de la table. Un \emph{index} est le catalogue de la base de donn\'ees~: une structure auxiliaire qui permet de localiser les lignes pertinentes en $O(\log n)$ au lieu de $O(n)$. L'arbre B+ (B+ tree), invent\'e par Rudolf Bayer et Edward McCreight en 1972, est la structure d'indexation dominante~: \'equilibr\'e, efficace pour les recherches par \'egalit\'e et par intervalle, et optimis\'e pour les acc\`es disque. Les index hash, les index bitmap et les index spatiaux (R-tree) compl\`etent l'arsenal. Ce chapitre d\'eveloppe ces structures et les strat\'egies d'indexation qui font la diff\'erence entre une requ\^ete en millisecondes et une requ\^ete en minutes.
+
+\begin{intuition}[title=\textbf{Id\'ee centrale}]
+Un index est une structure de donn\'ees auxiliaire qui acc\'el\`ere la
+recherche dans une table en \'evitant le parcours s\'equentiel
+(\emph{full table scan}). Le choix du bon type d'index et des bonnes
+colonnes \`a indexer est essentiel pour les performances.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Motivation}
+% ------------------------------------------------------------
+
+Sans index, toute recherche dans une table de $n$ lignes n\'ecessite
+un parcours s\'equentiel en $O(n)$. Un index bien choisi r\'eduit la
+complexit\'e \`a $O(\log n)$ voire $O(1)$.
+
+\begin{remarque}
+Un index acc\'el\`ere les lectures mais ralentit les \'ecritures (insertions,
+mises \`a jour, suppressions) car la structure doit \^etre maintenue.
+Le compromis lecture/\'ecriture guide le choix des index.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Arbres B et B$^+$}
+% ------------------------------------------------------------
+
+\begin{definition}[Arbre B d'ordre $m$]
+\index{arbre B}
+Un \textbf{arbre B} d'ordre $m$ est un arbre de recherche \'equilibr\'e
+o\`u chaque n\oe ud interne a au plus $m$ fils et au moins $\lceil m/2 \rceil$
+fils (sauf la racine). Les cl\'es sont tri\'ees dans chaque n\oe ud et les
+donn\'ees sont stock\'ees dans tous les n\oe uds.
+\end{definition}
+
+\begin{definition}[Arbre B$^+$]
+\index{arbre B+}
+Un \textbf{arbre B$^+$} est une variante o\`u~:
+\begin{itemize}
+  \item les donn\'ees ne sont stock\'ees que dans les \textbf{feuilles},
+  \item les n\oe uds internes ne contiennent que des cl\'es de routage,
+  \item les feuilles sont cha\^in\'ees en liste doublement cha\^in\'ee
+        pour les parcours s\'equentiels.
+\end{itemize}
+\end{definition}
+
+\begin{proposition}[Complexit\'e de l'arbre B$^+$]
+Pour un arbre B$^+$ d'ordre $m$ contenant $n$ cl\'es~:
+\begin{itemize}
+  \item Hauteur~: $h = O(\log_m n)$.
+  \item Recherche, insertion, suppression~: $O(\log_m n)$ acc\`es disque.
+  \item Parcours s\'equentiel d'un intervalle de $k$ cl\'es~: $O(\log_m n + k/B)$
+        o\`u $B$ est le nombre de cl\'es par feuille.
+\end{itemize}
+\end{proposition}
+
+\begin{attention}
+L'arbre B$^+$ est la structure d'indexation par d\'efaut de la plupart
+des SGBD relationnels (PostgreSQL, MySQL/InnoDB, Oracle, SQL Server).
+Ne pas confondre avec l'arbre binaire de recherche (BST) qui n'est pas
+adapt\'e aux acc\`es disque.
+\end{attention}
+
+\begin{minted}{python}
+-- Creation d'un index B+ (implicite) en SQL
+CREATE INDEX idx_nom ON etudiants (nom);
+
+-- Index sur plusieurs colonnes (index composite)
+CREATE INDEX idx_nom_prenom ON etudiants (nom, prenom);
+
+-- Verifier l'utilisation de l'index
+EXPLAIN ANALYZE SELECT * FROM etudiants WHERE nom = 'Dupont';
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Index de hachage}
+% ------------------------------------------------------------
+
+\begin{definition}[Index de hachage]
+\index{index de hachage}
+Un \textbf{index de hachage} utilise une fonction $h : \text{cl\'e} \to
+\{0, 1, \ldots, B-1\}$ pour mapper directement une cl\'e \`a un compartiment
+(\emph{bucket}). La recherche par \'egalit\'e est en $O(1)$ en moyenne.
+\end{definition}
+
+\begin{remarque}
+Les index de hachage ne supportent \textbf{pas} les requ\^etes de plage
+(\texttt{WHERE x BETWEEN a AND b}) ni le tri. Ils sont adapt\'es uniquement
+aux recherches par \'egalit\'e exacte.
+\end{remarque}
+
+\begin{definition}[Hachage extensible]
+\index{hachage extensible}
+Le \textbf{hachage extensible} (\emph{extendible hashing}) utilise un
+r\'epertoire de pointeurs index\'es par les $d$ premiers bits du hachage.
+Lorsqu'un compartiment d\'eborde, on double le r\'epertoire (ou on divise
+le compartiment) sans r\'eorganiser toute la table.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Index bitmap}
+% ------------------------------------------------------------
+
+\begin{definition}[Index bitmap]
+\index{index bitmap}
+Un \textbf{index bitmap} associe \`a chaque valeur distincte $v$ d'une
+colonne un vecteur de bits $B_v$ de longueur $n$ (nombre de lignes)~:
+$B_v[i] = 1$ si la ligne $i$ a la valeur $v$, 0 sinon.
+\end{definition}
+
+\begin{proposition}[Efficacit\'e des op\'erations logiques]
+Les requ\^etes combinant plusieurs pr\'edicats se traduisent en
+op\'erations bit \`a bit rapides~:
+\begin{itemize}
+  \item \texttt{WHERE couleur = 'rouge' AND taille = 'L'} $\to$ $B_{\text{rouge}} \wedge B_{\text{L}}$.
+  \item \texttt{WHERE couleur = 'rouge' OR taille = 'L'} $\to$ $B_{\text{rouge}} \vee B_{\text{L}}$.
+\end{itemize}
+Le comptage se fait par \texttt{POPCOUNT} en $O(n/w)$ o\`u $w$ est la taille
+du mot machine.
+\end{proposition}
+
+\begin{remarque}
+Les index bitmap sont particuli\`erement efficaces pour les colonnes \`a
+\textbf{faible cardinalit\'e} (sexe, statut, cat\'egorie). Ils sont
+utilis\'es massivement dans les entrep\^ots de donn\'ees (Oracle, Vertica).
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Index spatiaux~: R-tree}
+% ------------------------------------------------------------
+
+\begin{definition}[R-tree]
+\index{R-tree}
+Un \textbf{R-tree} est un arbre \'equilibr\'e pour l'indexation de donn\'ees
+spatiales multidimensionnelles. Chaque n\oe ud contient un \textbf{rectangle
+englobant minimum} (MBR) qui englobe tous les objets de son sous-arbre.
+\end{definition}
+
+\begin{exemple}
+Recherche spatiale~: \og Trouver tous les restaurants dans un rayon de
+500m \fg~:
+\begin{minted}{python}
+-- PostGIS (extension spatiale de PostgreSQL)
+CREATE INDEX idx_geom ON restaurants USING GIST (geom);
+
+SELECT nom, ST_Distance(geom, ST_MakePoint(2.35, 48.86)::geography) AS dist
+FROM restaurants
+WHERE ST_DWithin(geom, ST_MakePoint(2.35, 48.86)::geography, 500)
+ORDER BY dist;
+\end{minted}
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Index plein texte}
+% ------------------------------------------------------------
+
+\begin{definition}[Index invers\'e]
+\index{index invers\'e}
+Un \textbf{index invers\'e} (\emph{inverted index}) associe \`a chaque
+terme (mot) la liste des documents (lignes) qui le contiennent, avec
+\'eventuellement la position et la fr\'equence.
+\end{definition}
+
+\begin{exemple}
+\begin{minted}{python}
+-- PostgreSQL : index GIN pour la recherche plein texte
+CREATE INDEX idx_fts ON articles USING GIN (to_tsvector('french', contenu));
+
+SELECT titre
+FROM articles
+WHERE to_tsvector('french', contenu) @@ to_tsquery('french', 'bayesien & statistique');
+\end{minted}
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Strat\'egies de s\'election d'index}
+% ------------------------------------------------------------
+
+\begin{definition}[Probl\`eme de s\'election d'index]
+\index{s\'election d'index}
+\'Etant donn\'e une charge de travail (ensemble de requ\^etes avec leurs
+fr\'equences) et un budget d'espace disque, choisir l'ensemble d'index
+qui minimise le co\^ut total d'ex\'ecution.
+\end{definition}
+
+R\`egles heuristiques~:
+\begin{enumerate}
+  \item Indexer les colonnes apparaissant dans les clauses \texttt{WHERE},
+        \texttt{JOIN} et \texttt{ORDER BY}.
+  \item Pr\'ef\'erer les index composites couvrants (\emph{covering index})
+        pour \'eviter l'acc\`es \`a la table.
+  \item \'Eviter d'indexer les colonnes \`a tr\`es haute cardinalit\'e
+        modifi\'ees fr\'equemment.
+  \item Utiliser \texttt{EXPLAIN ANALYZE} pour v\'erifier l'utilisation
+        effective des index.
+\end{enumerate}
+
+\begin{exemple}
+\begin{minted}{python}
+-- Index couvrant : toutes les colonnes de la requete sont dans l'index
+CREATE INDEX idx_covering ON commandes (client_id, date_commande)
+    INCLUDE (montant);
+
+-- La requete suivante peut etre satisfaite sans acceder a la table
+SELECT date_commande, montant
+FROM commandes
+WHERE client_id = 42
+ORDER BY date_commande DESC;
+\end{minted}
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Formules cl\'es}
+% ------------------------------------------------------------
+
+\begin{formules}
+\begin{itemize}
+  \item \textbf{B$^+$-tree}~: recherche en $O(\log_m n)$ acc\`es disque, parcours de plage en $O(\log_m n + k/B)$
+  \item \textbf{Hash}~: recherche par \'egalit\'e en $O(1)$, pas de requ\^etes de plage
+  \item \textbf{Bitmap}~: op\'erations logiques en $O(n/w)$, id\'eal pour faible cardinalit\'e
+  \item \textbf{R-tree}~: recherche spatiale en $O(\log n)$ en moyenne
+  \item \textbf{Compromis}~: acc\'el\'eration lecture vs.\ surco\^ut \'ecriture
+\end{itemize}
+\end{formules}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}
+Dessiner l'arbre B$^+$ d'ordre 4 obtenu apr\`es insertion s\'equentielle
+des cl\'es $3, 7, 1, 14, 8, 5, 11, 17, 13, 6, 23, 12, 20, 26, 4, 16$.
+Montrer l'\'etat apr\`es la suppression de la cl\'e 14.
+\end{exercice}
+
+\begin{exercice}
+Une table \texttt{employes} a 10 millions de lignes. La colonne
+\texttt{departement} a 50 valeurs distinctes, la colonne \texttt{salaire}
+est continue. Quel type d'index recommandez-vous pour chacune~? Justifier.
+\end{exercice}
+
+\begin{exercice}
+\'Ecrire une requ\^ete SQL qui ne peut \emph{pas} utiliser un index de
+hachage mais peut utiliser un index B$^+$. Expliquer pourquoi.
+\end{exercice}
+
+\begin{exercice}
+On dispose d'un index bitmap sur la colonne \texttt{statut} (3 valeurs~:
+\texttt{actif}, \texttt{inactif}, \texttt{suspendu}) et d'un index bitmap
+sur \texttt{region} (10 valeurs). Combien d'op\'erations \texttt{AND} bit
+\`a bit sont n\'ecessaires pour r\'epondre \`a \texttt{WHERE statut = 'actif'
+AND region IN ('IDF', 'PACA')}~?
+\end{exercice}
+
+\begin{exercice}
+Utiliser \texttt{EXPLAIN ANALYZE} dans PostgreSQL pour comparer les
+performances d'une requ\^ete avec et sans index. Mesurer le nombre de
+pages lues (\emph{buffers}) et le temps d'ex\'ecution.
+\end{exercice}

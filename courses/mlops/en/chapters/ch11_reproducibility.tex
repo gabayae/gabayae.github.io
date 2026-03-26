@@ -1,0 +1,458 @@
+% ============================================================
+\chapter{Reproducibility in Research --- Standards and Best Practices}
+\label{ch:reproducibility}
+\index{reproducibility}
+% ============================================================
+
+\section{The Reproducibility Crisis in ML}
+\label{sec:repro-crisis}
+
+A growing body of evidence shows that many published ML results cannot
+be reproduced. Surveys report that over 60\% of ML experiments lack
+sufficient detail for independent verification. The causes are
+multiple: missing code, undocumented hyperparameters, unreported
+hardware configurations, and non-deterministic training procedures.
+
+\begin{definition}[Reproducibility]
+\textbf{Reproducibility}\index{reproducibility!definition} is the
+ability for an independent team to obtain the same results using the
+\emph{same} code and data. It is distinct from \emph{replicability},
+which aims to confirm findings using \emph{different} code or data.
+\end{definition}
+
+\section{Levels of Reproducibility}
+\label{sec:repro-levels}
+\index{reproducibility!levels}
+
+The ACM distinguishes three levels with increasing stringency:
+
+\begin{center}
+\begin{tabular}{@{}llp{6.5cm}@{}}
+\toprule
+\textbf{Level} & \textbf{Definition} & \textbf{Requirements} \\
+\midrule
+Repeatability & Same team, same setup & Fixed seeds, versioned code,
+  deterministic pipeline \\
+Reproducibility & Different team, same artifacts & Published code,
+  data, environment specs, clear instructions \\
+Replicability & Different team, different setup & Detailed methodology,
+  model cards, independent confirmation \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}
+\begin{tikzpicture}[
+  level/.style={rectangle, draw, rounded corners, minimum width=10cm,
+    minimum height=1.2cm, align=center, font=\small},
+  arr/.style={-{Stealth[length=2.5mm]}, thick, steelblue}
+]
+  \node[level, fill=green!15] (rep) {\textbf{Repeatability}\\
+    Same team obtains same results on same hardware};
+  \node[level, fill=yellow!15, above=0.5cm of rep] (repro)
+    {\textbf{Reproducibility}\\
+    Different team obtains same results with same code/data};
+  \node[level, fill=orange!15, above=0.5cm of repro] (repl)
+    {\textbf{Replicability}\\
+    Different team confirms findings with different implementation};
+
+  \draw[arr] (rep) -- node[right, font=\scriptsize] {harder} (repro);
+  \draw[arr] (repro) -- node[right, font=\scriptsize] {hardest} (repl);
+\end{tikzpicture}
+\end{center}
+
+\section{Random Seed Management}
+\label{sec:random-seeds}
+\index{random seed}
+
+Non-determinism is the primary obstacle to repeatability. ML pipelines
+have multiple sources of randomness that must all be controlled.
+
+\begin{codeblock}[title=\textbf{Complete random seed management}]
+\begin{minted}{python}
+"""Full seed management for reproducibility."""
+import os
+import random
+
+import numpy as np
+import torch
+
+
+def set_seed(seed: int = 42) -> None:
+    """Set all random seeds for reproducibility.
+
+    Controls randomness in:
+    - Python's random module
+    - NumPy
+    - PyTorch (CPU and CUDA)
+    - CUDA convolution algorithms
+    - Hash-based operations
+    """
+    # Python
+    random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+
+    # NumPy
+    np.random.seed(seed)
+
+    # PyTorch CPU
+    torch.manual_seed(seed)
+
+    # PyTorch CUDA (all GPUs)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+    # Deterministic algorithms (may reduce performance)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    # PyTorch 2.0+ deterministic mode
+    torch.use_deterministic_algorithms(True)
+    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+
+
+# Use at the very start of training
+set_seed(42)
+\end{minted}
+\end{codeblock}
+
+\begin{warning}[title=\textbf{Limits of determinism on GPU}]
+Even with all seeds fixed, some GPU operations remain non-deterministic
+by default:
+\begin{itemize}
+  \item Atomic operations in CUDA (e.g., \texttt{scatter\_add})
+  \item cuDNN auto-tuner selects different algorithms per run
+  \item Multi-threaded data loading with \pkg{DataLoader}
+    (\texttt{num\_workers > 0})
+\end{itemize}
+Setting \texttt{torch.use\_deterministic\_algorithms(True)} forces
+deterministic alternatives but may slow down training by 10--20\%.
+\end{warning}
+
+\begin{codeblock}[title=\textbf{Deterministic DataLoader}]
+\begin{minted}{python}
+"""Reproducible data loading."""
+import torch
+from torch.utils.data import DataLoader
+
+
+def seed_worker(worker_id: int) -> None:
+    """Seed each DataLoader worker for reproducibility."""
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+
+generator = torch.Generator()
+generator.manual_seed(42)
+
+train_loader = DataLoader(
+    dataset,
+    batch_size=32,
+    shuffle=True,
+    num_workers=4,
+    worker_init_fn=seed_worker,
+    generator=generator,
+)
+\end{minted}
+\end{codeblock}
+
+\section{Model Cards}
+\label{sec:model-cards}
+\index{model card}
+
+A \textbf{model card}\index{model card} (Mitchell et al., 2019) is a
+standardized document that accompanies a trained model, providing
+transparency about its intended use, performance, and limitations.
+
+\begin{keyformulas}[title=\textbf{Model card template}]
+\begin{enumerate}
+  \item \textbf{Model Details}: architecture, version, training date,
+    framework, license.
+  \item \textbf{Intended Use}: primary use cases, out-of-scope uses.
+  \item \textbf{Training Data}: dataset description, size,
+    preprocessing, known biases.
+  \item \textbf{Evaluation Data}: test set description, evaluation
+    protocol.
+  \item \textbf{Metrics}: accuracy, F1, AUC---disaggregated by
+    demographic group.
+  \item \textbf{Ethical Considerations}: potential harms, biases,
+    fairness analysis.
+  \item \textbf{Caveats and Recommendations}: known limitations,
+    failure modes.
+\end{enumerate}
+\end{keyformulas}
+
+\begin{codeblock}[title=\textbf{Model card generation with Python}]
+\begin{minted}{python}
+"""Generate a model card as structured YAML."""
+import yaml
+from datetime import date
+
+model_card = {
+    "model_details": {
+        "name": "Fraud Detection Classifier v2.1",
+        "architecture": "XGBoost",
+        "framework": "xgboost==2.0.3",
+        "training_date": str(date.today()),
+        "license": "MIT",
+    },
+    "intended_use": {
+        "primary": "Detect fraudulent credit card transactions",
+        "out_of_scope": [
+            "Non-financial fraud detection",
+            "Real-time streaming (latency > 100ms)",
+        ],
+    },
+    "training_data": {
+        "dataset": "Internal transactions 2022-2024",
+        "size": "2.4M transactions",
+        "fraud_rate": "1.2%",
+        "preprocessing": "SMOTE oversampling, standard scaling",
+    },
+    "metrics": {
+        "overall": {"accuracy": 0.987, "f1": 0.912, "auc": 0.975},
+        "by_region": {
+            "north_america": {"f1": 0.923},
+            "europe": {"f1": 0.908},
+            "asia": {"f1": 0.891},
+        },
+    },
+    "limitations": [
+        "Lower performance on transactions > $10,000",
+        "Not validated for cryptocurrency transactions",
+        "Requires retraining quarterly due to drift",
+    ],
+}
+
+with open("model_card.yaml", "w") as f:
+    yaml.dump(model_card, f, default_flow_style=False, sort_keys=False)
+\end{minted}
+\end{codeblock}
+
+\section{Datasheets for Datasets}
+\label{sec:datasheets}
+\index{datasheet}
+
+\textbf{Datasheets for Datasets}\index{datasheet} (Gebru et al., 2021)
+standardize dataset documentation. Key sections:
+
+\begin{toolbox}[title=\textbf{Datasheet sections}]
+\begin{description}
+  \item[Motivation] Why was the dataset created? Who funded it?
+  \item[Composition] What do instances represent? How many? Any
+    missing data?
+  \item[Collection process] How was data acquired? Consent process?
+  \item[Preprocessing] What cleaning or transformations were applied?
+  \item[Uses] Intended tasks? Tasks to avoid?
+  \item[Distribution] How is the dataset shared? License?
+  \item[Maintenance] Who maintains it? Update frequency? Deprecation
+    policy?
+\end{description}
+\end{toolbox}
+
+\section{NeurIPS Reproducibility Checklist}
+\label{sec:neurips-checklist}
+\index{NeurIPS checklist}
+
+Major ML conferences now require authors to complete a reproducibility
+checklist. The NeurIPS checklist includes:
+
+\begin{bestpractice}[title=\textbf{NeurIPS-style reproducibility checklist}]
+\begin{enumerate}
+  \item Code is submitted (or will be released upon acceptance).
+  \item All hyperparameters are reported, including search ranges.
+  \item Training and evaluation datasets are described or cited.
+  \item Compute resources used are documented (GPU type, hours).
+  \item Number of runs and variance/confidence intervals are reported.
+  \item Random seeds are specified.
+  \item Data preprocessing steps are fully described.
+  \item Software dependencies are listed with versions.
+  \item Statistical significance tests are included where relevant.
+  \item Negative results and failure cases are discussed.
+\end{enumerate}
+\end{bestpractice}
+
+\begin{remark}
+Reporting the mean and standard deviation over multiple runs (e.g., 5
+runs with different seeds) is far more informative than a single best
+result. A model with $92.1 \pm 0.3\%$ accuracy is more trustworthy
+than one that claims $93.0\%$ from a single lucky seed.
+\end{remark}
+
+\section{Practical Reproducibility Toolkit}
+\label{sec:repro-toolkit}
+
+\begin{codeblock}[title=\textbf{Reproducibility configuration}]
+\begin{minted}{yaml}
+# configs/experiment.yaml
+experiment:
+  name: "fraud-detection-v2"
+  seed: 42
+  deterministic: true
+
+data:
+  path: "data/transactions.csv"
+  dvc_hash: "a1b2c3d4"  # DVC file hash for traceability
+  test_size: 0.2
+  stratify: "target"
+
+model:
+  type: "xgboost"
+  params:
+    n_estimators: 500
+    max_depth: 8
+    learning_rate: 0.05
+    random_state: 42
+
+training:
+  n_runs: 5  # Multiple runs for confidence intervals
+  seeds: [42, 123, 456, 789, 1024]
+
+environment:
+  python: "3.11.7"
+  gpu: "NVIDIA A100"
+  cuda: "12.1"
+  requirements_hash: "sha256:e5f6..."
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Multi-run experiment with statistics}]
+\begin{minted}{python}
+"""Run experiment multiple times for robust evaluation."""
+import json
+import numpy as np
+from scipy import stats
+
+
+def run_experiment(seed: int, config: dict) -> dict:
+    """Run a single experiment with a given seed."""
+    set_seed(seed)
+    # ... training code ...
+    return {"accuracy": acc, "f1": f1, "auc": auc}
+
+
+seeds = [42, 123, 456, 789, 1024]
+results = [run_experiment(s, config) for s in seeds]
+
+# Aggregate results
+for metric in ["accuracy", "f1", "auc"]:
+    values = [r[metric] for r in results]
+    mean = np.mean(values)
+    std = np.std(values, ddof=1)
+    ci = stats.t.interval(
+        0.95, len(values) - 1,
+        loc=mean, scale=stats.sem(values),
+    )
+    print(f"{metric}: {mean:.4f} +/- {std:.4f} "
+          f"(95% CI: [{ci[0]:.4f}, {ci[1]:.4f}])")
+\end{minted}
+\end{codeblock}
+
+\section{Best Practices and Anti-patterns}
+
+\begin{bestpractice}[title=\textbf{Reproducibility best practices}]
+\begin{enumerate}
+  \item \textbf{Fix all seeds}: Python, NumPy, PyTorch, CUDA, data
+    loaders.
+  \item \textbf{Version everything}: code (Git), data (DVC),
+    experiments (MLflow), environments (Docker).
+  \item \textbf{Report multiple runs}: mean $\pm$ std over $\geq 3$
+    seeds.
+  \item \textbf{Write model cards}: document intended use,
+    limitations, and biases.
+  \item \textbf{Publish code and data}: use GitHub and Zenodo or
+    Hugging Face Datasets.
+  \item \textbf{Log compute resources}: GPU type, training time,
+    energy consumption.
+  \item \textbf{Use deterministic algorithms}: accept the performance
+    cost for critical experiments.
+\end{enumerate}
+\end{bestpractice}
+
+\begin{antipattern}[title=\textbf{Reproducibility anti-patterns}]
+\begin{itemize}
+  \item Cherry-picking the best run out of many.
+  \item ``Code available upon request''---almost never provided.
+  \item Not reporting hyperparameter search ranges.
+  \item Using \texttt{latest} Docker tags or unpinned dependencies.
+  \item Ignoring non-determinism because ``results are approximately
+    the same''.
+  \item Not documenting data preprocessing steps.
+\end{itemize}
+\end{antipattern}
+
+\section{Mini-project: Reproducible Experiment}
+\label{sec:mini-project-ch11}
+
+\begin{miniproject}[title=\textbf{Mini-project 11: Reproducibility}]
+\begin{enumerate}
+  \item Implement a complete \texttt{set\_seed()} function covering
+    Python, NumPy, and PyTorch.
+  \item Run the same experiment 5 times with different seeds and
+    report mean $\pm$ std with 95\% confidence intervals.
+  \item Write a model card for the trained model following the
+    template above.
+  \item Write a datasheet for the dataset used.
+  \item Create a \file{README.md} with step-by-step reproduction
+    instructions.
+  \item Verify that a classmate can reproduce your results within
+    $\pm 1\%$ by following your instructions alone.
+\end{enumerate}
+\end{miniproject}
+
+\section{Exercises}
+\label{sec:exercises-ch11}
+
+\begin{exercise}[$\bigstar$ --- Seed management]
+Train a small neural network on MNIST \emph{without} setting any
+random seed. Run training 5 times and record the variance in test
+accuracy. Then implement full seed management and repeat. Compare the
+variance in both cases.
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar$ --- Model card creation]
+Choose a pre-trained model from Hugging Face Hub. Write a detailed
+model card including:
+\begin{enumerate}
+  \item Model details and architecture
+  \item Intended use and out-of-scope uses
+  \item Performance metrics disaggregated by demographic group (if
+    applicable)
+  \item Ethical considerations and known biases
+  \item Reproduction instructions
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar\bigstar$ --- Full reproducibility audit]
+Take an existing ML project (your own or an open-source one) and
+conduct a reproducibility audit:
+\begin{enumerate}
+  \item Attempt to reproduce the reported results from scratch
+  \item Document every issue encountered (missing seeds, undocumented
+    steps, version conflicts)
+  \item Fix all reproducibility issues
+  \item Add a model card, datasheet, and NeurIPS-style checklist
+  \item Run multi-seed experiments and report confidence intervals
+  \item Package the project with Docker for environment reproducibility
+\end{enumerate}
+\end{exercise}
+
+\section{Cheatsheet}
+
+\begin{cheatsheet}[title=\textbf{Chapter 11 Summary}]
+\begin{tabular}{@{}p{4cm}p{8.5cm}@{}}
+\toprule
+\textbf{Concept} & \textbf{Key Point} \\
+\midrule
+Repeatability & Same team, same setup, same results \\
+Reproducibility & Different team, same code/data, same results \\
+Replicability & Different team, different code, same conclusions \\
+Random seeds & Fix Python, NumPy, PyTorch, CUDA, DataLoader \\
+Model card & Standardized doc: use, metrics, limitations, biases \\
+Datasheet & Dataset documentation: composition, collection, uses \\
+Multi-run & Report mean $\pm$ std over $\geq 3$ seeds \\
+Determinism & \texttt{torch.use\_deterministic\_algorithms(True)} \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}

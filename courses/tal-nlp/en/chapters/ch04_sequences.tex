@@ -1,0 +1,297 @@
+% ============================================================
+\chapter{Sequence Models}
+\label{ch:sequences}
+% ============================================================
+
+The bag of words throws order out the window: ``the cat eats the mouse'' and ``the mouse eats the cat'' receive the same representation. To capture meaning, one must respect the sequence. Recurrent neural networks (RNNs), introduced by Jeffrey Elman in 1990, offer an elegant solution: a hidden state that propagates from one word to the next, accumulating contextual information. But simple RNNs suffer from the \emph{vanishing gradient} problem. The solution came from LSTM cells (Hochreiter and Schmidhuber, 1997) and GRU cells (Cho et al., 2014), which introduce gating mechanisms to control the flow of information.
+
+\begin{intuition}[title=\textbf{Modeling word order}]
+Unlike the bag-of-words model, sequence models treat text as an ordered
+sequence of tokens. Recurrent neural networks (RNNs) maintain a hidden state
+that encodes the sequence history, allowing them to capture temporal
+dependencies.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Recurrent Neural Networks (RNN)}
+\label{sec:seq:rnn}
+% ------------------------------------------------------------
+
+\begin{definition}[RNN -- Elman Network]
+A simple recurrent network (Elman, 1990) processes a sequence
+$(\mathbf{x}_1, \ldots, \mathbf{x}_T)$ by maintaining a hidden state
+$\mathbf{h}_t \in \R^h$:
+\begin{align}
+\mathbf{h}_t &= \tanh(\mathbf{W}_{hh} \mathbf{h}_{t-1} + \mathbf{W}_{xh} \mathbf{x}_t + \mathbf{b}_h) \\
+\mathbf{y}_t &= \mathbf{W}_{hy} \mathbf{h}_t + \mathbf{b}_y
+\end{align}
+where $\mathbf{W}_{hh} \in \R^{h \times h}$, $\mathbf{W}_{xh} \in \R^{h \times d}$,
+$\mathbf{W}_{hy} \in \R^{o \times h}$ are weight matrices.
+\end{definition}
+
+\begin{remark}
+The hidden state $\mathbf{h}_t$ acts as a ``compressed memory'' of the entire
+history $(\mathbf{x}_1, \ldots, \mathbf{x}_t)$. In theory, an RNN can model
+dependencies of arbitrary length; in practice, this ability is severely limited.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Vanishing and Exploding Gradient Problem}
+\label{sec:seq:gradient}
+% ------------------------------------------------------------
+
+\begin{theorem}[Vanishing Gradient]
+During backpropagation through time (BPTT), the gradient of the loss
+$\mathcal{L}$ with respect to $\mathbf{h}_k$ ($k \ll t$) satisfies:
+\[
+\frac{\partial \mathcal{L}_t}{\partial \mathbf{h}_k} = \frac{\partial \mathcal{L}_t}{\partial \mathbf{h}_t} \prod_{i=k+1}^{t} \frac{\partial \mathbf{h}_i}{\partial \mathbf{h}_{i-1}}
+\]
+where each Jacobian $\frac{\partial \mathbf{h}_i}{\partial \mathbf{h}_{i-1}} = \text{diag}(\tanh'(\cdot)) \mathbf{W}_{hh}$.
+
+If $\norm{\mathbf{W}_{hh}} < 1 / \gamma$ (where $\gamma = \max \abs{\tanh'(\cdot)}$),
+the product of Jacobians decays exponentially, making it impossible to learn
+long-range dependencies.
+\end{theorem}
+
+\begin{proof}
+We have $\norm{\frac{\partial \mathbf{h}_i}{\partial \mathbf{h}_{i-1}}} \leq \gamma \norm{\mathbf{W}_{hh}}$
+where $\gamma \leq 1$ for $\tanh$. Therefore:
+\[
+\norm{\prod_{i=k+1}^{t} \frac{\partial \mathbf{h}_i}{\partial \mathbf{h}_{i-1}}} \leq (\gamma \norm{\mathbf{W}_{hh}})^{t-k}
+\]
+If $\gamma \norm{\mathbf{W}_{hh}} < 1$, this quantity tends to $0$
+exponentially fast as $t - k \to \infty$.
+\end{proof}
+
+\begin{keyformulas}[title=\textbf{Gradient clipping}]
+To counter the exploding gradient, \emph{gradient clipping} is used:
+\[
+\hat{\mathbf{g}} = \begin{cases}
+\mathbf{g} & \text{if } \norm{\mathbf{g}} \leq \theta \\
+\theta \cdot \frac{\mathbf{g}}{\norm{\mathbf{g}}} & \text{otherwise}
+\end{cases}
+\]
+where $\theta$ is the clipping threshold (typically $\theta \in [1, 5]$).
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Long Short-Term Memory (LSTM)}
+\label{sec:seq:lstm}
+% ------------------------------------------------------------
+
+\begin{definition}[LSTM]
+The LSTM network (Hochreiter \& Schmidhuber, 1997) introduces a memory cell
+$\mathbf{c}_t$ and three gates to control the flow of information:
+\begin{align}
+\mathbf{f}_t &= \sigma(\mathbf{W}_f [\mathbf{h}_{t-1}, \mathbf{x}_t] + \mathbf{b}_f) & \text{(forget gate)} \\
+\mathbf{i}_t &= \sigma(\mathbf{W}_i [\mathbf{h}_{t-1}, \mathbf{x}_t] + \mathbf{b}_i) & \text{(input gate)} \\
+\tilde{\mathbf{c}}_t &= \tanh(\mathbf{W}_c [\mathbf{h}_{t-1}, \mathbf{x}_t] + \mathbf{b}_c) & \text{(candidate)} \\
+\mathbf{c}_t &= \mathbf{f}_t \odot \mathbf{c}_{t-1} + \mathbf{i}_t \odot \tilde{\mathbf{c}}_t & \text{(cell update)} \\
+\mathbf{o}_t &= \sigma(\mathbf{W}_o [\mathbf{h}_{t-1}, \mathbf{x}_t] + \mathbf{b}_o) & \text{(output gate)} \\
+\mathbf{h}_t &= \mathbf{o}_t \odot \tanh(\mathbf{c}_t) & \text{(hidden state)}
+\end{align}
+where $\odot$ denotes the Hadamard (element-wise) product.
+\end{definition}
+
+\begin{proposition}[Gradient in LSTMs]
+In an LSTM, the gradient of the loss with respect to the memory cell
+$\mathbf{c}_k$ contains a term:
+\[
+\frac{\partial \mathbf{c}_t}{\partial \mathbf{c}_k} = \prod_{i=k+1}^{t} \left(\text{diag}(\mathbf{f}_i) + \ldots\right)
+\]
+The forget gate $\mathbf{f}_i$ allows the gradient to propagate without
+attenuation when $\mathbf{f}_i \approx \mathbf{1}$, partially solving the
+vanishing gradient problem.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Gated Recurrent Unit (GRU)}
+\label{sec:seq:gru}
+% ------------------------------------------------------------
+
+\begin{definition}[GRU]
+The GRU (Cho et al., 2014) simplifies the LSTM by merging the memory cell and
+hidden state, using only two gates:
+\begin{align}
+\mathbf{z}_t &= \sigma(\mathbf{W}_z [\mathbf{h}_{t-1}, \mathbf{x}_t] + \mathbf{b}_z) & \text{(update gate)} \\
+\mathbf{r}_t &= \sigma(\mathbf{W}_r [\mathbf{h}_{t-1}, \mathbf{x}_t] + \mathbf{b}_r) & \text{(reset gate)} \\
+\tilde{\mathbf{h}}_t &= \tanh(\mathbf{W}_h [\mathbf{r}_t \odot \mathbf{h}_{t-1}, \mathbf{x}_t] + \mathbf{b}_h) & \text{(candidate)} \\
+\mathbf{h}_t &= (1 - \mathbf{z}_t) \odot \mathbf{h}_{t-1} + \mathbf{z}_t \odot \tilde{\mathbf{h}}_t & \text{(interpolation)}
+\end{align}
+\end{definition}
+
+\begin{remark}
+The GRU has fewer parameters than the LSTM ($3$ gate matrices vs.\ $4$) and
+offers comparable performance in many tasks. The choice between LSTM and GRU is
+often empirical.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Bidirectional RNNs}
+\label{sec:seq:bidirectional}
+% ------------------------------------------------------------
+
+\begin{definition}[BiRNN]
+A bidirectional RNN processes the sequence in both directions and concatenates
+the hidden states:
+\[
+\mathbf{h}_t = [\overrightarrow{\mathbf{h}}_t ; \overleftarrow{\mathbf{h}}_t] \in \R^{2h}
+\]
+where $\overrightarrow{\mathbf{h}}_t$ is the left-to-right state and
+$\overleftarrow{\mathbf{h}}_t$ is the right-to-left state.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Encoder-Decoder Architecture (Seq2Seq)}
+\label{sec:seq:seq2seq}
+% ------------------------------------------------------------
+
+\begin{definition}[Seq2Seq]
+The encoder-decoder architecture (Sutskever et al., 2014) uses an encoder RNN
+to compress the source sequence into a context vector
+$\mathbf{c} = \mathbf{h}_T^{\text{enc}}$, and a decoder RNN to generate the
+target sequence:
+\begin{align}
+\text{Encoder:} \quad \mathbf{h}_t^{\text{enc}} &= f_{\text{enc}}(\mathbf{x}_t, \mathbf{h}_{t-1}^{\text{enc}}) \\
+\text{Decoder:} \quad \mathbf{h}_t^{\text{dec}} &= f_{\text{dec}}(\mathbf{y}_{t-1}, \mathbf{h}_{t-1}^{\text{dec}}) \\
+P(y_t \mid y_{<t}, \mathbf{x}) &= \softmax(\mathbf{W}_o \mathbf{h}_t^{\text{dec}})
+\end{align}
+\end{definition}
+
+\begin{warning}[title=\textbf{Information bottleneck}]
+Compressing the entire source sequence into a single vector $\mathbf{c}$
+creates an information bottleneck. This problem is solved by the attention
+mechanism (Chapter~\ref{ch:attention}).
+\end{warning}
+
+% ------------------------------------------------------------
+\section{Implementation with PyTorch}
+\label{sec:seq:implementation}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{LSTM for text classification}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+
+class LSTMClassifier(nn.Module):
+    def __init__(self, vocab_size, embed_dim, hidden_dim, num_classes,
+                 num_layers=2, dropout=0.3, bidirectional=True):
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
+        self.lstm = nn.LSTM(
+            embed_dim, hidden_dim, num_layers=num_layers,
+            batch_first=True, dropout=dropout,
+            bidirectional=bidirectional
+        )
+        direction_factor = 2 if bidirectional else 1
+        self.classifier = nn.Sequential(
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim * direction_factor, num_classes)
+        )
+
+    def forward(self, input_ids, lengths):
+        embeds = self.embedding(input_ids)       # (B, T, d)
+        packed = nn.utils.rnn.pack_padded_sequence(
+            embeds, lengths.cpu(), batch_first=True, enforce_sorted=False
+        )
+        _, (hidden, _) = self.lstm(packed)       # hidden: (layers*dirs, B, h)
+        # Concatenate last forward and backward hidden states
+        hidden = torch.cat([hidden[-2], hidden[-1]], dim=1)  # (B, 2h)
+        return self.classifier(hidden)           # (B, num_classes)
+
+model = LSTMClassifier(
+    vocab_size=30000, embed_dim=256,
+    hidden_dim=128, num_classes=2
+)
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Seq2Seq encoder-decoder}]
+\begin{minted}{python}
+class Seq2SeqEncoder(nn.Module):
+    def __init__(self, vocab_size, embed_dim, hidden_dim, num_layers=2):
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, embed_dim)
+        self.rnn = nn.GRU(embed_dim, hidden_dim, num_layers,
+                          batch_first=True, bidirectional=True)
+        self.fc = nn.Linear(hidden_dim * 2, hidden_dim)
+
+    def forward(self, src):
+        embedded = self.embedding(src)
+        outputs, hidden = self.rnn(embedded)
+        # Combine bidirectional hidden states
+        hidden = torch.cat([hidden[-2], hidden[-1]], dim=1)
+        hidden = torch.tanh(self.fc(hidden)).unsqueeze(0)
+        return outputs, hidden
+
+class Seq2SeqDecoder(nn.Module):
+    def __init__(self, vocab_size, embed_dim, hidden_dim, num_layers=1):
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, embed_dim)
+        self.rnn = nn.GRU(embed_dim, hidden_dim, num_layers,
+                          batch_first=True)
+        self.fc_out = nn.Linear(hidden_dim, vocab_size)
+
+    def forward(self, input_token, hidden):
+        embedded = self.embedding(input_token).unsqueeze(1)
+        output, hidden = self.rnn(embedded, hidden)
+        prediction = self.fc_out(output.squeeze(1))
+        return prediction, hidden
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Teacher Forcing and Scheduled Sampling}
+\label{sec:seq:teacher}
+% ------------------------------------------------------------
+
+\begin{definition}[Teacher Forcing]
+During training, \emph{teacher forcing} consists of providing the decoder with
+the ground-truth token $y_{t-1}$ rather than its own prediction
+$\hat{y}_{t-1}$. This accelerates convergence but creates a mismatch
+(\emph{exposure bias}) between training and inference.
+\end{definition}
+
+\begin{definition}[Scheduled Sampling]
+\emph{Scheduled sampling} (Bengio et al., 2015) mitigates exposure bias by
+randomly alternating between teacher forcing and autoregressive generation:
+\[
+\text{input}_t = \begin{cases}
+y_{t-1} & \text{with probability } \epsilon_t \\
+\hat{y}_{t-1} & \text{with probability } 1 - \epsilon_t
+\end{cases}
+\]
+where $\epsilon_t$ gradually decreases from $1$ to $0$.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Exercises}
+\label{sec:seq:exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}[$\star$]
+Count the total number of parameters in an LSTM with $d = 256$ (input) and
+$h = 512$ (hidden state).
+\end{exercise}
+
+\begin{exercise}[$\star$]
+Explain why a bidirectional RNN cannot be used for autoregressive language
+modeling.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Prove that the gradient in a simple RNN decays exponentially with temporal
+distance under the conditions of the vanishing gradient theorem.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Implement a character-level language model with a 2-layer LSTM. Train it on a
+literary corpus and generate text by sampling.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+Compare the performance of a GRU and an LSTM on a NER task (CoNLL-2003
+dataset). Analyze convergence speed and ability to capture long-range
+dependencies.
+\end{exercise}

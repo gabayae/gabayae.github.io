@@ -1,0 +1,349 @@
+% ============================================================
+\chapter{Stochastic Calculus in Finance}
+\label{ch:stochastic_calculus}
+% ============================================================
+
+Brownian motion is the fundamental building block of quantitative finance---but it is a mathematically monstrous object: its paths are continuous yet \emph{nowhere differentiable}. One cannot differentiate in the classical sense, and the ordinary integral breaks down. It was Kiyosi It\^o who, in the 1940s in Japan, constructed the differential calculus adapted to this situation: the \emph{It\^o integral} and the celebrated \emph{It\^o formula}, which is to stochastic calculus what the chain rule is to classical calculus---with an additional corrective term, the $\frac{1}{2}\sigma^2 f''$ term, that changes everything. This chapter builds these tools and shows how they apply to financial modelling.
+
+\section{Brownian Motion}
+
+\begin{definition}[Standard Brownian Motion]
+A \textbf{standard Brownian motion} (or Wiener process) $(W_t)_{t \geq 0}$
+is a continuous stochastic process such that:
+\begin{enumerate}
+    \item $W_0 = 0$ a.s.
+    \item The paths $t \mapsto W_t(\omega)$ are continuous a.s.
+    \item Increments are independent: for $0 \leq s < t \leq u < v$,
+          $W_t - W_s$ and $W_v - W_u$ are independent.
+    \item Increments are Gaussian: $W_t - W_s \sim \mathcal{N}(0, t-s)$.
+\end{enumerate}
+\end{definition}
+
+\begin{proposition}[Properties of Brownian Motion]
+\begin{enumerate}
+    \item $\E[W_t] = 0$ and $\Var(W_t) = t$ for all $t \geq 0$.
+    \item $\Cov(W_s, W_t) = \min(s,t)$.
+    \item $W_t$ is a martingale with respect to its natural filtration.
+    \item $W_t^2 - t$ is a martingale.
+    \item Paths are a.s.\ nowhere differentiable.
+    \item The quadratic variation satisfies $\langle W \rangle_t = t$.
+\end{enumerate}
+\end{proposition}
+
+\begin{codeblock}[title=\textbf{Simulating Brownian Paths}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+def brownian_paths(T, N, M):
+    """Simulate M Brownian paths on [0, T] with N steps."""
+    dt = T / N
+    dW = np.sqrt(dt) * np.random.standard_normal((M, N))
+    W = np.zeros((M, N + 1))
+    W[:, 1:] = np.cumsum(dW, axis=1)
+    t = np.linspace(0, T, N + 1)
+    return t, W
+
+np.random.seed(42)
+t, W = brownian_paths(1.0, 1000, 5)
+for i in range(5):
+    plt.plot(t, W[i])
+plt.xlabel('t'); plt.ylabel('$W_t$')
+plt.title('Brownian Paths')
+plt.grid(True)
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\section{The It\^o Integral}
+
+\subsection{Construction}
+
+The stochastic integral extends the classical integral to random integrands
+with respect to Brownian motion.
+
+\begin{definition}[It\^o Integral]
+For an adapted process $(H_t)_{t \geq 0}$ satisfying
+$\E\!\left[\int_0^T H_t^2\,dt\right] < \infty$, the \textbf{It\^o integral}
+is defined as:
+\[
+    I_T(H) = \int_0^T H_t\,dW_t
+           = \lim_{n \to \infty} \sum_{i=0}^{n-1}
+             H_{t_i}(W_{t_{i+1}} - W_{t_i}).
+\]
+The limit is taken in mean square ($L^2$).
+\end{definition}
+
+\begin{theorem}[Properties of the It\^o Integral]
+\label{thm:ito_integral_props}
+Let $I_t = \int_0^t H_s\,dW_s$. Then:
+\begin{enumerate}
+    \item $I_t$ is a martingale: $\E[I_t \mid \mathcal{F}_s] = I_s$
+          for $s \leq t$.
+    \item \textbf{It\^o isometry}:
+          $\E[I_T^2] = \E\!\left[\int_0^T H_t^2\,dt\right]$.
+    \item $\E[I_T] = 0$.
+    \item The quadratic variation is
+          $\langle I \rangle_t = \int_0^t H_s^2\,ds$.
+\end{enumerate}
+\end{theorem}
+
+\begin{warning}[title=\textbf{It\^o vs Stratonovich}]
+The It\^o integral evaluates the integrand at the \textbf{left endpoint}
+of each interval: $H_{t_i}$ rather than $H_{t_{i+1}}$ or
+$\frac{1}{2}(H_{t_i} + H_{t_{i+1}})$. The Stratonovich choice (midpoint
+evaluation) gives a different result and satisfies classical calculus rules,
+but the It\^o integral is preferred in finance because it preserves the
+martingale property (and hence risk-neutral pricing).
+\end{warning}
+
+\subsection{Calculus Rules}
+
+The rules of calculus differ from the classical case. The key identities are:
+\[
+    (dW_t)^2 = dt, \quad (dt)^2 = 0, \quad dW_t \cdot dt = 0.
+\]
+
+\section{It\^o's Formula}
+
+\begin{theorem}[It\^o's Formula --- One-Dimensional Case]
+\label{thm:ito_formula}
+Let $(X_t)$ be an It\^o process satisfying
+$dX_t = \mu_t\,dt + \sigma_t\,dW_t$
+and $f \in C^{1,2}(\R^+ \times \R)$. Then:
+\[
+    df(t, X_t) = \frac{\partial f}{\partial t}\,dt
+    + \frac{\partial f}{\partial x}\,dX_t
+    + \frac{1}{2}\frac{\partial^2 f}{\partial x^2}\sigma_t^2\,dt.
+\]
+In expanded form:
+\[
+    df(t, X_t) = \left(\frac{\partial f}{\partial t}
+    + \mu_t\frac{\partial f}{\partial x}
+    + \frac{1}{2}\sigma_t^2\frac{\partial^2 f}{\partial x^2}\right)dt
+    + \sigma_t\frac{\partial f}{\partial x}\,dW_t.
+\]
+\end{theorem}
+
+\begin{keyformulas}[title=\textbf{It\^o's Formula --- Compact Form}]
+\[
+    df = \left(\partial_t f + \mu\,\partial_x f
+    + \tfrac{1}{2}\sigma^2\partial_{xx} f\right)dt
+    + \sigma\,\partial_x f\,dW_t.
+\]
+The extra term $\frac{1}{2}\sigma^2\partial_{xx}f\,dt$ has no analogue
+in deterministic calculus; it arises from the non-zero quadratic variation
+of Brownian motion.
+\end{keyformulas}
+
+\begin{example}
+Apply It\^o's formula to $f(x) = x^2$ with $X_t = W_t$:
+\[
+    d(W_t^2) = 2W_t\,dW_t + \frac{1}{2}\cdot 2\,dt = 2W_t\,dW_t + dt.
+\]
+Integrating: $W_T^2 = 2\int_0^T W_t\,dW_t + T$, hence:
+\[
+    \int_0^T W_t\,dW_t = \frac{W_T^2 - T}{2}.
+\]
+Note the difference from classical calculus, which would give $W_T^2/2$.
+\end{example}
+
+\begin{theorem}[Multidimensional It\^o's Formula]
+Let $dX_t^i = \mu_t^i\,dt + \sum_j \sigma_t^{ij}\,dW_t^j$ and
+$f \in C^{1,2}$. Then:
+\[
+    df = \partial_t f\,dt + \sum_i \partial_{x_i}f\,dX_t^i
+    + \frac{1}{2}\sum_{i,j}\partial_{x_i x_j}f\,
+    d\langle X^i, X^j\rangle_t.
+\]
+\end{theorem}
+
+\section{Girsanov's Theorem}
+
+\begin{theorem}[Girsanov]
+\label{thm:girsanov}
+Let $(W_t)$ be a $\PP$-Brownian motion and $(\theta_t)$ an adapted process
+satisfying the Novikov condition:
+\[
+    \E^\PP\!\left[\exp\!\left(\frac{1}{2}\int_0^T \theta_t^2\,dt\right)\right]
+    < \infty.
+\]
+Define the Radon--Nikodym density:
+\[
+    \frac{d\mathbb{Q}}{d\PP}\bigg|_{\mathcal{F}_T}
+    = \mathcal{E}_T(\theta) = \exp\!\left(-\int_0^T \theta_t\,dW_t
+    - \frac{1}{2}\int_0^T \theta_t^2\,dt\right).
+\]
+Then under $\mathbb{Q}$, the process
+$\tilde{W}_t = W_t + \int_0^t \theta_s\,ds$
+is a standard Brownian motion.
+\end{theorem}
+
+\begin{intuition}[title=\textbf{Application to Finance}]
+Girsanov's theorem enables the passage from the historical measure $\PP$
+(under which $dS_t/S_t = \mu\,dt + \sigma\,dW_t$) to the risk-neutral
+measure $\mathbb{Q}$ (under which $dS_t/S_t = r\,dt +
+\sigma\,d\tilde{W}_t$) by setting $\theta = (\mu - r)/\sigma$.
+The quantity $\theta$ is the \textbf{market price of risk}.
+\end{intuition}
+
+\section{Martingale Representation Theorem}
+
+\begin{theorem}[Martingale Representation]
+\label{thm:representation}
+Every square-integrable martingale $(M_t)_{0 \leq t \leq T}$ adapted to
+the Brownian filtration can be written as:
+\[
+    M_t = M_0 + \int_0^t H_s\,dW_s,
+\]
+for a unique predictable process $(H_t)$ satisfying
+$\E\!\left[\int_0^T H_t^2\,dt\right] < \infty$.
+\end{theorem}
+
+\begin{remark}
+This theorem guarantees that in the Black--Scholes model (complete market),
+every square-integrable contingent claim is replicable. The process $H_t$
+provides the hedging strategy.
+\end{remark}
+
+\section{Stochastic Differential Equations}
+
+\begin{definition}[General SDE]
+A \textbf{stochastic differential equation} (SDE) takes the form:
+\[
+    dX_t = b(t, X_t)\,dt + \sigma(t, X_t)\,dW_t, \quad X_0 = x_0,
+\]
+where $b$ is the drift coefficient and $\sigma$ the diffusion coefficient.
+\end{definition}
+
+\begin{theorem}[Existence and Uniqueness]
+If $b$ and $\sigma$ are Lipschitz continuous in $x$ uniformly in $t$ and
+have linear growth, then the SDE admits a unique strong solution
+$(X_t)_{0 \leq t \leq T}$.
+\end{theorem}
+
+\begin{theorem}[PDE--SDE Link (Feynman--Kac)]
+\label{thm:feynman_kac}
+Let $u(t,x)$ be a solution of:
+\[
+    \partial_t u + b(t,x)\partial_x u
+    + \frac{1}{2}\sigma^2(t,x)\partial_{xx}u - r\,u = 0,
+    \quad u(T,x) = g(x).
+\]
+Then:
+\[
+    u(t,x) = \E\!\left[e^{-r(T-t)}g(X_T) \mid X_t = x\right],
+\]
+where $dX_s = b(s,X_s)\,ds + \sigma(s,X_s)\,dW_s$.
+\end{theorem}
+
+\begin{remark}
+The Feynman--Kac theorem establishes the fundamental link between PDE-based
+pricing (Black--Scholes) and risk-neutral expectation pricing (Monte Carlo).
+\end{remark}
+
+\section{Stochastic Exponential}
+
+\begin{definition}[Stochastic Exponential]
+The \textbf{stochastic exponential} (or Dol\'eans-Dade exponential) of an
+It\^o process $X_t$ is:
+\[
+    \mathcal{E}_t(X) = \exp\!\left(X_t - X_0 - \frac{1}{2}\langle X\rangle_t\right).
+\]
+It satisfies $d\mathcal{E}_t = \mathcal{E}_t\,dX_t$,
+$\mathcal{E}_0 = 1$.
+\end{definition}
+
+\begin{proposition}
+The GBM $S_t = S_0\exp\!\left[(\mu - \sigma^2/2)t + \sigma W_t\right]$
+is the stochastic exponential of $\mu t + \sigma W_t$:
+\[
+    S_t = S_0\,\mathcal{E}_t(\mu\,\cdot + \sigma W).
+\]
+\end{proposition}
+
+\section{Implementation: Discretisation Schemes}
+
+\begin{codeblock}[title=\textbf{Euler--Maruyama and Milstein Schemes}]
+\begin{minted}{python}
+import numpy as np
+
+def euler_maruyama(x0, b, sigma, T, N, M):
+    """Euler-Maruyama scheme for dX = b(X)dt + sigma(X)dW."""
+    dt = T / N
+    X = np.full(M, x0, dtype=float)
+    for i in range(N):
+        dW = np.sqrt(dt) * np.random.standard_normal(M)
+        X = X + b(X)*dt + sigma(X)*dW
+    return X
+
+def milstein(x0, b, sigma, sigma_prime, T, N, M):
+    """Milstein scheme (strong order 1.0)."""
+    dt = T / N
+    X = np.full(M, x0, dtype=float)
+    for i in range(N):
+        dW = np.sqrt(dt) * np.random.standard_normal(M)
+        X = (X + b(X)*dt + sigma(X)*dW
+             + 0.5*sigma(X)*sigma_prime(X)*(dW**2 - dt))
+    return X
+
+# Application to GBM: dS = r*S*dt + sig*S*dW
+r_val, sig = 0.05, 0.20
+S0, T, N, M = 100, 1.0, 100, 100000
+
+np.random.seed(42)
+ST_euler = euler_maruyama(S0, lambda S: r_val*S, lambda S: sig*S,
+                          T, N, M)
+ST_milstein = milstein(S0, lambda S: r_val*S, lambda S: sig*S,
+                       lambda S: sig, T, N, M)
+Z = np.random.standard_normal(M)
+ST_exact = S0 * np.exp((r_val - 0.5*sig**2)*T + sig*np.sqrt(T)*Z)
+
+print(f"Euler:    E[S_T] = {np.mean(ST_euler):.2f}")
+print(f"Milstein: E[S_T] = {np.mean(ST_milstein):.2f}")
+print(f"Exact:    E[S_T] = {S0*np.exp(r_val*T):.2f}")
+\end{minted}
+\end{codeblock}
+
+\section{Exercises}
+
+\begin{exercise}[It\^o's Formula]
+\begin{enumerate}
+    \item Compute $d(e^{W_t})$ and $d(e^{\alpha W_t - \alpha^2 t/2})$.
+    \item Show that $\mathcal{E}_t = e^{\sigma W_t - \sigma^2 t/2}$ is
+          a martingale.
+    \item Apply It\^o's formula to $f(t,x) = e^{-rt}x$ to verify that
+          $e^{-rt}S_t$ is a $\mathbb{Q}$-martingale.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Girsanov's Theorem]
+\begin{enumerate}
+    \item Verify the change of measure explicitly for GBM: write $S_t$
+          under $\PP$ then under $\mathbb{Q}$.
+    \item Compute the market price of risk $\theta = (\mu-r)/\sigma$
+          for $\mu = 0.10$, $r = 0.03$, $\sigma = 0.25$.
+    \item Show that the Radon--Nikodym density $\mathcal{E}_T(\theta)$
+          is a $\PP$-martingale.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Convergence of Schemes]
+\begin{enumerate}
+    \item Compare the strong error $\E[\abs{S_T^N - S_T}]$ of Euler and
+          Milstein schemes as a function of $N$.
+    \item Verify that the strong convergence order is $1/2$ for Euler
+          and $1$ for Milstein.
+    \item Implement a weak order 2 scheme (Platen) and compare.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Feynman--Kac]
+\begin{enumerate}
+    \item Verify the Feynman--Kac theorem for the European call by
+          comparing the Black--Scholes PDE solution with the Monte Carlo
+          expectation.
+    \item Apply Feynman--Kac to the heat equation
+          $\partial_t u = \frac{1}{2}\partial_{xx}u$ and interpret.
+\end{enumerate}
+\end{exercise}

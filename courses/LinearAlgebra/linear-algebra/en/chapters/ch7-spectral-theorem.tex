@@ -1,0 +1,1139 @@
+% ch7-spectral-theorem.tex — Chapter 7: Spectral Theorem and Symmetric Matrices
+% Self-adjoint operators, spectral theorem (real and complex), orthogonal
+% diagonalization, normal operators, positive definiteness, SVD, applications.
+
+\chapter{Spectral Theorem and Symmetric Matrices}\label{ch:spectral}
+
+% ============================================================
+% Motivating introduction
+% ============================================================
+
+In the preceding chapters we studied eigenvalues, eigenvectors, and
+diagonalization of general linear maps.  We saw that not every matrix
+is diagonalizable, and that when diagonalization succeeds the change-of-basis
+matrix need not enjoy any particular geometric property.  In this chapter
+we restrict our attention to a distinguished class of operators ---
+\emph{self-adjoint}\index{self-adjoint operator} (symmetric or Hermitian)
+operators --- for which the theory becomes strikingly clean: every
+self-adjoint operator is diagonalizable, all eigenvalues are real, and
+one can find an \emph{orthonormal} basis of eigenvectors.
+
+This is the content of the \emph{Spectral Theorem},\index{Spectral Theorem}
+one of the most important results in all of linear algebra.  Its applications
+pervade mathematics, science, and engineering:
+\begin{itemize}
+  \item \textbf{Covariance matrices.}  In statistics and data science, the
+    covariance matrix of a random vector is symmetric and positive
+    semi\-definite; its eigenvectors are the \emph{principal components}, and
+    PCA\index{PCA}\index{principal component analysis} amounts to the spectral
+    decomposition of this matrix.
+  \item \textbf{Hessians and optimization.}  The Hessian of a twice
+    differentiable function $f\colon\R^n\to\R$ is a real symmetric matrix;
+    its eigenvalues determine whether a critical point is a local minimum,
+    maximum, or saddle point.
+  \item \textbf{Quadratic forms.}  The classification of quadratic forms
+    (ellipses, hyperbolas, etc.)\ relies on the signs of the eigenvalues of
+    the associated symmetric matrix.
+  \item \textbf{Vibrations and normal modes.}  The natural frequencies of a
+    vibrating system are the square roots of the eigenvalues of a symmetric
+    matrix, and the normal modes are its eigenvectors.
+  \item \textbf{Quantum mechanics.}  Observables are Hermitian operators on a
+    Hilbert space; the Spectral Theorem guarantees that measurement outcomes
+    (eigenvalues) are real numbers.
+\end{itemize}
+
+\begin{center}
+\begin{tikzpicture}[>=Stealth, scale=1.2]
+  % --- Conic classification via eigenvalues ---
+  % Ellipse
+  \begin{scope}[shift={(-4,0)}]
+    \draw[thick, blue!70!black] (0,0) ellipse (1.5 and 0.8);
+    \draw[->, thick, red!70!black] (0,0) -- (1.5,0)
+      node[below right] {\small $\lambda_1>0$};
+    \draw[->, thick, red!70!black] (0,0) -- (0,0.8)
+      node[above right] {\small $\lambda_2>0$};
+    \node[below] at (0,-1.2) {\small Ellipse};
+  \end{scope}
+
+  % Hyperbola
+  \begin{scope}[shift={(0,0)}]
+    \draw[thick, blue!70!black, domain=-1.2:1.2, samples=80]
+      plot ({cosh(\x)}, {0.7*sinh(\x)});
+    \draw[thick, blue!70!black, domain=-1.2:1.2, samples=80]
+      plot ({-cosh(\x)}, {0.7*sinh(\x)});
+    \draw[->, thick, red!70!black] (0,0) -- (1.3,0)
+      node[below right] {\small $\lambda_1>0$};
+    \draw[->, thick, green!60!black] (0,0) -- (0,0.9)
+      node[above right] {\small $\lambda_2<0$};
+    \node[below] at (0,-1.2) {\small Hyperbola};
+  \end{scope}
+
+  % Parabola (degenerate: one eigenvalue zero)
+  \begin{scope}[shift={(4,0)}]
+    \draw[thick, blue!70!black, domain=-1:1, samples=60]
+      plot ({1.2*\x*\x}, {\x});
+    \draw[->, thick, red!70!black] (0,0) -- (1.3,0)
+      node[below right] {\small $\lambda_1>0$};
+    \draw[->, thick, gray] (0,0) -- (0,0.9)
+      node[above right] {\small $\lambda_2=0$};
+    \node[below] at (0.5,-1.2) {\small Parabola};
+  \end{scope}
+\end{tikzpicture}
+\captionof{figure}{Classification of conics by the eigenvalues of the
+  associated symmetric matrix.  All eigenvalues positive: ellipse;
+  mixed signs: hyperbola; one eigenvalue zero: parabola.}
+\label{fig:conic-classification}
+\end{center}
+
+Throughout this chapter, $E$ denotes a finite-dimensional inner product
+space over $\K = \R$ or~$\C$, with inner product $\inner{{\cdot},{\ \cdot}}$
+and induced norm~$\norm{\cdot}$.  We write $\dim E = n$.  Matrices are
+identified with their corresponding endomorphisms via a chosen basis
+whenever convenient.
+
+
+% ============================================================
+\section{Self-adjoint (symmetric and Hermitian) operators}%
+\label{sec:self-adjoint}
+% ============================================================
+
+\begin{definition}{Adjoint of a linear map}{def:adjoint-ch7}
+\index{adjoint operator}
+Let $(E,\inner{\cdot,\cdot})$ be a finite-dimensional inner product
+space and $f\in\End(E)$.  The \emph{adjoint} of~$f$ is the unique
+linear map $f^*\in\End(E)$ satisfying
+\[
+  \inner{f(u),\, v} \;=\; \inner{u,\, f^*(v)}
+  \qquad\text{for all } u,v\in E.
+\]
+\end{definition}
+
+\begin{remark}{Existence and uniqueness of the adjoint}{rem:adjoint-exists}
+Existence and uniqueness follow from the Riesz representation theorem
+(or can be verified directly using an orthonormal basis).  If $\cB$ is
+an orthonormal basis and $A = \Mat_\cB(f)$, then
+$\Mat_\cB(f^*) = \hermit{A}$, the conjugate transpose.  Over~$\R$
+this reduces to $\Mat_\cB(f^*) = \transpose{A}$.
+\end{remark}
+
+\begin{proposition}{Properties of the adjoint}{prop:adjoint-properties-ch7}
+\index{adjoint operator!properties}
+For $f,g\in\End(E)$ and $\alpha\in\K$:
+\begin{enumerate}[label=\textup{(\roman*)}]
+  \item $(f+g)^* = f^*+g^*$.
+  \item $(\alpha f)^* = \bar\alpha\, f^*$.
+  \item $(f\circ g)^* = g^*\circ f^*$.
+  \item $(f^*)^* = f$.
+  \item $f$ is invertible if and only if $f^*$ is, and then
+    $(f^*)^{-1}=(f^{-1})^*$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+All properties follow from the definition and the sesquilinearity
+(or bilinearity over~$\R$) of the inner product.  We verify~(iii):
+for all $u,v\in E$,
+\[
+  \inner{(f\circ g)(u),\,v}
+  = \inner{f(g(u)),\,v}
+  = \inner{g(u),\,f^*(v)}
+  = \inner{u,\,g^*(f^*(v))}
+  = \inner{u,\,(g^*\circ f^*)(v)},
+\]
+so $(f\circ g)^* = g^*\circ f^*$ by uniqueness of the adjoint.
+The remaining items are proved similarly.
+\end{proof}
+
+\begin{definition}{Self-adjoint operator}{def:self-adjoint}
+\index{self-adjoint operator}\index{symmetric matrix}\index{Hermitian matrix}
+An endomorphism $f\in\End(E)$ is \emph{self-adjoint} if $f^* = f$,
+i.e.\ $\inner{f(u),v} = \inner{u,f(v)}$ for all $u,v\in E$.
+
+In matrix terms with respect to an orthonormal basis:
+\begin{itemize}
+  \item Over $\R$: $A$ is \emph{symmetric},\index{symmetric matrix}
+    i.e.\ $\transpose{A} = A$.
+  \item Over $\C$: $A$ is \emph{Hermitian},\index{Hermitian matrix}
+    i.e.\ $\hermit{A} = A$.
+\end{itemize}
+
+We denote the real vector space of $n\times n$ real symmetric matrices by
+$\Sym_n(\R)\deff\setcond{A\in\Mat_n(\R)}{\transpose{A}=A}$.
+\end{definition}
+
+\begin{example}{Symmetric matrices}{ex:symmetric-examples}
+The matrix
+$A = \begin{pmatrix} 2 & -1 \\ -1 & 3 \end{pmatrix}$
+is symmetric.  The matrix
+$B = \begin{pmatrix} 1 & 2+i \\ 2-i & 3 \end{pmatrix}$
+is Hermitian (the diagonal entries are real and the off-diagonal entries
+are complex conjugates).
+\end{example}
+
+\begin{proposition}{Dimension of $\Sym_n(\R)$}{prop:dim-sym}
+$\dim\Sym_n(\R) = \dfrac{n(n+1)}{2}$.
+\end{proposition}
+
+\begin{proof}
+A symmetric matrix is determined by its entries on and above the diagonal.
+There are $n$ diagonal entries and $\binom{n}{2}$ entries strictly above
+the diagonal, giving $n + \binom{n}{2} = \frac{n(n+1)}{2}$.
+\end{proof}
+
+
+% ============================================================
+\section{Eigenvalues of self-adjoint operators are real}%
+\label{sec:eigenvalues-real}
+% ============================================================
+
+\begin{theorem}{Eigenvalues of self-adjoint operators are real}%
+{thm:eigenvalues-real}
+\index{eigenvalue!of self-adjoint operator}\index{self-adjoint operator!eigenvalues}
+Let $f$ be a self-adjoint operator on an inner product space~$E$
+(over $\R$ or~$\C$).  Then every eigenvalue of~$f$ is real.
+\end{theorem}
+
+\begin{proof}
+Let $\lambda$ be an eigenvalue and $v\neq\vzero$ an eigenvector:
+$f(v)=\lambda v$.  Then
+\[
+  \lambda\,\inner{v,v}
+  = \inner{\lambda v,\,v}
+  = \inner{f(v),\,v}
+  = \inner{v,\,f(v)}
+  = \inner{v,\,\lambda v}
+  = \bar\lambda\,\inner{v,v}.
+\]
+Since $v\neq\vzero$, we have $\inner{v,v}>0$, so dividing yields
+$\lambda = \bar\lambda$, which means $\lambda\in\R$.
+\end{proof}
+
+\begin{remark}{Real eigenvalues over $\R$}{rem:real-eigenvalues-R}
+Over~$\R$, one must be slightly careful: a real symmetric matrix might
+a priori have no eigenvalues in~$\R$ (since the characteristic polynomial
+need not split).  However, the Spectral Theorem will establish that it
+does.  The above proof works directly if we allow eigenvalues in~$\C$
+and use the standard Hermitian inner product on~$\C^n$.  Concretely:
+if $A\in\Sym_n(\R)$ and $\lambda\in\C$ satisfies $Av = \lambda v$ for
+some $v\in\C^n\setminus\set{\vzero}$, then $\lambda\in\R$.
+\end{remark}
+
+
+% ============================================================
+\section{Orthogonality of eigenvectors for distinct eigenvalues}%
+\label{sec:eigenvectors-orthogonal}
+% ============================================================
+
+\begin{theorem}{Eigenvectors for distinct eigenvalues are orthogonal}%
+{thm:eigenvectors-orthogonal}
+\index{eigenvector!orthogonality}\index{self-adjoint operator!orthogonal eigenvectors}
+Let $f$ be a self-adjoint operator on~$E$, and let $v_1,v_2$ be
+eigenvectors of~$f$ associated with distinct eigenvalues
+$\lambda_1\neq\lambda_2$.  Then $\inner{v_1,v_2}=0$.
+\end{theorem}
+
+\begin{proof}
+We compute $\inner{f(v_1),v_2}$ in two ways:
+\[
+  \inner{f(v_1),\,v_2}
+  = \inner{\lambda_1 v_1,\,v_2}
+  = \lambda_1\,\inner{v_1,v_2},
+\]
+and, using the self-adjointness of~$f$,
+\[
+  \inner{f(v_1),\,v_2}
+  = \inner{v_1,\,f(v_2)}
+  = \inner{v_1,\,\lambda_2 v_2}
+  = \bar\lambda_2\,\inner{v_1,v_2}
+  = \lambda_2\,\inner{v_1,v_2},
+\]
+where the last equality uses the fact that $\lambda_2\in\R$
+(ef{thm:thm:eigenvalues-real}).  Subtracting:
+\[
+  (\lambda_1 - \lambda_2)\,\inner{v_1,v_2} = 0.
+\]
+Since $\lambda_1\neq\lambda_2$, we conclude $\inner{v_1,v_2}=0$.
+\end{proof}
+
+\begin{corollary}{Eigenspaces of a self-adjoint operator are mutually
+orthogonal}{cor:eigenspaces-orthogonal}
+\index{eigenspace!orthogonality}
+If $f$ is self-adjoint with distinct eigenvalues
+$\lambda_1,\ldots,\lambda_r$, then
+\[
+  E_{\lambda_i} \perp E_{\lambda_j}
+  \qquad\text{for all } i\neq j,
+\]
+where $E_{\lambda_k} = \Ker(f - \lambda_k\Id)$ is the eigenspace for
+$\lambda_k$.
+\end{corollary}
+
+\begin{proof}
+Every vector in $E_{\lambda_i}$ is an eigenvector for~$\lambda_i$
+(or zero), and likewise for~$E_{\lambda_j}$.  The result follows from
+ef{thm:thm:eigenvectors-orthogonal} applied to each pair of nonzero vectors.
+\end{proof}
+
+
+% ============================================================
+\section{The Spectral Theorem for real symmetric matrices}%
+\label{sec:spectral-real}
+% ============================================================
+
+We now prove the central result of this chapter.
+
+\begin{lemma}{Invariance of the orthogonal complement}%
+{lem:orth-complement-invariant}
+\index{orthogonal complement!invariance under self-adjoint maps}
+Let $f$ be a self-adjoint operator on~$E$ and let $W\subseteq E$ be a
+subspace invariant under~$f$ (i.e.\ $f(W)\subseteq W$).  Then the
+orthogonal complement $W^\perp$ is also invariant under~$f$.
+\end{lemma}
+
+\begin{proof}
+Let $v\in W^\perp$.  We must show $f(v)\in W^\perp$, i.e.\
+$\inner{f(v),w}=0$ for all $w\in W$.  Since $f$ is self-adjoint,
+\[
+  \inner{f(v),\,w} = \inner{v,\,f(w)}.
+\]
+Now $w\in W$ and $f(W)\subseteq W$, so $f(w)\in W$.  Since
+$v\in W^\perp$, we get $\inner{v,f(w)}=0$.  Hence $\inner{f(v),w}=0$.
+\end{proof}
+
+\begin{lemma}{A self-adjoint operator over $\R$ has a real eigenvalue}%
+{lem:self-adjoint-has-eigenvalue}
+\index{self-adjoint operator!existence of eigenvalue}
+Let $A\in\Sym_n(\R)$.  Then $A$ has at least one (real) eigenvalue.
+\end{lemma}
+
+\begin{proof}
+The characteristic polynomial $\chi_A(\lambda) = \det(A - \lambda I_n)$
+has degree~$n$ with real coefficients.  Over~$\C$ it has a root
+$\lambda_0\in\C$, and by ef{thm:thm:eigenvalues-real} (applied in the
+Hermitian setting) $\lambda_0$ is real.  Hence $A$ has a real eigenvalue.
+\end{proof}
+
+\begin{theorem}{Spectral Theorem for real symmetric matrices}%
+{thm:spectral-real}
+\index{Spectral Theorem!real symmetric matrices}
+Let $A\in\Sym_n(\R)$ be a real symmetric matrix.  Then:
+\begin{enumerate}[label=\textup{(\roman*)}]
+  \item All eigenvalues of~$A$ are real.
+  \item There exists an orthogonal matrix $P\in\Orth(n)$
+    (i.e.\ $\transpose{P}P = I_n$) such that
+    \[
+      \transpose{P}\,A\,P = \diag(\lambda_1,\ldots,\lambda_n),
+    \]
+    where $\lambda_1,\ldots,\lambda_n$ are the eigenvalues of~$A$
+    (counted with multiplicity).
+  \item Equivalently, $\R^n$ has an orthonormal basis of eigenvectors
+    of~$A$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+We prove by strong induction on~$n$.
+
+\medskip\noindent\textbf{Base case ($n=1$).}\quad
+A $1\times 1$ matrix $A=(a)$ is already diagonal with
+eigenvalue~$a\in\R$, and $P=(1)\in\Orth(1)$.
+
+\medskip\noindent\textbf{Inductive step.}\quad
+Assume the theorem holds for all real symmetric matrices of size less
+than~$n$.  Let $A\in\Sym_n(\R)$.
+
+\medskip\noindent\emph{Step~1: Find a real eigenvalue and unit eigenvector.}\quad
+By ef{lem:lem:self-adjoint-has-eigenvalue}, $A$ has a real eigenvalue
+$\lambda_1\in\R$.  Let $v_1$ be an eigenvector for~$\lambda_1$ with
+$\norm{v_1}=1$.
+
+\medskip\noindent\emph{Step~2: Set up the orthogonal complement.}\quad
+Let $W = \Span(v_1)$.  Since $A v_1 = \lambda_1 v_1$, the subspace~$W$
+is $A$-invariant.  By ef{lem:lem:orth-complement-invariant}, $W^\perp$
+is also $A$-invariant, and $\dim W^\perp = n-1$.
+
+\medskip\noindent\emph{Step~3: Restrict and apply the induction hypothesis.}\quad
+Let $g = f\restrict{W^\perp}$, where $f$ is the linear map
+$x\mapsto Ax$.  Since $f(W^\perp)\subseteq W^\perp$, the map~$g$ is a
+well-defined endomorphism of~$W^\perp$.  Moreover, $g$ is self-adjoint
+on~$W^\perp$ (the inner product is the restriction of the standard one,
+and the self-adjointness condition is inherited).
+
+Choose any orthonormal basis of~$W^\perp$ and let $B$ be the matrix
+of~$g$ in this basis.  Then $B\in\Sym_{n-1}(\R)$.  By the induction
+hypothesis, there exists an orthonormal basis
+$(v_2,\ldots,v_n)$ of~$W^\perp$ consisting of eigenvectors of~$g$
+(equivalently, of~$f$), with real eigenvalues
+$\lambda_2,\ldots,\lambda_n$.
+
+\medskip\noindent\emph{Step~4: Assemble the orthonormal eigenbasis.}\quad
+The family $(v_1,v_2,\ldots,v_n)$ is orthonormal:
+\begin{itemize}
+  \item $v_1\perp v_j$ for $j\geq 2$, since $v_j\in W^\perp$;
+  \item $(v_2,\ldots,v_n)$ is orthonormal by the induction hypothesis;
+  \item $\norm{v_1}=1$ by construction.
+\end{itemize}
+Each $v_j$ is an eigenvector of~$A$ with eigenvalue~$\lambda_j$.
+Let $P = \begin{pmatrix} v_1 & v_2 & \cdots & v_n \end{pmatrix}$.
+Then $P\in\Orth(n)$ and $\transpose{P}AP = \diag(\lambda_1,\ldots,\lambda_n)$.
+\end{proof}
+
+\begin{remark}{Spectral decomposition form}{rem:spectral-decomposition}
+\index{spectral decomposition}
+The Spectral Theorem can be rephrased as follows.  If $A\in\Sym_n(\R)$
+has distinct eigenvalues $\mu_1,\ldots,\mu_r$ with orthogonal projections
+$P_i$ onto the eigenspace $E_{\mu_i}$, then
+\[
+  A = \mu_1 P_1 + \mu_2 P_2 + \cdots + \mu_r P_r,
+\]
+where $P_1 + \cdots + P_r = I_n$ and $P_i P_j = 0$ for $i\neq j$.
+This is called the \emph{spectral decomposition}\index{spectral decomposition}
+of~$A$.
+\end{remark}
+
+
+% ============================================================
+\section{The Spectral Theorem for Hermitian matrices}%
+\label{sec:spectral-hermitian}
+% ============================================================
+
+The real Spectral Theorem extends naturally to the complex setting.
+
+\begin{theorem}{Spectral Theorem for Hermitian matrices}%
+{thm:spectral-hermitian}
+\index{Spectral Theorem!Hermitian matrices}
+Let $A\in\Mat_n(\C)$ be Hermitian, i.e.\ $\hermit{A}=A$.  Then:
+\begin{enumerate}[label=\textup{(\roman*)}]
+  \item All eigenvalues of~$A$ are real.
+  \item There exists a unitary matrix $U\in\Mat_n(\C)$
+    (i.e.\ $\hermit{U}U = I_n$) such that
+    \[
+      \hermit{U}\,A\,U = \diag(\lambda_1,\ldots,\lambda_n),
+    \]
+    with $\lambda_1,\ldots,\lambda_n\in\R$.
+  \item Equivalently, $\C^n$ has an orthonormal basis of eigenvectors
+    of~$A$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+The proof is identical to the real case: over~$\C$ the characteristic
+polynomial always splits, so the base step of the induction is
+guaranteed.  The self-adjointness condition $\hermit{A}=A$ ensures that
+eigenvalues are real (ef{thm:thm:eigenvalues-real}), eigenvectors for
+distinct eigenvalues are orthogonal
+(ef{thm:thm:eigenvectors-orthogonal}), and the orthogonal complement
+of an invariant subspace is invariant
+(ef{lem:lem:orth-complement-invariant}).  The inductive argument carries
+over verbatim, with ``orthogonal matrix'' replaced by ``unitary matrix''
+and ``transpose'' replaced by ``conjugate transpose.''
+\end{proof}
+
+
+% ============================================================
+\section{Orthogonal diagonalization: procedure and examples}%
+\label{sec:orth-diag}
+% ============================================================
+
+The Spectral Theorem provides both a theoretical guarantee and a
+practical algorithm for orthogonally diagonalizing a symmetric matrix.
+
+\begin{remark}{Orthogonal diagonalization procedure}{rem:orth-diag-procedure}
+\index{orthogonal diagonalization!procedure}
+Given $A\in\Sym_n(\R)$:
+\begin{enumerate}
+  \item Compute the characteristic polynomial
+    $\chi_A(\lambda) = \det(A - \lambda I_n)$.
+  \item Find all eigenvalues $\lambda_1,\ldots,\lambda_r$ (they are real).
+  \item For each~$\lambda_i$, solve $(A - \lambda_i I_n)X = \vzero$ to
+    find a basis of the eigenspace $E_{\lambda_i}$.
+  \item Apply the Gram--Schmidt process within each eigenspace to obtain
+    an orthonormal basis of~$E_{\lambda_i}$.
+    (Eigenvectors from \emph{different} eigenspaces are automatically
+    orthogonal, so Gram--Schmidt is only needed within a single
+    eigenspace when $\dim E_{\lambda_i}\geq 2$.)
+  \item Form $P$ by placing the orthonormal eigenvectors as columns.
+    Then $P\in\Orth(n)$ and $\transpose{P}AP = \diag(\lambda_1,\ldots,\lambda_n)$.
+\end{enumerate}
+\end{remark}
+
+\begin{example}{Orthogonal diagonalization of a $2\times 2$ matrix}%
+{ex:orth-diag-2x2}
+Diagonalize $A = \begin{pmatrix} 5 & 2 \\ 2 & 2 \end{pmatrix}$
+orthogonally.
+
+\emph{Step~1.} $\chi_A(\lambda) = (5-\lambda)(2-\lambda)-4
+= \lambda^2-7\lambda+6 = (\lambda-1)(\lambda-6)$.
+
+\emph{Step~2.} Eigenvalues: $\lambda_1=1$, $\lambda_2=6$.
+
+\emph{Step~3.}
+For $\lambda_1=1$: $(A-I_2)X=\vzero$ gives
+$\begin{pmatrix}4&2\\2&1\end{pmatrix}X=\vzero$, so $2x+y=0$.
+Eigenvector: $v_1 = \begin{psmallmatrix}1\\-2\end{psmallmatrix}$.
+
+For $\lambda_2=6$: $(A-6I_2)X=\vzero$ gives
+$\begin{pmatrix}-1&2\\2&-4\end{pmatrix}X=\vzero$, so $x=2y$.
+Eigenvector: $v_2 = \begin{psmallmatrix}2\\1\end{psmallmatrix}$.
+
+\emph{Step~4.} Normalise:
+$\hat v_1 = \frac{1}{\sqrt{5}}\begin{psmallmatrix}1\\-2\end{psmallmatrix}$,
+$\hat v_2 = \frac{1}{\sqrt{5}}\begin{psmallmatrix}2\\1\end{psmallmatrix}$.
+
+\emph{Step~5.}
+$P = \frac{1}{\sqrt{5}}\begin{pmatrix}1&2\\-2&1\end{pmatrix}$
+satisfies $\transpose{P}AP = \begin{pmatrix}1&0\\0&6\end{pmatrix}$.
+\end{example}
+
+\begin{example}{Orthogonal diagonalization of a $3\times 3$ matrix}%
+{ex:orth-diag-3x3}
+Let
+$A = \begin{pmatrix} 2 & 1 & 1 \\ 1 & 2 & 1 \\ 1 & 1 & 2 \end{pmatrix}$.
+One verifies that $\transpose{A}=A$.
+
+\emph{Characteristic polynomial:}
+$\chi_A(\lambda) = -(\lambda-4)(\lambda-1)^2$.
+
+\emph{Eigenvalues:} $\lambda_1=4$ (multiplicity~$1$),
+$\lambda_2=1$ (multiplicity~$2$).
+
+\emph{For $\lambda_1=4$:}
+$(A-4I_3)X=\vzero$ gives $x_1=x_2=x_3$, so
+$E_4 = \Span\!\left(\begin{psmallmatrix}1\\1\\1\end{psmallmatrix}\right)$.
+Normalise: $u_1 = \frac{1}{\sqrt{3}}\begin{psmallmatrix}1\\1\\1\end{psmallmatrix}$.
+
+\emph{For $\lambda_2=1$:}
+$(A-I_3)X=\vzero$ gives $x_1+x_2+x_3=0$, so
+$E_1 = \Span\!\left(
+  \begin{psmallmatrix}1\\-1\\0\end{psmallmatrix},\,
+  \begin{psmallmatrix}1\\0\\-1\end{psmallmatrix}
+\right)$.
+Apply Gram--Schmidt:
+$w_1 = \begin{psmallmatrix}1\\-1\\0\end{psmallmatrix}$,
+$w_2 = \begin{psmallmatrix}1\\0\\-1\end{psmallmatrix}
+  - \frac{\inner{w_1,\begin{psmallmatrix}1\\0\\-1\end{psmallmatrix}}}{\inner{w_1,w_1}}\,w_1
+= \begin{psmallmatrix}1/2\\1/2\\-1\end{psmallmatrix}$.
+
+Normalise:
+$u_2 = \frac{1}{\sqrt{2}}\begin{psmallmatrix}1\\-1\\0\end{psmallmatrix}$,
+$u_3 = \frac{1}{\sqrt{6}}\begin{psmallmatrix}1\\1\\-2\end{psmallmatrix}$.
+
+The orthogonal matrix is
+$P = \begin{pmatrix}
+\frac{1}{\sqrt{3}} & \frac{1}{\sqrt{2}} & \frac{1}{\sqrt{6}} \\[4pt]
+\frac{1}{\sqrt{3}} & -\frac{1}{\sqrt{2}} & \frac{1}{\sqrt{6}} \\[4pt]
+\frac{1}{\sqrt{3}} & 0 & -\frac{2}{\sqrt{6}}
+\end{pmatrix}$,
+and $\transpose{P}AP = \diag(4,1,1)$.
+\end{example}
+
+
+% ============================================================
+\section{Normal operators}\label{sec:normal}
+% ============================================================
+
+Self-adjoint operators are a special case of a broader class.
+
+\begin{definition}{Normal operator}{def:normal}
+\index{normal operator}\index{normal matrix}
+An operator $f\in\End(E)$ is \emph{normal} if it commutes with its
+adjoint:
+\[
+  f\circ f^* = f^*\circ f.
+\]
+A matrix $A\in\Mat_n(\C)$ is \emph{normal} if $A\hermit{A} = \hermit{A}A$.
+\end{definition}
+
+\begin{example}{Classes of normal operators}{ex:normal-classes}
+The following are all normal:
+\begin{itemize}
+  \item Self-adjoint (symmetric / Hermitian) operators: $f^*=f$.
+  \item Skew-adjoint operators: $f^*=-f$ (equivalently,
+    $\transpose{A}=-A$ over~$\R$ or $\hermit{A}=-A$ over~$\C$).
+  \item Orthogonal / unitary operators: $f^*=\inv{f}$.
+\end{itemize}
+\end{example}
+
+\begin{proposition}{Characterization of normality}{prop:normal-char}
+Let $f\in\End(E)$ where $E$ is a finite-dimensional inner product space
+over~$\C$.  The following are equivalent:
+\begin{enumerate}[label=\textup{(\roman*)}]
+  \item $f$ is normal.
+  \item $\norm{f(v)} = \norm{f^*(v)}$ for all $v\in E$.
+  \item If $f(v)=\lambda v$, then $f^*(v)=\bar\lambda v$.
+    (That is, $v$ is an eigenvector of~$f$ if and only if it is an
+    eigenvector of~$f^*$, with conjugate eigenvalue.)
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(i)$\Rightarrow$(ii): $\norm{f(v)}^2 = \inner{f(v),f(v)}
+= \inner{f^*f(v),v} = \inner{ff^*(v),v} = \inner{f^*(v),f^*(v)}
+= \norm{f^*(v)}^2$.
+
+(ii)$\Rightarrow$(iii): Assume $f(v)=\lambda v$.  Apply~(ii) to
+$f-\lambda\Id$ (which is also normal, as one verifies):
+$\norm{(f-\lambda\Id)(v)}=\norm{(f-\lambda\Id)^*(v)}
+=\norm{(f^*-\bar\lambda\Id)(v)}$.
+The left side is~$0$, so $f^*(v)=\bar\lambda v$.
+
+(iii)$\Rightarrow$(i): We show $f^*f = ff^*$ by checking on an
+eigenbasis.  Over~$\C$, every normal operator is unitarily
+diagonalizable (see the next theorem), so this direction also follows.
+Alternatively, one can verify
+$\inner{(f^*f-ff^*)(v),v}=0$ for all~$v$ using~(iii) and polarization.
+\end{proof}
+
+\begin{theorem}{Spectral Theorem for normal operators over $\C$}%
+{thm:spectral-normal}
+\index{Spectral Theorem!normal operators}
+Let $A\in\Mat_n(\C)$ be normal.  Then there exists a unitary matrix
+$U$ such that
+\[
+  \hermit{U}\,A\,U = \diag(\lambda_1,\ldots,\lambda_n),
+\]
+where $\lambda_1,\ldots,\lambda_n\in\C$ are the eigenvalues of~$A$.
+
+Conversely, every unitarily diagonalizable matrix is normal.
+\end{theorem}
+
+\begin{proof}
+\emph{Forward direction.}  By induction on~$n$.  The case $n=1$ is
+trivial.  For the inductive step, since $\C$ is algebraically closed,
+$A$ has an eigenvalue $\lambda_1$ with unit eigenvector~$v_1$.
+Let $W=\Span(v_1)$.
+
+\emph{Claim:} $W^\perp$ is $A$-invariant.  Let $u\in W^\perp$.  We need
+$Au\perp v_1$, i.e.\ $\inner{Au,v_1}=0$.  Now
+$\inner{Au,v_1} = \inner{u,\hermit{A}v_1} = \inner{u,\bar\lambda_1 v_1}
+= \lambda_1\inner{u,v_1} = 0$,
+where we used ef{prop:prop:normal-char}~(iii): since $Av_1=\lambda_1 v_1$,
+we have $\hermit{A}v_1=\bar\lambda_1 v_1$.
+
+The restriction $A\restrict{W^\perp}$ is normal on the $(n-1)$-dimensional
+space~$W^\perp$.  By the induction hypothesis it is unitarily
+diagonalizable.  Assembling the eigenvectors gives a unitary matrix~$U$
+diagonalizing~$A$.
+
+\emph{Converse.}  If $A = U D \hermit{U}$ with $D$ diagonal and $U$
+unitary, then $\hermit{A} = U\bar D\hermit{U}$.  Since diagonal
+matrices commute, $A\hermit{A} = UD\bar D\hermit{U}
+= U\bar D D\hermit{U} = \hermit{A}A$.
+\end{proof}
+
+\begin{remark}{Normal operators over $\R$}{rem:normal-real}
+\index{normal operator!over $\R$}
+Over~$\R$, normal operators need not be orthogonally diagonalizable.
+For instance, the rotation matrix
+$R_\theta = \begin{psmallmatrix}\cos\theta & -\sin\theta \\
+\sin\theta & \cos\theta\end{psmallmatrix}$
+is normal (in fact orthogonal) but has no real eigenvalues when
+$\theta\notin\set{0,\pi}$.  The real spectral theorem for normal
+operators states that such a matrix can be brought to a block-diagonal
+form with $1\times 1$ real blocks and $2\times 2$ rotation blocks.
+\end{remark}
+
+
+% ============================================================
+\section{Positive definite and positive semidefinite matrices}%
+\label{sec:positive-definite}
+% ============================================================
+
+\begin{definition}{Positive definite and positive semidefinite matrices}%
+{def:positive-definite}
+\index{positive definite matrix}\index{positive semidefinite matrix}
+A real symmetric matrix $A\in\Sym_n(\R)$ is:
+\begin{itemize}
+  \item \emph{positive definite}\index{positive definite matrix}
+    if $\transpose{x}Ax > 0$ for all $x\in\R^n\setminus\set{\vzero}$;
+  \item \emph{positive semidefinite}\index{positive semidefinite matrix}
+    if $\transpose{x}Ax \geq 0$ for all $x\in\R^n$;
+  \item \emph{negative definite} if $-A$ is positive definite;
+  \item \emph{negative semidefinite} if $-A$ is positive semidefinite;
+  \item \emph{indefinite} if $\transpose{x}Ax$ takes both positive and
+    negative values.
+\end{itemize}
+\end{definition}
+
+\begin{theorem}{Characterizations of positive definiteness}%
+{thm:pd-characterizations}
+\index{positive definite matrix!characterizations}
+For $A\in\Sym_n(\R)$ the following are equivalent:
+\begin{enumerate}[label=\textup{(\roman*)}]
+  \item $A$ is positive definite.
+  \item All eigenvalues of~$A$ are strictly positive.
+  \item All leading principal minors of~$A$ are strictly positive
+    (\emph{Sylvester's criterion}\index{Sylvester's criterion}).
+  \item There exists an invertible matrix $L\in\Mat_n(\R)$ such that
+    $A = \transpose{L}\,L$.
+  \item $A$ admits a \emph{Cholesky decomposition}\index{Cholesky decomposition}:
+    there exists a unique lower triangular matrix $L$ with strictly positive
+    diagonal entries such that $A = L\transpose{L}$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(i)$\Rightarrow$(ii): If $\lambda$ is an eigenvalue with eigenvector~$v$,
+then $0 < \transpose{v}Av = \lambda\transpose{v}v = \lambda\norm{v}^2$,
+so $\lambda > 0$.
+
+(ii)$\Rightarrow$(i): By the Spectral Theorem, $A = P\,D\,\transpose{P}$
+with $P$ orthogonal and $D = \diag(\lambda_1,\ldots,\lambda_n)$.  For
+$x\neq\vzero$, let $y = \transpose{P}x \neq \vzero$.  Then
+$\transpose{x}Ax = \transpose{y}Dy = \sum_{i=1}^n \lambda_i y_i^2 > 0$
+since all $\lambda_i>0$ and $y\neq\vzero$.
+
+(i)$\Rightarrow$(iii) (\emph{Sylvester's criterion}): The $k$-th
+leading principal minor $\Delta_k$ equals the determinant of the
+$k\times k$ upper-left submatrix~$A_k$.  But $A_k$ is itself symmetric,
+and for any $x\in\R^k\setminus\set{\vzero}$ we have
+$\transpose{x}A_k x = \transpose{\tilde x}A\tilde x > 0$, where
+$\tilde x = (x_1,\ldots,x_k,0,\ldots,0)^T$.  Hence $A_k$ is positive
+definite, so its eigenvalues are positive, so
+$\Delta_k = \det(A_k) > 0$.
+
+(iii)$\Rightarrow$(i): By induction on~$n$.  For $n=1$, $\Delta_1 = a_{11} > 0$,
+so $A=(a_{11})$ is positive definite.  For the inductive step, write
+$A = \begin{psmallmatrix} A_{n-1} & b \\ \transpose{b} & a_{nn}\end{psmallmatrix}$.
+By induction, $A_{n-1}$ is positive definite.  Performing one step of block
+Gaussian elimination (valid since $\det(A_{n-1})=\Delta_{n-1}>0$):
+\[
+  A = \begin{pmatrix} I & 0 \\ \transpose{b}\inv{A_{n-1}} & 1\end{pmatrix}
+  \begin{pmatrix} A_{n-1} & 0 \\ 0 & s\end{pmatrix}
+  \begin{pmatrix} I & \inv{A_{n-1}}b \\ 0 & 1\end{pmatrix},
+\]
+where $s = a_{nn} - \transpose{b}\inv{A_{n-1}}b
+= \det(A)/\det(A_{n-1}) = \Delta_n/\Delta_{n-1} > 0$.
+This expresses $A = \transpose{M}
+\begin{psmallmatrix}A_{n-1}&0\\0&s\end{psmallmatrix} M$ with $M$ invertible.
+For $x\neq\vzero$, $\transpose{x}Ax = \transpose{(Mx)}
+\begin{psmallmatrix}A_{n-1}&0\\0&s\end{psmallmatrix}(Mx) > 0$
+since the block-diagonal matrix is positive definite.
+
+(ii)$\Rightarrow$(iv): By the Spectral Theorem, $A = PD\transpose{P}$,
+so $A = PD^{1/2}\transpose{(PD^{1/2})} = \transpose{L}L$ where
+$L = D^{1/2}\transpose{P}$.
+
+(iv)$\Rightarrow$(i): $\transpose{x}Ax = \transpose{x}\transpose{L}Lx
+= \norm{Lx}^2 > 0$ since $L$ is invertible and $x\neq\vzero$.
+
+The existence and uniqueness of the Cholesky factorization~(v) is proved
+by an explicit recursive construction using the positive leading
+principal minors (we omit the details).
+\end{proof}
+
+\begin{example}{Testing positive definiteness}{ex:pd-test}
+Consider $A = \begin{pmatrix}2 & -1 \\ -1 & 2\end{pmatrix}$.
+
+\emph{Via eigenvalues:} $\chi_A(\lambda)=(\lambda-1)(\lambda-3)$, so
+$\lambda_1=1>0$ and $\lambda_2=3>0$.  Hence $A$ is positive definite.
+
+\emph{Via Sylvester's criterion:} $\Delta_1=2>0$, $\Delta_2=\det(A)=3>0$.
+Positive definite.
+
+\emph{Cholesky decomposition:}
+$A = \begin{pmatrix}\sqrt{2}&0\\-\frac{1}{\sqrt{2}}&\frac{\sqrt{3}}{\sqrt{2}}\end{pmatrix}
+\begin{pmatrix}\sqrt{2}&-\frac{1}{\sqrt{2}}\\0&\frac{\sqrt{3}}{\sqrt{2}}\end{pmatrix}
+= L\transpose{L}$.
+\end{example}
+
+\begin{proposition}{Characterization of positive semidefiniteness}%
+{prop:psd-characterizations}
+\index{positive semidefinite matrix!characterizations}
+For $A\in\Sym_n(\R)$ the following are equivalent:
+\begin{enumerate}[label=\textup{(\roman*)}]
+  \item $A$ is positive semidefinite.
+  \item All eigenvalues of~$A$ are nonnegative.
+  \item There exists a matrix $B\in\Mat_n(\R)$ such that $A=\transpose{B}B$.
+  \item All principal minors of~$A$ are nonnegative.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+The proofs are analogous to ef{thm:thm:pd-characterizations}, with
+strict inequalities relaxed to non-strict ones.  For (ii)$\Rightarrow$(iii),
+use the spectral decomposition $A = PD\transpose{P}$ and set
+$B = D^{1/2}\transpose{P}$ (noting $D^{1/2}$ is well-defined since all
+diagonal entries are nonnegative).
+\end{proof}
+
+
+% ============================================================
+\section{Singular Value Decomposition}\label{sec:svd}
+% ============================================================
+
+The Spectral Theorem applies to symmetric (or Hermitian) matrices.  The
+\emph{Singular Value Decomposition} (SVD)\index{SVD}\index{singular value decomposition}
+extends the idea of diagonalization to \emph{arbitrary} matrices,
+including rectangular ones.
+
+\begin{definition}{Singular values}{def:singular-values}
+\index{singular value}
+Let $A\in\Mat_{m\times n}(\R)$.  The \emph{singular values} of~$A$
+are the nonnegative square roots of the eigenvalues of the positive
+semidefinite matrix $\transpose{A}A\in\Sym_n(\R)$:
+\[
+  \sigma_i \deff \sqrt{\lambda_i(\transpose{A}A)},
+  \qquad i = 1,\ldots,n,
+\]
+ordered so that $\sigma_1\geq\sigma_2\geq\cdots\geq\sigma_n\geq 0$.
+\end{definition}
+
+\begin{theorem}{Singular Value Decomposition}{thm:svd}
+\index{SVD!theorem}\index{singular value decomposition!theorem}
+Let $A\in\Mat_{m\times n}(\R)$ with $\rank(A)=r$.  Then there exist:
+\begin{itemize}
+  \item an orthogonal matrix $U\in\Orth(m)$ (left singular vectors),
+  \item an orthogonal matrix $V\in\Orth(n)$ (right singular vectors),
+  \item a ``diagonal'' matrix $\Sigma\in\Mat_{m\times n}(\R)$ with
+    $\Sigma_{ii}=\sigma_i$ for $i=1,\ldots,\min(m,n)$ and all other
+    entries zero,
+\end{itemize}
+such that
+\[
+  A = U\,\Sigma\,\transpose{V}.
+\]
+The nonzero singular values $\sigma_1\geq\cdots\geq\sigma_r>0$ are
+uniquely determined.  Moreover,
+\[
+  A = \sum_{i=1}^{r} \sigma_i\, u_i\,\transpose{v_i},
+\]
+where $u_i$ and~$v_i$ are the $i$-th columns of~$U$ and~$V$.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+The matrix $\transpose{A}A\in\Sym_n(\R)$ is positive semidefinite
+(ef{prop:prop:psd-characterizations}).  By the Spectral Theorem, there
+exists an orthogonal matrix $V$ such that
+$\transpose{V}\transpose{A}A\,V = \diag(\sigma_1^2,\ldots,\sigma_n^2)$
+with $\sigma_1\geq\cdots\geq\sigma_r>0=\sigma_{r+1}=\cdots=\sigma_n$.
+
+Define $u_i = \frac{1}{\sigma_i}Av_i$ for $i=1,\ldots,r$.  These are
+orthonormal:
+\[
+  \inner{u_i,u_j}
+  = \frac{1}{\sigma_i\sigma_j}\inner{Av_i,Av_j}
+  = \frac{1}{\sigma_i\sigma_j}\transpose{v_i}\transpose{A}Av_j
+  = \frac{\sigma_j^2}{\sigma_i\sigma_j}\delta_{ij}
+  = \delta_{ij}.
+\]
+Extend $(u_1,\ldots,u_r)$ to an orthonormal basis
+$(u_1,\ldots,u_m)$ of~$\R^m$, and set
+$U = \begin{pmatrix}u_1&\cdots&u_m\end{pmatrix}$.
+
+By construction, $AV = U\Sigma$ (checking on each column of~$V$), so
+$A = U\Sigma\transpose{V}$.
+\end{proof}
+
+\begin{center}
+\begin{tikzpicture}[>=Stealth, scale=1.6]
+  % --- SVD geometry: unit circle -> ellipse ---
+  % Left: unit circle in R^n
+  \begin{scope}[shift={(-2.5,0)}]
+    \draw[thick, blue!50!black] (0,0) circle (1);
+    \draw[->, thick, red!70!black] (0,0) -- (0.707,0.707)
+      node[above right] {\small $v_1$};
+    \draw[->, thick, green!60!black] (0,0) -- (-0.707,0.707)
+      node[above left] {\small $v_2$};
+    \node[below] at (0,-1.3) {\small Unit circle in $\R^n$};
+  \end{scope}
+
+  % Arrow
+  \draw[->, thick, dashed, gray] (-0.8,0) -- (0.8,0)
+    node[midway, above] {\small $A$};
+
+  % Right: ellipse in R^m
+  \begin{scope}[shift={(2.5,0)}]
+    \draw[thick, blue!50!black, rotate=30] (0,0) ellipse (1.5 and 0.6);
+    \draw[->, thick, red!70!black] (0,0) --
+      ({1.5*cos(30)},{1.5*sin(30)})
+      node[above right] {\small $\sigma_1 u_1$};
+    \draw[->, thick, green!60!black] (0,0) --
+      ({-0.6*sin(30)},{0.6*cos(30)})
+      node[above left] {\small $\sigma_2 u_2$};
+    \node[below] at (0,-1.3) {\small Image ellipse in $\R^m$};
+  \end{scope}
+\end{tikzpicture}
+\captionof{figure}{Geometric interpretation of the SVD\@.  The linear map~$A$
+  sends the unit sphere to an ellipsoid.  The right singular vectors~$v_i$
+  are mapped to the principal axes $\sigma_i u_i$ of the ellipsoid.}
+\label{fig:svd-geometry}
+\end{center}
+
+\begin{example}{SVD of a $2\times 2$ matrix}{ex:svd-2x2}
+Let $A = \begin{pmatrix}3&0\\0&-2\end{pmatrix}$.  Then
+$\transpose{A}A = \begin{pmatrix}9&0\\0&4\end{pmatrix}$, with
+eigenvalues $9$ and~$4$, so $\sigma_1=3$, $\sigma_2=2$.
+
+The right singular vectors are $v_1=\vece{1}$, $v_2=\vece{2}$.
+The left singular vectors are
+$u_1 = \frac{1}{3}Av_1 = \vece{1}$,
+$u_2 = \frac{1}{2}Av_2 = -\vece{2}$.
+
+Thus $A = U\Sigma\transpose{V}$ with $U=\begin{psmallmatrix}1&0\\0&-1\end{psmallmatrix}$,
+$\Sigma=\begin{psmallmatrix}3&0\\0&2\end{psmallmatrix}$, $V=I_2$.
+\end{example}
+
+\begin{proposition}{Properties of the SVD}{prop:svd-properties}
+\index{SVD!properties}
+Let $A = U\Sigma\transpose{V}$ be the SVD of $A\in\Mat_{m\times n}(\R)$
+with $\rank(A)=r$.
+\begin{enumerate}[label=\textup{(\roman*)}]
+  \item $\rank(A)$ equals the number of nonzero singular values.
+  \item $\norm{A}_2 = \sigma_1$ (operator norm) and
+    $\norm{A}_F = \sqrt{\sigma_1^2+\cdots+\sigma_r^2}$ (Frobenius norm).
+  \item $\im(A) = \Span(u_1,\ldots,u_r)$ and
+    $\Ker(A) = \Span(v_{r+1},\ldots,v_n)$.
+  \item If $A$ is square and invertible, $\inv{A} = V\inv{\Sigma}\transpose{U}$
+    and the condition number is $\kappa(A) = \sigma_1/\sigma_n$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(i) follows from $\rank(A) = \rank(\transpose{A}A)$ (the nonzero
+eigenvalues of $\transpose{A}A$ are $\sigma_1^2,\ldots,\sigma_r^2$).
+(ii)--(iv) follow directly from the decomposition $A=U\Sigma\transpose{V}$.
+\end{proof}
+
+
+% ============================================================
+\section{Applications}\label{sec:spectral-applications}
+% ============================================================
+
+% ---------- PCA ----------
+\subsection{Principal Component Analysis}\label{subsec:pca}
+\index{principal component analysis}\index{PCA}
+
+Given data points $x_1,\ldots,x_N\in\R^n$ (centered so that
+$\sum x_i = \vzero$), the \emph{sample covariance matrix} is
+\[
+  S = \frac{1}{N-1}\sum_{i=1}^{N} x_i\transpose{x_i}
+  \;\in\;\Sym_n(\R).
+\]
+Since $S$ is symmetric and positive semidefinite, the Spectral Theorem
+gives $S = P\diag(\lambda_1,\ldots,\lambda_n)\transpose{P}$ with
+$\lambda_1\geq\cdots\geq\lambda_n\geq 0$.  The columns of~$P$ are the
+\emph{principal components}: the first principal component~$p_1$
+maximizes the variance $\transpose{p}\,S\,p$ over unit vectors~$p$,
+the second maximizes the variance orthogonally to~$p_1$, and so on.
+
+Dimensionality reduction to $k$ components amounts to projecting onto
+$\Span(p_1,\ldots,p_k)$, retaining a fraction
+$\frac{\lambda_1+\cdots+\lambda_k}{\lambda_1+\cdots+\lambda_n}$
+of the total variance.
+
+% ---------- Quadratic form classification ----------
+\subsection{Classification of quadratic forms}%
+\label{subsec:quadratic-forms}
+\index{quadratic form!classification}
+
+A \emph{quadratic form} on~$\R^n$ is a function
+$Q(x) = \transpose{x}Ax$ where $A\in\Sym_n(\R)$ (since only the
+symmetric part of a matrix contributes to the quadratic form).
+By the Spectral Theorem, there is an orthogonal change of variables
+$x = Py$ that diagonalizes~$Q$:
+\[
+  Q(x) = \transpose{y}\diag(\lambda_1,\ldots,\lambda_n)\,y
+  = \lambda_1 y_1^2 + \cdots + \lambda_n y_n^2.
+\]
+The \emph{signature}\index{signature!of a quadratic form} $(p,q)$ ---
+where $p$ is the number of positive~$\lambda_i$ and $q$ the number of
+negative ones --- classifies the quadratic form up to congruence
+(Sylvester's law of inertia\index{Sylvester's law of inertia}).
+
+% ---------- Optimization ----------
+\subsection{Second-order optimality conditions}%
+\label{subsec:optimization}
+\index{Hessian}\index{optimization!second-order conditions}
+
+Let $f\colon\R^n\to\R$ be $C^2$.  At a critical point $x_0$
+($\nabla f(x_0)=\vzero$), the Hessian
+$H = \bigl(\frac{\partial^2 f}{\partial x_i\partial x_j}(x_0)\bigr)$
+is symmetric.  By the Spectral Theorem:
+\begin{itemize}
+  \item $H$ positive definite $\Rightarrow$ $x_0$ is a strict local minimum.
+  \item $H$ negative definite $\Rightarrow$ $x_0$ is a strict local maximum.
+  \item $H$ indefinite $\Rightarrow$ $x_0$ is a saddle point.
+\end{itemize}
+
+% ---------- Vibrations ----------
+\subsection{Vibrations and normal modes}\label{subsec:vibrations}
+\index{vibrations}\index{normal modes}
+
+A coupled system of $n$ harmonic oscillators (masses connected by
+springs) leads to the equation $M\ddot{x} + Kx = \vzero$, where
+$M,K\in\Sym_n(\R)$ are the mass and stiffness matrices (both positive
+definite).  Setting $y = M^{1/2}x$ transforms this into
+$\ddot{y} + M^{-1/2}KM^{-1/2}y = \vzero$.
+
+The symmetric matrix $\tilde K = M^{-1/2}KM^{-1/2}$ has positive
+eigenvalues $\omega_1^2\leq\cdots\leq\omega_n^2$; the~$\omega_i$ are
+the \emph{natural frequencies} and the corresponding eigenvectors
+(transformed back via $M^{-1/2}$) are the \emph{normal modes} of the
+system.
+
+
+% ============================================================
+\section{Exercises}\label{sec:spectral-exercises}
+% ============================================================
+
+\begin{exercise}{Eigenvalues of a symmetric matrix \basic}{exo:sym-eigen}
+\index{symmetric matrix!eigenvalues}
+Let $A = \begin{pmatrix} 4 & 2 \\ 2 & 1 \end{pmatrix}$.
+\begin{enumerate}[label=\textup{(\alph*)}]
+  \item Find the eigenvalues of~$A$ and verify they are real.
+  \item Find an orthonormal basis of eigenvectors.
+  \item Write $A = P D \transpose{P}$ with $P$ orthogonal and $D$ diagonal.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Orthogonal diagonalization \basic}{exo:orth-diag}
+\index{orthogonal diagonalization}
+Orthogonally diagonalize
+$A = \begin{pmatrix} 6 & -2 \\ -2 & 3 \end{pmatrix}$.
+\end{exercise}
+
+\begin{exercise}{A $3\times 3$ symmetric matrix \basic}{exo:3x3-sym}
+Let $A = \begin{pmatrix} 1 & 0 & 1 \\ 0 & 1 & 0 \\ 1 & 0 & 1\end{pmatrix}$.
+Find the eigenvalues, eigenspaces, and an orthogonal matrix~$P$ such that
+$\transpose{P}AP$ is diagonal.
+\end{exercise}
+
+\begin{exercise}{Proof practice: eigenvalues of $A^2$ \basic}{exo:eigen-A2}
+Let $A\in\Sym_n(\R)$ with eigenvalues $\lambda_1,\ldots,\lambda_n$.
+Prove that the eigenvalues of~$A^2$ are $\lambda_1^2,\ldots,\lambda_n^2$.
+\end{exercise}
+
+\begin{exercise}{Positive definiteness tests \intermediate}{exo:pd-tests}
+\index{positive definite matrix!tests}
+Determine whether each matrix is positive definite, positive semidefinite,
+or neither:
+\begin{enumerate}[label=\textup{(\alph*)}]
+  \item $A = \begin{pmatrix} 3 & 1 \\ 1 & 3 \end{pmatrix}$.
+  \item $B = \begin{pmatrix} 1 & 2 \\ 2 & 1 \end{pmatrix}$.
+  \item $C = \begin{pmatrix} 4 & 2 & 0 \\ 2 & 5 & 3 \\ 0 & 3 & 6
+    \end{pmatrix}$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Cholesky decomposition \intermediate}{exo:cholesky}
+\index{Cholesky decomposition}
+Compute the Cholesky decomposition $A = L\transpose{L}$ for
+$A = \begin{pmatrix} 4 & 2 \\ 2 & 5 \end{pmatrix}$.
+Verify your answer.
+\end{exercise}
+
+\begin{exercise}{SVD computation \intermediate}{exo:svd-compute}
+\index{SVD!computation}
+Compute the SVD of
+$A = \begin{pmatrix} 1 & 1 \\ 0 & 1 \\ 1 & 0 \end{pmatrix}$.
+\end{exercise}
+
+\begin{exercise}{Spectral decomposition \intermediate}{exo:spectral-decomp}
+\index{spectral decomposition}
+Let $A = \begin{pmatrix} 3 & 1 \\ 1 & 3 \end{pmatrix}$.
+Write $A$ in spectral decomposition form
+$A = \lambda_1 P_1 + \lambda_2 P_2$, where $P_1,P_2$ are the
+orthogonal projections onto the eigenspaces.  Verify that
+$P_1+P_2 = I_2$ and $P_1P_2 = 0$.
+\end{exercise}
+
+\begin{exercise}{Normal but not self-adjoint \intermediate}{exo:normal-not-sa}
+\index{normal operator}
+Let $A = \begin{pmatrix} 0 & -1 \\ 1 & 0 \end{pmatrix}$.
+\begin{enumerate}[label=\textup{(\alph*)}]
+  \item Show that $A$ is normal.
+  \item Show that $A$ has no real eigenvalues, hence is not orthogonally
+    diagonalizable over~$\R$.
+  \item Find the eigenvalues over~$\C$ and a unitary matrix~$U$ such
+    that $\hermit{U}AU$ is diagonal.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Simultaneous diagonalization \challenging}{exo:simult-diag}
+\index{simultaneous diagonalization}
+Let $A,B\in\Sym_n(\R)$ with $AB=BA$.  Prove that $A$ and~$B$ can be
+\emph{simultaneously} orthogonally diagonalized, i.e.\ there exists
+$P\in\Orth(n)$ such that both $\transpose{P}AP$ and $\transpose{P}BP$
+are diagonal.
+
+\emph{Hint:} Show that each eigenspace of~$A$ is invariant under~$B$,
+then apply the Spectral Theorem to the restriction of~$B$ to each
+eigenspace.
+\end{exercise}
+
+\begin{exercise}{Low-rank approximation via SVD \challenging}{exo:low-rank}
+\index{SVD!low-rank approximation}
+Let $A\in\Mat_{m\times n}(\R)$ with SVD\
+$A = \sum_{i=1}^r \sigma_i\,u_i\transpose{v_i}$.
+Define $A_k = \sum_{i=1}^k \sigma_i\,u_i\transpose{v_i}$ for $k\leq r$.
+\begin{enumerate}[label=\textup{(\alph*)}]
+  \item Show that $\rank(A_k)=k$.
+  \item Prove the Eckart--Young theorem\index{Eckart--Young theorem}:
+    among all matrices of rank at most~$k$, $A_k$ minimises
+    $\norm{A-B}_F$, and the minimum value is
+    $\sqrt{\sigma_{k+1}^2+\cdots+\sigma_r^2}$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Rayleigh quotient and eigenvalue bounds \challenging}%
+{exo:rayleigh}
+\index{Rayleigh quotient}
+For $A\in\Sym_n(\R)$, the \emph{Rayleigh quotient}\index{Rayleigh quotient}
+is $R(x) = \frac{\transpose{x}Ax}{\transpose{x}x}$ for
+$x\neq\vzero$.
+\begin{enumerate}[label=\textup{(\alph*)}]
+  \item Prove that $\lambda_{\min}(A)\leq R(x)\leq\lambda_{\max}(A)$.
+  \item Prove that $\max_{x\neq\vzero}R(x) = \lambda_{\max}(A)$
+    and $\min_{x\neq\vzero}R(x) = \lambda_{\min}(A)$, and identify
+    the optimisers.
+  \item (\emph{Courant--Fischer minimax theorem}\index{Courant--Fischer theorem})
+    Prove that the $k$-th largest eigenvalue satisfies
+    \[
+      \lambda_k = \max_{\dim W = k}\;\min_{x\in W,\,x\neq\vzero}
+        R(x)
+      = \min_{\dim W = n-k+1}\;\max_{x\in W,\,x\neq\vzero} R(x).
+    \]
+\end{enumerate}
+\end{exercise}
+
+
+% ============================================================
+\section{Chapter summary}\label{sec:spectral-summary}
+% ============================================================
+
+\begin{enumerate}
+  \item \textbf{Self-adjoint operators.}  An operator~$f$ is self-adjoint
+    if $f^*=f$; in an orthonormal basis, this corresponds to symmetric
+    ($\transpose{A}=A$) or Hermitian ($\hermit{A}=A$) matrices.
+
+  \item \textbf{Eigenvalues are real.}  Every eigenvalue of a self-adjoint
+    operator is a real number.
+
+  \item \textbf{Orthogonal eigenvectors.}  Eigenvectors corresponding to
+    distinct eigenvalues of a self-adjoint operator are orthogonal.
+
+  \item \textbf{Spectral Theorem (real).}  Every real symmetric matrix is
+    orthogonally diagonalizable: $A = P\diag(\lambda_1,\ldots,\lambda_n)\transpose{P}$
+    with $P\in\Orth(n)$.
+
+  \item \textbf{Spectral Theorem (complex).}  Every Hermitian matrix is
+    unitarily diagonalizable with real eigenvalues.
+
+  \item \textbf{Normal operators.}  An operator is normal if $ff^*=f^*f$.
+    Over~$\C$, normal operators are precisely the unitarily
+    diagonalizable ones.
+
+  \item \textbf{Positive definiteness.}  $A\in\Sym_n(\R)$ is positive
+    definite if and only if all eigenvalues are positive, if and only if
+    all leading principal minors are positive (Sylvester's criterion).
+
+  \item \textbf{SVD.}  Every $m\times n$ matrix admits a decomposition
+    $A = U\Sigma\transpose{V}$ with $U,V$ orthogonal and $\Sigma$
+    ``diagonal.''  The singular values are the square roots of the
+    eigenvalues of $\transpose{A}A$.
+
+  \item \textbf{Applications.}  The Spectral Theorem underlies PCA,
+    quadratic form classification, second-order optimality conditions,
+    and the analysis of coupled vibrations.
+\end{enumerate}

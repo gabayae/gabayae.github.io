@@ -1,0 +1,347 @@
+% ============================================================
+\chapter{Attention and Transformers}
+\label{ch:attention}
+% ============================================================
+
+``Attention Is All You Need.'' This title, chosen by Vaswani et al.\ for their 2017 paper, has become one of the most famous in the history of artificial intelligence. The \emph{Transformer}, the architecture they proposed, entirely abandons recurrence in favour of an \emph{attention} mechanism that allows each word in the sequence to ``look'' directly at every other word, without distance restriction. The result: massive parallelism during training, the ability to capture long-range dependencies, and performance that quickly surpassed all existing models. The Transformer is the building block of GPT, BERT, and the entire large language model revolution.
+
+\begin{intuition}[title=\textbf{Attention: looking where it matters}]
+The attention mechanism allows the model to focus on relevant parts of the
+input at each generation step, eliminating the encoder-decoder bottleneck.
+The Transformer architecture, based entirely on attention, has revolutionized
+NLP since 2017.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Attention in Seq2Seq Models}
+\label{sec:att:seq2seq}
+% ------------------------------------------------------------
+
+\begin{definition}[Bahdanau Attention]
+Additive attention (Bahdanau et al., 2015) computes a context vector
+$\mathbf{c}_t$ as a weighted average of encoder states:
+\begin{align}
+e_{t,s} &= \mathbf{v}_a^\top \tanh(\mathbf{W}_a \mathbf{h}_s^{\text{enc}} + \mathbf{U}_a \mathbf{h}_{t-1}^{\text{dec}}) \\
+\alpha_{t,s} &= \frac{\exp(e_{t,s})}{\sum_{s'=1}^{S} \exp(e_{t,s'})} \\
+\mathbf{c}_t &= \sum_{s=1}^{S} \alpha_{t,s} \mathbf{h}_s^{\text{enc}}
+\end{align}
+where $\alpha_{t,s}$ is the attention weight on source position $s$ at
+decoding step $t$.
+\end{definition}
+
+\begin{definition}[Luong Attention]
+Multiplicative attention (Luong et al., 2015) uses a simpler score:
+\[
+e_{t,s} = (\mathbf{h}_t^{\text{dec}})^\top \mathbf{W}_a \mathbf{h}_s^{\text{enc}}
+\]
+Variants: \emph{dot} ($e_{t,s} = (\mathbf{h}_t^{\text{dec}})^\top \mathbf{h}_s^{\text{enc}}$),
+\emph{general}, \emph{concat}.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Self-Attention}
+\label{sec:att:selfattention}
+% ------------------------------------------------------------
+
+\begin{definition}[Scaled Dot-Product Attention]
+Self-attention (\emph{scaled dot-product attention}) operates on query
+$\mathbf{Q}$, key $\mathbf{K}$, and value $\mathbf{V}$ vectors:
+\[
+\text{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \softmax\!\left(\frac{\mathbf{Q}\mathbf{K}^\top}{\sqrt{d_k}}\right) \mathbf{V}
+\]
+where $d_k$ is the key dimension and the factor $1/\sqrt{d_k}$ stabilizes
+gradients.
+\end{definition}
+
+\begin{theorem}[Justification of the Scaling Factor]
+Let $\mathbf{q}, \mathbf{k} \in \R^{d_k}$ be random vectors with i.i.d.\
+components of mean $0$ and variance $1$. Then:
+\[
+\E[\inner{\mathbf{q}}{\mathbf{k}}] = 0, \qquad \text{Var}[\inner{\mathbf{q}}{\mathbf{k}}] = d_k
+\]
+Without the factor $1/\sqrt{d_k}$, the variance of the dot product grows with
+$d_k$, pushing the softmax into saturated regions where gradients are near zero.
+\end{theorem}
+
+\begin{proof}
+$\inner{\mathbf{q}}{\mathbf{k}} = \sum_{i=1}^{d_k} q_i k_i$. Since
+components are independent with zero mean:
+$\E[q_i k_i] = \E[q_i]\E[k_i] = 0$ and
+$\text{Var}[q_i k_i] = \E[q_i^2]\E[k_i^2] = 1$. By independence:
+$\text{Var}[\inner{\mathbf{q}}{\mathbf{k}}] = d_k$.
+\end{proof}
+
+% ------------------------------------------------------------
+\section{Multi-Head Attention}
+\label{sec:att:multihead}
+% ------------------------------------------------------------
+
+\begin{definition}[Multi-Head Attention]
+Multi-head attention projects $\mathbf{Q}$, $\mathbf{K}$, $\mathbf{V}$ into
+$H$ different subspaces and concatenates the results:
+\begin{align}
+\text{head}_i &= \text{Attention}(\mathbf{Q}\mathbf{W}_i^Q, \mathbf{K}\mathbf{W}_i^K, \mathbf{V}\mathbf{W}_i^V) \\
+\text{MultiHead}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) &= [\text{head}_1; \ldots; \text{head}_H] \mathbf{W}^O
+\end{align}
+where $\mathbf{W}_i^Q \in \R^{d \times d_k}$, $\mathbf{W}_i^K \in \R^{d \times d_k}$,
+$\mathbf{W}_i^V \in \R^{d \times d_v}$, $\mathbf{W}^O \in \R^{Hd_v \times d}$,
+with $d_k = d_v = d/H$.
+\end{definition}
+
+\begin{remark}
+Each attention head can learn to focus on different types of relationships:
+syntactic, semantic, positional, etc.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Transformer Architecture}
+\label{sec:att:transformer}
+% ------------------------------------------------------------
+
+\begin{definition}[Transformer Block (Encoder)]
+A Transformer encoder block consists of:
+\begin{enumerate}
+    \item Multi-head self-attention with residual connection and layer
+          normalization:
+          \[
+          \mathbf{Z} = \text{LayerNorm}(\mathbf{X} + \text{MultiHead}(\mathbf{X}, \mathbf{X}, \mathbf{X}))
+          \]
+    \item Position-wise feed-forward network with residual connection:
+          \[
+          \text{FFN}(\mathbf{z}) = \max(0, \mathbf{z}\mathbf{W}_1 + \mathbf{b}_1)\mathbf{W}_2 + \mathbf{b}_2
+          \]
+          \[
+          \mathbf{H} = \text{LayerNorm}(\mathbf{Z} + \text{FFN}(\mathbf{Z}))
+          \]
+\end{enumerate}
+\end{definition}
+
+\begin{definition}[Transformer Block (Decoder)]
+A Transformer decoder block adds a cross-attention layer between masked
+self-attention and the FFN:
+\begin{enumerate}
+    \item Masked (causal) self-attention
+    \item Cross-attention: $\text{MultiHead}(\mathbf{H}^{\text{dec}}, \mathbf{H}^{\text{enc}}, \mathbf{H}^{\text{enc}})$
+    \item Feed-forward network
+\end{enumerate}
+Each sub-layer is followed by a residual connection and layer normalization.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Positional Encoding}
+\label{sec:att:position}
+% ------------------------------------------------------------
+
+Self-attention is permutation-invariant. To inject positional information,
+a positional encoding is added to the input embeddings.
+
+\begin{definition}[Sinusoidal Positional Encoding]
+The positional encoding of Vaswani et al.\ (2017):
+\begin{align}
+\text{PE}(\text{pos}, 2i) &= \sin\!\left(\frac{\text{pos}}{10000^{2i/d}}\right) \\
+\text{PE}(\text{pos}, 2i+1) &= \cos\!\left(\frac{\text{pos}}{10000^{2i/d}}\right)
+\end{align}
+where $\text{pos}$ is the position and $i$ is the dimension index.
+\end{definition}
+
+\begin{proposition}[Translation Property]
+Sinusoidal encoding allows representing position shifts as linear
+transformations: there exists a matrix $\mathbf{M}_k$ such that
+$\text{PE}(\text{pos}+k) = \mathbf{M}_k \cdot \text{PE}(\text{pos})$.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Transformer Architecture Diagram}
+\label{sec:att:diagram}
+% ------------------------------------------------------------
+
+\begin{center}
+\begin{tikzpicture}[
+    block/.style={rectangle, draw, fill=blue!10, minimum width=3.5cm, minimum height=0.8cm, align=center},
+    arrow/.style={-Stealth, thick},
+    node distance=0.6cm
+]
+    % Encoder side
+    \node[block] (input) {Input Embeddings + PE};
+    \node[block, above=of input] (mha1) {Multi-Head Self-Attention};
+    \node[block, above=of mha1] (an1) {Add \& Norm};
+    \node[block, above=of an1] (ffn1) {Feed-Forward Network};
+    \node[block, above=of ffn1] (an2) {Add \& Norm};
+
+    \draw[arrow] (input) -- (mha1);
+    \draw[arrow] (mha1) -- (an1);
+    \draw[arrow] (an1) -- (ffn1);
+    \draw[arrow] (ffn1) -- (an2);
+
+    % Residual connections
+    \draw[arrow, dashed, gray] (input.east) -- ++(0.8,0) |- (an1.east);
+    \draw[arrow, dashed, gray] (an1.east) -- ++(0.8,0) |- (an2.east);
+
+    % Label
+    \node[left=0.8cm of mha1, rotate=90, anchor=south] {\textbf{Encoder} $\times N$};
+\end{tikzpicture}
+\end{center}
+
+% ------------------------------------------------------------
+\section{Computational Complexity}
+\label{sec:att:complexity}
+% ------------------------------------------------------------
+
+\begin{proposition}[Self-Attention Complexity]
+For a sequence of length $T$ and dimension $d$:
+\begin{itemize}
+    \item \textbf{Self-attention}: $O(T^2 d)$ time, $O(T^2 + Td)$ memory.
+    \item \textbf{RNN}: $O(T d^2)$ time (sequential).
+    \item \textbf{FFN}: $O(T d^2)$ time (parallelizable).
+\end{itemize}
+Self-attention is advantageous when $T < d$ but becomes prohibitive for long
+sequences ($T > 4096$).
+\end{proposition}
+
+\begin{keyformulas}[title=\textbf{Transformer parameter count}]
+For a Transformer with $N$ layers, dimension $d$, $H$ heads, FFN dimension
+$d_{\text{ff}}$:
+\[
+\text{Params per layer} = 4d^2 + 2d \cdot d_{\text{ff}} + \text{biases}
+\]
+\[
+\text{Total} \approx N(4d^2 + 2d \cdot d_{\text{ff}}) + V \cdot d
+\]
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Efficient Attention Variants}
+\label{sec:att:efficient}
+% ------------------------------------------------------------
+
+To address quadratic complexity, several variants have been proposed:
+
+\begin{itemize}
+    \item \textbf{Sparse attention} (Longformer, BigBird): local + global
+          attention, $O(T \sqrt{T})$.
+    \item \textbf{Linear attention} (Performers): kernel approximation,
+          $O(Td^2)$.
+    \item \textbf{Flash Attention} (Dao et al., 2022): hardware-level
+          optimization, exact but with optimized memory access patterns.
+\end{itemize}
+
+% ------------------------------------------------------------
+\section{Attention Visualization}
+\label{sec:att:visualization}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Attention weight visualization with Hugging Face}]
+\begin{minted}{python}
+from transformers import AutoTokenizer, AutoModel
+import torch
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+model_name = "bert-base-uncased"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModel.from_pretrained(model_name, output_attentions=True)
+
+text = "The cat sat on the mat because it was tired"
+inputs = tokenizer(text, return_tensors="pt")
+with torch.no_grad():
+    outputs = model(**inputs)
+
+# Attention weights: tuple of (num_layers) tensors of shape (B, H, T, T)
+attention = outputs.attentions
+layer, head = 6, 3
+tokens = tokenizer.convert_ids_to_tokens(inputs["input_ids"][0])
+attn_weights = attention[layer][0, head].numpy()
+
+plt.figure(figsize=(10, 8))
+sns.heatmap(attn_weights, xticklabels=tokens, yticklabels=tokens, cmap="viridis")
+plt.title(f"Attention - Layer {layer}, Head {head}")
+plt.tight_layout()
+plt.show()
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Complete Transformer Block Implementation}
+\label{sec:att:implementation}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Transformer encoder block in PyTorch}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+import math
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, d_model, num_heads):
+        super().__init__()
+        assert d_model % num_heads == 0
+        self.d_k = d_model // num_heads
+        self.num_heads = num_heads
+        self.W_q = nn.Linear(d_model, d_model)
+        self.W_k = nn.Linear(d_model, d_model)
+        self.W_v = nn.Linear(d_model, d_model)
+        self.W_o = nn.Linear(d_model, d_model)
+
+    def forward(self, Q, K, V, mask=None):
+        B, T, d = Q.shape
+        q = self.W_q(Q).view(B, T, self.num_heads, self.d_k).transpose(1, 2)
+        k = self.W_k(K).view(B, -1, self.num_heads, self.d_k).transpose(1, 2)
+        v = self.W_v(V).view(B, -1, self.num_heads, self.d_k).transpose(1, 2)
+
+        scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.d_k)
+        if mask is not None:
+            scores = scores.masked_fill(mask == 0, float('-inf'))
+        attn = torch.softmax(scores, dim=-1)
+        out = torch.matmul(attn, v)
+        out = out.transpose(1, 2).contiguous().view(B, T, -1)
+        return self.W_o(out)
+
+class TransformerEncoderBlock(nn.Module):
+    def __init__(self, d_model, num_heads, d_ff, dropout=0.1):
+        super().__init__()
+        self.attn = MultiHeadAttention(d_model, num_heads)
+        self.ffn = nn.Sequential(
+            nn.Linear(d_model, d_ff), nn.ReLU(),
+            nn.Linear(d_ff, d_model)
+        )
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, mask=None):
+        x = self.norm1(x + self.dropout(self.attn(x, x, x, mask)))
+        x = self.norm2(x + self.dropout(self.ffn(x)))
+        return x
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+\label{sec:att:exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}[$\star$]
+Verify that $\text{Var}[\inner{\mathbf{q}}{\mathbf{k}}] = d_k$ when the
+components are i.i.d.\ $\mathcal{N}(0, 1)$.
+\end{exercise}
+
+\begin{exercise}[$\star$]
+Calculate the number of parameters in a Transformer encoder block with
+$d = 512$, $H = 8$, $d_{\text{ff}} = 2048$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Show that scaled dot-product attention without the scaling factor can lead to
+near-zero softmax gradients for large values of $d_k$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Implement a causal mask for decoder self-attention and verify that it prevents
+the model from ``seeing the future.''
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+Implement a complete encoder-decoder Transformer for French-to-English
+translation. Compare with an LSTM-based Seq2Seq model with Bahdanau attention
+on the same dataset.
+\end{exercise}

@@ -1,0 +1,260 @@
+% ============================================================
+\chapter{Machine Learning with TDA}
+\label{ch:ml_tda}
+% ============================================================
+
+Persistence diagrams capture the ``shape'' of data, but machine learning algorithms --- SVMs, random forests, neural networks --- expect fixed-dimensional vectors. How does one bridge this gap? This is the problem of \emph{vectorization}, one of the central challenges of applied TDA. Peter Bubenik (2015) proposed \emph{persistence landscapes}, functions in a Banach space; Henry Adams and collaborators introduced \emph{persistence images}; Mathieu Carri\`ere et al.\ developed persistence kernels. More recently, differentiable persistence layers allow integrating TDA directly into deep neural networks, opening the way to end-to-end topological learning.
+
+\begin{intuition}
+Persistence diagrams live in a non-vectorial space: one cannot
+directly add them or multiply them by a scalar. To use them in
+a machine learning pipeline, we must \textbf{vectorize}\index{vectorization}
+them, i.e., transform them into representations living in a Hilbert
+space or a finite-dimensional feature space.
+\end{intuition}
+
+% ============================================================
+\section{Persistence landscapes}
+\label{sec:landscapes}
+% ============================================================
+
+Recall the persistence landscape introduced in
+Chapter~\ref{ch:diagrams}: for a diagram $D = \{(b_i, d_i)\}$, the
+$k$-th landscape $\lambda_k(t)$ is the $k$-th largest value of the
+tent functions $\Lambda_i(t)$. Landscapes live in a Banach space,
+which allows computing means, variances, and performing statistical
+tests.
+\index{persistence landscape}
+
+\begin{minted}{python}
+from gudhi.representations import Landscape
+import numpy as np
+
+# Persistence diagram
+dgm = np.array([[0.0, 1.5], [0.5, 2.0], [1.0, 3.0]])
+
+# Compute first 3 landscapes on a grid
+landscape = Landscape(num_landscapes=3, resolution=100)
+L = landscape.fit_transform([dgm])
+print(f"Shape: {L.shape}")  # (1, 300)
+\end{minted}
+
+% ============================================================
+\section{Persistence images}
+\label{sec:images}
+% ============================================================
+
+\begin{definition}[Persistence image --- Adams et al.\ 2017]
+\index{persistence image}
+Let $D$ be a persistence diagram. The \textbf{persistence image}
+is constructed in three steps:
+\begin{enumerate}
+  \item \textbf{Coordinate change}: transform each $(b_i, d_i)$
+        into $(b_i, d_i - b_i)$ (birth, persistence).
+  \item \textbf{Weighting}: apply a weight function
+        $w : \R^2 \to \R_+$ (typically linear in persistence)
+        to attenuate points close to the diagonal.
+  \item \textbf{Gaussian smoothing}: place a Gaussian
+        $\mathcal{N}((b_i, p_i), \sigma^2 I)$ on each point and
+        discretize on an $N \times N$ grid.
+\end{enumerate}
+The resulting image is:
+\[
+  \rho(x, y) = \sum_{i=1}^n w(b_i, p_i) \cdot
+  \frac{1}{2\pi\sigma^2}
+  \exp\!\left(-\frac{(x - b_i)^2 + (y - p_i)^2}{2\sigma^2}\right).
+\]
+\end{definition}
+
+\begin{theorem}[Stability of persistence images]
+If $w$ is Lipschitz and bounded, the map $D \mapsto \rho_D$ is
+Lipschitz with respect to the Wasserstein distance $W_1$:
+\[
+  \norm{\rho_{D_1} - \rho_{D_2}}_\infty \leq C \cdot W_1(D_1, D_2).
+\]
+\end{theorem}
+
+% ============================================================
+\section{Persistence silhouettes}
+\label{sec:silhouettes}
+% ============================================================
+
+Recall the persistence silhouette of order $q$ introduced in
+Chapter~\ref{ch:diagrams}: it is the weighted average (by
+$(d_i - b_i)^q$) of the tent functions. For large $q$, it gives more
+weight to persistent features. The silhouette is an element of
+$L^p(\R)$, hence directly usable as a feature in a machine learning
+pipeline.
+\index{persistence silhouette}
+
+% ============================================================
+\section{Kernel methods}
+\label{sec:kernels}
+% ============================================================
+
+\begin{definition}[Persistence kernel]
+\index{persistence kernel}
+A \textbf{persistence kernel} is a positive definite kernel
+$K : \mathcal{D} \times \mathcal{D} \to \R$ on the space of
+persistence diagrams.
+\end{definition}
+
+\begin{definition}[Persistence scale kernel --- Reininghaus et al.\ 2015]
+\[
+  k_\sigma(D_1, D_2) = \frac{1}{8\pi\sigma}
+  \sum_{p \in D_1} \sum_{q \in D_2}
+  \left(e^{-\frac{\norm{p - q}^2}{8\sigma}}
+  - e^{-\frac{\norm{p - \bar{q}}^2}{8\sigma}}\right)
+\]
+where $\bar{q} = (d_q, b_q)$ is the point $q$ reflected across the
+diagonal.
+\end{definition}
+
+\begin{proposition}[Positive definiteness]
+The kernel $k_\sigma$ is positive definite and stable:
+$\abs{k_\sigma(D_1, D_1') - k_\sigma(D_2, D_2')} \leq
+C_\sigma (W_1(D_1, D_2) + W_1(D_1', D_2'))$.
+\end{proposition}
+
+\begin{definition}[Fisher kernel --- Le, Yamada 2018]
+\index{Fisher kernel}
+The \textbf{Fisher kernel} models each diagram as a distribution
+and uses the Fisher distance between distributions:
+\[
+  K_{\mathrm{Fisher}}(D_1, D_2) = \exp\!\left(
+  -\frac{1}{2t} d_{\mathrm{Fisher}}^2(D_1, D_2)\right).
+\]
+\end{definition}
+
+% ============================================================
+\section{Integration into an ML pipeline}
+\label{sec:pipeline}
+% ============================================================
+
+\begin{example}[Complete classification pipeline]
+\begin{enumerate}
+  \item \textbf{Data}: point clouds or time series.
+  \item \textbf{Filtration}: Rips, Alpha, or sublevel set.
+  \item \textbf{Persistence}: compute diagrams via \texttt{gudhi}
+        or \texttt{ripser}.
+  \item \textbf{Vectorization}: persistence images, landscapes,
+        or kernels.
+  \item \textbf{Model}: SVM, Random Forest, or logistic regression.
+\end{enumerate}
+\end{example}
+
+\begin{minted}{python}
+from sklearn.pipeline import Pipeline
+from sklearn.svm import SVC
+from gudhi.representations import (
+    PersistenceImage, Landscape, DiagramSelector
+)
+
+# scikit-learn pipeline with topological features
+pipe = Pipeline([
+    ("selector", DiagramSelector(use=True)),
+    ("persistence_image", PersistenceImage(
+        bandwidth=0.1, resolution=[20, 20]
+    )),
+    ("classifier", SVC(kernel="rbf", C=10.0)),
+])
+
+# pipe.fit(X_train_diagrams, y_train)
+# y_pred = pipe.predict(X_test_diagrams)
+\end{minted}
+
+\begin{attention}[title=\textbf{Choosing a vectorization}]
+\begin{itemize}
+  \item \textbf{Landscapes} preserve Banach space structure and
+        allow statistical tests.
+  \item \textbf{Images} are better suited for CNNs since they
+        produce 2D representations.
+  \item \textbf{Kernels} are preferable with SVMs in low dimension.
+\end{itemize}
+\end{attention}
+
+% ============================================================
+\section{Scikit-TDA and software ecosystem}
+\label{sec:scikit_tda}
+% ============================================================
+
+\begin{remark}[Python ecosystem for TDA]
+\index{scikit-TDA}
+\begin{itemize}
+  \item \textbf{GUDHI}: complete C++/Python library (filtrations,
+        persistence, representations).
+  \item \textbf{Ripser}: fast Rips persistence computation.
+  \item \textbf{scikit-tda}: meta-package integrating Ripser,
+        Persim (distances), KeplerMapper.
+  \item \textbf{giotto-tda}: TDA pipeline compatible with
+        scikit-learn, with C++ acceleration.
+\end{itemize}
+\end{remark}
+
+% ============================================================
+\section{Exercises}
+% ============================================================
+
+\begin{exercise}
+Compute the first two persistence landscapes of the diagram
+$D = \{(0, 3), (1, 4), (2, 5)\}$ and plot them.
+\end{exercise}
+
+\begin{exercise}
+Show that the persistence silhouette of order $q = 1$ is the
+persistence-weighted average of the tent functions.
+\end{exercise}
+
+\begin{exercise}[Implementation]
+Build a complete pipeline that classifies point clouds sampled
+from a circle vs.\ a figure eight, using persistence images
+and an SVM.
+\end{exercise}
+
+\begin{exercise}
+Show that the Reininghaus kernel is symmetric:
+$k_\sigma(D, D') = k_\sigma(D', D)$.
+\end{exercise}
+
+\begin{exercise}[Experimental comparison]
+Compare classification performance (accuracy, computation time)
+across landscapes, images, and persistence kernels on a dataset
+of your choice.
+\end{exercise}
+
+\begin{exercise}[Persistence landscape stability]
+Let $D_1$ and $D_2$ be two persistence diagrams and
+$\lambda_k^{(1)}$, $\lambda_k^{(2)}$ their respective $k$-th landscapes.
+\begin{enumerate}
+  \item Show that for each diagram point $(b, d)$, the tent function
+        $\Lambda(t) = \max(0, \min(t - b, d - t))$ is $1$-Lipschitz.
+  \item Using the fact that the $\mathrm{kmax}$ operation is
+        $1$-Lipschitz in $\ell^\infty$ norm on sorted vectors, show that:
+        \[
+          \norm{\lambda_k^{(1)} - \lambda_k^{(2)}}_{L^\infty}
+          \leq W_\infty(D_1, D_2).
+        \]
+  \item Generalize to the $L^p$ case: show that
+        $\norm{\lambda_k^{(1)} - \lambda_k^{(2)}}_{L^p}
+        \leq C_p \cdot W_p(D_1, D_2)^{1/p}$
+        and discuss the constant $C_p$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Kernel SVM pipeline with persistence features]
+The goal is to classify point clouds into three classes: circle,
+torus (2D cross-section), and sphere (sampled in 3D).
+\begin{enumerate}
+  \item For each point cloud, compute the persistence diagram in
+        homology degrees 0 and 1 via a Vietoris--Rips complex.
+  \item Build the Gram matrix of the Reininghaus kernel:
+        $G_{ij} = k_\sigma(D_i, D_j)$ for a parameter $\sigma$ chosen
+        by cross-validation.
+  \item Train a kernel SVM with precomputed kernel
+        (\texttt{kernel='precomputed'}) and report accuracy under
+        5-fold cross-validation.
+  \item Compare with a pipeline using concatenated persistence images
+        (degrees 0 and 1) and an RBF SVM. Discuss the advantages and
+        disadvantages of each approach.
+\end{enumerate}
+\end{exercise}

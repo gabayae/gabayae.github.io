@@ -1,0 +1,309 @@
+% ============================================================
+\chapter{Pre-trained Models}
+\label{ch:pretrained}
+% ============================================================
+
+In 2018, three papers transformed NLP: ELMo (Peters et al.), GPT (Radford et al.), and above all BERT (Devlin et al.). Their shared idea: pre-train a large language model on billions of unlabelled words, then fine-tune it on the target task with very little supervised data. This ``pre-training / fine-tuning'' paradigm revolutionised the field: the learned representations capture syntax, semantics, and even factual knowledge about the world, rendering previous specialised approaches largely obsolete. This was the beginning of the \emph{foundation model} era.
+
+\begin{intuition}[title=\textbf{The pre-training / fine-tuning paradigm}]
+Rather than training a model from scratch for each task, we pre-train a large
+model on unlabeled data, then adapt (fine-tune) it on task-specific data. This
+paradigm, inaugurated by ELMo (2018) and popularized by BERT (2018), has
+transformed NLP.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Learning Contextual Representations}
+\label{sec:pre:contextual}
+% ------------------------------------------------------------
+
+\begin{definition}[Contextual Representation]
+A \emph{contextual representation} is a function
+$\phi : \mathcal{V}^T \times \{1, \ldots, T\} \to \R^d$ that maps each token
+$x_t$ to a vector $\mathbf{h}_t$ dependent on the context
+$(x_1, \ldots, x_T)$:
+\[
+\mathbf{h}_t = \phi(\mathbf{x}, t) \neq \phi(\mathbf{x}', t) \quad \text{if } \mathbf{x} \neq \mathbf{x}'
+\]
+even when $x_t = x'_t$.
+\end{definition}
+
+This contrasts with static embeddings where $\phi(w)$ is context-independent.
+
+% ------------------------------------------------------------
+\section{ELMo: Context via Bidirectional RNN}
+\label{sec:pre:elmo}
+% ------------------------------------------------------------
+
+\begin{definition}[ELMo]
+ELMo (Embeddings from Language Models, Peters et al., 2018) produces
+contextual representations by combining layers of a BiLSTM pre-trained as a
+bidirectional language model:
+\[
+\text{ELMo}_t = \gamma \sum_{\ell=0}^{L} s_\ell \mathbf{h}_t^\ell
+\]
+where $\mathbf{h}_t^\ell$ is the hidden state of layer $\ell$ at position $t$,
+$s_\ell$ are task-specific learned weights, and $\gamma$ is a scaling factor.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{BERT: Bidirectional Encoder Representations from Transformers}
+\label{sec:pre:bert}
+% ------------------------------------------------------------
+
+\subsection{Architecture}
+
+BERT uses a Transformer encoder (bidirectional self-attention) with the
+following configurations:
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+& \textbf{BERT-base} & \textbf{BERT-large} \\
+\midrule
+Layers $N$ & 12 & 24 \\
+Dimension $d$ & 768 & 1024 \\
+Heads $H$ & 12 & 16 \\
+Parameters & 110M & 340M \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Pre-training Objectives}
+
+\begin{definition}[Masked Language Model (MLM)]
+The MLM objective randomly masks $15\%$ of input tokens and trains the model
+to predict them:
+\[
+\mathcal{L}_{\text{MLM}} = -\sum_{t \in \mathcal{M}} \log P(x_t \mid \mathbf{x}_{\setminus \mathcal{M}})
+\]
+where $\mathcal{M}$ is the set of masked positions. Among selected tokens:
+$80\%$ are replaced with \texttt{[MASK]}, $10\%$ with a random token, $10\%$
+unchanged.
+\end{definition}
+
+\begin{definition}[Next Sentence Prediction (NSP)]
+The NSP objective trains the model to predict whether sentence $B$ follows
+sentence $A$ in the original corpus:
+\[
+\mathcal{L}_{\text{NSP}} = -\log P(\text{IsNext} \mid \texttt{[CLS]}, A, \texttt{[SEP]}, B)
+\]
+\end{definition}
+
+\begin{warning}[title=\textbf{MLM limitations}]
+Masking creates a mismatch between pre-training (\texttt{[MASK]} tokens present)
+and inference (no \texttt{[MASK]}). Subsequent work (RoBERTa, ALBERT) showed
+that NSP is unnecessary and that training benefits from longer sequences and
+more data.
+\end{warning}
+
+\subsection{WordPiece Tokenization}
+
+BERT uses WordPiece, a BPE variant that maximizes likelihood:
+\[
+\text{score}(a, b) = \frac{\text{count}(ab)}{\text{count}(a) \cdot \text{count}(b)}
+\]
+
+% ------------------------------------------------------------
+\section{GPT: Generative Pre-trained Transformer}
+\label{sec:pre:gpt}
+% ------------------------------------------------------------
+
+\begin{definition}[GPT]
+GPT (Radford et al., 2018) uses a Transformer decoder (causal self-attention)
+pre-trained with an autoregressive objective:
+\[
+\mathcal{L}_{\text{GPT}} = -\sum_{t=1}^{T} \log P(x_t \mid x_1, \ldots, x_{t-1})
+\]
+\end{definition}
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Model} & \textbf{Parameters} & \textbf{Layers} & \textbf{Context} \\
+\midrule
+GPT-1 & 117M & 12 & 512 \\
+GPT-2 & 1.5B & 48 & 1024 \\
+GPT-3 & 175B & 96 & 2048 \\
+GPT-4 & undisclosed & --- & 128K \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{remark}
+GPT-3 demonstrated emergent \emph{few-shot learning} capabilities: the ability
+to solve new tasks from a few examples presented in the prompt, without weight
+updates.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{T5: Text-to-Text Transfer Transformer}
+\label{sec:pre:t5}
+% ------------------------------------------------------------
+
+\begin{definition}[T5]
+T5 (Raffel et al., 2020) reformulates all NLP tasks as text-to-text problems.
+The model is an encoder-decoder Transformer pre-trained with a denoising
+(\emph{span corruption}) objective: contiguous token spans are replaced with
+sentinels, and the decoder must reconstruct the masked spans.
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{Architecture comparison}]
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+& \textbf{BERT} & \textbf{GPT} & \textbf{T5} \\
+\midrule
+Architecture & Encoder & Decoder & Enc-Dec \\
+Attention & Bidirectional & Causal & Bid. + Causal \\
+Objective & MLM + NSP & Autoregressive & Span corruption \\
+Use case & Understanding & Generation & Both \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Scaling Laws}
+\label{sec:pre:scaling}
+% ------------------------------------------------------------
+
+\begin{theorem}[Scaling Laws (Kaplan et al.)]
+The test loss $L$ of a language model follows power laws with respect to the
+number of parameters $N$, dataset size $D$, and compute budget $C$:
+\begin{align}
+L(N) &\propto N^{-\alpha_N} & \alpha_N &\approx 0.076 \\
+L(D) &\propto D^{-\alpha_D} & \alpha_D &\approx 0.095 \\
+L(C) &\propto C^{-\alpha_C} & \alpha_C &\approx 0.050
+\end{align}
+(for GPT-type models on English data).
+\end{theorem}
+
+\begin{remark}
+The Chinchilla scaling laws (Hoffmann et al., 2022) show that optimal compute
+budget allocation follows $N \propto D$: model size and data size should be
+increased at the same rate.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Using Hugging Face}
+\label{sec:pre:hf}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{BERT for text classification}]
+\begin{minted}{python}
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import pipeline
+
+# Sentiment pipeline
+clf = pipeline("sentiment-analysis",
+               model="nlptown/bert-base-multilingual-uncased-sentiment")
+result = clf("This NLP course is truly excellent!")
+print(result)
+# [{'label': '5 stars', 'score': 0.73}]
+
+# Direct usage
+tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+model = AutoModelForSequenceClassification.from_pretrained(
+    "bert-base-uncased", num_labels=2
+)
+inputs = tokenizer("This is a great course!", return_tensors="pt")
+outputs = model(**inputs)
+logits = outputs.logits  # (1, 2)
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{GPT-2 for text generation}]
+\begin{minted}{python}
+from transformers import pipeline
+
+generator = pipeline("text-generation", model="gpt2")
+text = generator(
+    "Natural language processing is",
+    max_length=50,
+    num_return_sequences=1,
+    temperature=0.7
+)
+print(text[0]["generated_text"])
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{T5 for summarization}]
+\begin{minted}{python}
+from transformers import pipeline
+
+summarizer = pipeline("summarization", model="t5-base")
+article = """
+Natural language processing (NLP) is a subfield of linguistics,
+computer science, and artificial intelligence concerned with the
+interactions between computers and human language. The goal is to
+enable computers to understand, interpret, and generate human language.
+"""
+summary = summarizer(article, max_length=30, min_length=10)
+print(summary[0]["summary_text"])
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Variants and Evolution}
+\label{sec:pre:variants}
+% ------------------------------------------------------------
+
+\begin{description}
+    \item[RoBERTa] (Liu et al., 2019): removes NSP, trains longer with more
+          data and longer sequences.
+    \item[ALBERT] (Lan et al., 2020): embedding factorization and cross-layer
+          parameter sharing to reduce size.
+    \item[DeBERTa] (He et al., 2021): disentangled attention with relative
+          position.
+    \item[LLaMA] (Touvron et al., 2023): Meta's open model family with
+          RMSNorm, RoPE, and SwiGLU.
+    \item[Mistral / Mixtral] (2023--2024): grouped-query attention (GQA),
+          mixture of experts (MoE).
+\end{description}
+
+% ------------------------------------------------------------
+\section{Feature Extraction and Probing}
+\label{sec:pre:probing}
+% ------------------------------------------------------------
+
+\begin{definition}[Probing Classifiers]
+\emph{Probing classifiers} are simple classifiers (logistic regression)
+trained on frozen representations from a pre-trained model to evaluate what
+linguistic information is captured by each layer.
+\end{definition}
+
+Studies have shown that lower layers capture morphology and syntax, while upper
+layers encode more semantic information.
+
+% ------------------------------------------------------------
+\section{Exercises}
+\label{sec:pre:exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}[$\star$]
+Compare the parameter counts of BERT-base and GPT-2 (117M). What architectural
+differences explain the gaps?
+\end{exercise}
+
+\begin{exercise}[$\star$]
+Explain why BERT cannot be directly used for autoregressive text generation.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Implement a probing classifier to evaluate whether BERT layer-6 representations
+encode POS tagging information. Use the Universal Dependencies dataset.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Reproduce BERT's masking experiment: compute the pseudo-log-likelihood
+perplexity
+$\text{PLL}(\mathbf{x}) = \sum_{t=1}^{T} \log P(x_t \mid \mathbf{x}_{\setminus t})$
+on a set of sentences.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+Study the impact of scaling laws: train Transformer language models of
+increasing sizes (1M, 10M, 100M parameters) on the same corpus and plot the
+loss vs.\ parameters curve on a log-log scale.
+\end{exercise}

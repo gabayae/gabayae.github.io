@@ -1,0 +1,309 @@
+% ============================================================
+\chapter{Constrained and Safe RL}
+\label{ch:constrained}
+% ============================================================
+
+\begin{intuition}
+Standard RL maximizes cumulative reward, but real-world applications
+require satisfying safety constraints: a robot must avoid collisions,
+an autonomous car must obey traffic laws, and an LLM must not generate
+harmful content. Constrained and safe RL formalize these requirements
+as constraints on cost functions, ensuring that the learned policy is
+both performant and safe.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Constrained Markov Decision Processes}
+\label{sec:cmdp}
+% ------------------------------------------------------------
+
+\begin{definition}[Constrained MDP]
+\index{constrained MDP}
+A \textbf{Constrained MDP} (CMDP) extends the standard MDP with $K$
+cost functions $c_k: \mathcal{S} \times \mathcal{A} \to \R$ and
+corresponding thresholds $d_k$:
+\[
+    \max_\pi J(\pi) = \E_\pi\left[\sum_{t=0}^{\infty} \gamma^t R_t\right]
+    \quad \text{s.t.} \quad
+    J_{c_k}(\pi) = \E_\pi\left[\sum_{t=0}^{\infty} \gamma^t c_k(S_t, A_t)\right]
+    \leq d_k, \quad k = 1, \ldots, K.
+\]
+\end{definition}
+
+\begin{theorem}[CMDP Optimality]
+Under standard regularity conditions, the optimal policy of a CMDP is
+a mixture of at most $K+1$ deterministic policies. If the feasible set
+is non-empty and the constraint functions are continuous, an optimal
+policy exists.
+\end{theorem}
+
+\begin{example}[Robot Navigation]
+A mobile robot must reach a goal (reward) while limiting the probability
+of collision (cost). The CMDP formulation:
+\begin{itemize}
+    \item Reward: $+1$ for reaching the goal, $-0.01$ per step
+    \item Cost: $c(s,a) = \ind_{\{s \in \mathcal{S}_{\text{unsafe}}\}}$
+    \item Constraint: $J_c(\pi) \leq 0.05$ (collision rate below 5\%)
+\end{itemize}
+\end{example}
+
+% ------------------------------------------------------------
+\section{Lagrangian Methods}
+\label{sec:lagrangian}
+% ------------------------------------------------------------
+
+\begin{definition}[Lagrangian Relaxation]
+\index{Lagrangian method}
+The CMDP is reformulated as an unconstrained saddle-point problem using
+Lagrange multipliers $\lambda_k \geq 0$:
+\[
+    \min_{\lambda \geq 0} \max_\pi \;
+    J(\pi) - \sum_{k=1}^{K} \lambda_k \left(J_{c_k}(\pi) - d_k\right)
+    = \min_{\lambda \geq 0} \max_\pi \; L(\pi, \lambda).
+\]
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{Lagrangian Actor-Critic Update}]
+\textbf{Policy (primal)}:
+\[
+    \theta \leftarrow \theta + \alpha_\theta \nabla_\theta \left[
+    J(\pi_\theta) - \sum_k \lambda_k J_{c_k}(\pi_\theta)\right]
+\]
+\textbf{Multipliers (dual)}:
+\[
+    \lambda_k \leftarrow \max\left(0, \;
+    \lambda_k + \alpha_\lambda (J_{c_k}(\pi_\theta) - d_k)\right)
+\]
+\end{keyformulas}
+
+\begin{algorithme}[title=\textbf{Lagrangian PPO for CMDPs}]
+\begin{enumerate}
+    \item Initialize policy $\theta$, value networks $V_\phi$, $V_{\phi_k}^{c}$ for each cost,
+          multipliers $\lambda_k = 0$
+    \item For each iteration:
+    \begin{enumerate}
+        \item Collect trajectories using $\pi_\theta$
+        \item Estimate reward advantages $\hat{A}_t^r$ and cost advantages
+              $\hat{A}_t^{c_k}$ using GAE
+        \item Update $\theta$ using PPO with modified advantage:
+              $\hat{A}_t = \hat{A}_t^r - \sum_k \lambda_k \hat{A}_t^{c_k}$
+        \item Update multipliers:
+              $\lambda_k \leftarrow \max(0, \lambda_k + \alpha_\lambda(\hat{J}_{c_k} - d_k))$
+    \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+\begin{theorem}[Lagrangian Duality for CMDPs]
+Under Slater's condition (there exists a strictly feasible policy), strong
+duality holds for CMDPs:
+\[
+    \max_{\pi \in \Pi_C} J(\pi) = \min_{\lambda \geq 0} \max_\pi L(\pi, \lambda)
+\]
+where $\Pi_C$ is the set of feasible policies. The Lagrangian approach
+therefore converges to the optimal constrained policy.
+\end{theorem}
+
+% ------------------------------------------------------------
+\section{Safe Exploration}
+\label{sec:safe_exploration}
+% ------------------------------------------------------------
+
+\begin{definition}[Safe Exploration]
+\index{safe exploration}
+\textbf{Safe exploration} requires that the agent satisfies safety
+constraints \emph{during training}, not just at convergence. This is
+critical for physical systems where unsafe exploration causes
+irreversible damage.
+\end{definition}
+
+\begin{definition}[Safety Layer]
+A \textbf{safety layer} projects the agent's action onto the safe set
+at each step:
+\[
+    a_{\text{safe}} = \argmin_{a \in \mathcal{A}_{\text{safe}}(s)}
+    \norm{a - a_{\text{proposed}}}^2
+\]
+where $\mathcal{A}_{\text{safe}}(s) = \{a : c(s,a) \leq 0\}$ is the
+set of safe actions in state $s$.
+\end{definition}
+
+\begin{proposition}[Lyapunov-Based Safety]
+A Lyapunov function $L(s) \geq 0$ with $L(s) = 0$ only for safe states
+can certify safety. If the policy ensures:
+\[
+    \E[L(S_{t+1}) | S_t = s, A_t = a] \leq L(s) - \alpha L(s) + \epsilon
+\]
+for some $\alpha > 0$ and small $\epsilon > 0$, then the system remains
+within a safe region with high probability.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Reward Shaping}
+\label{sec:reward_shaping}
+% ------------------------------------------------------------
+
+\begin{definition}[Potential-Based Reward Shaping]
+\index{reward shaping}
+Given a potential function $\Phi: \mathcal{S} \to \R$, the shaped reward is:
+\[
+    R'(s, a, s') = R(s, a, s') + \gamma \Phi(s') - \Phi(s).
+\]
+\end{definition}
+
+\begin{theorem}[Ng et al., 1999]
+Potential-based reward shaping preserves the optimal policy: the set of
+optimal policies under $R'$ is identical to that under $R$. Any non-potential
+shaping function can change the optimal policy.
+\end{theorem}
+
+\begin{remark}
+Reward shaping is widely used to incorporate domain knowledge and
+accelerate learning. For safety, negative shaping near dangerous states
+(e.g., $\Phi(s) = -d(s, \mathcal{S}_{\text{unsafe}})^{-1}$) guides the
+agent away from unsafe regions without altering optimality.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{RLHF: Reinforcement Learning from Human Feedback}
+\label{sec:rlhf}
+% ------------------------------------------------------------
+
+\begin{definition}[RLHF]
+\index{RLHF}
+\textbf{Reinforcement Learning from Human Feedback} (Christiano et al.,
+2017; Ouyang et al., 2022) trains a policy to align with human
+preferences in three stages:
+\begin{enumerate}
+    \item \textbf{Supervised fine-tuning} (SFT): fine-tune a pretrained
+    LLM on demonstration data.
+    \item \textbf{Reward modeling}: train a reward model $r_\psi(x, y)$
+    from human preference comparisons $(y_w \succ y_l | x)$ using the
+    Bradley-Terry model:
+    \[
+        P(y_w \succ y_l | x) = \sigma\left(r_\psi(x, y_w) - r_\psi(x, y_l)\right)
+    \]
+    \item \textbf{RL optimization}: optimize the policy $\pi_\theta$ using
+    PPO with the learned reward, subject to a KL constraint from the
+    reference policy $\pi_{\text{ref}}$:
+    \[
+        \max_\theta \; \E_{x, y \sim \pi_\theta}\left[r_\psi(x, y)\right]
+        - \beta \, D_{\text{KL}}\left(\pi_\theta \| \pi_{\text{ref}}\right)
+    \]
+\end{enumerate}
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{RLHF Objective}]
+\[
+    J(\theta) = \E_{x \sim \mathcal{D}, y \sim \pi_\theta(\cdot|x)}\left[
+    r_\psi(x, y) - \beta \log \frac{\pi_\theta(y|x)}{\pi_{\text{ref}}(y|x)}
+    \right]
+\]
+The KL penalty prevents the policy from diverging too far from the
+pretrained model, maintaining coherent language generation.
+\end{keyformulas}
+
+\begin{intuition}
+RLHF bridges the gap between language model capabilities and human
+values. The reward model captures nuanced human preferences that are
+difficult to specify programmatically. The KL constraint acts as a
+safety mechanism, preventing reward hacking (exploiting quirks of the
+learned reward model).
+\end{intuition}
+
+\begin{attention}[title=\textbf{Reward Hacking}]
+\index{reward hacking}
+Without the KL constraint, the policy may find adversarial inputs that
+maximize $r_\psi$ without genuinely satisfying human preferences. This
+is a form of Goodhart's law: ``when a measure becomes a target, it
+ceases to be a good measure.''
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Direct Preference Optimization (DPO)}
+\label{sec:dpo}
+% ------------------------------------------------------------
+
+\begin{definition}[DPO]
+\index{DPO}
+Direct Preference Optimization (Rafailov et al., 2023) eliminates the
+explicit reward model by directly optimizing the policy from preferences:
+\[
+    \mathcal{L}_{\text{DPO}}(\theta) = -\E_{(x, y_w, y_l)}\left[
+    \log \sigma\left(\beta \log \frac{\pi_\theta(y_w|x)}{\pi_{\text{ref}}(y_w|x)}
+    - \beta \log \frac{\pi_\theta(y_l|x)}{\pi_{\text{ref}}(y_l|x)}\right)
+    \right]
+\]
+\end{definition}
+
+\begin{proposition}[DPO-RLHF Equivalence]
+The DPO loss is derived from the closed-form solution of the RLHF
+objective under the KL constraint. The optimal policy satisfies:
+\[
+    \pi^*(y|x) = \frac{\pi_{\text{ref}}(y|x) \exp(r(x,y)/\beta)}{Z(x)}
+\]
+Substituting this into the Bradley-Terry model yields the DPO loss,
+which can be optimized without RL.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Python Example}
+\label{sec:constrained:code}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Lagrangian PPO (Simplified)}]
+\begin{minted}{python}
+import torch
+
+class LagrangianPPO:
+    def __init__(self, n_constraints, init_lambda=0.0,
+                 lr_lambda=0.01):
+        self.lambdas = [init_lambda] * n_constraints
+        self.lr = lr_lambda
+
+    def modified_advantage(self, adv_reward, adv_costs):
+        """Compute Lagrangian advantage."""
+        adv = adv_reward.clone()
+        for k, lam in enumerate(self.lambdas):
+            adv -= lam * adv_costs[k]
+        return adv
+
+    def update_multipliers(self, cost_values, thresholds):
+        """Dual ascent on Lagrange multipliers."""
+        for k in range(len(self.lambdas)):
+            self.lambdas[k] = max(
+                0.0,
+                self.lambdas[k]
+                + self.lr * (cost_values[k] - thresholds[k])
+            )
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+\label{sec:constrained:exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}[CMDP Formulation]
+Formulate the autonomous braking problem as a CMDP. Define the state
+space, action space, reward, cost function, and threshold. What makes
+this problem challenging compared to standard RL?
+\end{exercise}
+
+\begin{exercise}[Lagrangian Method]
+Implement Lagrangian PPO on a grid world where the agent must reach a
+goal while avoiding certain cells (cost $= 1$ when entering a forbidden
+cell). Vary the cost threshold $d$ and observe the trade-off between
+reward and constraint satisfaction.
+\end{exercise}
+
+\begin{exercise}[Reward Shaping]
+Design a potential-based shaping function for the CartPole environment
+that encourages keeping the pole upright without changing the optimal
+policy. Measure the speedup compared to the unshaped reward.
+\end{exercise}
+
+\begin{exercise}[RLHF Pipeline]
+Describe the three stages of RLHF for training a dialogue system.
+What happens if the reward model is trained on biased preference data?
+How can this be mitigated?
+\end{exercise}

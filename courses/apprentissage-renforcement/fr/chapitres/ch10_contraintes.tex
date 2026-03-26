@@ -1,0 +1,289 @@
+% =============================================================================
+\chapter{RL avec Contraintes et S\'ecurit\'e}
+\label{ch:contraintes}
+% =============================================================================
+
+Un robot qui apprend \`a marcher peut tomber. Un v\'ehicule autonome qui apprend \`a conduire peut provoquer un accident. Un algorithme de trading qui apprend \`a investir peut faire faillite. Dans ces applications, maximiser la r\'ecompense ne suffit pas~: il faut \emph{garantir la s\'ecurit\'e}, y compris pendant la phase d'apprentissage. Le RL contraint (Constrained MDP, Altman 1999) formalise ce probl\`eme en ajoutant des contraintes sur les co\^uts cumulatifs~; le RL s\^ur (Safe RL) vise des garanties plus fortes, \`a chaque pas de temps. Les m\'ethodes lagrangiennes, les m\'ethodes \`a barri\`eres, et les approches fond\'ees sur les fonctions de Lyapunov (Chow et al., 2018) forment l'arsenal de ce domaine en pleine expansion.
+
+\begin{intuition}
+Dans de nombreuses applications r\'eelles (robotique, v\'ehicules autonomes,
+sant\'e), maximiser la r\'ecompense ne suffit pas~: il faut \'egalement
+respecter des contraintes de s\'ecurit\'e. Le RL contraint (\emph{Constrained RL})
+formalise ce probl\`eme en ajoutant des contraintes sur les co\^uts cumulatifs.
+Le RL s\^ur (\emph{Safe RL}) vise \`a garantir la s\'ecurit\'e \`a chaque instant,
+y compris pendant l'apprentissage.
+\end{intuition}
+
+% -----------------------------------------------------------------------------
+\section{MDP contraint (CMDP)}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[CMDP]
+Un \textbf{MDP contraint} est un MDP augment\'e de $K$ fonctions de co\^ut
+$c_k : \mathcal{S} \times \mathcal{A} \to \R$ et de seuils $d_k$~:
+\[
+    \max_\pi J_R(\pi) = \E_\pi\left[\sum_{t=0}^\infty \gamma^t R_{t+1}\right]
+    \quad \text{s.c.} \quad
+    J_{c_k}(\pi) = \E_\pi\left[\sum_{t=0}^\infty \gamma^t c_k(S_t, A_t)\right] \leq d_k
+    \quad \forall k.
+\]
+\end{definition}
+
+\begin{theoreme}[Existence d'une politique optimale pour CMDP]
+Pour un CMDP fini avec $K$ contraintes, il existe une politique optimale
+qui est \textbf{m\'elange} d'au plus $K+1$ politiques d\'eterministes
+stationnaires. Si l'ensemble r\'ealisable a un int\'erieur non vide (condition
+de Slater), le probl\`eme peut \^etre r\'esolu par la m\'ethode du Lagrangien.
+\end{theoreme}
+
+% -----------------------------------------------------------------------------
+\section{Approche lagrangienne}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Lagrangien du CMDP]
+Le \textbf{Lagrangien} du CMDP est~:
+\[
+    \mathcal{L}(\pi, \boldsymbol{\lambda}) = J_R(\pi)
+    - \sum_{k=1}^K \lambda_k \left(J_{c_k}(\pi) - d_k\right)
+\]
+o\`u $\boldsymbol{\lambda} = (\lambda_1, \ldots, \lambda_K) \geq 0$ sont les
+multiplicateurs de Lagrange.
+\end{definition}
+
+\begin{theoreme}[Dualit\'e forte]
+Sous la condition de Slater (il existe $\pi_0$ tel que $J_{c_k}(\pi_0) < d_k$
+pour tout $k$), la dualit\'e forte s'applique~:
+\[
+    \max_\pi \min_{\boldsymbol{\lambda} \geq 0} \mathcal{L}(\pi, \boldsymbol{\lambda})
+    = \min_{\boldsymbol{\lambda} \geq 0} \max_\pi \mathcal{L}(\pi, \boldsymbol{\lambda}).
+\]
+Le probl\`eme dual est convexe en $\boldsymbol{\lambda}$.
+\end{theoreme}
+
+\begin{algorithme}[title=\textbf{PPO-Lagrangien}]
+\begin{enumerate}
+    \item Initialiser $\theta$ (politique), $\phi$ (critique de r\'ecompense),
+    $\psi$ (critique de co\^ut), $\lambda \geq 0$
+    \item Pour chaque it\'eration~:
+    \begin{enumerate}
+        \item Collecter des trajectoires avec $\pi_\theta$
+        \item Estimer les avantages de r\'ecompense $\hat{A}_t^R$ et de co\^ut $\hat{A}_t^C$ via GAE
+        \item Mettre \`a jour $\theta$ par PPO-Clip sur l'objectif lagrangien~:
+        \[
+            L(\theta) = L_R^{\text{CLIP}}(\theta)
+            - \lambda \, L_C^{\text{CLIP}}(\theta)
+        \]
+        \item Mettre \`a jour $\lambda$~:
+        $\lambda \leftarrow \max(0, \lambda + \eta_\lambda(J_C(\pi_\theta) - d))$
+        \item Mettre \`a jour les critiques $\phi$ et $\psi$
+    \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+% -----------------------------------------------------------------------------
+\section{CPO --- Constrained Policy Optimization}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[CPO]
+\textbf{CPO} (Achiam et al., 2017) \'etend TRPO au cadre contraint en r\'esolvant~:
+\[
+    \max_\theta \; \E_t[r_t(\theta) \hat{A}_t^R] \quad \text{s.c.} \quad
+    \begin{cases}
+        J_{c_k}(\pi_{\theta_{\text{old}}}) + \E_t[r_t(\theta) \hat{A}_t^{c_k}] \leq d_k & \forall k \\
+        \text{KL}[\pi_{\theta_{\text{old}}} \| \pi_\theta] \leq \delta
+    \end{cases}
+\]
+Ce probl\`eme quadratique sous contraintes lin\'eaires et quadratiques se r\'esout
+analytiquement.
+\end{definition}
+
+\begin{theoreme}[Garantie de CPO]
+Sous certaines conditions (lin\'earisation valide), CPO garantit la satisfaction
+des contraintes de co\^ut \`a chaque mise \`a jour de politique, pas seulement
+\`a convergence.
+\end{theoreme}
+
+% -----------------------------------------------------------------------------
+\section{Approches par barri\`ere et p\'enalit\'e}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[M\'ethode de barri\`ere logarithmique]
+On remplace la contrainte par une p\'enalit\'e barri\`ere~:
+\[
+    \max_\pi J_R(\pi) - \frac{1}{t} \sum_k \log(d_k - J_{c_k}(\pi))
+\]
+o\`u $t > 0$ contr\^ole la pr\'ecision de l'approximation. Quand $t \to \infty$,
+la solution approche celle du probl\`eme contraint.
+\end{definition}
+
+\begin{definition}[P\'enalit\'e quadratique augment\'ee]
+La m\'ethode du \textbf{Lagrangien augment\'e} combine multiplicateurs et p\'enalit\'e~:
+\[
+    \mathcal{L}_\rho(\pi, \lambda) = J_R(\pi) - \lambda(J_C(\pi) - d)
+    - \frac{\rho}{2}(J_C(\pi) - d)_+^2
+\]
+o\`u $(x)_+ = \max(0, x)$ et $\rho > 0$ est le param\`etre de p\'enalit\'e.
+\end{definition}
+
+% -----------------------------------------------------------------------------
+\section{Safe RL --- S\'ecurit\'e pendant l'apprentissage}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[S\'ecurit\'e au sens de Lyapunov]
+Un \'etat $s$ est \textbf{s\^ur} s'il existe une politique $\pi$ qui maintient
+le syst\`eme dans un ensemble s\^ur $\mathcal{S}_{\text{safe}} \subseteq \mathcal{S}$
+pour tout temps futur. La \textbf{fonction de Lyapunov} $L(s) \geq 0$ satisfait~:
+\[
+    \E[L(S_{t+1}) \mid S_t = s, A_t = a] - L(s) \leq -\epsilon
+    \quad \forall s \notin \mathcal{S}_{\text{goal}}.
+\]
+\end{definition}
+
+\begin{definition}[Bouclier de s\'ecurit\'e (\emph{Safety Shield})]
+Un \textbf{bouclier de s\'ecurit\'e} est un module qui filtre les actions
+propos\'ees par l'agent RL~:
+\[
+    a_{\text{safe}} = \begin{cases}
+        a & \text{si } a \in \mathcal{A}_{\text{safe}}(s) \\
+        \argmin_{a' \in \mathcal{A}_{\text{safe}}(s)} \|a' - a\| & \text{sinon}
+    \end{cases}
+\]
+o\`u $\mathcal{A}_{\text{safe}}(s) \subseteq \mathcal{A}$ est l'ensemble des
+actions s\^ures dans l'\'etat $s$.
+\end{definition}
+
+% -----------------------------------------------------------------------------
+\section{Fonctions barri\`ere de contr\^ole (CBF)}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Control Barrier Function]
+Une \textbf{CBF} $h : \mathcal{S} \to \R$ d\'efinit l'ensemble s\^ur
+$\mathcal{C} = \{s : h(s) \geq 0\}$. Pour un syst\`eme $s_{t+1} = f(s_t, a_t)$,
+la condition de s\'ecurit\'e est~:
+\[
+    h(f(s, a)) - h(s) \geq -\kappa \, h(s), \quad \kappa \in (0, 1).
+\]
+Si cette condition est satisfaite, $h(s_t) \geq 0$ pour tout $t$ si $h(s_0) \geq 0$.
+\end{definition}
+
+\begin{algorithme}[title=\textbf{RL avec filtre CBF}]
+\begin{enumerate}
+    \item L'agent RL propose une action $a_{\text{rl}}$
+    \item R\'esoudre le QP (programme quadratique)~:
+    \[
+        a^* = \argmin_a \|a - a_{\text{rl}}\|^2 \quad \text{s.c.} \quad
+        h(f(s, a)) - h(s) \geq -\kappa \, h(s)
+    \]
+    \item Ex\'ecuter $a^*$ dans l'environnement
+\end{enumerate}
+\end{algorithme}
+
+% -----------------------------------------------------------------------------
+\section{Impl\'ementation}
+% -----------------------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{PPO-Lagrangien simplifi\'e}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+import numpy as np
+
+class LagrangianPPO:
+    def __init__(self, actor_critic, cost_critic, cost_limit=25.0,
+                 lambda_lr=0.01, clip_eps=0.2, gamma=0.99):
+        self.ac = actor_critic
+        self.cost_critic = cost_critic
+        self.cost_limit = cost_limit
+        self.log_lambda = torch.tensor(0.0, requires_grad=True)
+        self.lambda_opt = torch.optim.Adam([self.log_lambda], lr=lambda_lr)
+        self.clip_eps = clip_eps
+        self.gamma = gamma
+
+    @property
+    def lam(self):
+        return self.log_lambda.exp().item()
+
+    def compute_policy_loss(self, states, actions, old_log_probs,
+                            reward_advantages, cost_advantages):
+        dist, _ = self.ac(states)
+        new_log_probs = dist.log_prob(actions)
+        ratio = (new_log_probs - old_log_probs).exp()
+
+        # Objectif PPO-Clip pour la recompense
+        surr1 = ratio * reward_advantages
+        surr2 = ratio.clamp(1 - self.clip_eps, 1 + self.clip_eps) * reward_advantages
+        reward_loss = -torch.min(surr1, surr2).mean()
+
+        # Objectif PPO pour le cout (on veut le minimiser)
+        cost_loss = (ratio * cost_advantages).mean()
+
+        # Objectif lagrangien
+        total_loss = reward_loss + self.lam * cost_loss
+        return total_loss, dist.entropy().mean()
+
+    def update_lambda(self, mean_episode_cost):
+        """Mise a jour du multiplicateur de Lagrange."""
+        lambda_loss = -self.log_lambda.exp() * (mean_episode_cost - self.cost_limit)
+        self.lambda_opt.zero_grad()
+        lambda_loss.backward()
+        self.lambda_opt.step()
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Filtre de s\'ecurit\'e simple}]
+\begin{minted}{python}
+import numpy as np
+from scipy.optimize import minimize
+
+def safety_filter(action_rl, state, barrier_fn, dynamics_fn,
+                  kappa=0.1):
+    """
+    Filtre l'action pour satisfaire la contrainte CBF.
+    barrier_fn: h(s) -> float (positif = sur)
+    dynamics_fn: f(s, a) -> s_next
+    """
+    h_current = barrier_fn(state)
+
+    def constraint(a):
+        s_next = dynamics_fn(state, a)
+        h_next = barrier_fn(s_next)
+        return h_next - (1 - kappa) * h_current
+
+    result = minimize(
+        fun=lambda a: np.sum((a - action_rl) ** 2),
+        x0=action_rl,
+        method='SLSQP',
+        constraints={'type': 'ineq', 'fun': constraint},
+        bounds=[(-1, 1)] * len(action_rl)
+    )
+    return result.x if result.success else action_rl
+\end{minted}
+\end{codeblock}
+
+% -----------------------------------------------------------------------------
+\section{Exercices}
+% -----------------------------------------------------------------------------
+
+\begin{exercice}[CMDP lagrangien]
+Formulez le probl\`eme de navigation s\^ure (un robot doit atteindre un objectif
+en \'evitant des zones dangereuses) comme un CMDP. Impl\'ementez PPO-Lagrangien
+et v\'erifiez que le co\^ut cumul\'e reste sous le seuil apr\`es convergence.
+\end{exercice}
+
+\begin{exercice}[CPO]
+Impl\'ementez CPO et comparez-le avec PPO-Lagrangien sur l'environnement
+\texttt{SafetyPointGoal-v0} de Safety Gymnasium. Lequel respecte mieux les
+contraintes pendant l'entra\^inement~?
+\end{exercice}
+
+\begin{exercice}[CBF apprise]
+Entra\^inez un r\'eseau de neurones pour apprendre la fonction barri\`ere $h_\psi(s)$
+\`a partir de donn\'ees \'etiquet\'ees (\'etats s\^urs vs dangereux). Utilisez cette
+CBF comme filtre de s\'ecurit\'e et \'evaluez le taux de violations de contraintes.
+\end{exercice}
+
+\begin{exercice}[Th\'eorie]
+D\'emontrez que sous la condition de Slater, la dualit\'e forte s'applique
+au CMDP et que le probl\`eme dual est convexe. Donnez la forme explicite
+du sous-gradient de la fonction duale.
+\end{exercice}

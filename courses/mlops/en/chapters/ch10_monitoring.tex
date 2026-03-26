@@ -1,0 +1,437 @@
+% ============================================================
+\chapter{Model Monitoring in Production}
+\label{ch:monitoring}
+\index{monitoring}
+% ============================================================
+
+\section{Why Monitor ML Models?}
+\label{sec:why-monitoring}
+
+Unlike traditional software, ML models degrade silently. A deployed
+model can return valid HTTP 200 responses while producing increasingly
+wrong predictions. Monitoring detects this degradation before it
+impacts business outcomes.
+
+\begin{definition}[Model drift]
+\textbf{Model drift}\index{drift} is the degradation of model
+performance over time due to changes in the statistical properties of
+the input data, the target variable, or the relationship between them.
+\end{definition}
+
+\section{Types of Drift}
+\label{sec:drift-types}
+
+\begin{center}
+\begin{tabular}{@{}lp{5cm}p{4.5cm}@{}}
+\toprule
+\textbf{Type} & \textbf{Definition} & \textbf{Example} \\
+\midrule
+Data drift\index{data drift} & Input distribution $P(X)$ changes &
+  User demographics shift after a marketing campaign \\
+Concept drift\index{concept drift} & Relationship $P(Y|X)$ changes &
+  Customer churn factors change during a recession \\
+Covariate shift\index{covariate shift} & Training $P(X)$ differs from
+  production $P(X)$ & Model trained on urban data deployed to rural
+  areas \\
+Label drift & Target distribution $P(Y)$ changes & Fraud rate
+  increases from 1\% to 5\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, rounded corners, minimum width=3.5cm,
+    minimum height=1.2cm, align=center, font=\small},
+  arr/.style={-{Stealth[length=2.5mm]}, thick}
+]
+  \node[box, fill=blue!10] (train) {\textbf{Training Data}\\$P_{\text{train}}(X, Y)$};
+  \node[box, fill=green!10, right=3cm of train] (prod) {\textbf{Production Data}\\$P_{\text{prod}}(X, Y)$};
+  \node[box, fill=red!10, below=1.5cm of train, xshift=2.5cm] (drift) {\textbf{Drift Detected}\\$P_{\text{train}} \neq P_{\text{prod}}$};
+
+  \draw[arr, steelblue] (train) -- node[above, font=\scriptsize] {time passes} (prod);
+  \draw[arr, deepred] (train.south) -- (drift.west);
+  \draw[arr, deepred] (prod.south) -- (drift.east);
+\end{tikzpicture}
+\end{center}
+
+\section{Drift Detection Methods}
+\label{sec:drift-math}
+\index{drift!detection}
+
+\subsection{Kullback--Leibler divergence}
+\index{KL divergence}
+
+The KL divergence measures how one probability distribution differs
+from a reference distribution:
+\begin{equation}
+  D_{\mathrm{KL}}(P \,\|\, Q)
+    = \sum_{x} P(x) \ln \frac{P(x)}{Q(x)}
+\end{equation}
+
+$D_{\mathrm{KL}} = 0$ means $P = Q$; larger values indicate greater
+divergence. Note that KL divergence is \emph{not} symmetric.
+
+\subsection{Population Stability Index (PSI)}
+\index{PSI}
+
+PSI is a symmetric measure commonly used in credit scoring and ML
+monitoring:
+\begin{equation}
+  \mathrm{PSI} = \sum_{i=1}^{B}
+    \bigl(p_i^{\text{prod}} - p_i^{\text{train}}\bigr)
+    \ln \frac{p_i^{\text{prod}}}{p_i^{\text{train}}}
+\end{equation}
+where $B$ is the number of bins and $p_i$ is the proportion in bin $i$.
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{PSI Value} & \textbf{Interpretation} \\
+\midrule
+$< 0.10$ & No significant shift \\
+$0.10$--$0.25$ & Moderate shift---investigate \\
+$> 0.25$ & Major shift---retrain \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Kolmogorov--Smirnov test}
+\index{KS test}
+
+The two-sample KS test compares the empirical cumulative distribution
+functions (ECDFs) of two samples:
+\begin{equation}
+  D = \sup_x \bigl|F_{\text{train}}(x) - F_{\text{prod}}(x)\bigr|
+\end{equation}
+
+The null hypothesis $H_0$: both samples come from the same
+distribution. A small $p$-value ($< 0.05$) indicates significant
+drift.
+
+\section{Drift Detection with Evidently AI}
+\label{sec:evidently}
+\index{Evidently AI}
+
+\begin{codeblock}[title=\textbf{Data drift detection with Evidently}]
+\begin{minted}{python}
+"""Drift detection using Evidently AI."""
+import pandas as pd
+from evidently import ColumnMapping
+from evidently.report import Report
+from evidently.metric_preset import DataDriftPreset
+from evidently.metrics import (
+    DatasetDriftMetric,
+    DataDriftTable,
+    ColumnDriftMetric,
+)
+
+# Load reference (training) and current (production) data
+reference = pd.read_csv("data/train.csv")
+current = pd.read_csv("data/production_batch.csv")
+
+column_mapping = ColumnMapping(
+    target="target",
+    numerical_features=["feature_1", "feature_2", "feature_3"],
+    categorical_features=["category_a", "category_b"],
+)
+
+# Generate drift report
+report = Report(metrics=[
+    DataDriftPreset(),
+    DatasetDriftMetric(),
+    DataDriftTable(),
+    ColumnDriftMetric(column_name="feature_1"),
+])
+
+report.run(
+    reference_data=reference,
+    current_data=current,
+    column_mapping=column_mapping,
+)
+
+# Save as HTML dashboard
+report.save_html("drift_report.html")
+
+# Get results programmatically
+result = report.as_dict()
+dataset_drift = result["metrics"][1]["result"]["dataset_drift"]
+print(f"Dataset drift detected: {dataset_drift}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Evidently test suite for CI}]
+\begin{minted}{python}
+"""Drift tests for CI pipeline."""
+from evidently.test_suite import TestSuite
+from evidently.tests import (
+    TestShareOfDriftedColumns,
+    TestColumnDrift,
+    TestMeanInNSigmas,
+)
+
+suite = TestSuite(tests=[
+    TestShareOfDriftedColumns(lt=0.3),  # < 30% drifted
+    TestColumnDrift("feature_1"),
+    TestColumnDrift("feature_2"),
+    TestMeanInNSigmas("feature_1", n=3),
+])
+
+suite.run(reference_data=reference, current_data=current,
+          column_mapping=column_mapping)
+suite.save_html("drift_tests.html")
+
+# Use in CI: exit 1 if tests fail
+test_results = suite.as_dict()
+all_passed = all(
+    t["status"] == "SUCCESS"
+    for t in test_results["tests"]
+)
+if not all_passed:
+    raise SystemExit("Drift tests FAILED")
+\end{minted}
+\end{codeblock}
+
+\section{Prometheus and Grafana}
+\label{sec:prometheus-grafana}
+\index{Prometheus}\index{Grafana}
+
+Prometheus collects time-series metrics; Grafana visualizes them in
+dashboards. Together they form the standard monitoring stack for ML
+APIs.
+
+\begin{codeblock}[title=\textbf{Prometheus metrics in FastAPI}]
+\begin{minted}{python}
+"""FastAPI with Prometheus metrics."""
+from prometheus_client import (
+    Counter, Histogram, Gauge, generate_latest
+)
+from fastapi import FastAPI, Response
+
+# Define metrics
+PREDICTIONS_TOTAL = Counter(
+    "ml_predictions_total",
+    "Total predictions",
+    ["model_version", "prediction_class"],
+)
+PREDICTION_LATENCY = Histogram(
+    "ml_prediction_latency_seconds",
+    "Prediction latency in seconds",
+    buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0],
+)
+MODEL_CONFIDENCE = Histogram(
+    "ml_prediction_confidence",
+    "Prediction confidence score",
+    buckets=[0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99],
+)
+DRIFT_SCORE = Gauge(
+    "ml_drift_score",
+    "Current drift score (PSI)",
+)
+
+app = FastAPI()
+
+@app.post("/predict")
+async def predict(request: PredictionRequest):
+    with PREDICTION_LATENCY.time():
+        result = model.predict(request.features)
+    PREDICTIONS_TOTAL.labels(
+        model_version="1.0.0",
+        prediction_class=str(result.label),
+    ).inc()
+    MODEL_CONFIDENCE.observe(result.confidence)
+    return result
+
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint."""
+    return Response(
+        content=generate_latest(),
+        media_type="text/plain",
+    )
+\end{minted}
+\end{codeblock}
+
+\section{Monitoring Architecture}
+\label{sec:monitoring-arch}
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, rounded corners, minimum width=2.5cm,
+    minimum height=1cm, align=center, font=\small},
+  arr/.style={-{Stealth[length=2.5mm]}, thick, steelblue}
+]
+  \node[box, fill=green!10] (api) {\textbf{ML API}\\FastAPI};
+  \node[box, fill=blue!10, right=2.5cm of api] (prom) {\textbf{Prometheus}\\Scraper};
+  \node[box, fill=orange!10, right=2.5cm of prom] (graf) {\textbf{Grafana}\\Dashboards};
+  \node[box, fill=red!10, above=1.2cm of graf] (alert) {\textbf{Alertmanager}\\Slack/Email};
+  \node[box, fill=purple!10, below=1.2cm of api] (evid) {\textbf{Evidently}\\Drift Reports};
+  \node[box, fill=cyan!10, below=1.2cm of prom] (store) {\textbf{Log Store}\\Predictions};
+
+  \draw[arr] (api) -- node[above, font=\scriptsize] {/metrics} (prom);
+  \draw[arr] (prom) -- node[above, font=\scriptsize] {query} (graf);
+  \draw[arr] (prom) -- node[right, font=\scriptsize] {alert rules} (alert);
+  \draw[arr] (api) -- node[left, font=\scriptsize] {batch data} (evid);
+  \draw[arr] (api) -- node[above, font=\scriptsize] {log} (store);
+  \draw[arr] (evid) -- node[below, font=\scriptsize] {PSI scores} (prom);
+\end{tikzpicture}
+\end{center}
+
+\begin{keyformulas}[title=\textbf{Key metrics to monitor}]
+\begin{description}
+  \item[Operational] Request latency (p50, p95, p99), throughput
+    (req/s), error rate, uptime.
+  \item[Model quality] Prediction distribution, confidence
+    distribution, feature drift (PSI per column).
+  \item[Data quality] Missing value rate, schema violations,
+    out-of-range values, input volume changes.
+  \item[Infrastructure] CPU/GPU utilization, memory usage,
+    model load time.
+\end{description}
+\end{keyformulas}
+
+\section{Alerting Strategy}
+\label{sec:alerting}
+
+\begin{warning}[title=\textbf{Alert fatigue}]
+Too many alerts lead to alert fatigue---teams start ignoring them.
+Define clear severity levels and only page on-call for critical issues:
+\begin{itemize}
+  \item \textbf{Critical}: service down, error rate $> 5\%$
+  \item \textbf{Warning}: latency p95 $> 500$\,ms, drift PSI $> 0.25$
+  \item \textbf{Info}: drift PSI $> 0.10$, prediction volume change
+    $> 30\%$
+\end{itemize}
+\end{warning}
+
+\section{Monitoring Tool Comparison}
+\label{sec:monitoring-comparison}
+
+\begin{center}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Criterion} & \textbf{Evidently AI} & \textbf{WhyLabs} &
+  \textbf{NannyML} \\
+\midrule
+Open source & Yes & Freemium & Yes \\
+Drift detection & Yes & Yes & Yes \\
+Performance estimation & No & No & Yes (CBPE) \\
+Real-time & Batch & Real-time & Batch \\
+Dashboard & HTML reports & Cloud UI & Built-in \\
+CI integration & Test suites & API & API \\
+Best for & Batch monitoring & Streaming & No-label monitoring \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{remark}
+NannyML's key differentiator is \textbf{CBPE} (Confidence-Based
+Performance Estimation): it estimates model performance \emph{without
+ground truth labels}, which are often delayed days or weeks in
+production.
+\end{remark}
+
+\section{Best Practices and Anti-patterns}
+
+\begin{bestpractice}[title=\textbf{Monitoring best practices}]
+\begin{enumerate}
+  \item \textbf{Log all predictions}: store inputs, outputs,
+    confidence, and timestamps.
+  \item \textbf{Establish baselines}: compute reference metrics on
+    validation data before deployment.
+  \item \textbf{Monitor features individually}: aggregate drift masks
+    which features changed.
+  \item \textbf{Automate drift checks}: run Evidently test suites on
+    a schedule (daily or weekly).
+  \item \textbf{Connect monitoring to retraining}: trigger retraining
+    when drift exceeds thresholds.
+  \item \textbf{Dashboard per model}: each deployed model gets its
+    own Grafana dashboard.
+\end{enumerate}
+\end{bestpractice}
+
+\begin{antipattern}[title=\textbf{Monitoring anti-patterns}]
+\begin{itemize}
+  \item Monitoring only infrastructure (CPU, memory) but not model
+    quality.
+  \item No baseline reference data for drift comparison.
+  \item Alerting on every small fluctuation---causes alert fatigue.
+  \item Waiting for user complaints to discover model degradation.
+  \item Not logging prediction inputs---impossible to debug issues.
+  \item Monitoring in production but not in staging.
+\end{itemize}
+\end{antipattern}
+
+\section{Mini-project: Monitoring Pipeline}
+\label{sec:mini-project-ch10}
+
+\begin{miniproject}[title=\textbf{Mini-project 10: Model monitoring}]
+\begin{enumerate}
+  \item Deploy a trained model with FastAPI and add Prometheus metrics
+    (latency, predictions count, confidence histogram).
+  \item Write a script that simulates production traffic with
+    gradual data drift.
+  \item Set up Evidently to generate drift reports comparing
+    training data to production batches.
+  \item Configure Prometheus to scrape the API's \texttt{/metrics}
+    endpoint.
+  \item Build a Grafana dashboard with panels for latency, throughput,
+    prediction distribution, and drift score.
+  \item Configure an alert rule that fires when PSI exceeds $0.25$.
+\end{enumerate}
+\end{miniproject}
+
+\section{Exercises}
+\label{sec:exercises-ch10}
+
+\begin{exercise}[$\bigstar$ --- Drift detection basics]
+Using Evidently AI, generate a data drift report comparing two
+synthetic datasets. Create a reference dataset with
+\cli{np.random.normal(0, 1)} and a drifted dataset with
+\cli{np.random.normal(0.5, 1.2)}. Interpret the PSI values and
+the KS test results.
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar$ --- Custom monitoring]
+Add Prometheus metrics to the FastAPI application from
+Chapter~\ref{ch:deployment}:
+\begin{enumerate}
+  \item A counter for total predictions per class
+  \item A histogram for prediction latency
+  \item A histogram for confidence scores
+  \item A gauge for the latest drift score
+\end{enumerate}
+Write a Prometheus scrape configuration and verify the metrics appear.
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar\bigstar$ --- Full monitoring stack]
+Build a complete monitoring system:
+\begin{enumerate}
+  \item Deploy the ML API with Docker Compose
+  \item Add Prometheus, Grafana, and Alertmanager as services
+  \item Create a Grafana dashboard with at least six panels
+  \item Simulate concept drift by gradually changing the data
+    distribution
+  \item Configure alerts that fire when drift is detected
+  \item Document the alerting and retraining decision process
+\end{enumerate}
+\end{exercise}
+
+\section{Cheatsheet}
+
+\begin{cheatsheet}[title=\textbf{Chapter 10 Summary}]
+\begin{tabular}{@{}p{4cm}p{8.5cm}@{}}
+\toprule
+\textbf{Concept} & \textbf{Key Point} \\
+\midrule
+Data drift & $P(X)$ changes over time \\
+Concept drift & $P(Y|X)$ changes over time \\
+PSI & $< 0.10$ OK; $0.10$--$0.25$ investigate; $> 0.25$ retrain \\
+KS test & Compares ECDFs; $p < 0.05$ means significant drift \\
+Evidently AI & Open-source drift reports and test suites \\
+Prometheus & Time-series metrics collection \\
+Grafana & Dashboard visualization and alerting \\
+Key metrics & Latency, throughput, confidence, drift score \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}

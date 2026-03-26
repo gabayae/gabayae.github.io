@@ -1,0 +1,452 @@
+% =============================================================================
+\chapter{Markov Decision Processes}
+\label{ch:mdp}
+% =============================================================================
+
+Imagine a robot learning to walk. At each moment, it observes its posture
+(the \emph{state}), chooses a force to apply to its joints (the
+\emph{action}), and receives a signal --- did it stay upright or fall over?
+(the \emph{reward}). Its goal: find a strategy of actions that maximizes
+rewards accumulated over time. This scheme --- state, action, reward, new
+state --- is universal: it describes a chess player, an autonomous vehicle,
+and a trading algorithm alike. The mathematical formalization of this scheme
+has a name: the \emph{Markov decision process} (MDP), formalized by Richard
+Bellman in the 1950s.
+
+\begin{intuition}
+A Markov Decision Process (MDP) is the central mathematical model of
+reinforcement learning. It formalizes how an agent interacts with an
+environment by making sequential decisions to maximize long-term cumulative
+reward.
+\end{intuition}
+
+% -----------------------------------------------------------------------------
+\section{Introduction}
+% -----------------------------------------------------------------------------
+
+Reinforcement learning rests on a simple idea: an agent learns to act by
+interacting with an environment. At each time step $t$, the agent observes a
+state $s_t \in \mathcal{S}$, chooses an action $a_t \in \mathcal{A}$, receives
+a reward $r_{t+1} \in \R$, and transitions to a new state $s_{t+1}$. The
+mathematical formalism that captures this interaction is the
+\emph{Markov Decision Process}.
+
+% -----------------------------------------------------------------------------
+\section{Formal Definition}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Markov Decision Process]
+An MDP is a five-tuple $\mathcal{M} = (\mathcal{S}, \mathcal{A}, P, R, \gamma)$ where:
+\begin{itemize}
+    \item $\mathcal{S}$ is a finite or countable set of \textbf{states},
+    \item $\mathcal{A}$ is a finite or countable set of \textbf{actions},
+    \item $P : \mathcal{S} \times \mathcal{A} \times \mathcal{S} \to [0,1]$ is the
+    \textbf{transition function}: $P(s' \mid s, a) = \PP(S_{t+1} = s' \mid S_t = s, A_t = a)$,
+    \item $R : \mathcal{S} \times \mathcal{A} \times \mathcal{S} \to \R$ is the
+    \textbf{reward function}: $R(s, a, s')$ is the reward received when transitioning
+    from $s$ to $s'$ under action $a$,
+    \item $\gamma \in [0, 1)$ is the \textbf{discount factor}.
+\end{itemize}
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{Markov Property}]
+The Markov property states that the future state depends only on the present
+state and current action:
+\[
+    \PP(S_{t+1} = s' \mid S_0, A_0, S_1, A_1, \ldots, S_t, A_t)
+    = \PP(S_{t+1} = s' \mid S_t, A_t) = P(s' \mid S_t, A_t).
+\]
+\end{keyformulas}
+
+% -----------------------------------------------------------------------------
+\section{Policy}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Policy]
+A \textbf{policy} $\pi$ is a decision rule that prescribes the agent's behavior.
+\begin{itemize}
+    \item \textbf{Deterministic policy}: $\pi : \mathcal{S} \to \mathcal{A}$,
+    where $a = \pi(s)$.
+    \item \textbf{Stochastic policy}: $\pi : \mathcal{S} \times \mathcal{A} \to [0,1]$,
+    where $\pi(a \mid s) = \PP(A_t = a \mid S_t = s)$ with
+    $\sum_{a \in \mathcal{A}} \pi(a \mid s) = 1$ for all $s$.
+\end{itemize}
+\end{definition}
+
+\begin{definition}[Stationary Policy]
+A policy $\pi$ is \textbf{stationary} if it does not depend on time:
+$\pi_t = \pi$ for all $t \geq 0$. Unless stated otherwise, all policies
+considered in this course are stationary.
+\end{definition}
+
+% -----------------------------------------------------------------------------
+\section{Value Functions}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Discounted Return]
+The \textbf{discounted return} from time $t$ is:
+\[
+    G_t = \sum_{k=0}^{\infty} \gamma^k R_{t+k+1}.
+\]
+The factor $\gamma < 1$ ensures convergence of this sum when rewards are bounded.
+\end{definition}
+
+\begin{definition}[State-Value Function]
+The \textbf{state-value function} under policy $\pi$ is:
+\[
+    V^\pi(s) = \E_\pi \left[ G_t \mid S_t = s \right]
+    = \E_\pi \left[ \sum_{k=0}^{\infty} \gamma^k R_{t+k+1} \;\middle|\; S_t = s \right].
+\]
+\end{definition}
+
+\begin{definition}[Action-Value Function]
+The \textbf{action-value function} (or Q-function) under policy $\pi$ is:
+\[
+    Q^\pi(s, a) = \E_\pi \left[ G_t \mid S_t = s, A_t = a \right].
+\]
+\end{definition}
+
+\begin{remark}
+The relationship between $V^\pi$ and $Q^\pi$ is:
+\[
+    V^\pi(s) = \sum_{a \in \mathcal{A}} \pi(a \mid s) \, Q^\pi(s, a).
+\]
+\end{remark}
+
+% -----------------------------------------------------------------------------
+\section{Bellman Equations}
+% -----------------------------------------------------------------------------
+
+\begin{theorem}[Bellman Equation for $V^\pi$]
+For any policy $\pi$ and any state $s \in \mathcal{S}$:
+\[
+    V^\pi(s) = \sum_{a \in \mathcal{A}} \pi(a \mid s) \sum_{s' \in \mathcal{S}}
+    P(s' \mid s, a) \left[ R(s, a, s') + \gamma \, V^\pi(s') \right].
+\]
+\end{theorem}
+
+\begin{proof}
+By the definition of discounted return and the Markov property:
+\begin{align*}
+    V^\pi(s) &= \E_\pi[G_t \mid S_t = s] \\
+    &= \E_\pi[R_{t+1} + \gamma G_{t+1} \mid S_t = s] \\
+    &= \sum_{a} \pi(a \mid s) \sum_{s'} P(s' \mid s, a)
+       \left[ R(s, a, s') + \gamma \, \E_\pi[G_{t+1} \mid S_{t+1} = s'] \right] \\
+    &= \sum_{a} \pi(a \mid s) \sum_{s'} P(s' \mid s, a)
+       \left[ R(s, a, s') + \gamma \, V^\pi(s') \right]. \qedhere
+\end{align*}
+\end{proof}
+
+\begin{theorem}[Bellman Equation for $Q^\pi$]
+For any policy $\pi$, any state $s$, and any action $a$:
+\[
+    Q^\pi(s, a) = \sum_{s' \in \mathcal{S}} P(s' \mid s, a)
+    \left[ R(s, a, s') + \gamma \sum_{a' \in \mathcal{A}} \pi(a' \mid s') \, Q^\pi(s', a') \right].
+\]
+\end{theorem}
+
+\begin{proof}
+Expanding similarly:
+\begin{align*}
+    Q^\pi(s, a) &= \E_\pi[R_{t+1} + \gamma G_{t+1} \mid S_t = s, A_t = a] \\
+    &= \sum_{s'} P(s' \mid s, a) \left[ R(s, a, s') +
+       \gamma \, \E_\pi[G_{t+1} \mid S_{t+1} = s'] \right] \\
+    &= \sum_{s'} P(s' \mid s, a) \left[ R(s, a, s') +
+       \gamma \sum_{a'} \pi(a' \mid s') Q^\pi(s', a') \right]. \qedhere
+\end{align*}
+\end{proof}
+
+\begin{keyformulas}[title=\textbf{Bellman Equations --- Summary}]
+\begin{align}
+    V^\pi(s) &= \sum_a \pi(a|s) \sum_{s'} P(s'|s,a)[R(s,a,s') + \gamma V^\pi(s')]
+    \label{eq:bellman_v} \\
+    Q^\pi(s,a) &= \sum_{s'} P(s'|s,a)[R(s,a,s') + \gamma \sum_{a'} \pi(a'|s') Q^\pi(s',a')]
+    \label{eq:bellman_q}
+\end{align}
+\end{keyformulas}
+
+% -----------------------------------------------------------------------------
+\section{Optimal Policy and Bellman Optimality Equations}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Optimal Policy]
+A policy $\pi^*$ is \textbf{optimal} if for every state $s \in \mathcal{S}$:
+\[
+    V^{\pi^*}(s) \geq V^\pi(s) \quad \text{for all policies } \pi.
+\]
+We write $V^*(s) = V^{\pi^*}(s)$ and $Q^*(s,a) = Q^{\pi^*}(s,a)$.
+\end{definition}
+
+\begin{theorem}[Bellman Optimality Equations]
+The optimal value functions satisfy:
+\begin{align}
+    V^*(s) &= \max_{a \in \mathcal{A}} \sum_{s'} P(s'|s,a)
+    \left[ R(s,a,s') + \gamma V^*(s') \right] \label{eq:bellman_opt_v} \\
+    Q^*(s,a) &= \sum_{s'} P(s'|s,a)
+    \left[ R(s,a,s') + \gamma \max_{a'} Q^*(s',a') \right] \label{eq:bellman_opt_q}
+\end{align}
+\end{theorem}
+
+\begin{proof}
+For Equation~\eqref{eq:bellman_opt_v}, we use the fact that the optimal policy
+selects the action maximizing value:
+\begin{align*}
+    V^*(s) &= \max_\pi V^\pi(s) = \max_a Q^*(s,a)
+    = \max_a \sum_{s'} P(s'|s,a)[R(s,a,s') + \gamma V^*(s')].
+\end{align*}
+For Equation~\eqref{eq:bellman_opt_q}, we substitute $V^*(s') = \max_{a'} Q^*(s',a')$
+into the Bellman equation for $Q^*$.
+\end{proof}
+
+\begin{theorem}[Existence of a Deterministic Optimal Policy]
+\label{thm:existence_opt}
+For any finite MDP, there exists at least one deterministic optimal policy
+$\pi^* : \mathcal{S} \to \mathcal{A}$ defined by:
+\[
+    \pi^*(s) = \argmax_{a \in \mathcal{A}} Q^*(s, a).
+\]
+\end{theorem}
+
+% -----------------------------------------------------------------------------
+\section{Bellman Operator and Contraction}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Bellman Operator]
+The \textbf{Bellman operator} $\mathcal{T}^\pi$ for a policy $\pi$ is defined by:
+\[
+    (\mathcal{T}^\pi V)(s) = \sum_a \pi(a|s) \sum_{s'} P(s'|s,a)
+    [R(s,a,s') + \gamma V(s')].
+\]
+The \textbf{Bellman optimality operator} is:
+\[
+    (\mathcal{T}^* V)(s) = \max_a \sum_{s'} P(s'|s,a)
+    [R(s,a,s') + \gamma V(s')].
+\]
+\end{definition}
+
+\begin{theorem}[Contraction of the Bellman Operator]
+\label{thm:contraction}
+The operators $\mathcal{T}^\pi$ and $\mathcal{T}^*$ are contractions in the
+infinity norm with factor $\gamma$:
+\[
+    \norm{\mathcal{T}^\pi V - \mathcal{T}^\pi U}_\infty
+    \leq \gamma \norm{V - U}_\infty.
+\]
+By Banach's fixed-point theorem, each has a unique fixed point:
+$V^\pi$ for $\mathcal{T}^\pi$ and $V^*$ for $\mathcal{T}^*$.
+\end{theorem}
+
+\begin{proof}
+For any $s \in \mathcal{S}$:
+\begin{align*}
+    \abs{(\mathcal{T}^* V)(s) - (\mathcal{T}^* U)(s)}
+    &= \abs{\max_a \sum_{s'} P(s'|s,a)[R + \gamma V(s')]
+       - \max_a \sum_{s'} P(s'|s,a)[R + \gamma U(s')]} \\
+    &\leq \max_a \sum_{s'} P(s'|s,a) \gamma \abs{V(s') - U(s')} \\
+    &\leq \gamma \norm{V - U}_\infty.
+\end{align*}
+The transition from the second to third line uses
+$\abs{\max_a f(a) - \max_a g(a)} \leq \max_a \abs{f(a) - g(a)}$.
+\end{proof}
+
+% -----------------------------------------------------------------------------
+\section{Advantage Function}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Advantage Function]
+The \textbf{advantage function} under policy $\pi$ is:
+\[
+    A^\pi(s, a) = Q^\pi(s, a) - V^\pi(s).
+\]
+It measures the relative advantage of taking action $a$ in state $s$ compared
+to the average behavior under $\pi$.
+\end{definition}
+
+\begin{proposition}
+For any policy $\pi$ and any state $s$:
+\[
+    \sum_{a \in \mathcal{A}} \pi(a \mid s) \, A^\pi(s, a) = 0.
+\]
+\end{proposition}
+
+\begin{proof}
+$\sum_a \pi(a|s) A^\pi(s,a) = \sum_a \pi(a|s)[Q^\pi(s,a) - V^\pi(s)]
+= V^\pi(s) - V^\pi(s) = 0$.
+\end{proof}
+
+% -----------------------------------------------------------------------------
+\section{MDP Examples}
+% -----------------------------------------------------------------------------
+
+\begin{example}[Gridworld]
+Consider a $4 \times 4$ grid where an agent moves in four cardinal directions.
+The terminal state is cell $(4,4)$ with reward $+1$. Each step costs $-0.01$.
+Moves against walls leave the agent in place. This formalizes as an MDP with:
+\begin{itemize}
+    \item $\mathcal{S} = \{(i,j) : 1 \leq i,j \leq 4\}$, $|\mathcal{S}| = 16$,
+    \item $\mathcal{A} = \{\text{up, down, left, right}\}$,
+    \item Deterministic transitions (except at boundaries),
+    \item $\gamma = 0.99$.
+\end{itemize}
+\end{example}
+
+\begin{example}[$K$-Armed Bandit]
+A $K$-armed bandit is a degenerate MDP with $|\mathcal{S}| = 1$ (single state).
+The agent selects an arm $a \in \{1, \ldots, K\}$ at each step and receives a
+random reward $R_a \sim \mathcal{D}_a$. This special case allows studying the
+exploration-exploitation dilemma in isolation.
+\end{example}
+
+% -----------------------------------------------------------------------------
+\section{Python Implementation}
+% -----------------------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Defining a Simple MDP with Gymnasium}]
+\begin{minted}{python}
+import numpy as np
+import gymnasium as gym
+from gymnasium import spaces
+
+class GridWorldEnv(gym.Env):
+    """Custom 4x4 Gridworld environment."""
+    metadata = {"render_modes": ["human"]}
+
+    def __init__(self, size=4, gamma=0.99):
+        super().__init__()
+        self.size = size
+        self.gamma = gamma
+        self.observation_space = spaces.Discrete(size * size)
+        self.action_space = spaces.Discrete(4)  # up, down, left, right
+        self.goal = (size - 1, size - 1)
+        self._action_to_dir = {
+            0: np.array([-1, 0]),  # up
+            1: np.array([1, 0]),   # down
+            2: np.array([0, -1]), # left
+            3: np.array([0, 1]),  # right
+        }
+        self.reset()
+
+    def _pos_to_state(self, pos):
+        return pos[0] * self.size + pos[1]
+
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
+        self.agent_pos = np.array([0, 0])
+        return self._pos_to_state(self.agent_pos), {}
+
+    def step(self, action):
+        direction = self._action_to_dir[action]
+        new_pos = np.clip(self.agent_pos + direction, 0, self.size - 1)
+        self.agent_pos = new_pos
+        terminated = tuple(self.agent_pos) == self.goal
+        reward = 1.0 if terminated else -0.01
+        return self._pos_to_state(self.agent_pos), reward, terminated, False, {}
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Building the Transition Matrix}]
+\begin{minted}{python}
+def build_transition_matrix(env):
+    """Build P[s, a, s'] and R[s, a, s'] for a finite MDP."""
+    nS = env.observation_space.n
+    nA = env.action_space.n
+    P = np.zeros((nS, nA, nS))
+    R = np.zeros((nS, nA, nS))
+
+    for s in range(nS):
+        for a in range(nA):
+            env.agent_pos = np.array([s // env.size, s % env.size])
+            s_next, reward, _, _, _ = env.step(a)
+            P[s, a, s_next] = 1.0
+            R[s, a, s_next] = reward
+    return P, R
+
+env = GridWorldEnv(size=4)
+P, R = build_transition_matrix(env)
+print(f"P shape: {P.shape}")  # (16, 4, 16)
+print(f"R shape: {R.shape}")  # (16, 4, 16)
+\end{minted}
+\end{codeblock}
+
+% -----------------------------------------------------------------------------
+\section{Direct Algebraic Solution}
+% -----------------------------------------------------------------------------
+
+\begin{proposition}[Matrix Solution of the Bellman Equation]
+For a finite MDP with $|\mathcal{S}| = n$, the Bellman equation for $V^\pi$
+can be written in matrix form:
+\[
+    \mathbf{v}^\pi = \mathbf{r}^\pi + \gamma \, \mathbf{P}^\pi \mathbf{v}^\pi
+\]
+where $\mathbf{P}^\pi_{s,s'} = \sum_a \pi(a|s) P(s'|s,a)$ and
+$\mathbf{r}^\pi_s = \sum_a \pi(a|s) \sum_{s'} P(s'|s,a) R(s,a,s')$.
+The solution is:
+\[
+    \mathbf{v}^\pi = (I - \gamma \mathbf{P}^\pi)^{-1} \mathbf{r}^\pi.
+\]
+\end{proposition}
+
+\begin{warning}[title=\textbf{Complexity of Direct Solution}]
+Matrix inversion has complexity $O(n^3)$, making it impractical for MDPs with
+large state spaces. This motivates the iterative methods of
+Chapter~\ref{ch:dynamic_programming}.
+\end{warning}
+
+% -----------------------------------------------------------------------------
+\section{Extensions of the MDP Model}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[POMDP]
+A \textbf{Partially Observable MDP} (POMDP) augments an MDP with an observation
+set $\mathcal{O}$ and an observation function $O : \mathcal{S} \times \mathcal{A} \to \Delta(\mathcal{O})$.
+The agent does not directly observe state $s_t$ but instead receives observation
+$o_t \sim O(\cdot | s_t, a_{t-1})$.
+\end{definition}
+
+\begin{definition}[Finite-Horizon MDP]
+A \textbf{finite-horizon} MDP with horizon $H$ terminates after exactly $H$
+time steps. The return is:
+\[
+    G_t = \sum_{k=0}^{H-t-1} \gamma^k R_{t+k+1}.
+\]
+\end{definition}
+
+\begin{definition}[Continuous MDP]
+When $\mathcal{S} \subseteq \R^n$ and/or $\mathcal{A} \subseteq \R^m$, we speak
+of continuous state or action space MDPs. Sums are replaced by integrals in the
+Bellman equations.
+\end{definition}
+
+% -----------------------------------------------------------------------------
+\section{Exercises}
+% -----------------------------------------------------------------------------
+
+\begin{exercise}[Bellman Equation]
+Consider an MDP with 3 states $\{s_1, s_2, s_3\}$, $\gamma = 0.9$, and the
+uniform policy $\pi(a|s) = 1/2$ for two actions. The transitions and rewards are:
+\begin{itemize}
+    \item From $s_1$, action $a_1$: to $s_2$ with $R=1$; action $a_2$: to $s_3$ with $R=0$.
+    \item From $s_2$, any action: to $s_1$ with $R=2$.
+    \item From $s_3$, any action: to $s_3$ with $R=0$ (absorbing state).
+\end{itemize}
+Write the system of Bellman equations for $V^\pi$ and solve it.
+\end{exercise}
+
+\begin{exercise}[Contraction Operator]
+Show that if $\gamma = 0$, the Bellman optimality operator converges in a single
+iteration. What is the interpretation of $\gamma = 0$?
+\end{exercise}
+
+\begin{exercise}[Implementation]
+Implement a custom \texttt{FrozenLake} environment with Gymnasium. Build the
+transition matrix and compute $V^\pi$ by matrix inversion for the uniform policy.
+Verify your result by comparing with Gymnasium's \texttt{FrozenLake-v1}.
+\end{exercise}
+
+\begin{exercise}[Advantage Function]
+Show that for a deterministic optimal policy $\pi^*$:
+\[
+    A^{\pi^*}(s, \pi^*(s)) = 0 \quad \text{and} \quad A^{\pi^*}(s, a) \leq 0
+    \quad \forall a \neq \pi^*(s).
+\]
+\end{exercise}

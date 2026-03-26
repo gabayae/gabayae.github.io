@@ -1,0 +1,337 @@
+% ============================================================
+\chapter{\'Ethique, Biais et S\'ecurit\'e}
+\label{ch:ethique}
+% ============================================================
+
+\begin{intuition}[title=\textbf{Responsabilit\'e en TAL}]
+Les mod\`eles de langage sont d\'eploy\'es \`a grande \'echelle et
+influencent des d\'ecisions cons\'equentes~: recrutement, justice,
+sant\'e, \'education. Ils reproduisent et amplifient les biais pr\'esents
+dans leurs donn\'ees d'entra\^inement. Comprendre, mesurer et att\'enuer
+ces biais est une responsabilit\'e fondamentale du praticien en TAL.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Biais dans les plongements de mots}
+\label{sec:ethique:embeddings}
+% ------------------------------------------------------------
+
+\begin{definition}[Biais dans les embeddings]
+\index{biais!embeddings}
+Les plongements de mots capturent les r\'egularit\'es statistiques du
+corpus, y compris les st\'er\'eotypes sociaux. Par exemple, dans
+Word2Vec entra\^in\'e sur Google News~:
+\[
+    \vec{\text{homme}} - \vec{\text{femme}} \approx
+    \vec{\text{informaticien}} - \vec{\text{m\'enag\`ere}}
+\]
+\end{definition}
+
+\begin{theoreme}[WEAT --- Word Embedding Association Test]
+\index{WEAT}
+Le test WEAT (Caliskan et al., 2017) mesure l'association entre deux
+ensembles de mots cibles $X, Y$ et deux ensembles d'attributs $A, B$~:
+\[
+    d(X, Y, A, B) = \sum_{x \in X} s(x, A, B) - \sum_{y \in Y} s(y, A, B)
+\]
+o\`u $s(w, A, B) = \frac{1}{\abs{A}} \sum_{a \in A} \cos(w, a)
+- \frac{1}{\abs{B}} \sum_{b \in B} \cos(w, b)$.
+La significativit\'e statistique est \'evalu\'ee par un test de
+permutation.
+\end{theoreme}
+
+\begin{exemple}[Biais de genre]
+En appliquant WEAT avec $X = \{\text{math, science, ing\'enierie}\}$,
+$Y = \{\text{arts, litt\'erature, humanit\'es}\}$,
+$A = \text{noms masculins}$, $B = \text{noms f\'eminins}$, on observe
+une association significative entre sciences et masculin, reproduisant
+un st\'er\'eotype de genre.
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Biais dans les mod\`eles de langue}
+\label{sec:ethique:lm_bias}
+% ------------------------------------------------------------
+
+\begin{definition}[Biais des LLM]
+\index{biais!LLM}
+Les LLM exhibent des biais \`a plusieurs niveaux~:
+\begin{enumerate}
+    \item \textbf{Repr\'esentationnel}~: certains groupes sont
+    sous-repr\'esent\'es ou st\'er\'eotyp\'es.
+    \item \textbf{Allocatif}~: le mod\`ele performe mieux pour certains
+    groupes (ex.~: r\'esum\'es de CV favorisant certains pr\'enoms).
+    \item \textbf{G\'en\'eratif}~: production de contenu toxique,
+    discriminatoire ou inexact concernant certains groupes.
+\end{enumerate}
+\end{definition}
+
+\begin{proposition}[Sources de biais]
+\begin{itemize}
+    \item \textbf{Donn\'ees d'entra\^inement}~: le web contient des
+    contenus biais\'es, sexistes, racistes.
+    \item \textbf{Annotation}~: les annotateurs apportent leurs propres
+    biais culturels et linguistiques.
+    \item \textbf{Objectif d'entra\^inement}~: maximiser la vraisemblance
+    reproduit les patterns dominants.
+    \item \textbf{D\'eploiement}~: les biais de feedback (les utilisateurs
+    interagissent plus avec certains contenus) amplifient les biais
+    existants.
+\end{itemize}
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{M\'etriques d'\'equit\'e}
+\label{sec:ethique:metriques}
+% ------------------------------------------------------------
+
+\begin{definition}[\'Egalit\'e des chances (Equalized Odds)]
+\index{equalized odds}
+Un classifieur satisfait l'\textbf{\'egalit\'e des chances} si sa
+performance est identique pour tous les groupes d\'emographiques $g$~:
+\[
+    P(\hat{Y} = 1 | Y = y, G = g) = P(\hat{Y} = 1 | Y = y)
+    \quad \forall g, \forall y \in \{0, 1\}
+\]
+\end{definition}
+
+\begin{definition}[Parit\'e d\'emographique]
+\index{parit\'e d\'emographique}
+La \textbf{parit\'e d\'emographique} exige que la d\'ecision soit
+ind\'ependante du groupe~:
+\[
+    P(\hat{Y} = 1 | G = g) = P(\hat{Y} = 1) \quad \forall g
+\]
+\end{definition}
+
+\begin{attention}[title=\textbf{Incompatibilit\'e des crit\`eres}]
+Il est g\'en\'eralement impossible de satisfaire simultan\'ement
+la parit\'e d\'emographique, l'\'egalit\'e des chances et la calibration
+(th\'eor\`eme d'impossibilit\'e de Chouldechova, 2017, et Kleinberg
+et al., 2016). Le choix du crit\`ere d\'epend du contexte applicatif.
+\end{attention}
+
+\begin{definition}[Biais de toxicit\'e]
+\index{toxicit\'e}
+Le \textbf{biais de toxicit\'e} mesure la propension d'un mod\`ele \`a
+g\'en\'erer du contenu toxique (insultes, menaces, discours haineux).
+Le score RealToxicityPrompts (Gehman et al., 2020) mesure la probabilit\'e
+de g\'en\'erer du contenu toxique \`a partir d'amorces neutres.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Techniques de d\'ebiaisage}
+\label{sec:ethique:debiaisage}
+% ------------------------------------------------------------
+
+\begin{definition}[D\'ebiaisage des embeddings]
+\index{d\'ebiaisage}
+La m\'ethode de Bolukbasi et al.\ (2016) identifie la direction de
+biais $\mathbf{b}$ (ex.~: direction homme-femme) et projette les
+embeddings pour \'eliminer cette composante~:
+\[
+    \mathbf{w}_{\text{debias}} = \mathbf{w} -
+    (\mathbf{w} \cdot \mathbf{b}) \mathbf{b}
+\]
+pour les mots neutres (non d\'efinitionnellement genre\'es).
+\end{definition}
+
+\begin{remarque}
+Le d\'ebiaisage g\'eom\'etrique des embeddings a \'et\'e critiqu\'e~:
+Gonen et Gold (2019) montrent que les biais persistent dans la structure
+des voisinages m\^eme apr\`es projection. Des approches plus r\'ecentes
+interviennent au niveau des donn\'ees ou de l'entra\^inement.
+\end{remarque}
+
+\begin{definition}[Strat\'egies de d\'ebiaisage pour les LLM]
+\index{d\'ebiaisage!LLM}
+\begin{enumerate}
+    \item \textbf{Curation des donn\'ees}~: filtrage des contenus
+    toxiques, \'equilibrage des repr\'esentations.
+    \item \textbf{Instruction tuning}~: fine-tuning avec des instructions
+    explicites d'\'equit\'e.
+    \item \textbf{RLHF/DPO}~: entra\^iner le mod\`ele \`a pr\'ef\'erer
+    les r\'eponses non biais\'ees via feedback humain.
+    \item \textbf{Prompting}~: instructions syst\`eme sp\'ecifiant un
+    comportement \'equitable.
+    \item \textbf{D\'ecodage contr\^ol\'e}~: modifier les probabilit\'es
+    de g\'en\'eration pour r\'eduire la toxicit\'e.
+\end{enumerate}
+\end{definition}
+
+% ------------------------------------------------------------
+\section{D\'etection de toxicit\'e}
+\label{sec:ethique:toxicite}
+% ------------------------------------------------------------
+
+\begin{definition}[Classifieur de toxicit\'e]
+\index{d\'etection de toxicit\'e}
+Un \textbf{classifieur de toxicit\'e} est un mod\`ele supervis\'e
+entra\^in\'e \`a d\'etecter le contenu offensant, haineux ou dangereux.
+Exemples~: Perspective API (Google), OpenAI Moderation API.
+\end{definition}
+
+\begin{proposition}[D\'efis de la d\'etection de toxicit\'e]
+\begin{enumerate}
+    \item \textbf{D\'efinition subjective}~: la toxicit\'e d\'epend du
+    contexte, de la culture et de l'intention.
+    \item \textbf{Biais du classifieur}~: les mod\`eles de toxicit\'e
+    eux-m\^emes peuvent \^etre biais\'es (ex.~: classifier le dialecte
+    afro-am\'ericain comme plus toxique).
+    \item \textbf{\'Evasion}~: les utilisateurs contournent les filtres
+    par des reformulations cr\'eatives.
+    \item \textbf{Surtoxicit\'e}~: un filtrage trop agressif censure du
+    contenu l\'egitime.
+\end{enumerate}
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Impact environnemental}
+\label{sec:ethique:environnement}
+% ------------------------------------------------------------
+
+\begin{definition}[Co\^ut carbone de l'entra\^inement]
+\index{impact environnemental}
+L'entra\^inement d'un grand mod\`ele de langue consomme une \'energie
+consid\'erable. Strubell et al.\ (2019) estiment l'empreinte carbone
+de l'entra\^inement d'un Transformer \`a $\sim$284 tonnes de CO$_2$
+(comparable \`a 5 fois la vie d'une voiture am\'ericaine).
+\end{definition}
+
+\begin{formules}[title=\textbf{Estimation du co\^ut carbone}]
+\[
+    \text{CO}_2 \approx \text{PUE} \times \text{kWh} \times
+    \text{intensit\'e carbone (g CO}_2\text{/kWh)}
+\]
+o\`u PUE (Power Usage Effectiveness) $\approx 1.1$--$1.4$ pour les
+datacenters modernes.
+\end{formules}
+
+\begin{proposition}[Strat\'egies de r\'eduction]
+\begin{itemize}
+    \item \textbf{Mod\`eles plus petits}~: distillation, pruning,
+    quantification.
+    \item \textbf{Entra\^inement efficient}~: mixed precision, gradient
+    checkpointing, architecture search.
+    \item \textbf{Localisation}~: entra\^iner dans des r\'egions \`a
+    \'electricit\'e d\'ecarbon\'ee.
+    \item \textbf{R\'eutilisation}~: partager les mod\`eles pr\'e-entra\^in\'es
+    (HuggingFace Hub).
+\end{itemize}
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Pratiques responsables en IA}
+\label{sec:ethique:pratiques}
+% ------------------------------------------------------------
+
+\begin{definition}[Model Cards]
+\index{model cards}
+Une \textbf{model card} (Mitchell et al., 2019) est une fiche
+documentant un mod\`ele~: usage pr\'evu, limitations, biais connus,
+m\'etriques d'\'evaluation, donn\'ees d'entra\^inement, et
+consid\'erations \'ethiques.
+\end{definition}
+
+\begin{definition}[Datasheets for Datasets]
+\index{datasheets}
+Les \textbf{datasheets} (Gebru et al., 2021) documentent les jeux de
+donn\'ees~: motivation, composition, processus de collecte,
+pr\'etraitement, utilisations recommand\'ees, et distributions
+d\'emographiques.
+\end{definition}
+
+\begin{remarque}
+Les r\'eglementations \'evoluent rapidement~:
+\begin{itemize}
+    \item \textbf{AI Act} (Union Europ\'eenne, 2024)~: classification
+    des syst\`emes d'IA par niveau de risque, obligations de transparence.
+    \item \textbf{Executive Order on AI} (\'Etats-Unis, 2023)~: exigences
+    de s\'ecurit\'e et de tests pour les mod\`eles de fondation.
+    \item Les entreprises adoptent des \emph{Responsible AI frameworks}
+    int\'egrant \'evaluation des risques, audits r\'eguliers et comit\'es
+    d'\'ethique.
+\end{itemize}
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Impl\'ementation Python}
+\label{sec:ethique:code}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{D\'etection de biais dans les embeddings}]
+\begin{minted}{python}
+import numpy as np
+from gensim.models import KeyedVectors
+
+def weat_score(model, X, Y, A, B):
+    """Compute WEAT effect size."""
+    def s(w, A_set, B_set):
+        a_sims = [model.similarity(w, a) for a in A_set
+                  if a in model]
+        b_sims = [model.similarity(w, b) for b in B_set
+                  if b in model]
+        return np.mean(a_sims) - np.mean(b_sims)
+
+    x_scores = [s(x, A, B) for x in X if x in model]
+    y_scores = [s(y, A, B) for y in Y if y in model]
+    d = np.mean(x_scores) - np.mean(y_scores)
+    std = np.std(x_scores + y_scores)
+    return d / std if std > 0 else 0.0
+
+# Example: gender bias in professions
+X = ["programmer", "engineer", "scientist"]
+Y = ["nurse", "teacher", "librarian"]
+A = ["man", "male", "boy", "he"]
+B = ["woman", "female", "girl", "she"]
+# score = weat_score(model, X, Y, A, B)
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{D\'ebiaisage g\'eom\'etrique}]
+\begin{minted}{python}
+def debias_embedding(embedding, bias_direction):
+    """Project out the bias direction from an embedding."""
+    projection = np.dot(embedding, bias_direction) * bias_direction
+    return embedding - projection
+
+# Compute bias direction (e.g., he - she)
+bias_dir = model["he"] - model["she"]
+bias_dir = bias_dir / np.linalg.norm(bias_dir)
+
+# Debias a neutral word
+debiased = debias_embedding(model["programmer"], bias_dir)
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercices}
+\label{sec:ethique:exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}[Analyse de biais]
+T\'el\'echarger des embeddings Word2Vec ou FastText pr\'e-entra\^in\'es.
+Calculer le score WEAT pour le biais de genre dans les professions.
+Comparer les r\'esultats entre les embeddings entra\^in\'es sur des
+corpus diff\'erents (Wikip\'edia vs Common Crawl).
+\end{exercice}
+
+\begin{exercice}[D\'ebiaisage]
+Impl\'ementer la m\'ethode de d\'ebiaisage de Bolukbasi et al.
+V\'erifier que les analogies biais\'ees sont r\'eduites. Tester si
+le d\'ebiaisage affecte la performance sur une t\^ache de similarit\'e
+s\'emantique (ex.~: STS-B).
+\end{exercice}
+
+\begin{exercice}[Toxicit\'e des LLM]
+Utiliser l'API OpenAI Moderation (ou un classifieur Hugging Face) pour
+\'evaluer la toxicit\'e de 100 g\'en\'erations d'un mod\`ele de langue
+\`a partir d'amorces neutres. Quels types de toxicit\'e sont les plus
+fr\'equents~?
+\end{exercice}
+
+\begin{exercice}[Model Card]
+R\'ediger une model card compl\`ete pour un classifieur de sentiment
+entra\^in\'e sur des critiques de films en fran\c{c}ais. Inclure les
+limitations, les biais potentiels et les recommandations d'utilisation.
+\end{exercice}

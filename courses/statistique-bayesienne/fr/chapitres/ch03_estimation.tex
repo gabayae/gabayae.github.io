@@ -1,0 +1,471 @@
+% ============================================================
+\chapter{Estimation Bay\'esienne et Fonctions de Perte}
+\label{ch:estimation}
+% ============================================================
+
+En statistique fr\'equentiste, un estimateur est \og bon \fg s'il est sans biais et de variance minimale. En statistique bay\'esienne, la question est formul\'ee diff\'eremment~: quel r\'esum\'e de la loi a posteriori choisir, et \`a quel co\^ut~? La r\'eponse d\'epend de ce que l'on consid\`ere comme une erreur grave. Se tromper de beaucoup est-il proportionnellement pire que se tromper de peu (perte quadratique), ou toute erreur au-del\`a d'un seuil est-elle \'egalement inacceptable (perte 0-1)~? Abraham Wald, dans ses travaux fondateurs des ann\'ees 1940 sur la th\'eorie de la d\'ecision, a montr\'e que cette question de la \emph{fonction de perte} est in\'evitable~: tout estimateur est, consciemment ou non, la solution d'un probl\`eme de d\'ecision.
+
+Ce chapitre explore ce lien entre estimation et d\'ecision, et montre comment chaque fonction de perte conduit \`a un estimateur optimal diff\'erent~: la moyenne a posteriori, la m\'ediane a posteriori, le mode a posteriori.
+
+\begin{intuition}[title=\textbf{Id\'ee centrale}]
+L'estimation bay\'esienne ne se r\'eduit pas \`a un estimateur ponctuel
+unique~: elle fournit toute la loi a posteriori. N\'eanmoins, lorsqu'un
+r\'esum\'e ponctuel est n\'ecessaire, le choix de l'estimateur optimal
+d\'epend de la \textbf{fonction de perte} retenue.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Th\'eorie de la d\'ecision bay\'esienne}
+% ------------------------------------------------------------
+
+\begin{definition}[Probl\`eme de d\'ecision]
+Un \textbf{probl\`eme de d\'ecision} est un triplet $(\Theta, \mathcal{A}, L)$
+o\`u~:
+\begin{itemize}
+  \item $\Theta$ est l'espace des param\`etres,
+  \item $\mathcal{A}$ est l'espace des actions (d\'ecisions),
+  \item $L : \Theta \times \mathcal{A} \to \R^+$ est la fonction de perte.
+\end{itemize}
+\end{definition}
+
+\begin{definition}[Risque a posteriori]
+Le \textbf{risque a posteriori} (ou perte esp\'er\'ee a posteriori)
+d'une action $a \in \mathcal{A}$ est~:
+\[
+  \rho(\pi, a \mid x) = \E_{\theta \mid x}[L(\theta, a)]
+  = \int_\Theta L(\theta, a)\,\pi(\theta \mid x)\,d\theta.
+\]
+\end{definition}
+
+\begin{definition}[Estimateur de Bayes]
+L'\textbf{estimateur de Bayes} sous la perte $L$ est l'action qui
+minimise le risque a posteriori~:
+\[
+  \hat{\theta}_B(x) = \argmin_{a \in \mathcal{A}} \rho(\pi, a \mid x).
+\]
+\end{definition}
+
+\begin{definition}[Risque bay\'esien (int\'egr\'e)]
+Le \textbf{risque bay\'esien} d'un estimateur $\delta(x)$ est~:
+\[
+  r(\pi, \delta) = \E_x\left[\rho(\pi, \delta(x) \mid x)\right]
+  = \int \int L(\theta, \delta(x))\,f(x \mid \theta)\,\pi(\theta)\,dx\,d\theta.
+\]
+\end{definition}
+
+\begin{theoreme}[Optimalit\'e de l'estimateur de Bayes]
+L'estimateur de Bayes $\hat{\theta}_B$ minimise le risque bay\'esien
+$r(\pi, \delta)$ parmi tous les estimateurs.
+\end{theoreme}
+
+\begin{proof}
+Le risque bay\'esien peut s'\'ecrire~:
+\[
+  r(\pi, \delta) = \int \rho(\pi, \delta(x) \mid x)\,m(x)\,dx,
+\]
+o\`u $m(x)$ est la vraisemblance marginale. Comme $m(x) \geq 0$,
+minimiser $r(\pi, \delta)$ revient \`a minimiser $\rho(\pi, \delta(x) \mid x)$
+pour chaque $x$, ce qui donne $\hat{\theta}_B(x)$.
+\end{proof}
+
+% ------------------------------------------------------------
+\section{Fonctions de perte classiques}
+% ------------------------------------------------------------
+
+\begin{formules}[title=\textbf{Estimateurs de Bayes selon la perte}]
+\begin{center}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{p{4.5cm} p{4cm} p{5cm}}
+\toprule
+\textbf{Fonction de perte} & \textbf{Expression} & \textbf{Estimateur de Bayes} \\
+\midrule
+Quadratique & $L(\theta, a) = (\theta - a)^2$ &
+  $\E[\theta \mid x]$ (moyenne post.) \\
+Valeur absolue & $L(\theta, a) = \abs{\theta - a}$ &
+  $\text{Med}[\theta \mid x]$ (m\'ediane post.) \\
+0--1 (tout ou rien) & $L(\theta, a) = \mathbf{1}(\abs{\theta - a} > \varepsilon)$ &
+  Mode$[\theta \mid x]$ (MAP) \\
+LINEX & $L(\theta, a) = e^{c(\theta-a)} - c(\theta-a) - 1$ &
+  $\frac{1}{c}\log \E[e^{c\theta} \mid x]$ \\
+Quadratique pond\'er\'ee & $L(\theta, a) = w(\theta)(\theta - a)^2$ &
+  $\frac{\E[w(\theta)\theta \mid x]}{\E[w(\theta) \mid x]}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{formules}
+
+\subsection{Perte quadratique}
+
+\begin{theoreme}[Estimateur de Bayes sous perte quadratique]
+\label{thm:bayes_quad}
+Sous la perte quadratique $L(\theta, a) = (\theta - a)^2$,
+l'estimateur de Bayes est la moyenne a posteriori~:
+\[
+  \hat{\theta}_B(x) = \E[\theta \mid x].
+\]
+\end{theoreme}
+
+\begin{proof}
+\begin{align*}
+  \frac{\partial}{\partial a} \E[(\theta - a)^2 \mid x]
+  &= -2\,\E[\theta - a \mid x]
+  = -2\big(\E[\theta \mid x] - a\big).
+\end{align*}
+Ce qui s'annule pour $a = \E[\theta \mid x]$. La d\'eriv\'ee seconde
+est $2 > 0$, confirmant un minimum.
+\end{proof}
+
+\begin{corollaire}
+Le risque a posteriori sous perte quadratique est la variance a
+posteriori~:
+\[
+  \rho(\pi, \hat{\theta}_B \mid x) = \Var[\theta \mid x].
+\]
+\end{corollaire}
+
+\subsection{Perte valeur absolue}
+
+\begin{theoreme}[Estimateur de Bayes sous perte absolue]
+Sous la perte $L(\theta, a) = \abs{\theta - a}$, l'estimateur de Bayes
+est la m\'ediane a posteriori.
+\end{theoreme}
+
+\begin{proof}
+La d\'eriv\'ee g\'en\'eralis\'ee du risque a posteriori est~:
+\[
+  \frac{\partial}{\partial a} \E[\abs{\theta - a} \mid x]
+  = \PP(\theta < a \mid x) - \PP(\theta > a \mid x),
+\]
+qui s'annule quand $\PP(\theta < a \mid x) = 1/2$, i.e., $a$ est la
+m\'ediane de $\pi(\theta \mid x)$.
+\end{proof}
+
+\subsection{Maximum a posteriori (MAP)}
+
+\begin{definition}[Estimateur MAP]
+L'\textbf{estimateur du maximum a posteriori} (MAP) est~:
+\[
+  \hat{\theta}_{\text{MAP}} = \argmax_\theta \pi(\theta \mid x)
+  = \argmax_\theta \big[\log L(\theta \mid x) + \log \pi(\theta)\big].
+\]
+\end{definition}
+
+\begin{remarque}
+Le MAP co\"incide avec le MLE quand le prior est uniforme. Avec un
+prior gaussien $\mathcal{N}(0, \tau^2)$, le MAP correspond \`a la
+r\'egularisation de Ridge~:
+\[
+  \hat{\theta}_{\text{MAP}} = \argmin_\theta \left[
+  -\log L(\theta \mid x) + \frac{\norm{\theta}^2}{2\tau^2}\right].
+\]
+\end{remarque}
+
+\begin{proposition}[MAP et r\'egularisation Lasso]
+Si le prior est un Laplace $\pi(\theta) \propto e^{-\lambda \abs{\theta}}$,
+le MAP correspond \`a la r\'egularisation Lasso ($\ell_1$).
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Intervalles de cr\'edibilit\'e}
+% ------------------------------------------------------------
+
+\begin{definition}[Intervalle de cr\'edibilit\'e]
+Un \textbf{intervalle de cr\'edibilit\'e} \`a $100(1-\alpha)\%$ est un
+intervalle $[a, b]$ tel que~:
+\[
+  \PP(\theta \in [a, b] \mid x) = 1 - \alpha.
+\]
+\end{definition}
+
+\begin{definition}[HDI --- Highest Density Interval]
+L'\textbf{intervalle de plus haute densit\'e} (HDI) est l'intervalle
+de cr\'edibilit\'e de longueur minimale~:
+\[
+  \text{HDI}_{1-\alpha} = \{
+  \theta : \pi(\theta \mid x) \geq c_\alpha\},
+\]
+o\`u $c_\alpha$ est choisi tel que
+$\PP(\pi(\theta \mid x) \geq c_\alpha \mid x) = 1 - \alpha$.
+\end{definition}
+
+\begin{attention}[title=\textbf{Cr\'edibilit\'e vs. confiance}]
+Un intervalle de cr\'edibilit\'e \`a $95\%$ signifie que $\theta$
+appartient \`a l'intervalle avec probabilit\'e $0.95$ \textit{conditionnellement
+aux donn\'ees observ\'ees}. Un intervalle de confiance \`a $95\%$
+signifie que la proc\'edure contient $\theta$ dans $95\%$ des
+r\'ep\'etitions \textit{hypoth\'etiques}.
+\end{attention}
+
+\begin{exemple}
+Pour le mod\`ele Bernoulli--B\^eta avec $n = 100$, $s = 30$,
+$\theta \sim \text{Be}(1,1)$, le posterior est $\text{Be}(31, 71)$.
+
+L'intervalle de cr\'edibilit\'e \'equi-queue \`a $95\%$ est~:
+\[
+  [F^{-1}_{31,71}(0.025),\; F^{-1}_{31,71}(0.975)]
+  \approx [0.216,\; 0.397].
+\]
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Comparaison bay\'esien--fr\'equentiste}
+% ------------------------------------------------------------
+
+\begin{definition}[Risque fr\'equentiste]
+Le risque fr\'equentiste d'un estimateur $\delta(x)$ est~:
+\[
+  R(\theta, \delta) = \E_{x \mid \theta}[L(\theta, \delta(x))].
+\]
+\end{definition}
+
+\begin{definition}[Admissibilit\'e]
+Un estimateur $\delta$ est \textbf{admissible} s'il n'existe pas
+d'estimateur $\delta'$ tel que $R(\theta, \delta') \leq R(\theta, \delta)$
+pour tout $\theta$, avec in\'egalit\'e stricte pour au moins un $\theta$.
+\end{definition}
+
+\begin{theoreme}[Admissibilit\'e des estimateurs de Bayes]
+Sous des conditions de r\'egularit\'e, tout estimateur de Bayes dont le
+risque bay\'esien est fini est admissible.
+\end{theoreme}
+
+\begin{theoreme}[Classe compl\`ete]
+Sous des conditions g\'en\'erales, la classe des estimateurs de Bayes
+(propres et limites) forme une \textbf{classe compl\`ete}~: tout
+estimateur admissible est un estimateur de Bayes (\'eventuellement
+g\'en\'eralis\'e).
+\end{theoreme}
+
+\begin{exemple}
+\textbf{Estimateur de James--Stein.} Pour $X \sim \mathcal{N}_p(\theta, I_p)$
+avec $p \geq 3$, l'estimateur $\hat{\theta}_{\text{JS}} = (1 - \frac{p-2}{\norm{X}^2})X$
+domine le MLE $\hat{\theta} = X$ sous perte quadratique. C'est un
+estimateur de Bayes g\'en\'eralis\'e.
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Estimation ponctuelle~: exemples}
+% ------------------------------------------------------------
+
+\begin{exemple}
+\textbf{Mod\`ele Poisson--Gamma.}
+Avec $X_i \sim \text{Poi}(\lambda)$ et $\lambda \sim \text{Ga}(\alpha, \beta)$,
+le posterior est $\text{Ga}(\alpha + \sum x_i, \beta + n)$. Les
+estimateurs ponctuels sont~:
+\begin{align*}
+  \hat{\lambda}_{\text{moyenne}} &= \frac{\alpha + \sum x_i}{\beta + n}, \\
+  \hat{\lambda}_{\text{MAP}} &= \frac{\alpha + \sum x_i - 1}{\beta + n}
+  \quad (\text{si } \alpha + \sum x_i > 1), \\
+  \hat{\lambda}_{\text{m\'ediane}} &\approx \hat{\lambda}_{\text{moyenne}}
+  - \frac{1}{3(\beta + n)} \quad (\text{approx. pour grande } \alpha').
+\end{align*}
+\end{exemple}
+
+\begin{exemple}
+\textbf{Mod\`ele Normal--Normal.}
+Avec $X_i \sim \mathcal{N}(\mu, \sigma^2)$, $\sigma^2$ connu, et
+$\mu \sim \mathcal{N}(\mu_0, \tau_0^2)$~: le posterior est gaussien
+donc sym\'etrique, et les trois estimateurs co\"incident~:
+\[
+  \hat{\mu}_{\text{moyenne}} = \hat{\mu}_{\text{MAP}} = \hat{\mu}_{\text{m\'ediane}}
+  = \mu_n = \tau_n^2\left(\frac{\mu_0}{\tau_0^2} + \frac{n\bar{x}}{\sigma^2}\right).
+\]
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Perte LINEX et estimation asym\'etrique}
+% ------------------------------------------------------------
+
+\begin{definition}[Perte LINEX]
+La perte LINEX (\textit{LINear-EXponential}) est~:
+\[
+  L(\theta, a) = e^{c(\theta - a)} - c(\theta - a) - 1, \qquad c \neq 0.
+\]
+Pour $c > 0$, la surestimation est p\'enalis\'ee exponentiellement.
+Pour $c < 0$, c'est la sous-estimation.
+\end{definition}
+
+\begin{theoreme}[Estimateur de Bayes sous perte LINEX]
+L'estimateur de Bayes sous perte LINEX est~:
+\[
+  \hat{\theta}_{\text{LINEX}} = \frac{1}{c}\log \E[e^{c\theta} \mid x].
+\]
+\end{theoreme}
+
+\begin{proof}
+Le risque a posteriori est~:
+\[
+  \rho(a) = \E[e^{c(\theta-a)} \mid x] - c\,\E[\theta - a \mid x] - 1.
+\]
+En d\'erivant par rapport \`a $a$ et en annulant~:
+\[
+  -c\,e^{-ca}\,\E[e^{c\theta} \mid x] + c = 0
+  \implies e^{ca} = \E[e^{c\theta} \mid x],
+\]
+d'o\`u $a = \frac{1}{c}\log \E[e^{c\theta} \mid x]$.
+\end{proof}
+
+% ------------------------------------------------------------
+\section{R\'etr\'ecissement bay\'esien (\textit{shrinkage})}
+% ------------------------------------------------------------
+
+\begin{proposition}[R\'etr\'ecissement vers la moyenne a priori]
+Dans le mod\`ele Normal--Normal, la moyenne a posteriori s'\'ecrit~:
+\[
+  \E[\mu \mid x] = (1 - B)\bar{x} + B\mu_0,
+  \qquad B = \frac{\sigma^2/n}{\tau_0^2 + \sigma^2/n},
+\]
+o\`u $B \in (0,1)$ est le \textbf{facteur de r\'etr\'ecissement}.
+L'estimateur bay\'esien est r\'etr\'eci vers la moyenne a priori $\mu_0$.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Impl\'ementation Python}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Estimation bay\'esienne et intervalles de cr\'edibilit\'e}]
+\begin{minted}{python}
+import numpy as np
+from scipy import stats
+import matplotlib.pyplot as plt
+
+# Données Bernoulli
+np.random.seed(42)
+n, s = 100, 30
+
+# Posterior Beta(31, 71)
+a_post, b_post = 1 + s, 1 + n - s
+posterior = stats.beta(a_post, b_post)
+
+# Estimateurs ponctuels
+mean_post = posterior.mean()
+median_post = posterior.median()
+mode_post = (a_post - 1) / (a_post + b_post - 2)
+
+print(f"Moyenne a posteriori: {mean_post:.4f}")
+print(f"Médiane a posteriori: {median_post:.4f}")
+print(f"MAP: {mode_post:.4f}")
+print(f"MLE: {s/n:.4f}")
+
+# Intervalles de crédibilité
+ci_equi = posterior.ppf([0.025, 0.975])
+print(f"IC équi-queue 95%: [{ci_equi[0]:.4f}, {ci_equi[1]:.4f}]")
+
+# HDI (via ArviZ)
+import arviz as az
+samples = posterior.rvs(100000)
+hdi = az.hdi(samples, hdi_prob=0.95)
+print(f"HDI 95%: [{hdi[0]:.4f}, {hdi[1]:.4f}]")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Comparaison des fonctions de perte}]
+\begin{minted}{python}
+# Visualisation des fonctions de perte
+delta = np.linspace(-3, 3, 500)
+
+fig, axes = plt.subplots(1, 3, figsize=(14, 4))
+
+# Perte quadratique
+axes[0].plot(delta, delta**2)
+axes[0].set_title("Perte quadratique")
+axes[0].set_xlabel(r"$\theta - a$")
+
+# Perte valeur absolue
+axes[1].plot(delta, np.abs(delta))
+axes[1].set_title("Perte valeur absolue")
+axes[1].set_xlabel(r"$\theta - a$")
+
+# Perte LINEX (c=1 et c=-1)
+for c in [1, -1]:
+    loss = np.exp(c*delta) - c*delta - 1
+    axes[2].plot(delta, loss, label=f"c={c}")
+axes[2].set_title("Perte LINEX")
+axes[2].set_xlabel(r"$\theta - a$")
+axes[2].legend()
+
+for ax in axes:
+    ax.set_ylabel("Perte")
+
+plt.tight_layout()
+plt.savefig("loss_functions.pdf")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Effet de r\'etr\'ecissement bay\'esien}]
+\begin{minted}{python}
+import pymc as pm
+import arviz as az
+
+# Simulation: J groupes, estimation simultanée
+np.random.seed(0)
+J = 8
+true_mu = np.array([-2, -1, 0, 0.5, 1, 1.5, 2, 3])
+sigma = 1.0
+n_per_group = 5
+
+data = [np.random.normal(mu, sigma, n_per_group)
+        for mu in true_mu]
+x_bar = np.array([d.mean() for d in data])
+
+# Estimateurs MLE vs Bayes (prior N(0, 4))
+tau0 = 2.0
+B = (sigma**2 / n_per_group) / (tau0**2 + sigma**2 / n_per_group)
+bayes_est = (1 - B) * x_bar + B * 0  # mu_0 = 0
+
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.scatter(range(J), true_mu, marker="*", s=150,
+           label="Vrai $\\mu_j$", zorder=3)
+ax.scatter(range(J), x_bar, marker="o",
+           label="MLE $\\bar{x}_j$")
+ax.scatter(range(J), bayes_est, marker="s",
+           label="Bayes (shrinkage)")
+ax.axhline(0, color="gray", linestyle=":", alpha=0.5)
+ax.set_xlabel("Groupe $j$")
+ax.set_ylabel(r"$\mu_j$")
+ax.legend()
+ax.set_title("Rétrécissement bayésien")
+plt.tight_layout()
+plt.savefig("shrinkage.pdf")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}
+D\'emontrer que l'estimateur de Bayes sous la perte pond\'er\'ee
+$L(\theta, a) = w(\theta)(\theta - a)^2$ est~:
+\[
+  \hat{\theta}_B = \frac{\E[w(\theta)\theta \mid x]}{\E[w(\theta) \mid x]}.
+\]
+\end{exercice}
+
+\begin{exercice}
+Pour le mod\`ele Poisson--Gamma, calculer l'estimateur de Bayes sous
+la perte LINEX avec $c = 1$ et comparer avec la moyenne a posteriori.
+\end{exercice}
+
+\begin{exercice}
+Montrer que dans le cas gaussien unidimensionnel, le HDI co\"incide
+avec l'intervalle \'equi-queue.
+\end{exercice}
+
+\begin{exercice}
+Soit $X \sim \mathcal{N}_p(\theta, I_p)$ avec $\theta \sim \mathcal{N}_p(0, \tau^2 I_p)$.
+\begin{enumerate}
+  \item Calculer l'estimateur de Bayes sous perte quadratique.
+  \item Montrer qu'il s'agit d'un estimateur de r\'etr\'ecissement
+        de la forme $c \cdot X$ avec $c \in (0,1)$.
+  \item Comparer avec l'estimateur de James--Stein.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}
+\textbf{(Num\'erique)} Simuler $n = 50$ observations de
+$\mathcal{N}(3, 4)$. Comparer les estimateurs bay\'esiens de $\mu$
+(moyenne, m\'ediane, MAP) avec le MLE pour diff\'erents priors~:
+$\mathcal{N}(0, 100)$ (vague), $\mathcal{N}(0, 1)$ (informatif
+centr\'e), $\mathcal{N}(10, 1)$ (informatif d\'ecentr\'e).
+\end{exercice}

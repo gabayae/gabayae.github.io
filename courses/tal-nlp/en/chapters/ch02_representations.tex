@@ -1,0 +1,349 @@
+% ============================================================
+\chapter{Classical Text Representations}
+\label{ch:representations}
+% ============================================================
+
+Here is the fundamental problem of natural language processing: computers operate on numbers, but humans communicate with words. Bridging this gap---turning text into mathematical objects that algorithms can manipulate---is the challenge of \emph{text representation}, and the history of NLP can be read as a series of increasingly sophisticated answers to this single question.
+
+The earliest approach, dating back to the 1950s, was brutally simple: represent each document as a vector of word counts, ignoring grammar, word order, and meaning entirely. This ``bag of words'' model is laughably crude, yet it powered information retrieval systems for decades. The refinement came with TF-IDF weighting, which recognised that not all words are equally informative: ``the'' appears everywhere and tells you nothing, while ``mitochondria'' is rare and highly diagnostic. From there, the quest for richer representations led to latent semantic analysis, topic models, and ultimately to the word embeddings of Mikolov's Word2Vec (2013)---the breakthrough that showed meaning could be captured by geometry. But before we reach those heights, we must understand the classical foundations.
+
+\begin{intuition}[title=\textbf{From text to vectors}]
+Machine learning algorithms operate on numerical vectors, not raw text. This
+chapter presents classical methods for transforming textual documents into
+vector representations that can be used by classifiers or search engines.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Bag-of-Words Representation}
+\label{sec:rep:bow}
+% ------------------------------------------------------------
+
+\begin{definition}[Bag of Words]
+The \emph{bag-of-words} (BoW) model represents a document $d$ as a vector
+$\mathbf{x}_d \in \N^V$ where the $j$-th component is the count of term $t_j$
+in $d$:
+\[
+x_{d,j} = \text{count}(t_j, d)
+\]
+\end{definition}
+
+This model completely ignores word order. The sentences ``the cat eats the
+mouse'' and ``the mouse eats the cat'' have the same representation.
+
+\begin{remark}
+Despite its simplicity, the bag-of-words model remains useful as a baseline and
+in applications where word order is less important (topic classification,
+document filtering).
+\end{remark}
+
+% ------------------------------------------------------------
+\section{TF-IDF Weighting}
+\label{sec:rep:tfidf}
+% ------------------------------------------------------------
+
+Raw frequency does not reflect the discriminative importance of a term.
+Very frequent words (``the'', ``of'', ``and'') dominate the representation
+without providing semantic information.
+
+\begin{definition}[TF -- Term Frequency]
+The \emph{term frequency} of $t$ in document $d$ is:
+\[
+\text{tf}(t, d) = \frac{\text{count}(t, d)}{\sum_{t' \in d} \text{count}(t', d)}
+\]
+\end{definition}
+
+\begin{definition}[IDF -- Inverse Document Frequency]
+The \emph{inverse document frequency} of term $t$ in a corpus $\mathcal{D}$
+of $N$ documents is:
+\[
+\text{idf}(t, \mathcal{D}) = \log \frac{N}{\abs{\{d \in \mathcal{D} : t \in d\}}}
+\]
+\end{definition}
+
+\begin{definition}[TF-IDF]
+The \emph{TF-IDF} weighting combines both measures:
+\[
+\text{tf-idf}(t, d, \mathcal{D}) = \text{tf}(t, d) \times \text{idf}(t, \mathcal{D})
+\]
+\end{definition}
+
+\begin{theorem}[Properties of TF-IDF]
+Let $\mathbf{v}_d \in \R^V$ be the TF-IDF vector of document $d$. Then:
+\begin{enumerate}
+    \item $\text{tf-idf}(t, d) = 0$ if $t \notin d$;
+    \item $\text{tf-idf}(t, d)$ is high if $t$ is frequent in $d$ but rare in
+          the corpus;
+    \item $\text{idf}(t) = 0$ if $t$ appears in all documents.
+\end{enumerate}
+\end{theorem}
+
+\begin{keyformulas}[title=\textbf{TF-IDF Variants}]
+\begin{align}
+\text{tf}_{\log}(t,d) &= 1 + \log(\text{count}(t,d)) & \text{(log tf)} \\
+\text{idf}_{\text{smooth}}(t) &= \log\frac{N+1}{\text{df}(t)+1} + 1 & \text{(smoothed idf)} \\
+\text{tf-idf}_{\text{norm}} &= \frac{\text{tf-idf}(t,d)}{\norm{\mathbf{v}_d}} & \text{($L_2$ normalized)}
+\end{align}
+\end{keyformulas}
+
+\begin{codeblock}[title=\textbf{TF-IDF with scikit-learn}]
+\begin{minted}{python}
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+corpus = [
+    "The cat sleeps on the mat",
+    "The dog runs in the garden",
+    "The cat and the dog play together"
+]
+
+vectorizer = TfidfVectorizer()
+X = vectorizer.fit_transform(corpus)
+print(f"Matrix shape: {X.shape}")
+print(f"Vocabulary: {vectorizer.get_feature_names_out()}")
+print(f"TF-IDF matrix (dense):\n{X.toarray().round(2)}")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{$N$-gram Models}
+\label{sec:rep:ngrams}
+% ------------------------------------------------------------
+
+\begin{definition}[$N$-gram]
+An \emph{$n$-gram} is a contiguous subsequence of $n$ tokens extracted from a
+text. For a sequence $(x_1, \ldots, x_T)$, the $n$-grams are:
+\[
+\{(x_t, x_{t+1}, \ldots, x_{t+n-1}) : t = 1, \ldots, T - n + 1\}
+\]
+\end{definition}
+
+\subsection{$N$-gram Language Model}
+
+An $n$-gram language model approximates the conditional probability using a
+Markov assumption of order $n-1$:
+
+\begin{definition}[$N$-gram Language Model]
+\[
+P(x_t \mid x_1, \ldots, x_{t-1}) \approx P(x_t \mid x_{t-n+1}, \ldots, x_{t-1})
+\]
+estimated by maximum likelihood:
+\[
+\hat{P}(x_t \mid x_{t-n+1}^{t-1}) = \frac{\text{count}(x_{t-n+1}, \ldots, x_t)}{\text{count}(x_{t-n+1}, \ldots, x_{t-1})}
+\]
+\end{definition}
+
+\begin{warning}[title=\textbf{Zero probability problem}]
+If an $n$-gram never appears in the training corpus, its estimated probability
+is zero, which makes the perplexity infinite. Smoothing techniques (Laplace,
+Kneser-Ney) are essential.
+\end{warning}
+
+\subsection{Laplace Smoothing (Add-$\alpha$)}
+
+\begin{definition}[Laplace Smoothing]
+Laplace smoothing adds a pseudo-count $\alpha > 0$:
+\[
+\hat{P}_\alpha(x_t \mid x_{t-n+1}^{t-1}) = \frac{\text{count}(x_{t-n+1}^t) + \alpha}{\text{count}(x_{t-n+1}^{t-1}) + \alpha V}
+\]
+where $V = \abs{\mathcal{V}}$.
+\end{definition}
+
+\subsection{Kneser-Ney Smoothing}
+
+\begin{definition}[Kneser-Ney Smoothing]
+Kneser-Ney smoothing uses an absolute discount $\delta$ and a continuation
+distribution:
+\[
+P_{\text{KN}}(w \mid h) = \frac{\max(\text{count}(h, w) - \delta, 0)}{\text{count}(h)} + \lambda(h) \cdot P_{\text{cont}}(w)
+\]
+where $P_{\text{cont}}(w) \propto \abs{\{h' : \text{count}(h', w) > 0\}}$ is
+the continuation probability and $\lambda(h)$ is a normalization factor.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Document Similarity}
+\label{sec:rep:similarity}
+% ------------------------------------------------------------
+
+\begin{definition}[Cosine Similarity]
+The \emph{cosine similarity} between two vectors $\mathbf{u}, \mathbf{v} \in \R^V$ is:
+\[
+\cos(\mathbf{u}, \mathbf{v}) = \frac{\inner{\mathbf{u}}{\mathbf{v}}}{\norm{\mathbf{u}} \cdot \norm{\mathbf{v}}}
+\]
+\end{definition}
+
+\begin{proposition}[Properties of Cosine Similarity]
+\begin{enumerate}
+    \item $\cos(\mathbf{u}, \mathbf{v}) \in [-1, 1]$
+    \item $\cos(\mathbf{u}, \mathbf{v}) = 1 \iff \mathbf{u} = \lambda \mathbf{v}$
+          for $\lambda > 0$
+    \item For TF-IDF vectors (non-negative components):
+          $\cos(\mathbf{u}, \mathbf{v}) \in [0, 1]$
+\end{enumerate}
+\end{proposition}
+
+\begin{definition}[Jaccard Distance]
+For two term sets $A$ and $B$:
+\[
+J(A, B) = \frac{\abs{A \cap B}}{\abs{A \cup B}}, \qquad d_J(A, B) = 1 - J(A, B)
+\]
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Document-Term Matrix and SVD}
+\label{sec:rep:svd}
+% ------------------------------------------------------------
+
+The document-term matrix $\mathbf{M} \in \R^{N \times V}$ is generally very
+sparse ($> 99\%$ zeros). The singular value decomposition (SVD) enables
+dimensionality reduction.
+
+\begin{definition}[Latent Semantic Analysis (LSA)]
+Latent Semantic Analysis (LSA) applies truncated SVD to the TF-IDF matrix:
+\[
+\mathbf{M} \approx \mathbf{U}_k \boldsymbol{\Sigma}_k \mathbf{V}_k^\top
+\]
+where $k \ll \min(N, V)$. Documents are then represented in $\R^k$ by the rows
+of $\mathbf{U}_k \boldsymbol{\Sigma}_k$.
+\end{definition}
+
+\begin{theorem}[Optimality of Truncated SVD (Eckart-Young)]
+The rank-$k$ matrix that minimizes the Frobenius error
+$\norm{\mathbf{M} - \hat{\mathbf{M}}}_F$ is given by the truncated SVD
+$\hat{\mathbf{M}} = \mathbf{U}_k \boldsymbol{\Sigma}_k \mathbf{V}_k^\top$.
+\end{theorem}
+
+\begin{codeblock}[title=\textbf{LSA with scikit-learn}]
+\begin{minted}{python}
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.decomposition import TruncatedSVD
+
+vectorizer = TfidfVectorizer(max_features=10000)
+X_tfidf = vectorizer.fit_transform(corpus)
+
+svd = TruncatedSVD(n_components=100, random_state=42)
+X_lsa = svd.fit_transform(X_tfidf)
+print(f"Explained variance: {svd.explained_variance_ratio_.sum():.2%}")
+print(f"Reduced dimension: {X_lsa.shape}")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Character $N$-gram Representations}
+\label{sec:rep:char}
+% ------------------------------------------------------------
+
+Character $n$-grams capture morphology and are robust to spelling errors:
+
+\begin{example}
+The word ``hello'' with $n=3$ produces the trigrams:
+\texttt{\#he}, \texttt{hel}, \texttt{ell}, \texttt{llo}, \texttt{lo\#}
+(where \texttt{\#} marks word boundaries).
+\end{example}
+
+% ------------------------------------------------------------
+\section{BM25 Model}
+\label{sec:rep:bm25}
+% ------------------------------------------------------------
+
+\begin{definition}[BM25]
+The BM25 score of document $d$ for query $q = \{q_1, \ldots, q_m\}$ is:
+\[
+\text{BM25}(d, q) = \sum_{i=1}^{m} \text{idf}(q_i) \cdot
+\frac{\text{tf}(q_i, d) \cdot (k_1 + 1)}{\text{tf}(q_i, d) + k_1 \cdot \left(1 - b + b \cdot \frac{\abs{d}}{\text{avgdl}}\right)}
+\]
+where $k_1$ and $b$ are hyperparameters (typically $k_1 = 1.2$, $b = 0.75$)
+and $\text{avgdl}$ is the average document length.
+\end{definition}
+
+\begin{bestpractice}[title=\textbf{BM25 in practice}]
+BM25 remains a reference method for information retrieval. Even modern RAG
+systems often use BM25 as a first retrieval stage before neural reranking.
+\end{bestpractice}
+
+% ------------------------------------------------------------
+\section{Limitations of Sparse Representations}
+\label{sec:rep:limits}
+% ------------------------------------------------------------
+
+The methods presented in this chapter suffer from several limitations:
+
+\begin{enumerate}
+    \item \textbf{High dimensionality}: $V$ can reach $10^5$ to $10^6$.
+    \item \textbf{Sparsity}: vectors are very sparse, making distance measures
+          unreliable.
+    \item \textbf{Lack of semantics}: synonymous words have orthogonal
+          components (``car'' $\perp$ ``automobile'').
+    \item \textbf{Context independence}: each word has a fixed representation
+          independent of context.
+\end{enumerate}
+
+These limitations motivate dense embeddings (Chapter~\ref{ch:embeddings}),
+which represent words in a low-dimensional space where geometric proximity
+reflects semantic similarity.
+
+% ------------------------------------------------------------
+\section{Application: Naive Bayes Classification}
+\label{sec:rep:naivebayes}
+% ------------------------------------------------------------
+
+\begin{definition}[Multinomial Naive Bayes Classifier]
+Let a document be represented by its word counts $\mathbf{x} = (x_1, \ldots, x_V)$.
+The multinomial naive Bayes classifier predicts:
+\[
+\hat{y} = \argmax_{c \in \mathcal{Y}} \left[\log P(c) + \sum_{j=1}^{V} x_j \log P(t_j \mid c)\right]
+\]
+with $P(t_j \mid c) = \frac{\text{count}(t_j, c) + \alpha}{\sum_{j'} \text{count}(t_{j'}, c) + \alpha V}$.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Naive Bayes classification}]
+\begin{minted}{python}
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.pipeline import Pipeline
+from sklearn.datasets import fetch_20newsgroups
+
+data = fetch_20newsgroups(
+    subset='train',
+    categories=['sci.space', 'rec.sport.baseball']
+)
+pipeline = Pipeline([
+    ('tfidf', TfidfVectorizer(max_features=10000)),
+    ('clf', MultinomialNB(alpha=0.1))
+])
+pipeline.fit(data.data, data.target)
+print(f"Accuracy (train): {pipeline.score(data.data, data.target):.2%}")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+\label{sec:rep:exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}[$\star$]
+Compute the TF-IDF vectors for the following corpus:
+$d_1$ = ``the cat sleeps'', $d_2$ = ``the dog sleeps'',
+$d_3$ = ``the cat and the dog''.
+\end{exercise}
+
+\begin{exercise}[$\star$]
+Show that cosine similarity is invariant under positive scaling:
+$\cos(\lambda \mathbf{u}, \mu \mathbf{v}) = \cos(\mathbf{u}, \mathbf{v})$ for
+$\lambda, \mu > 0$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Implement a bigram language model with Laplace smoothing. Compute the
+perplexity on a test corpus.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Show that the Eckart-Young theorem implies that the truncated SVD gives the
+best rank-$k$ approximation in the Frobenius norm.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+Compare the performance of TF-IDF + logistic regression, TF-IDF + SVM, and
+LSA + logistic regression on sentiment classification (IMDB dataset). Analyze
+the impact of the LSA dimension $k$.
+\end{exercise}

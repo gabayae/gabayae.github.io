@@ -1,0 +1,366 @@
+% ch04_fonctions.tex — Fonctions et Port\'ee
+\chapter{Fonctions et Port\'ee}
+\label{ch:fonctions}
+
+\begin{intuition}
+Une fonction est comme une \emph{machine} dans un laboratoire~: on y introduit des
+\emph{entr\'ees} (r\'eactifs), elle effectue un \emph{traitement} (r\'eaction chimique) et
+produit une \emph{sortie} (produit). Plut\^ot que de reconstruire la machine \`a chaque
+exp\'erience, on la r\'eutilise. C'est le principe \textbf{DRY}\index{DRY}~:
+<<~\emph{Don't Repeat Yourself}~>>.
+\end{intuition}
+
+% ============================================================
+\section{Pourquoi utiliser des fonctions~?}
+\index{fonction}
+
+\begin{itemize}
+    \item \textbf{R\'eutilisabilit\'e}~: \'ecrire une formule une seule fois et l'appeler partout.
+    \item \textbf{Lisibilit\'e}~: un programme d\'ecoup\'e en fonctions est plus facile \`a comprendre.
+    \item \textbf{D\'ebogage}~: on peut tester chaque fonction ind\'ependamment.
+    \item \textbf{Modularit\'e}\index{modularit\'e}~: chaque fonction a une responsabilit\'e unique.
+\end{itemize}
+
+% --- TikZ machine ---
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+    box/.style={rectangle, draw, fill=blue!10, rounded corners,
+        minimum width=3cm, minimum height=1.5cm, align=center, font=\bfseries},
+    io/.style={rectangle, draw, fill=orange!15, rounded corners,
+        minimum width=2cm, minimum height=0.8cm, align=center},
+    arr/.style={->, thick, >=stealth}
+]
+\node[io] (in) {Entr\'ees\\(param\`etres)};
+\node[box, right=2cm of in] (fn) {Fonction\\(traitement)};
+\node[io, right=2cm of fn] (out) {Sortie\\(\py{return})};
+\draw[arr] (in) -- (fn);
+\draw[arr] (fn) -- (out);
+\end{tikzpicture}
+\caption{Une fonction vue comme une machine~: entr\'ees $\to$ traitement $\to$ sortie.}
+\label{fig:fonction-machine}
+\end{figure}
+
+% ============================================================
+\section{D\'efinir et appeler une fonction}
+\index{def}\index{return}
+
+\begin{definition}[Syntaxe d'une fonction]
+\begin{minted}{python}
+def nom_fonction(parametre1, parametre2):
+    """Docstring : description de la fonction."""
+    # corps de la fonction
+    return resultat
+\end{minted}
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+def energie_cinetique(masse, vitesse):
+    """Calcule l'énergie cinétique E = 0.5 * m * v²."""
+    return 0.5 * masse * vitesse**2
+
+# Appel de la fonction
+E = energie_cinetique(2.0, 3.0)
+print(f"E = {E} J")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+E = 9.0 J
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Docstrings}
+\index{docstring}
+
+Une \emph{docstring} est une cha\^ine de documentation plac\'ee juste apr\`es \py{def}.
+Elle est accessible via \py{help(nom_fonction)}.
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+def force_gravitationnelle(m1, m2, r):
+    """
+    Calcule la force gravitationnelle entre deux masses.
+
+    Paramètres
+    ----------
+    m1 : float — masse 1 (kg)
+    m2 : float — masse 2 (kg)
+    r  : float — distance entre les centres (m)
+
+    Retour
+    ------
+    float — force en Newtons
+    """
+    G = 6.674e-11  # constante gravitationnelle
+    return G * m1 * m2 / r**2
+
+# Force Terre-Lune
+F = force_gravitationnelle(5.972e24, 7.342e22, 3.844e8)
+print(f"Force Terre-Lune : {F:.2e} N")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Force Terre-Lune : 1.98e+20 N
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Arguments par d\'efaut et arguments nomm\'es}
+\index{argument par d\'efaut}\index{argument nomm\'e}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+def chute_libre(t, g=9.81, v0=0):
+    """Position d'un objet en chute libre : y = v0*t + 0.5*g*t²."""
+    return v0 * t + 0.5 * g * t**2
+
+# Utilisation avec valeurs par défaut
+print(f"Terre : y = {chute_libre(2.0):.2f} m")
+
+# Sur la Lune (g = 1.62 m/s²)
+print(f"Lune  : y = {chute_libre(2.0, g=1.62):.2f} m")
+
+# Avec vitesse initiale
+print(f"Avec v0=5 : y = {chute_libre(2.0, v0=5):.2f} m")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Terre : y = 19.62 m
+Lune  : y = 3.24 m
+Avec v0=5 : y = 29.62 m
+\end{verbatim}
+\end{codeoutput}
+
+\begin{bonnepratique}
+Utilisez des arguments nomm\'es pour am\'eliorer la lisibilit\'e~:
+\py{chute\_libre(t=2.0, g=1.62)} est plus clair que \py{chute\_libre(2.0, 1.62)}.
+\end{bonnepratique}
+
+% ============================================================
+\section{Fonctions avec plusieurs valeurs de retour}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import math
+
+def coordonnees_polaires(x, y):
+    """Convertit des coordonnées cartésiennes en polaires."""
+    r = math.sqrt(x**2 + y**2)
+    theta = math.atan2(y, x)
+    return r, theta    # retourne un tuple
+
+r, angle = coordonnees_polaires(3, 4)
+print(f"r = {r:.2f}, θ = {math.degrees(angle):.1f}°")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+r = 5.00, θ = 53.1°
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Port\'ee des variables~: locale vs globale}
+\index{port\'ee}\index{variable locale}\index{variable globale}
+
+\begin{definition}[Port\'ee (\emph{scope})]
+Une variable d\'efinie \`a l'int\'erieur d'une fonction est \textbf{locale}~: elle n'existe
+que pendant l'ex\'ecution de la fonction. Une variable d\'efinie en dehors est
+\textbf{globale}.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+x = 10          # variable globale
+
+def ma_fonction():
+    x = 5       # variable locale (différente !)
+    print(f"Dans la fonction : x = {x}")
+
+ma_fonction()
+print(f"En dehors : x = {x}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Dans la fonction : x = 5
+En dehors : x = 10
+\end{verbatim}
+\end{codeoutput}
+
+\begin{attention}
+\'Evitez d'utiliser \py{global} pour modifier des variables globales depuis une
+fonction. Pr\'ef\'erez \emph{toujours} passer les valeurs en param\`etres et utiliser
+\py{return}.
+\end{attention}
+
+% ============================================================
+\section{Fonctions lambda}
+\index{lambda}
+
+Les fonctions \py{lambda} sont des fonctions anonymes courtes, utiles pour des
+op\'erations simples.
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Fonction lambda pour convertir Celsius en Kelvin
+celsius_to_kelvin = lambda T: T + 273.15
+
+temperatures_C = [-40, 0, 20, 37, 100]
+temperatures_K = [celsius_to_kelvin(T) for T in temperatures_C]
+
+for c, k in zip(temperatures_C, temperatures_K):
+    print(f"{c:>4}°C = {k:>6.2f} K")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+ -40°C = 233.15 K
+   0°C = 273.15 K
+  20°C = 293.15 K
+  37°C = 310.15 K
+ 100°C = 373.15 K
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Erreurs courantes}
+
+\begin{errmark}
+\begin{enumerate}
+    \item \textbf{Oublier \py{return}}~: sans \py{return}, une fonction renvoie
+    \py{None} par d\'efaut. Le calcul est effectu\'e mais le r\'esultat est perdu~!
+    \begin{minted}{python}
+def aire_cercle(r):
+    a = 3.14159 * r**2
+    # Oubli de return a !
+
+resultat = aire_cercle(5)
+print(resultat)  # Affiche None
+    \end{minted}
+
+    \item \textbf{Argument mutable par d\'efaut}~: utiliser une liste comme valeur
+    par d\'efaut est dangereux, car elle est partag\'ee entre tous les appels~!
+    \begin{minted}{python}
+# ERREUR : la liste est partagée
+def ajouter(element, liste=[]):
+    liste.append(element)
+    return liste
+
+print(ajouter(1))  # [1]
+print(ajouter(2))  # [1, 2] au lieu de [2] !
+
+# CORRECT : utiliser None
+def ajouter(element, liste=None):
+    if liste is None:
+        liste = []
+    liste.append(element)
+    return liste
+    \end{minted}
+
+    \item \textbf{Confondre \py{print} et \py{return}}~: \py{print} affiche \`a l'\'ecran
+    mais ne renvoie pas de valeur utilisable dans une expression.
+\end{enumerate}
+\end{errmark}
+
+% ============================================================
+\section{Mini-projet~: Calculateur de formules physiques}
+
+\begin{projet}
+Cr\'eez un module contenant les fonctions suivantes~:
+\begin{itemize}
+    \item \py{energie\_cinetique(m, v)}~: $E_c = \frac{1}{2}mv^2$
+    \item \py{force\_gravitationnelle(m1, m2, r)}~: $F = G\frac{m_1 m_2}{r^2}$
+    \item \py{periode\_pendule(L, g=9.81)}~: $T = 2\pi\sqrt{L/g}$
+    \item \py{loi\_ohm(V=None, R=None, I=None)}~: $V = RI$ (donner deux grandeurs, calculer la troisi\`eme)
+\end{itemize}
+Chaque fonction doit avoir une docstring compl\`ete. Testez-les avec des valeurs connues.
+\end{projet}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import math
+
+def periode_pendule(L, g=9.81):
+    """Période d'un pendule simple : T = 2π√(L/g)."""
+    return 2 * math.pi * math.sqrt(L / g)
+
+def loi_ohm(V=None, R=None, I=None):
+    """Loi d'Ohm : V = R × I. Fournir deux grandeurs."""
+    if V is None:
+        return R * I
+    elif R is None:
+        return V / I
+    elif I is None:
+        return V / R
+
+# Tests
+print(f"Pendule L=1m : T = {periode_pendule(1.0):.3f} s")
+print(f"Loi d'Ohm : V = {loi_ohm(R=100, I=0.5):.1f} V")
+print(f"Loi d'Ohm : I = {loi_ohm(V=12, R=100):.3f} A")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Pendule L=1m : T = 2.006 s
+Loi d'Ohm : V = 50.0 V
+Loi d'Ohm : I = 0.120 A
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Exercices}
+
+\begin{exercice}[$\star$ --- Conversion de temp\'eratures]
+\'Ecrivez deux fonctions \py{celsius\_to\_fahrenheit(T)} et \py{fahrenheit\_to\_celsius(T)}.
+Testez avec l'eau bouillante (100\,\textdegree C = 212\,\textdegree F).
+\end{exercice}
+
+\begin{exercice}[$\star$ --- Factorielle]
+\'Ecrivez une fonction \py{factorielle(n)} qui calcule $n!$ avec une boucle.
+V\'erifiez que \py{factorielle(10) == 3628800}.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ --- Fonction r\'ecursive]
+R\'e\'ecrivez la factorielle de mani\`ere \emph{r\'ecursive}\index{r\'ecursion}~: une fonction qui
+s'appelle elle-m\^eme. Quel est le cas de base~?
+\end{exercice}
+
+\begin{exercice}[$\star\star$ --- Statistiques descriptives]
+\'Ecrivez une fonction \py{statistiques(donnees)} qui re\c{c}oit une liste de nombres
+et renvoie la moyenne, la m\'ediane et l'\'ecart-type (sans utiliser de biblioth\`eque).
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ --- M\'ethode de Newton]
+Impl\'ementez la m\'ethode de Newton\index{m\'ethode de Newton} pour trouver les z\'eros
+d'une fonction~: $x_{n+1} = x_n - \frac{f(x_n)}{f'(x_n)}$.
+Votre fonction prendra en param\`etres \py{f}, \py{df} (d\'eriv\'ee), \py{x0}
+(estimation initiale) et \py{tol} (tol\'erance). Testez avec
+$f(x) = x^2 - 2$ pour retrouver $\sqrt{2}$.
+\end{exercice}
+
+% ============================================================
+\begin{formules}{R\'esum\'e du chapitre~: Fonctions et port\'ee}
+\begin{itemize}
+    \item \textbf{D\'efinition}~: \py{def nom(params):} ... \py{return resultat}
+    \item \textbf{Docstring}~: cha\^ine de documentation entre triple guillemets
+    \item \textbf{Arguments par d\'efaut}~: \py{def f(x, n=10):} --- n vaut 10 si non pr\'ecis\'e
+    \item \textbf{Arguments nomm\'es}~: \py{f(x=3, n=20)} pour plus de clart\'e
+    \item \textbf{Valeurs multiples}~: \py{return a, b} renvoie un tuple
+    \item \textbf{Port\'ee locale}~: les variables dans une fonction sont isol\'ees
+    \item \textbf{Lambda}~: \py{lambda x: x**2} pour des fonctions courtes
+    \item \textbf{Principe DRY}~: ne jamais copier-coller du code, \'ecrire une fonction
+\end{itemize}
+\end{formules}

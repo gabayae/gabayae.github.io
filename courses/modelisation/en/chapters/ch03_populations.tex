@@ -1,0 +1,398 @@
+% ============================================================
+\chapter{Population Dynamics Models}
+\label{ch:populations}
+% ============================================================
+
+\section{Introduction}
+
+In 1798, the Reverend Thomas Malthus published his famous \emph{Essay on the Principle of Population}, arguing that population grows geometrically while resources grow only arithmetically. This pessimistic vision---the ``Malthusian catastrophe''---would inspire Darwin and become the first mathematical model of population dynamics: the exponential. But Malthus was wrong on one crucial point: growth cannot be exponential forever. In 1838, Pierre-Fran\c{c}ois Verhulst introduced a saturation term leading to the celebrated logistic equation. Then, in the 1920s, Alfred Lotka and Vito Volterra, working independently---one on chemical reactions, the other on Adriatic fisheries---discovered the predator-prey model that bears their names.
+
+This chapter retraces this intellectual adventure and develops the fundamental models --- Malthus,
+Verhulst, Lotka--Volterra --- emphasising derivation from first
+principles, qualitative analysis (phase portraits, stability), and
+numerical simulations.
+
+% ------------------------------------------------------------
+\section{Exponential Growth: The Malthus Model}
+\label{sec:malthus}
+% ------------------------------------------------------------
+
+\begin{definition}[Malthus model]
+Let $N(t)$ be the population size at time $t$.  If the birth rate $b$
+and death rate $d$ are constant and proportional to population size:
+\[
+  \frac{dN}{dt} = rN, \qquad r = b - d, \qquad N(0) = N_0.
+\]
+\end{definition}
+
+\begin{theorem}[Solution of the Malthus model]
+The solution is $N(t) = N_0\,e^{rt}$.
+\begin{itemize}
+  \item $r > 0$: exponential growth (explosion).
+  \item $r = 0$: constant population.
+  \item $r < 0$: exponential decay (extinction).
+\end{itemize}
+\end{theorem}
+
+\begin{remark}
+The Malthus model is realistic only over short periods.  No real
+population can grow exponentially indefinitely.
+\end{remark}
+
+\begin{codeblock}[title=\textbf{Malthus model in Python}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+t = np.linspace(0, 10, 200)
+N0 = 100
+
+for r in [-0.3, 0, 0.2, 0.5]:
+    N = N0 * np.exp(r * t)
+    plt.plot(t, N, label=f'$r = {r}$')
+
+plt.xlabel('Time $t$'); plt.ylabel('Population $N(t)$')
+plt.legend(); plt.title('Malthus Model')
+plt.ylim(0, 2000)
+plt.tight_layout(); plt.savefig('malthus.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Logistic Growth: The Verhulst Model}
+\label{sec:verhulst}
+% ------------------------------------------------------------
+
+\begin{definition}[Verhulst logistic model]
+To model resource limitation, Verhulst (1838) proposed:
+\[
+  \frac{dN}{dt} = rN\left(1 - \frac{N}{K}\right),
+  \qquad N(0) = N_0,
+\]
+where $K > 0$ is the \textbf{carrying capacity}.
+\end{definition}
+
+\begin{intuition}[title=\textbf{Interpreting the logistic term}]
+The factor $(1 - N/K)$ models intraspecific competition: when
+$N \ll K$, growth is nearly exponential; as $N$ approaches $K$, the
+effective growth rate tends to zero.
+\end{intuition}
+
+\begin{theorem}[Solution of the logistic equation]
+The logistic ODE is separable.  Its solution is:
+\[
+  N(t) = \frac{K}{1 + \left(\frac{K}{N_0}-1\right)e^{-rt}}.
+\]
+We have $\lim_{t\to+\infty} N(t) = K$ for all $N_0 > 0$.
+\end{theorem}
+
+\begin{proof}
+Separate variables:
+\[
+  \frac{dN}{N(1-N/K)} = r\,dt.
+\]
+Partial fractions:
+\[
+  \frac{1}{N(1-N/K)} = \frac{1}{N} + \frac{1/K}{1-N/K}.
+\]
+Integration:
+\[
+  \ln N - \ln(1-N/K) = rt + C.
+\]
+Setting $C = \ln\frac{N_0}{1-N_0/K}$ yields the result.
+\end{proof}
+
+\subsection{Qualitative Analysis}
+
+Equilibria solve $rN(1-N/K)=0$: $N^*=0$ and $N^*=K$.
+
+\begin{proposition}[Stability of logistic equilibria]
+\begin{itemize}
+  \item $N^*=0$ is \textbf{unstable} (for $r>0$).
+  \item $N^*=K$ is \textbf{asymptotically stable}.
+\end{itemize}
+This follows from linearisation: $f'(N)=r(1-2N/K)$, giving
+$f'(0)=r>0$ (unstable) and $f'(K)=-r<0$ (stable).
+\end{proposition}
+
+\begin{codeblock}[title=\textbf{Logistic growth and phase portrait}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import odeint
+
+r, K = 0.5, 1000
+
+def logistic(N, t):
+    return r * N * (1 - N / K)
+
+t = np.linspace(0, 30, 500)
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+
+for N0 in [10, 50, 200, 500, 1200, 1500]:
+    N = odeint(logistic, N0, t).flatten()
+    ax1.plot(t, N, label=f'$N_0={N0}$')
+
+ax1.axhline(K, color='gray', ls='--', label=f'$K={K}$')
+ax1.set_xlabel('$t$'); ax1.set_ylabel('$N(t)$')
+ax1.legend(fontsize=8); ax1.set_title('Trajectories')
+
+N_vals = np.linspace(0, 1600, 300)
+dNdt = r * N_vals * (1 - N_vals / K)
+ax2.plot(N_vals, dNdt, 'b-')
+ax2.axhline(0, color='gray', ls='--')
+ax2.plot([0, K], [0, 0], 'ro', markersize=8)
+ax2.set_xlabel('$N$'); ax2.set_ylabel("$dN/dt$")
+ax2.set_title('Velocity field')
+plt.tight_layout(); plt.savefig('logistic.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{The Lotka--Volterra Predator--Prey Model}
+\label{sec:lotka_volterra}
+% ------------------------------------------------------------
+
+\begin{definition}[Lotka--Volterra system]
+Let $x(t)$ be the prey population and $y(t)$ the predator population.
+The classical Lotka--Volterra system is:
+\begin{align}
+  \dot{x} &= ax - bxy, \label{eq:lv_prey} \\
+  \dot{y} &= -cy + dxy, \label{eq:lv_pred}
+\end{align}
+where $a,b,c,d>0$.
+\begin{itemize}
+  \item $a$: intrinsic prey growth rate.
+  \item $b$: predation rate.
+  \item $c$: predator death rate.
+  \item $d$: conversion efficiency prey $\to$ predator.
+\end{itemize}
+\end{definition}
+
+\subsection{Equilibria}
+
+Setting the right-hand side to zero:
+\[
+  x(a-by)=0, \qquad y(-c+dx)=0.
+\]
+
+\begin{proposition}[Lotka--Volterra equilibria]
+There are two equilibria:
+\begin{enumerate}
+  \item $E_0 = (0,0)$: total extinction.
+  \item $E^* = (c/d,\;a/b)$: coexistence.
+\end{enumerate}
+\end{proposition}
+
+\subsection{Linear Stability}
+
+The Jacobian is:
+\[
+  J(x,y) = \begin{pmatrix}
+    a-by & -bx \\ dy & -c+dx
+  \end{pmatrix}.
+\]
+
+\begin{theorem}[Stability of Lotka--Volterra equilibria]
+\begin{enumerate}
+  \item At $E_0=(0,0)$: $J = \begin{pmatrix}a&0\\0&-c\end{pmatrix}$,
+    eigenvalues $\lambda_1=a>0$, $\lambda_2=-c<0$.
+    $E_0$ is a \textbf{saddle point} (unstable).
+  \item At $E^*=(c/d,a/b)$: $J = \begin{pmatrix}0&-bc/d\\da/b&0\end{pmatrix}$,
+    eigenvalues $\lambda=\pm i\sqrt{ac}$.
+    $E^*$ is a \textbf{centre} (periodic orbits).
+\end{enumerate}
+\end{theorem}
+
+\subsection{First Integral and Closed Trajectories}
+
+\begin{theorem}[First integral]
+The Lotka--Volterra system admits the first integral:
+\[
+  H(x,y) = dx - c\ln x + by - a\ln y = \text{constant}.
+\]
+Phase-plane trajectories are level curves of $H$, forming closed
+curves around $E^*$.
+\end{theorem}
+
+\begin{proof}
+Compute $dH/dt$:
+\begin{align*}
+  \frac{dH}{dt} &= d\dot{x} - \frac{c}{x}\dot{x}
+                  + b\dot{y} - \frac{a}{y}\dot{y} \\
+  &= d(ax-bxy) - \frac{c}{x}(ax-bxy)
+   + b(-cy+dxy) - \frac{a}{y}(-cy+dxy) \\
+  &= dax - dbxy - ca + cby - bcy + bdxy + ac - adx = 0.
+\end{align*}
+\end{proof}
+
+\begin{codeblock}[title=\textbf{Lotka--Volterra simulation}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+
+a, b, c, d = 1.0, 0.1, 1.5, 0.075
+
+def lotka_volterra(t, z):
+    x, y = z
+    return [a*x - b*x*y, -c*y + d*x*y]
+
+t_span = (0, 40)
+z0 = [40, 9]
+sol = solve_ivp(lotka_volterra, t_span, z0,
+                t_eval=np.linspace(0, 40, 1000),
+                method='RK45', rtol=1e-10)
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
+
+ax1.plot(sol.t, sol.y[0], 'b-', label='Prey $x(t)$')
+ax1.plot(sol.t, sol.y[1], 'r-', label='Predators $y(t)$')
+ax1.set_xlabel('$t$'); ax1.set_ylabel('Population')
+ax1.legend(); ax1.set_title('Time series')
+
+for x0 in [10, 20, 30, 40, 60]:
+    sol_i = solve_ivp(lotka_volterra, (0, 50), [x0, 9],
+                      t_eval=np.linspace(0, 50, 2000),
+                      method='RK45', rtol=1e-10)
+    ax2.plot(sol_i.y[0], sol_i.y[1], 'b-', alpha=0.6)
+
+ax2.plot(c/d, a/b, 'ro', markersize=8, label="$E^*$")
+ax2.set_xlabel('Prey $x$'); ax2.set_ylabel('Predators $y$')
+ax2.legend(); ax2.set_title('Phase portrait')
+plt.tight_layout(); plt.savefig('lotka_volterra.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Extensions of the Lotka--Volterra Model}
+\label{sec:extensions}
+% ------------------------------------------------------------
+
+\subsection{Holling Functional Response}
+
+\begin{definition}[Functional responses]
+The functional response $g(x)$ models the per-predator predation rate
+as a function of prey density:
+\begin{itemize}
+  \item \textbf{Type I (linear):} $g(x)=bx$ (classical Lotka--Volterra).
+  \item \textbf{Type II (saturation):} $g(x)=\frac{bx}{1+bhx}$
+    where $h$ is the handling time.
+  \item \textbf{Type III (sigmoidal):} $g(x)=\frac{bx^2}{1+bhx^2}$.
+\end{itemize}
+\end{definition}
+
+The Type II system (Rosenzweig--MacArthur model) is:
+\begin{align}
+  \dot{x} &= rx\left(1-\frac{x}{K}\right) - \frac{bxy}{1+bhx}, \\
+  \dot{y} &= y\left(\frac{dbx}{1+bhx} - c\right).
+\end{align}
+
+\begin{warning}[title=\textbf{Paradox of enrichment}]
+Rosenzweig (1971) showed that increasing the carrying capacity $K$
+can destabilise the coexistence equilibrium through a Hopf
+bifurcation, causing large-amplitude oscillations that may lead to
+extinction.
+\end{warning}
+
+\subsection{Interspecific Competition}
+
+\begin{definition}[Lotka--Volterra competition model]
+For two competing species:
+\begin{align}
+  \dot{N}_1 &= r_1 N_1\left(1 - \frac{N_1 + \alpha_{12}N_2}{K_1}\right), \\
+  \dot{N}_2 &= r_2 N_2\left(1 - \frac{N_2 + \alpha_{21}N_1}{K_2}\right),
+\end{align}
+where $\alpha_{ij}$ measures the competitive effect of species $j$ on
+species $i$.
+\end{definition}
+
+\begin{proposition}[Competitive exclusion principle]
+If $\alpha_{12}K_2/K_1 > 1$ and $\alpha_{21}K_1/K_2 > 1$, the two
+species cannot stably coexist (Gause's competitive exclusion).  The
+outcome depends on initial conditions.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Discrete Models: Beverton--Holt Equation}
+% ------------------------------------------------------------
+
+\begin{definition}[Beverton--Holt model]
+For populations with non-overlapping generations:
+\[
+  N_{t+1} = \frac{RN_t}{1 + (R-1)N_t/K},
+\]
+where $R>1$ is the reproduction rate and $K$ the carrying capacity.
+\end{definition}
+
+\begin{proposition}
+The nontrivial equilibrium $N^*=K$ is globally stable for $R>1$.
+The Beverton--Holt model is the discrete analogue of the logistic
+equation and does \emph{not} exhibit chaos, unlike the logistic map
+$N_{t+1}=RN_t(1-N_t/K)$ studied in Chapter~\ref{ch:chaos}.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Limitations of Population Models}
+% ------------------------------------------------------------
+
+\begin{warning}[title=\textbf{Assumptions and limitations}]
+\begin{itemize}
+  \item \textbf{Spatial homogeneity:} the above models ignore spatial
+    structure.  In reality, populations are distributed in space
+    (see Chapter~\ref{ch:diffusion}).
+  \item \textbf{Determinism:} for small populations, stochastic
+    fluctuations become important (Chapter~\ref{ch:stochastic}).
+  \item \textbf{Age structure:} Leslie models introduce age classes.
+  \item \textbf{Constant parameters:} in reality, $r$ and $K$ may
+    depend on time (seasonality, climate change).
+\end{itemize}
+\end{warning}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+Show that the logistic population reaches half the carrying capacity at
+time $t_{1/2} = \frac{1}{r}\ln\frac{K-N_0}{N_0}$.
+\end{exercise}
+
+\begin{exercise}
+Add constant harvesting $h$ to the logistic model:
+$\dot{N} = rN(1-N/K) - h$.
+\begin{enumerate}
+  \item Find the equilibria as a function of $h$.
+  \item Determine the maximum sustainable yield $h_{\max}$.
+  \item Draw the bifurcation diagram $N^*$ vs.\ $h$.
+  \item Simulate in Python for $h < h_{\max}$, $h = h_{\max}$,
+    $h > h_{\max}$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}
+For the Lotka--Volterra system, verify numerically that $H(x,y)$ is
+conserved over time.  Compare results from \texttt{RK45} and
+\texttt{RK23} in \texttt{solve\_ivp} for different tolerances.
+\end{exercise}
+
+\begin{exercise}
+Study the Rosenzweig--MacArthur model with parameters $r=1$, $b=0.5$,
+$h=0.5$, $d=0.5$, $c=0.3$ for $K\in\{5,10,20,50\}$.
+\begin{enumerate}
+  \item Find the equilibria and their stability.
+  \item Draw phase portraits.
+  \item Identify the critical value of $K$ for the Hopf bifurcation.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}
+Two bacterial species compete in a confined environment with $r_1=0.8$,
+$r_2=0.6$, $K_1=500$, $K_2=400$, $\alpha_{12}=0.7$, $\alpha_{21}=1.2$.
+\begin{enumerate}
+  \item Find the equilibria and analyse their stability.
+  \item Simulate the system for different initial conditions.
+  \item Conclude: is there coexistence or exclusion?
+\end{enumerate}
+\end{exercise}

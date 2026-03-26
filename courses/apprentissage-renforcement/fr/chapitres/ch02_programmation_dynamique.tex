@@ -1,0 +1,366 @@
+% =============================================================================
+\chapter{Programmation Dynamique}
+\label{ch:programmation_dynamique}
+% =============================================================================
+
+Richard Bellman, dans les ann\'ees 1950, a eu l'une de ces id\'ees qui
+semblent \'evidentes \emph{apr\`es coup}~: pour r\'esoudre un probl\`eme de
+d\'ecision s\'equentiel, on peut le d\'ecouper en sous-probl\`emes plus simples
+et remonter de la fin vers le d\'ebut. Il a appel\'e cette approche
+\og programmation dynamique\fg{} --- un nom choisi, dit-il, pour impressionner
+ses sup\'erieurs au d\'epartement de la D\'efense. L'id\'ee est devenue le
+fondement th\'eorique de tout l'apprentissage par renforcement.
+
+\begin{intuition}
+La programmation dynamique (DP) r\'esout les MDP lorsque le mod\`ele de transition
+$P(s'|s,a)$ et la fonction de r\'ecompense $R(s,a,s')$ sont parfaitement connus.
+Elle constitue le socle th\'eorique sur lequel reposent toutes les m\'ethodes
+d'apprentissage par renforcement.
+\end{intuition}
+
+% -----------------------------------------------------------------------------
+\section{Principe de la programmation dynamique}
+% -----------------------------------------------------------------------------
+
+La programmation dynamique, introduite par Richard Bellman dans les ann\'ees 1950,
+exploite la structure r\'ecursive des \'equations de Bellman pour calculer it\'erativement
+les fonctions de valeur. Les deux algorithmes fondamentaux sont~:
+\begin{enumerate}
+    \item \textbf{L'\'evaluation de politique} (\emph{policy evaluation})~: calculer
+    $V^\pi$ pour une politique donn\'ee $\pi$.
+    \item \textbf{L'am\'elioration de politique} (\emph{policy improvement})~:
+    construire une meilleure politique \`a partir de $V^\pi$.
+\end{enumerate}
+
+% -----------------------------------------------------------------------------
+\section{\'Evaluation de politique}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[\'Evaluation de politique it\'erative]
+L'\'evaluation de politique it\'erative calcule $V^\pi$ en appliquant r\'ep\'etitivement
+l'op\'erateur de Bellman $\mathcal{T}^\pi$~:
+\[
+    V_{k+1}(s) = \sum_{a} \pi(a|s) \sum_{s'} P(s'|s,a)[R(s,a,s') + \gamma V_k(s')]
+    \quad \forall s \in \mathcal{S}.
+\]
+\end{definition}
+
+\begin{theoreme}[Convergence de l'\'evaluation de politique]
+\label{thm:conv_eval}
+Pour toute initialisation $V_0$, la suite $(V_k)_{k \geq 0}$ d\'efinie par
+$V_{k+1} = \mathcal{T}^\pi V_k$ converge vers $V^\pi$ quand $k \to \infty$.
+De plus~:
+\[
+    \norm{V_k - V^\pi}_\infty \leq \gamma^k \norm{V_0 - V^\pi}_\infty.
+\]
+\end{theoreme}
+
+\begin{proof}
+C'est une cons\'equence directe du th\'eor\`eme~\ref{thm:contraction}. L'op\'erateur
+$\mathcal{T}^\pi$ est une $\gamma$-contraction en norme infinie, donc par le
+th\'eor\`eme du point fixe de Banach, la suite converge g\'eom\'etriquement
+vers l'unique point fixe $V^\pi$.
+\end{proof}
+
+\begin{algorithme}[title=\textbf{\'Evaluation de politique it\'erative}]
+\begin{enumerate}
+    \item Initialiser $V(s) \leftarrow 0$ pour tout $s \in \mathcal{S}$
+    \item \textbf{R\'ep\'eter} jusqu'\`a convergence ($\Delta < \theta$)~:
+    \begin{enumerate}
+        \item $\Delta \leftarrow 0$
+        \item Pour chaque $s \in \mathcal{S}$~:
+        \begin{enumerate}
+            \item $v \leftarrow V(s)$
+            \item $V(s) \leftarrow \sum_a \pi(a|s) \sum_{s'} P(s'|s,a)[R(s,a,s') + \gamma V(s')]$
+            \item $\Delta \leftarrow \max(\Delta, |v - V(s)|)$
+        \end{enumerate}
+    \end{enumerate}
+    \item Retourner $V \approx V^\pi$
+\end{enumerate}
+\end{algorithme}
+
+% -----------------------------------------------------------------------------
+\section{Am\'elioration de politique}
+% -----------------------------------------------------------------------------
+
+\begin{theoreme}[Th\'eor\`eme d'am\'elioration de politique]
+\label{thm:policy_improvement}
+Soit $\pi$ une politique et $\pi'$ la politique gloutonne par rapport \`a $V^\pi$~:
+\[
+    \pi'(s) = \argmax_{a \in \mathcal{A}} \sum_{s'} P(s'|s,a)[R(s,a,s') + \gamma V^\pi(s')].
+\]
+Alors $V^{\pi'}(s) \geq V^\pi(s)$ pour tout $s \in \mathcal{S}$, avec \'egalit\'e
+si et seulement si $\pi$ est d\'ej\`a optimale.
+\end{theoreme}
+
+\begin{proof}
+Pour tout \'etat $s$~:
+\begin{align*}
+    V^\pi(s) &\leq \max_a Q^\pi(s,a) = Q^\pi(s, \pi'(s)) \\
+    &= \sum_{s'} P(s'|s,\pi'(s))[R(s,\pi'(s),s') + \gamma V^\pi(s')] \\
+    &\leq \sum_{s'} P(s'|s,\pi'(s))[R(s,\pi'(s),s') + \gamma Q^\pi(s',\pi'(s'))] \\
+    &= \sum_{s'} P(s'|s,\pi'(s))\Big[R + \gamma \sum_{s''} P(s''|s',\pi'(s'))
+       [R' + \gamma V^\pi(s'')]\Big] \\
+    &\leq \cdots \leq V^{\pi'}(s).
+\end{align*}
+On obtient le r\'esultat par application r\'ecursive de l'in\'egalit\'e.
+\end{proof}
+
+% -----------------------------------------------------------------------------
+\section{It\'eration sur la politique}
+% -----------------------------------------------------------------------------
+
+\begin{algorithme}[title=\textbf{It\'eration sur la politique (\emph{Policy Iteration})}]
+\begin{enumerate}
+    \item Initialiser $\pi(s)$ arbitrairement pour tout $s$
+    \item \textbf{R\'ep\'eter}~:
+    \begin{enumerate}
+        \item \textbf{\'Evaluation}~: calculer $V^\pi$ par \'evaluation it\'erative
+        \item \textbf{Am\'elioration}~: pour chaque $s$~:
+        \[
+            \pi'(s) \leftarrow \argmax_a \sum_{s'} P(s'|s,a)[R(s,a,s') + \gamma V^\pi(s')]
+        \]
+        \item Si $\pi' = \pi$, \textbf{arr\^eter} (politique optimale trouv\'ee)
+        \item $\pi \leftarrow \pi'$
+    \end{enumerate}
+    \item Retourner $\pi^* = \pi$
+\end{enumerate}
+\end{algorithme}
+
+\begin{theoreme}[Convergence de l'it\'eration sur la politique]
+L'it\'eration sur la politique converge vers la politique optimale $\pi^*$ en un
+nombre fini d'it\'erations (au plus $|\mathcal{A}|^{|\mathcal{S}|}$ it\'erations,
+car le nombre de politiques d\'eterministes est fini et chaque it\'eration
+am\'eliore strictement la politique).
+\end{theoreme}
+
+% -----------------------------------------------------------------------------
+\section{It\'eration sur la valeur}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[It\'eration sur la valeur]
+L'it\'eration sur la valeur (\emph{value iteration}) combine \'evaluation et
+am\'elioration en une seule mise \`a jour~:
+\[
+    V_{k+1}(s) = \max_{a \in \mathcal{A}} \sum_{s'} P(s'|s,a)
+    [R(s,a,s') + \gamma V_k(s')] \quad \forall s \in \mathcal{S}.
+\]
+\end{definition}
+
+\begin{theoreme}[Convergence de l'it\'eration sur la valeur]
+La suite $(V_k)$ d\'efinie par l'it\'eration sur la valeur converge vers $V^*$~:
+\[
+    \norm{V_k - V^*}_\infty \leq \gamma^k \norm{V_0 - V^*}_\infty.
+\]
+Le nombre d'it\'erations pour atteindre une pr\'ecision $\epsilon$ est~:
+\[
+    k \geq \frac{\log(\norm{V_0 - V^*}_\infty / \epsilon)}{\log(1/\gamma)}.
+\]
+\end{theoreme}
+
+\begin{algorithme}[title=\textbf{It\'eration sur la valeur (\emph{Value Iteration})}]
+\begin{enumerate}
+    \item Initialiser $V(s) \leftarrow 0$ pour tout $s \in \mathcal{S}$
+    \item \textbf{R\'ep\'eter} jusqu'\`a convergence ($\Delta < \theta$)~:
+    \begin{enumerate}
+        \item $\Delta \leftarrow 0$
+        \item Pour chaque $s \in \mathcal{S}$~:
+        \begin{enumerate}
+            \item $v \leftarrow V(s)$
+            \item $V(s) \leftarrow \max_a \sum_{s'} P(s'|s,a)[R(s,a,s') + \gamma V(s')]$
+            \item $\Delta \leftarrow \max(\Delta, |v - V(s)|)$
+        \end{enumerate}
+    \end{enumerate}
+    \item Extraire la politique~: $\pi^*(s) = \argmax_a \sum_{s'} P(s'|s,a)[R + \gamma V(s')]$
+    \item Retourner $V^*, \pi^*$
+\end{enumerate}
+\end{algorithme}
+
+% -----------------------------------------------------------------------------
+\section{Comparaison des m\'ethodes}
+% -----------------------------------------------------------------------------
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lcc}
+    \toprule
+    & \textbf{It\'eration politique} & \textbf{It\'eration valeur} \\
+    \midrule
+    Co\^ut par it\'eration & $O(|\mathcal{S}|^3 + |\mathcal{S}|^2 |\mathcal{A}|)$ &
+    $O(|\mathcal{S}|^2 |\mathcal{A}|)$ \\
+    Nombre d'it\'erations & Peu (souvent $< 10$) & Plus ($O(1/\log(1/\gamma))$) \\
+    M\'emoire & $V + \pi$ & $V$ seul \\
+    Convergence & Finie, exacte & Asymptotique \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+\begin{remarque}
+En pratique, l'it\'eration sur la politique converge souvent en tr\`es peu
+d'it\'erations (5--10), m\^eme pour de grands MDP. L'it\'eration sur la valeur
+n\'ecessite plus d'it\'erations mais chacune est moins co\^uteuse car elle
+\'evite la r\'esolution compl\`ete de l'\'evaluation de politique.
+\end{remarque}
+
+% -----------------------------------------------------------------------------
+\section{It\'eration sur la politique g\'en\'eralis\'ee (GPI)}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[GPI --- Generalized Policy Iteration]
+L'\textbf{it\'eration sur la politique g\'en\'eralis\'ee} d\'esigne toute alternance
+entre \'evaluation (partielle ou compl\`ete) de politique et am\'elioration de
+politique. Presque tous les algorithmes de RL peuvent \^etre vus comme des
+instances de GPI.
+\end{definition}
+
+\begin{remarque}
+L'it\'eration sur la valeur est un cas limite de GPI o\`u l'\'evaluation ne fait
+qu'une seule it\'eration de Bellman avant l'am\'elioration.
+\end{remarque}
+
+% -----------------------------------------------------------------------------
+\section{Impl\'ementation en Python}
+% -----------------------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{\'Evaluation de politique}]
+\begin{minted}{python}
+import numpy as np
+
+def policy_evaluation(P, R, pi, gamma=0.99, theta=1e-8):
+    """
+    Evaluation iterative de politique.
+    P: matrice de transition (nS, nA, nS)
+    R: matrice de recompense (nS, nA, nS)
+    pi: politique deterministe (nS,) -> indices d'action
+    """
+    nS = P.shape[0]
+    V = np.zeros(nS)
+
+    while True:
+        delta = 0.0
+        for s in range(nS):
+            a = pi[s]
+            v = V[s]
+            V[s] = np.sum(P[s, a, :] * (R[s, a, :] + gamma * V))
+            delta = max(delta, abs(v - V[s]))
+        if delta < theta:
+            break
+    return V
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{It\'eration sur la politique}]
+\begin{minted}{python}
+def policy_iteration(P, R, gamma=0.99, theta=1e-8):
+    """Iteration sur la politique complete."""
+    nS, nA = P.shape[0], P.shape[1]
+    pi = np.zeros(nS, dtype=int)  # politique initiale
+
+    while True:
+        # Evaluation
+        V = policy_evaluation(P, R, pi, gamma, theta)
+
+        # Amelioration
+        stable = True
+        for s in range(nS):
+            old_action = pi[s]
+            Q_s = np.array([
+                np.sum(P[s, a, :] * (R[s, a, :] + gamma * V))
+                for a in range(nA)
+            ])
+            pi[s] = np.argmax(Q_s)
+            if old_action != pi[s]:
+                stable = False
+
+        if stable:
+            break
+
+    return V, pi
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{It\'eration sur la valeur}]
+\begin{minted}{python}
+def value_iteration(P, R, gamma=0.99, theta=1e-8):
+    """Iteration sur la valeur."""
+    nS, nA = P.shape[0], P.shape[1]
+    V = np.zeros(nS)
+
+    while True:
+        delta = 0.0
+        for s in range(nS):
+            v = V[s]
+            Q_s = np.array([
+                np.sum(P[s, a, :] * (R[s, a, :] + gamma * V))
+                for a in range(nA)
+            ])
+            V[s] = np.max(Q_s)
+            delta = max(delta, abs(v - V[s]))
+        if delta < theta:
+            break
+
+    # Extraire la politique
+    pi = np.zeros(nS, dtype=int)
+    for s in range(nS):
+        Q_s = np.array([
+            np.sum(P[s, a, :] * (R[s, a, :] + gamma * V))
+            for a in range(nA)
+        ])
+        pi[s] = np.argmax(Q_s)
+
+    return V, pi
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Application au FrozenLake}]
+\begin{minted}{python}
+import gymnasium as gym
+
+# Construire le modele de transition depuis FrozenLake
+env = gym.make("FrozenLake-v1", is_slippery=True)
+nS = env.observation_space.n  # 16
+nA = env.action_space.n       # 4
+P_mat = np.zeros((nS, nA, nS))
+R_mat = np.zeros((nS, nA, nS))
+
+for s in range(nS):
+    for a in range(nA):
+        for prob, next_s, reward, done in env.unwrapped.P[s][a]:
+            P_mat[s, a, next_s] += prob
+            R_mat[s, a, next_s] = reward
+
+V_star, pi_star = value_iteration(P_mat, R_mat, gamma=0.99)
+print("Politique optimale (grille 4x4):")
+actions = ['<', 'v', '>', '^']
+for i in range(4):
+    print([actions[pi_star[4*i + j]] for j in range(4)])
+\end{minted}
+\end{codeblock}
+
+% -----------------------------------------------------------------------------
+\section{Exercices}
+% -----------------------------------------------------------------------------
+
+\begin{exercice}[Convergence de l'it\'eration sur la valeur]
+Montrez que pour le gridworld $4 \times 4$ du Chapitre~\ref{ch:mdp} avec
+$\gamma = 0.9$ et $V_0 = 0$, l'it\'eration sur la valeur atteint une
+pr\'ecision de $\epsilon = 10^{-6}$ en au plus $k$ it\'erations. Calculez $k$.
+\end{exercice}
+
+\begin{exercice}[It\'eration sur la politique modifi\'ee]
+Impl\'ementez une version de l'it\'eration sur la politique o\`u l'\'evaluation
+effectue exactement $m$ balayages au lieu de converger. \'Etudiez l'effet de $m$
+sur la vitesse de convergence globale pour $m \in \{1, 3, 10, 100\}$.
+\end{exercice}
+
+\begin{exercice}[Balayage asynchrone]
+Impl\'ementez une version asynchrone de l'it\'eration sur la valeur o\`u les
+\'etats sont mis \`a jour dans un ordre al\'eatoire (un seul \'etat par it\'eration).
+Comparez la convergence avec la version synchrone standard.
+\end{exercice}
+
+\begin{exercice}[R\'esolution matricielle]
+Pour un MDP \`a 3 \'etats avec la politique uniforme, calculez $V^\pi$ par
+inversion matricielle $(I - \gamma P^\pi)^{-1} r^\pi$ et v\'erifiez que
+le r\'esultat co\"incide avec l'\'evaluation it\'erative.
+\end{exercice}

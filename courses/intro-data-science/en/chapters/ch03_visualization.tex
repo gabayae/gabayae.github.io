@@ -1,0 +1,321 @@
+% !TEX root = ../main.tex
+\chapter{Data Visualization}
+\label{ch:visualisation}
+
+\begin{intuition}
+Visualization is the data scientist's first tool. A good chart reveals structures, anomalies, and relationships that no table of numbers can show as clearly. As John Tukey said: ``The greatest value of a picture is when it forces us to notice what we never expected to see.''
+\end{intuition}
+
+% ============================================================
+\section{The Grammar of Graphics}
+\index{grammar of graphics}
+
+The \textbf{grammar of graphics}\index{grammar of graphics}, proposed by Leland Wilkinson, decomposes any chart into layers:
+\begin{enumerate}
+    \item \textbf{Data}: the source dataset.
+    \item \textbf{Aesthetics}: the variables mapped to axes, colors, sizes.
+    \item \textbf{Geometries}: the type of representation (points, bars, lines).
+    \item \textbf{Facets}: the partitioning into sub-plots.
+    \item \textbf{Statistics}: the transformations applied (counting, averaging).
+    \item \textbf{Coordinates}: the coordinate system (Cartesian, polar).
+    \item \textbf{Theme}: the general appearance (fonts, grid, background).
+\end{enumerate}
+
+Seaborn and Matplotlib implement these concepts in Python.
+
+% ============================================================
+\section{Matplotlib: The Fundamentals}
+\index{Matplotlib}
+
+\subsection{Line Plot}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import matplotlib.pyplot as plt
+import numpy as np
+
+x = np.linspace(0, 2 * np.pi, 100)
+y_sin = np.sin(x)
+y_cos = np.cos(x)
+
+fig, ax = plt.subplots(figsize=(7, 4))
+ax.plot(x, y_sin, label='sin(x)', color='steelblue', linewidth=2)
+ax.plot(x, y_cos, label='cos(x)', color='coral', linestyle='--')
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+ax.set_title('Trigonometric Functions')
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.savefig('trigo.pdf', dpi=150)
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+A plot with two curves (sine in blue, cosine in dashed coral) over $[0, 2\pi]$, with legend, grid, and titles.
+\end{codeoutput}
+
+\subsection{Scatter Plot and Histogram}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import seaborn as sns
+
+tips = sns.load_dataset('tips')
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+# Scatter plot
+axes[0].scatter(tips['total_bill'], tips['tip'],
+                alpha=0.6, c='teal', edgecolors='white')
+axes[0].set_xlabel('Total Bill (\$)')
+axes[0].set_ylabel('Tip (\$)')
+axes[0].set_title('Tip vs Total Bill')
+
+# Histogram
+axes[1].hist(tips['total_bill'], bins=20, color='steelblue',
+             edgecolor='white')
+axes[1].set_xlabel('Total Bill (\$)')
+axes[1].set_ylabel('Frequency')
+axes[1].set_title('Distribution of Total Bills')
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Two sub-plots: on the left a scatter plot showing a positive relationship between bill and tip; on the right a slightly skewed histogram (right tail) of total bills.
+\end{codeoutput}
+
+\subsection{Bar Chart}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+moyenne_jour = tips.groupby('day')['tip'].mean().sort_values()
+
+fig, ax = plt.subplots(figsize=(6, 4))
+ax.bar(moyenne_jour.index, moyenne_jour.values,
+       color=['#4c72b0', '#55a868', '#c44e52', '#8172b2'])
+ax.set_xlabel('Day')
+ax.set_ylabel('Average Tip (\$)')
+ax.set_title('Average Tip by Day')
+for i, v in enumerate(moyenne_jour.values):
+    ax.text(i, v + 0.05, f'{v:.2f}', ha='center', fontsize=10)
+plt.tight_layout()
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Colored bar chart with annotated values: Fri~2.73, Thur~2.77, Sat~2.99, Sun~3.26.
+\end{codeoutput}
+
+% ============================================================
+\section{Seaborn: Statistical Visualization}
+\index{Seaborn}
+
+\subsection{Distributions: histplot and violinplot}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+sns.histplot(data=tips, x='total_bill', hue='sex', kde=True,
+             ax=axes[0], palette='Set2')
+axes[0].set_title('Distribution by Sex')
+
+sns.violinplot(data=tips, x='day', y='total_bill',
+               hue='sex', split=True, ax=axes[1],
+               palette='pastel')
+axes[1].set_title('Violin Plot by Day and Sex')
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Left: overlapping histograms with KDE curves for male and female. Right: violin plots split by sex for each day, showing that males have slightly higher bills.
+\end{codeoutput}
+
+\subsection{Box Plots and Heatmap}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+
+sns.boxplot(data=tips, x='day', y='tip', hue='smoker',
+            ax=axes[0], palette='coolwarm')
+axes[0].set_title('Tips by Day and Smoker Status')
+
+corr = tips[['total_bill', 'tip', 'size']].corr()
+sns.heatmap(corr, annot=True, fmt='.2f', cmap='YlOrRd',
+            ax=axes[1], vmin=0, vmax=1)
+axes[1].set_title('Correlation Matrix')
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Box plots showing similar distributions between smokers and non-smokers. Heatmap: correlation total\_bill/tip = 0.68, total\_bill/size = 0.60, tip/size = 0.49.
+\end{codeoutput}
+
+\subsection{Pairplot and relplot}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+iris = sns.load_dataset('iris')
+
+g = sns.pairplot(iris, hue='species', palette='husl',
+                 diag_kind='kde', height=2.2)
+g.figure.suptitle('Pairplot of the Iris Dataset', y=1.02)
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+A $4 \times 4$ matrix of plots: diagonal = KDE densities by species, off-diagonal = scatter plots. \emph{Setosa} is clearly distinguishable from the other two species.
+\end{codeoutput}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+sns.relplot(data=tips, x='total_bill', y='tip',
+            hue='smoker', style='sex', col='time',
+            height=4, aspect=1.2, palette='Set1')
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Two panels (Lunch / Dinner) with scatter plots colored by smoker status and differentiated by marker shape according to sex.
+\end{codeoutput}
+
+\subsection{catplot}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+sns.catplot(data=tips, x='day', y='total_bill', hue='sex',
+            kind='box', col='time', palette='muted',
+            height=4, aspect=1)
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Four groups of box plots organized in two columns (Lunch, Dinner), compared by sex and by day.
+\end{codeoutput}
+
+% ============================================================
+\section{Choosing the Right Chart Type}
+\index{chart selection}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.4cm and 2.2cm,
+    decision/.style={diamond, draw=teal!80, fill=teal!10, text width=2.8cm, align=center, inner sep=2pt, font=\small},
+    block/.style={rectangle, draw=steelblue!80, fill=steelblue!10, rounded corners, text width=2.8cm, align=center, minimum height=0.9cm, font=\small},
+    arrow/.style={->, thick, >=stealth, color=gray!70}
+]
+\node[decision] (start) {Variable type?};
+\node[decision, below left=1.5cm and 2.5cm of start] (cat) {Objective?};
+\node[decision, below right=1.5cm and 2.5cm of start] (num) {Objective?};
+
+\node[align=center,block, below left=1.3cm and 0.8cm of cat] (bar) {Bar chart\\Counting};
+\node[align=center,block, below right=1.3cm and 0.8cm of cat] (catcomp) {Boxplot\\Violin};
+
+\node[align=center,block, below left=1.3cm and 0.8cm of num] (dist) {Histogram\\KDE};
+\node[align=center,block, below=1.3cm of num] (rel) {Scatter\\Line};
+\node[align=center,block, below right=1.3cm and 0.8cm of num] (multi) {Heatmap\\Pairplot};
+
+\draw[arrow] (start) -- node[above left, font=\scriptsize] {Categorical} (cat);
+\draw[arrow] (start) -- node[above right, font=\scriptsize] {Numerical} (num);
+\draw[arrow] (cat) -- node[left, font=\scriptsize] {Counting} (bar);
+\draw[arrow] (cat) -- node[right, font=\scriptsize] {Comparison} (catcomp);
+\draw[arrow] (num) -- node[left, font=\scriptsize] {Distribution} (dist);
+\draw[arrow] (num) -- node[right, font=\scriptsize] {Relationship} (rel);
+\draw[arrow] (num) -- node[right, font=\scriptsize] {Multivariate} (multi);
+\end{tikzpicture}
+\end{center}
+
+% ============================================================
+\section{Color Palettes and Saving}
+\index{color palette}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Palettes available in Seaborn
+palettes = ['deep', 'muted', 'pastel', 'bright',
+            'dark', 'colorblind']
+sns.set_palette('colorblind')  # recommended for accessibility
+
+# High-resolution saving
+fig, ax = plt.subplots()
+sns.histplot(tips['tip'], bins=15, ax=ax, color='steelblue')
+fig.savefig('distribution_tip.png', dpi=300, bbox_inches='tight')
+fig.savefig('distribution_tip.pdf', bbox_inches='tight')
+\end{minted}
+\end{codeblock}
+
+\begin{bestpractice}
+Always use the \py{'colorblind'} palette to ensure the accessibility of your charts. Save in PDF for reports and in PNG (300 dpi) for presentations.
+\end{bestpractice}
+
+% ============================================================
+\section{Common Visualization Mistakes}
+\index{visualization mistakes}
+
+\begin{warning}
+\begin{itemize}
+    \item \textbf{Truncated axes}: not starting the $y$-axis at zero in a bar chart exaggerates differences.
+    \item \textbf{Misleading scales}: using two $y$-axes with different scales can suggest false correlations.
+    \item \textbf{3D charts}: perspective distorts the perception of values. Prefer 2D.
+    \item \textbf{Too many categories}: a pie chart with 15 slices is unreadable. Use a bar chart instead.
+    \item \textbf{Missing legend and titles}: every chart should be understandable on its own.
+\end{itemize}
+\end{warning}
+
+% ============================================================
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+Load the \py{tips} dataset and create a histogram of the \py{tip} variable with 20 bins. Add a title, axis labels, and a KDE curve overlay using Seaborn.
+\end{exercise}
+
+\begin{exercise}[$\star$]
+Create a horizontal bar chart showing the number of meals per day in the \py{tips} dataset. Sort the bars in descending order.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Using the \py{iris} dataset, create a figure with 4 sub-plots ($2 \times 2$) showing the distribution of each numerical variable, colored by species. Use \py{sns.histplot} with \py{hue='species'}.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Create a \py{sns.catplot} of type \py{'violin'} showing the distribution of \py{total\_bill} by \py{day}, faceted by \py{time}, with color determined by \py{sex}. Interpret the observed differences.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+Reproduce the following chart: a two-panel figure. The left panel shows a scatter plot of \py{total\_bill} vs \py{tip} with a regression line (\py{sns.regplot}). The right panel shows the residuals of this regression (compute them with NumPy: \py{np.polyfit} and \py{np.polyval}). Comment on the quality of the fit.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+Take the \py{iris} dataset and create a heatmap of the correlation matrix \emph{per species} (three heatmaps in a $1 \times 3$ figure). Compare the correlation structures across species.
+\end{exercise}
+
+% ============================================================
+\begin{keyformulas}
+\textbf{Chapter Summary -- Data Visualization}
+\begin{itemize}
+    \item \textbf{Matplotlib}: \py{plt.subplots()}, \py{ax.plot()}, \py{ax.scatter()}, \py{ax.hist()}, \py{ax.bar()}.
+    \item \textbf{Seaborn (distributions)}: \py{sns.histplot()}, \py{sns.boxplot()}, \py{sns.violinplot()}.
+    \item \textbf{Seaborn (relationships)}: \py{sns.scatterplot()}, \py{sns.relplot()}, \py{sns.heatmap()}.
+    \item \textbf{Seaborn (categorical)}: \py{sns.catplot()}, \py{sns.countplot()}, \py{sns.barplot()}.
+    \item \textbf{Seaborn (multivariate)}: \py{sns.pairplot()}.
+    \item \textbf{Customization}: \py{set\_xlabel()}, \py{set\_title()}, \py{legend()}, \py{grid()}.
+    \item \textbf{Saving}: \py{fig.savefig('name.pdf', dpi=300, bbox\_inches='tight')}.
+    \item \textbf{Golden rule}: choose the chart suited to the variable type and the analysis objective.
+\end{itemize}
+\end{keyformulas}

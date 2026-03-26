@@ -1,0 +1,340 @@
+% ============================================================
+\chapter{Mod\`ele de Black--Scholes}
+\label{ch:black_scholes}
+% ============================================================
+
+En 1973, Fischer Black et Myron Scholes publient un article qui va
+transformer la finance~: ils d\'erivent une formule explicite pour le prix
+d'une option europ\'eenne. Robert Merton, ind\'ependamment, \'etend et
+solidifie la th\'eorie. Le mod\`ele repose sur une hypoth\`ese audacieuse~:
+le cours de l'action suit un mouvement brownien g\'eom\'etrique, et dans ce
+cadre, il est possible de construire un portefeuille de couverture qui
+\'elimine \emph{tout} le risque. Le prix de l'option est alors le co\^ut de
+cette couverture. Scholes et Merton recevront le prix Nobel d'\'economie en
+1997 (Black \'etant d\'ec\'ed\'e en 1995).
+
+% ------------------------------------------------------------
+\section{Introduction}
+% ------------------------------------------------------------
+
+Le mod\`ele de Black--Scholes--Merton (1973) constitue la pierre angulaire
+de la finance quantitative moderne. Il fournit un cadre math\'ematique
+rigoureux pour l'\'evaluation et la couverture des options europ\'eennes,
+bas\'e sur l'hypoth\`ese que le prix de l'actif sous-jacent suit un
+mouvement brownien g\'eom\'etrique.
+
+\section{Mouvement brownien g\'eom\'etrique}
+
+\begin{definition}[Mouvement brownien g\'eom\'etrique (MBG)]
+Un processus $(S_t)_{t \geq 0}$ suit un \textbf{mouvement brownien
+g\'eom\'etrique} s'il satisfait l'\'equation diff\'erentielle stochastique~:
+\[
+    dS_t = \mu S_t \, dt + \sigma S_t \, dW_t,
+\]
+o\`u $\mu \in \R$ est le rendement esp\'er\'e (drift), $\sigma > 0$ la
+volatilit\'e, et $(W_t)_{t \geq 0}$ un mouvement brownien standard.
+\end{definition}
+
+\begin{theoreme}[Solution du MBG]
+\label{thm:solution_mbg}
+La solution de l'EDS ci-dessus est~:
+\[
+    S_t = S_0 \exp\!\left[\left(\mu - \frac{\sigma^2}{2}\right)t
+          + \sigma W_t\right].
+\]
+En particulier, $\ln(S_t/S_0) \sim \mathcal{N}\!\left((\mu - \sigma^2/2)t,\;
+\sigma^2 t\right)$.
+\end{theoreme}
+
+\begin{proof}
+Posons $X_t = \ln S_t$. Par la formule d'It\^o (cf.\ chapitre 5)~:
+\[
+    dX_t = \frac{1}{S_t}dS_t - \frac{1}{2}\frac{1}{S_t^2}(dS_t)^2
+         = \left(\mu - \frac{\sigma^2}{2}\right)dt + \sigma\, dW_t.
+\]
+En int\'egrant de $0$ \`a $t$~:
+$X_t = X_0 + (\mu - \sigma^2/2)t + \sigma W_t$,
+d'o\`u le r\'esultat.
+\end{proof}
+
+\section{Hypoth\`eses du mod\`ele de Black--Scholes}
+
+\begin{attention}[title=\textbf{Hypoth\`eses fondamentales}]
+\begin{enumerate}
+    \item Le sous-jacent suit un MBG de volatilit\'e $\sigma$ constante.
+    \item Le taux sans risque $r$ est constant.
+    \item Pas de dividendes (g\'en\'eralisation possible).
+    \item March\'e sans frictions (pas de co\^uts de transaction).
+    \item Trading continu possible.
+    \item Vente \`a d\'ecouvert autoris\'ee.
+\end{enumerate}
+\end{attention}
+
+\section{\'Equation de Black--Scholes}
+
+\begin{theoreme}[\'EDP de Black--Scholes]
+\label{thm:edp_bs}
+Sous les hypoth\`eses du mod\`ele, le prix $V(S,t)$ d'un d\'eriv\'e
+europ\'een satisfait l'\'equation aux d\'eriv\'ees partielles~:
+\[
+    \frac{\partial V}{\partial t} + rS\frac{\partial V}{\partial S}
+    + \frac{1}{2}\sigma^2 S^2 \frac{\partial^2 V}{\partial S^2} - rV = 0,
+\]
+avec la condition terminale $V(S,T) = h(S)$ o\`u $h$ est le payoff.
+\end{theoreme}
+
+\begin{proof}[Esquisse de preuve par r\'eplication]
+Consid\'erons un portefeuille $\Pi = V - \Delta S$ o\`u $\Delta =
+\partial V/\partial S$. Par It\^o~:
+\begin{align*}
+    d\Pi &= dV - \Delta \, dS \\
+         &= \left(\frac{\partial V}{\partial t}
+            + \frac{1}{2}\sigma^2 S^2 \frac{\partial^2 V}{\partial S^2}\right)dt.
+\end{align*}
+Ce portefeuille est sans risque (pas de terme en $dW_t$), donc par AOA~:
+$d\Pi = r\Pi\,dt = r(V - \Delta S)\,dt$.
+En \'egalisant, on obtient l'EDP.
+\end{proof}
+
+\section{Formules de Black--Scholes}
+
+\begin{theoreme}[Formules ferm\'ees de Black--Scholes]
+\label{thm:formules_bs}
+Le prix d'un call europ\'een est~:
+\[
+    C(S,t) = S\,\Phi(d_1) - Ke^{-r(T-t)}\Phi(d_2),
+\]
+et le prix d'un put europ\'een~:
+\[
+    P(S,t) = Ke^{-r(T-t)}\Phi(-d_2) - S\,\Phi(-d_1),
+\]
+o\`u $\Phi$ d\'esigne la fonction de r\'epartition de la loi normale
+standard et~:
+\[
+    d_1 = \frac{\ln(S/K) + (r + \sigma^2/2)(T-t)}{\sigma\sqrt{T-t}}, \quad
+    d_2 = d_1 - \sigma\sqrt{T-t}.
+\]
+\end{theoreme}
+
+\begin{formules}[title=\textbf{Formules de Black--Scholes --- R\'ecapitulatif}]
+\begin{align*}
+    C &= S\Phi(d_1) - Ke^{-r\tau}\Phi(d_2), \\
+    P &= Ke^{-r\tau}\Phi(-d_2) - S\Phi(-d_1), \\
+    d_1 &= \frac{\ln(S/K) + (r + \sigma^2/2)\tau}{\sigma\sqrt{\tau}}, \quad
+    d_2 = d_1 - \sigma\sqrt{\tau}, \quad \tau = T - t.
+\end{align*}
+\end{formules}
+
+\begin{proof}[Preuve par pricing risque-neutre]
+Sous la mesure risque-neutre $\mathbb{Q}$~:
+\[
+    C = e^{-r\tau}\E^\mathbb{Q}[(S_T - K)^+].
+\]
+Or $S_T = S\exp\!\left[(r - \sigma^2/2)\tau + \sigma\sqrt{\tau}\,Z\right]$
+avec $Z \sim \mathcal{N}(0,1)$ sous $\mathbb{Q}$. Le payoff est positif
+lorsque $Z > -d_2$. On calcule~:
+\begin{align*}
+    C &= e^{-r\tau}\int_{-d_2}^{+\infty}
+         \left(Se^{(r-\sigma^2/2)\tau + \sigma\sqrt{\tau}\,z} - K\right)
+         \frac{e^{-z^2/2}}{\sqrt{2\pi}}\,dz \\
+      &= S\Phi(d_1) - Ke^{-r\tau}\Phi(d_2).
+\end{align*}
+Le passage de $d_2$ \`a $d_1$ dans le premier terme r\'esulte du
+compl\'etement du carr\'e dans l'exponentielle.
+\end{proof}
+
+\section{Les Grecques}
+
+Les \textbf{Grecques} (Greeks) mesurent la sensibilit\'e du prix de
+l'option aux diff\'erents param\`etres du mod\`ele.
+
+\begin{definition}[Grecques principales]
+Pour un call europ\'een~:
+\begin{align*}
+    \Delta &= \frac{\partial C}{\partial S} = \Phi(d_1), \\
+    \Gamma &= \frac{\partial^2 C}{\partial S^2}
+            = \frac{\phi(d_1)}{S\sigma\sqrt{\tau}}, \\
+    \Theta &= \frac{\partial C}{\partial t}
+            = -\frac{S\sigma\phi(d_1)}{2\sqrt{\tau}} - rKe^{-r\tau}\Phi(d_2), \\
+    \mathcal{V} &= \frac{\partial C}{\partial \sigma}
+                  = S\sqrt{\tau}\,\phi(d_1), \\
+    \rho &= \frac{\partial C}{\partial r} = K\tau e^{-r\tau}\Phi(d_2),
+\end{align*}
+o\`u $\phi(x) = \frac{1}{\sqrt{2\pi}}e^{-x^2/2}$ est la densit\'e
+de la loi normale standard.
+\end{definition}
+
+\begin{intuition}[title=\textbf{Interpr\'etation des Grecques}]
+\begin{itemize}
+    \item $\Delta$~: nombre d'unit\'es du sous-jacent pour couvrir l'option.
+    \item $\Gamma$~: convexit\'e, mesure la stabilit\'e du delta.
+    \item $\Theta$~: d\'ecroissance temporelle (\textit{time decay}).
+    \item $\mathcal{V}$ (vega)~: sensibilit\'e \`a la volatilit\'e.
+    \item $\rho$~: sensibilit\'e au taux d'int\'er\^et.
+\end{itemize}
+\end{intuition}
+
+\begin{proposition}[Relation fondamentale des Grecques]
+Le delta, gamma et theta d'un d\'eriv\'e satisfont l'EDP de Black--Scholes
+sous la forme~:
+\[
+    \Theta + rS\Delta + \frac{1}{2}\sigma^2 S^2 \Gamma = rV.
+\]
+\end{proposition}
+
+\section{Volatilit\'e implicite}
+
+\begin{definition}[Volatilit\'e implicite]
+La \textbf{volatilit\'e implicite} $\sigma_{\text{impl}}$ est la valeur
+de $\sigma$ qui, ins\'er\'ee dans la formule de Black--Scholes, reproduit
+le prix de march\'e observ\'e $C_{\text{mkt}}$~:
+\[
+    C_{\text{BS}}(S, K, T, r, \sigma_{\text{impl}}) = C_{\text{mkt}}.
+\]
+\end{definition}
+
+\begin{remarque}
+L'existence et l'unicit\'e de $\sigma_{\text{impl}}$ d\'ecoulent du fait
+que $\mathcal{V} = \partial C/\partial\sigma > 0$ (le prix du call est
+strictement croissant en la volatilit\'e).
+\end{remarque}
+
+\section{Impl\'ementation Python}
+
+\begin{codeblock}[title=\textbf{Formules de Black--Scholes et Grecques}]
+\begin{minted}{python}
+import numpy as np
+from scipy.stats import norm
+
+def bs_price(S, K, T, r, sigma, option='call'):
+    """Prix Black-Scholes d'une option europeenne."""
+    d1 = (np.log(S/K) + (r + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
+    d2 = d1 - sigma*np.sqrt(T)
+    if option == 'call':
+        return S*norm.cdf(d1) - K*np.exp(-r*T)*norm.cdf(d2)
+    else:
+        return K*np.exp(-r*T)*norm.cdf(-d2) - S*norm.cdf(-d1)
+
+def bs_greeks(S, K, T, r, sigma):
+    """Calcul des Grecques pour un call europeen."""
+    d1 = (np.log(S/K) + (r + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
+    d2 = d1 - sigma*np.sqrt(T)
+    delta = norm.cdf(d1)
+    gamma = norm.pdf(d1) / (S * sigma * np.sqrt(T))
+    theta = (-S*sigma*norm.pdf(d1)/(2*np.sqrt(T))
+             - r*K*np.exp(-r*T)*norm.cdf(d2))
+    vega  = S * np.sqrt(T) * norm.pdf(d1)
+    rho   = K * T * np.exp(-r*T) * norm.cdf(d2)
+    return {'delta': delta, 'gamma': gamma, 'theta': theta,
+            'vega': vega, 'rho': rho}
+
+# Exemple
+S, K, T, r, sigma = 100, 100, 1.0, 0.05, 0.20
+print(f"Call = {bs_price(S,K,T,r,sigma,'call'):.4f}")
+print(f"Put  = {bs_price(S,K,T,r,sigma,'put'):.4f}")
+greeks = bs_greeks(S, K, T, r, sigma)
+for name, val in greeks.items():
+    print(f"{name:>6s} = {val:.6f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Calcul de la volatilit\'e implicite (Newton-Raphson)}]
+\begin{minted}{python}
+def implied_vol(market_price, S, K, T, r, option='call',
+                tol=1e-8, max_iter=100):
+    """Volatilit\'e implicite par Newton-Raphson."""
+    sigma = 0.20  # initial guess
+    for _ in range(max_iter):
+        price = bs_price(S, K, T, r, sigma, option)
+        d1 = (np.log(S/K) + (r + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
+        vega = S * np.sqrt(T) * norm.pdf(d1)
+        if vega < 1e-12:
+            break
+        sigma -= (price - market_price) / vega
+        if abs(price - market_price) < tol:
+            return sigma
+    return sigma
+
+# Exemple: retrouver sigma a partir d'un prix
+C_mkt = bs_price(100, 100, 1.0, 0.05, 0.25, 'call')
+iv = implied_vol(C_mkt, 100, 100, 1.0, 0.05)
+print(f"Vol implicite retrouvee: {iv:.6f}")
+\end{minted}
+\end{codeblock}
+
+\section{Extensions du mod\`ele}
+
+\subsection{Dividendes continus}
+
+Pour un sous-jacent versant un taux de dividende continu $q$, la formule
+de Black--Scholes se modifie~:
+\[
+    C = Se^{-q\tau}\Phi(d_1) - Ke^{-r\tau}\Phi(d_2),
+\]
+avec $d_1 = \frac{\ln(S/K) + (r - q + \sigma^2/2)\tau}{\sigma\sqrt{\tau}}$.
+
+\subsection{Options sur futures (formule de Black)}
+
+\begin{theoreme}[Formule de Black (1976)]
+Pour une option europ\'eenne sur un contrat futures de prix $F$~:
+\[
+    C = e^{-r\tau}\bigl[F\Phi(d_1) - K\Phi(d_2)\bigr],
+\]
+avec $d_1 = \frac{\ln(F/K) + \sigma^2\tau/2}{\sigma\sqrt{\tau}}$,
+$d_2 = d_1 - \sigma\sqrt{\tau}$.
+\end{theoreme}
+
+\section{Limites du mod\`ele}
+
+\begin{attention}[title=\textbf{Limites connues du mod\`ele de Black--Scholes}]
+\begin{enumerate}
+    \item La volatilit\'e n'est pas constante en pratique
+          (smile de volatilit\'e, cf.\ chapitre 6).
+    \item Les rendements ne sont pas gaussiens (queues \'epaisses).
+    \item Le trading continu est une id\'ealisation.
+    \item Les co\^uts de transaction ne sont pas nuls.
+    \item Le mod\`ele sous-estime le risque de crash.
+\end{enumerate}
+\end{attention}
+
+\section{Exercices}
+
+\begin{exercice}[V\'erification de la formule de Black--Scholes]
+\begin{enumerate}
+    \item V\'erifier par substitution directe que la formule du call
+          satisfait l'EDP de Black--Scholes.
+    \item V\'erifier la condition terminale $C(S,T) = (S-K)^+$.
+    \item D\'emontrer la parit\'e call-put \`a partir des formules.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Comportements limites]
+\'Etudier les limites suivantes~:
+\begin{enumerate}
+    \item $C(S,t)$ lorsque $\sigma \to 0^+$.
+    \item $C(S,t)$ lorsque $\sigma \to +\infty$.
+    \item $C(S,t)$ lorsque $T - t \to 0^+$ avec $S > K$, $S = K$, $S < K$.
+    \item $\Delta$ lorsque $T - t \to 0^+$.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Grecques num\'eriques]
+\begin{enumerate}
+    \item Calculer le delta et le gamma par diff\'erences finies et comparer
+          aux formules analytiques.
+    \item Tracer $\Delta$, $\Gamma$, $\Theta$, $\mathcal{V}$ en fonction
+          de $S$ pour diff\'erentes valeurs de $\tau$.
+    \item V\'erifier num\'eriquement la relation $\Theta + rS\Delta +
+          \frac{1}{2}\sigma^2 S^2\Gamma = rC$.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Surface de volatilit\'e implicite]
+\begin{enumerate}
+    \item G\'en\'erer des prix d'options \`a partir d'un mod\`ele de Heston
+          (chapitre 6) pour diff\'erents strikes et maturit\'es.
+    \item Calculer la volatilit\'e implicite Black--Scholes pour chaque prix.
+    \item Tracer la surface de volatilit\'e implicite $(K, T) \mapsto
+          \sigma_{\text{impl}}(K,T)$.
+\end{enumerate}
+\end{exercice}

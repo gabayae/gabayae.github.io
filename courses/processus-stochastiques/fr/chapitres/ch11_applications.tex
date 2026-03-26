@@ -1,0 +1,334 @@
+% ============================================================
+\chapter{Applications}
+\label{ch:applications}
+% ============================================================
+
+\begin{center}
+\textit{<<\,La th\'eorie, c'est quand on sait tout et que rien ne fonctionne.
+La pratique, c'est quand tout fonctionne et que personne ne sait pourquoi.\,>>}\\[4pt]
+--- Albert Einstein (attribu\'e)
+\end{center}
+
+\bigskip
+
+Ce chapitre pr\'esente des applications majeures du calcul stochastique~:
+la formule de Black--Scholes en finance, le th\'eor\`eme de Feynman--Kac
+reliant EDP et EDS, le filtrage de Kalman, les applications en biologie
+et les m\'ethodes de Monte Carlo pour les EDS.
+
+% ------------------------------------------------------------
+\section{Formule de Black--Scholes}
+\label{sec:black_scholes}
+% ------------------------------------------------------------
+
+\begin{definition}[Mod\`ele de Black--Scholes]
+\index{Black--Scholes}
+Dans le mod\`ele de \textbf{Black--Scholes}, le prix d'un actif risqu\'e
+suit un mouvement brownien g\'eom\'etrique~:
+\[
+  dS_t = \mu\, S_t\, dt + \sigma\, S_t\, dB_t,
+\]
+et il existe un actif sans risque de rendement $r$. On suppose
+l'absence d'opportunit\'e d'arbitrage et la possibilit\'e de n\'egocier
+en continu sans co\^uts de transaction.
+\end{definition}
+
+\begin{theoreme}[Formule de Black--Scholes]
+\label{thm:bs}
+\index{formule de Black--Scholes}
+Le prix \`a l'instant $t$ d'une option d'achat (call) europ\'eenne de
+prix d'exercice $K$ et de maturit\'e $T$ est~:
+\[
+  C(t, S_t) = S_t\,\Phi(d_1) - K\,e^{-r(T-t)}\,\Phi(d_2),
+\]
+o\`u $\Phi$ est la fonction de r\'epartition de $\mathcal{N}(0,1)$ et~:
+\[
+  d_1 = \frac{\ln(S_t/K) + (r + \sigma^2/2)(T-t)}{\sigma\sqrt{T-t}},
+  \qquad d_2 = d_1 - \sigma\sqrt{T-t}.
+\]
+\end{theoreme}
+
+\begin{proof}
+Sous la mesure risque-neutre $\mathbb{Q}$, le prix actualis\'e est une
+martingale~: $C(t, S_t) = e^{-r(T-t)}\,\E^{\mathbb{Q}}[(S_T - K)^+
+\mid \mathcal{F}_t]$. Sous $\mathbb{Q}$, $S_T = S_t \exp\bigl[
+(r - \sigma^2/2)(T-t) + \sigma(B_T^{\mathbb{Q}} - B_t^{\mathbb{Q}})\bigr]$
+o\`u $B^{\mathbb{Q}}$ est un $\mathbb{Q}$-brownien (th\'eor\`eme de Girsanov\index{Girsanov}).
+Posant $Z = (B_T^{\mathbb{Q}} - B_t^{\mathbb{Q}})/\sqrt{T-t} \sim \mathcal{N}(0,1)$,
+on calcule~:
+\begin{align*}
+  C &= e^{-r(T-t)} \int_{-\infty}^{\infty}
+    \Bigl(S_t\,e^{(r-\sigma^2/2)(T-t) + \sigma\sqrt{T-t}\,z} - K\Bigr)^+
+    \frac{e^{-z^2/2}}{\sqrt{2\pi}}\,dz.
+\end{align*}
+L'int\'egrale se s\'epare sur $\{z > -d_2\}$, et apr\`es changement de
+variable $z' = z - \sigma\sqrt{T-t}$ dans le premier terme, on obtient
+les expressions annonc\'ees.
+\end{proof}
+
+\begin{intuition}
+La formule de Black--Scholes dit que le prix de l'option ne d\'epend
+\emph{pas} du rendement moyen $\mu$ de l'actif, mais uniquement de sa
+volatilit\'e $\sigma$. C'est la cons\'equence de l'absence d'arbitrage~:
+on peut couvrir parfaitement l'option en ajustant dynamiquement un
+portefeuille d'actions et d'actif sans risque.
+\end{intuition}
+
+\begin{definition}[EDP de Black--Scholes]
+\index{EDP de Black--Scholes}
+La fonction de prix $V(t,S)$ satisfait l'EDP~:
+\[
+  \frac{\partial V}{\partial t} + r\,S\,\frac{\partial V}{\partial S}
+  + \frac{1}{2}\,\sigma^2\,S^2\,\frac{\partial^2 V}{\partial S^2}
+  - r\,V = 0,
+\]
+avec la condition terminale $V(T, S) = (S - K)^+$ pour un call.
+\end{definition}
+
+\begin{formules}
+\textbf{Formules de Black--Scholes et grecques}
+\begin{align*}
+  C &= S\,\Phi(d_1) - K\,e^{-r\tau}\,\Phi(d_2),
+    \quad \tau = T - t \\[4pt]
+  \Delta &= \frac{\partial C}{\partial S} = \Phi(d_1), \qquad
+  \Gamma = \frac{\partial^2 C}{\partial S^2}
+    = \frac{\varphi(d_1)}{S\,\sigma\sqrt{\tau}} \\[4pt]
+  \Theta &= \frac{\partial C}{\partial t}
+    = -\frac{S\,\sigma\,\varphi(d_1)}{2\sqrt{\tau}}
+    - r\,K\,e^{-r\tau}\,\Phi(d_2), \qquad
+  \mathcal{V} = \frac{\partial C}{\partial \sigma}
+    = S\,\sqrt{\tau}\,\varphi(d_1)
+\end{align*}
+\end{formules}
+
+% ------------------------------------------------------------
+\section{Th\'eor\`eme de Feynman--Kac}
+\label{sec:feynman_kac}
+% ------------------------------------------------------------
+
+\begin{theoreme}[Feynman--Kac]
+\label{thm:feynman_kac}
+\index{Feynman--Kac}
+Soit $u(t,x)$ la solution de l'EDP~:
+\[
+  \frac{\partial u}{\partial t} + b(x)\,\frac{\partial u}{\partial x}
+  + \frac{1}{2}\,\sigma^2(x)\,\frac{\partial^2 u}{\partial x^2}
+  - r\,u = 0, \qquad u(T, x) = g(x).
+\]
+Alors $u$ admet la repr\'esentation probabiliste~:
+\[
+  u(t, x) = \E\bigl[e^{-r(T-t)}\,g(X_T) \mid X_t = x\bigr],
+\]
+o\`u $X$ est solution de $dX_s = b(X_s)\,ds + \sigma(X_s)\,dB_s$.
+\end{theoreme}
+
+\begin{proof}[Id\'ee de la preuve]
+On applique la formule d'It\^o \`a $e^{-rs}\,u(s, X_s)$ sur $[t, T]$.
+Le terme en $ds$ s'annule gr\^ace \`a l'EDP v\'erifi\'ee par $u$,
+et il reste une int\'egrale stochastique (de martingale). En prenant
+l'esp\'erance conditionnelle, l'int\'egrale stochastique dispara\^it
+et on obtient $e^{-rt}\,u(t, x) = \E[e^{-rT}\,g(X_T) \mid X_t = x]$.
+\end{proof}
+
+\begin{remarque}
+Le th\'eor\`eme de Feynman--Kac \'etablit un lien fondamental entre EDP
+paraboliques et processus de diffusion. Il permet de r\'esoudre des EDP
+par simulation de Monte Carlo, et r\'eciproquement, d'analyser des
+probl\`emes stochastiques par des techniques d'EDP.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Filtrage de Kalman}
+\label{sec:kalman}
+% ------------------------------------------------------------
+
+\begin{definition}[Mod\`ele de filtrage lin\'eaire]
+\index{filtre de Kalman}
+On consid\`ere le syst\`eme lin\'eaire \`a temps continu~:
+\begin{align*}
+  dX_t &= A\,X_t\,dt + \sigma_X\,dB_t^{(1)} \quad \text{(signal)}, \\
+  dY_t &= H\,X_t\,dt + \sigma_Y\,dB_t^{(2)} \quad \text{(observation)},
+\end{align*}
+o\`u $B^{(1)}$ et $B^{(2)}$ sont des browniens ind\'ependants.
+Le probl\`eme de \emph{filtrage} consiste \`a estimer $X_t$ \`a partir
+des observations $(Y_s)_{0 \leq s \leq t}$.
+\end{definition}
+
+\begin{theoreme}[Filtre de Kalman--Bucy]
+\label{thm:kalman_bucy}
+\index{Kalman--Bucy}
+L'estimateur optimal $\hat{X}_t = \E[X_t \mid \mathcal{F}_t^Y]$
+satisfait l'EDS~:
+\[
+  d\hat{X}_t = A\,\hat{X}_t\,dt
+    + \frac{P_t\,H^T}{\sigma_Y^2}\,\bigl(dY_t - H\,\hat{X}_t\,dt\bigr),
+\]
+o\`u $P_t = \E[(X_t - \hat{X}_t)^2 \mid \mathcal{F}_t^Y]$ est la
+variance de l'erreur, solution de l'\'equation de Riccati~:
+\[
+  \frac{dP_t}{dt} = 2A\,P_t + \sigma_X^2 - \frac{P_t^2\,H^2}{\sigma_Y^2}.
+\]
+\end{theoreme}
+
+\begin{intuition}
+Le filtre de Kalman r\'ealise un compromis optimal entre la pr\'ediction
+du mod\`ele dynamique ($A\,\hat{X}_t\,dt$) et l'innovation apport\'ee
+par l'observation ($dY_t - H\,\hat{X}_t\,dt$). Le gain de Kalman
+$K_t = P_t H^T / \sigma_Y^2$ ponde\`ere ces deux sources~:
+plus l'incertitude $P_t$ est grande, plus on fait confiance aux observations.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Applications en biologie}
+\label{sec:bio}
+% ------------------------------------------------------------
+
+\begin{definition}[Expression g\'en\'etique stochastique]
+\index{expression g\'en\'etique stochastique}
+L'expression d'un g\`ene est un processus intrins\`equement stochastique.
+Le nombre de mol\'ecules de prot\'eine $P_t$ peut \^etre mod\'elis\'e
+par l'EDS de type Langevin~:
+\[
+  dP_t = (k_{\text{prod}} - k_{\text{deg}}\,P_t)\,dt
+    + \sqrt{k_{\text{prod}} + k_{\text{deg}}\,P_t}\,dB_t,
+\]
+o\`u $k_{\text{prod}}$ est le taux de production et $k_{\text{deg}}$ le
+taux de d\'egradation.
+\end{definition}
+
+\begin{proposition}[Bruit d'expression g\'en\'etique]
+\`A l'\'equilibre, le nombre moyen de prot\'eines est
+$\bar{P} = k_{\text{prod}}/k_{\text{deg}}$ et le \emph{coefficient
+de variation} (mesure du bruit) est~:
+\[
+  \text{CV}^2 = \frac{\Var(P)}{\E[P]^2} \approx \frac{1}{\bar{P}}.
+\]
+Le bruit est donc d'autant plus important que le nombre moyen de
+mol\'ecules est faible.
+\end{proposition}
+
+\begin{remarque}
+Cette relation $\text{CV}^2 \approx 1/\bar{P}$ est connue sous le nom
+de \emph{bruit poissonnien}\index{bruit poissonnien}. Elle a \'et\'e
+v\'erifi\'ee exp\'erimentalement dans les cellules bact\'eriennes
+par Elowitz et al.\ (2002).
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{M\'ethodes de Monte Carlo pour les EDS}
+\label{sec:mc_eds}
+% ------------------------------------------------------------
+
+\begin{definition}[Sch\'ema d'Euler--Maruyama]
+\index{Euler--Maruyama}
+Le \textbf{sch\'ema d'Euler--Maruyama} pour l'EDS
+$dX_t = b(X_t)\,dt + \sigma(X_t)\,dB_t$ est~:
+\[
+  X_{n+1} = X_n + b(X_n)\,\Delta t + \sigma(X_n)\,\sqrt{\Delta t}\,Z_n,
+  \qquad Z_n \sim \mathcal{N}(0,1)\;\text{i.i.d.}
+\]
+\end{definition}
+
+\begin{theoreme}[Convergence forte d'Euler--Maruyama]
+Sous les conditions de Lipschitz sur $b$ et $\sigma$, le sch\'ema
+d'Euler--Maruyama converge avec l'ordre fort $1/2$~:
+\[
+  \E\left[\sup_{0 \leq t \leq T} \abs{X_t - X_t^{(\Delta t)}}^2\right]^{1/2}
+  \leq C\,\sqrt{\Delta t}.
+\]
+\end{theoreme}
+
+\begin{definition}[Sch\'ema de Milstein]
+\index{Milstein}
+Le \textbf{sch\'ema de Milstein} am\'eliore Euler--Maruyama en ajoutant
+le terme de correction d'It\^o--Taylor~:
+\[
+  X_{n+1} = X_n + b(X_n)\,\Delta t + \sigma(X_n)\,\sqrt{\Delta t}\,Z_n
+    + \frac{1}{2}\,\sigma(X_n)\,\sigma'(X_n)\,(Z_n^2 - 1)\,\Delta t.
+\]
+Ce sch\'ema atteint l'ordre fort 1~:
+$\bigl(\E[\sup_t \abs{X_t - X_t^{(\Delta t)}}^2]\bigr)^{1/2} \leq C\,\Delta t$.
+\end{definition}
+
+\begin{attention}
+Pour le calcul de prix d'options (convergence \emph{faible}), l'ordre
+faible d'Euler--Maruyama est d\'ej\`a 1, donc Milstein n'apporte pas
+d'am\'elioration pour $\E[g(X_T)]$. La distinction entre convergence
+forte et faible est cruciale en pratique.
+\end{attention}
+
+\begin{formules}
+\textbf{R\'esum\'e des sch\'emas num\'eriques pour EDS}
+\begin{align*}
+  \text{Euler--Maruyama :}\quad & X_{n+1} = X_n + b\,\Delta t
+    + \sigma\,\sqrt{\Delta t}\,Z_n
+    & \text{(ordre fort } 1/2\text{)} \\[4pt]
+  \text{Milstein :}\quad & X_{n+1} = X_n + b\,\Delta t
+    + \sigma\,\sqrt{\Delta t}\,Z_n
+    + \tfrac{1}{2}\sigma\sigma'(Z_n^2-1)\Delta t
+    & \text{(ordre fort } 1\text{)} \\[4pt]
+  \text{Monte Carlo :}\quad & \E[g(X_T)] \approx \frac{1}{M}\sum_{m=1}^M
+    g(X_T^{(m)})
+    & \text{(erreur } O(1/\sqrt{M})\text{)}
+\end{align*}
+\end{formules}
+
+\begin{minted}{python}
+import numpy as np
+
+def euler_maruyama(b, sigma, x0, T, n_steps, n_paths):
+    """Schema d'Euler-Maruyama pour une EDS scalaire."""
+    dt = T / n_steps
+    sqrt_dt = np.sqrt(dt)
+    X = np.zeros((n_paths, n_steps + 1))
+    X[:, 0] = x0
+    for k in range(n_steps):
+        Z = np.random.randn(n_paths)
+        X[:, k+1] = (X[:, k] + b(X[:, k]) * dt
+                     + sigma(X[:, k]) * sqrt_dt * Z)
+    return X
+
+# Exemple : mouvement brownien geometrique
+mu_val, sigma_val, S0 = 0.05, 0.2, 100.0
+paths = euler_maruyama(
+    b=lambda x: mu_val * x,
+    sigma=lambda x: sigma_val * x,
+    x0=S0, T=1.0, n_steps=1000, n_paths=10000
+)
+# Prix d'un call par Monte Carlo
+K = 105.0
+r = 0.03
+call_price = np.exp(-r) * np.mean(np.maximum(paths[:, -1] - K, 0))
+\end{minted}
+
+\begin{exercice}
+D\'eriver la formule de Black--Scholes pour une option de vente (put)
+en utilisant la parit\'e call-put~: $C - P = S - K\,e^{-r(T-t)}$.
+V\'erifier que $P = K\,e^{-r\tau}\,\Phi(-d_2) - S\,\Phi(-d_1)$.
+\end{exercice}
+
+\begin{exercice}
+Appliquer le th\'eor\`eme de Feynman--Kac pour montrer que le prix d'une
+option barri\`ere de type <<\,knock-out\,>> satisfait l'EDP de Black--Scholes
+avec condition au bord $V(t, B) = 0$ sur la barri\`ere $S = B$.
+\end{exercice}
+
+\begin{exercice}
+Impl\'ementer le filtre de Kalman discret pour suivre la position d'un
+objet mobile observ\'e avec bruit. Comparer les performances avec et sans
+mod\`ele de vitesse.
+\end{exercice}
+
+\begin{exercice}
+Comparer les sch\'emas d'Euler--Maruyama et de Milstein pour le MBG~:
+simuler $M = 10\,000$ trajectoires, estimer $\E[S_T]$ et comparer
+l'erreur num\'erique pour diff\'erents pas $\Delta t$. V\'erifier les
+ordres de convergence th\'eoriques.
+\end{exercice}
+
+\begin{exercice}
+Simuler un mod\`ele d'expression g\'en\'etique stochastique avec
+$k_{\text{prod}} = 10$, $k_{\text{deg}} = 0.1$ par l'algorithme de
+Gillespie. V\'erifier que la distribution stationnaire est approximativement
+de Poisson et calculer le coefficient de variation.
+\end{exercice}

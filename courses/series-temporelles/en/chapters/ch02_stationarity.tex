@@ -1,0 +1,175 @@
+% ============================================================
+\chapter{Stationarity and Autocovariance}
+\label{ch:stationnarite}
+% ============================================================
+
+\section{Motivating example}
+The daily temperature in Paris over 30 years exhibits a pronounced seasonality, but after deseasonalisation, the residuals appear to fluctuate around a constant mean with a time-invariant dependence structure. This is \textbf{stationarity}.
+
+\section{Strict and weak stationarity}
+
+\begin{definition}[Strict stationarity]\index{stationarity!strict}
+$(X_t)$ is \textbf{strictly stationary} if for all $k\geq 1$, all $(t_1,\ldots,t_k)$, and all $h\in\Z$:
+\[
+(X_{t_1},\ldots,X_{t_k}) \stackrel{d}{=} (X_{t_1+h},\ldots,X_{t_k+h}).
+\]
+\end{definition}
+
+\begin{definition}[Weak stationarity (second-order)]\index{stationarity!weak}
+$(X_t)$ is \textbf{weakly stationary} (or wide-sense stationary) if:
+\begin{enumerate}
+\item $\E[X_t^2]<\infty$ for all $t$,
+\item $\mu = \E[X_t]$ does not depend on $t$,
+\item $\gamma(t,t+h) = \Cov(X_t,X_{t+h})$ depends only on $h$.
+\end{enumerate}
+\end{definition}
+
+\begin{remark}
+Strict stationarity + finite second moments $\Rightarrow$ weak stationarity. The converse is false in general, but holds for Gaussian processes.
+\end{remark}
+
+\section{Autocovariance function}
+
+\begin{definition}[Autocovariance and autocorrelation]\index{autocovariance}\index{autocorrelation}
+For a weakly stationary process:
+\begin{align}
+\gamma(h) &= \Cov(X_t,X_{t+h}) = \E[(X_t-\mu)(X_{t+h}-\mu)], \\
+\rho(h) &= \frac{\gamma(h)}{\gamma(0)} = \Corr(X_t,X_{t+h}).
+\end{align}
+The function $\rho(\cdot)$ is the \textbf{autocorrelation function} (ACF)\index{ACF}.
+\end{definition}
+
+\begin{theorem}[Properties of $\gamma$]\label{thm:gamma-prop}
+\begin{enumerate}
+\item $\gamma(0)\geq 0$ (it is the variance).
+\item $\gamma(h)=\gamma(-h)$ (symmetry).
+\item $|\gamma(h)|\leq\gamma(0)$ (by Cauchy--Schwarz).
+\item $\gamma$ is \textbf{positive semi-definite}: for all $n$, all $(a_1,\ldots,a_n)\in\R^n$, and all $(t_1,\ldots,t_n)$:
+\[
+\sum_{i,j}a_i a_j\gamma(t_i-t_j)\geq 0.
+\]
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(4): $\sum_{i,j}a_ia_j\gamma(t_i-t_j)=\Var\!\left(\sum_i a_i X_{t_i}\right)\geq 0$.
+\end{proof}
+
+\begin{theorem}[Herglotz]\index{Herglotz}
+$\gamma:\Z\to\R$ is an autocovariance function if and only if it is positive semi-definite. Moreover, there exists a finite positive measure $F$ on $[-\pi,\pi]$ (spectral measure) such that:
+\[
+\gamma(h) = \int_{-\pi}^{\pi} e^{i\omega h}\,dF(\omega).
+\]
+\end{theorem}
+
+\section{Estimation of the autocovariance}
+
+\begin{definition}[Sample autocovariance]\index{autocovariance!sample}
+\[
+\hat{\gamma}(h) = \frac{1}{n}\sum_{t=1}^{n-|h|}(X_t-\bar{X})(X_{t+|h|}-\bar{X}), \quad \hat{\rho}(h)=\frac{\hat{\gamma}(h)}{\hat{\gamma}(0)}.
+\]
+Dividing by $n$ (rather than $n-|h|$) ensures that the matrix $(\hat{\gamma}(i-j))$ is positive semi-definite.
+\end{definition}
+
+\begin{theorem}[Bartlett]\index{Bartlett}
+For a white noise of size $n$: $\hat{\rho}(h)\stackrel{\text{approx}}{\sim}\mathcal{N}(0,1/n)$ for $h\geq 1$. The \textbf{Bartlett bands} $\pm 1.96/\sqrt{n}$ are used to test whether $\rho(h)=0$.
+\end{theorem}
+
+\section{Partial autocorrelation}\index{PACF}
+
+\begin{definition}[PACF]
+The \textbf{partial autocorrelation} at lag $h$ is:
+\[
+\alpha(h) = \Corr(X_t-\hat{X}_t,\;X_{t+h}-\hat{X}_{t+h}),
+\]
+where $\hat{X}_t$ and $\hat{X}_{t+h}$ are the linear projections onto $(X_{t+1},\ldots,X_{t+h-1})$.
+
+Equivalently, $\alpha(h)$ is the last coefficient $\phi_{hh}$ in the linear regression of $X_t$ on $(X_{t-1},\ldots,X_{t-h})$.
+\end{definition}
+
+\begin{theorem}
+For an AR$(p)$: $\alpha(h)=0$ for $h>p$. This is the main tool for identifying the order $p$.
+\end{theorem}
+
+\section{Stationarity tests}\index{test!Dickey--Fuller}\index{test!KPSS}
+
+\begin{definition}[Augmented Dickey--Fuller test (ADF)]
+To test for the presence of a unit root in $X_t = \phi X_{t-1}+\eps_t$:
+\[
+H_0 : \phi=1 \quad\text{(non-stationary)} \quad \text{vs} \quad H_1 : |\phi|<1 \quad\text{(stationary)}.
+\]
+One estimates $\nabla X_t = (\phi-1)X_{t-1}+\eps_t$ and tests whether $\phi-1<0$.
+\end{definition}
+
+\begin{warning}
+The distribution of the ADF statistic is \textbf{not} Gaussian under $H_0$. One must use the Dickey--Fuller tables (or critical values computed by simulation).
+\end{warning}
+
+\section{Implementation}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from statsmodels.tsa.stattools import acf, pacf, adfuller
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+
+# Simuler un AR(1)
+np.random.seed(0)
+n = 500
+phi = 0.7
+eps = np.random.normal(0, 1, n)
+x = np.zeros(n)
+for t in range(1, n):
+    x[t] = phi * x[t-1] + eps[t]
+
+# ACF et PACF
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+plot_acf(x, lags=30, ax=axes[0], title='ACF')
+plot_pacf(x, lags=30, ax=axes[1], title='PACF')
+plt.tight_layout()
+plt.savefig('ch02_acf_pacf.pdf')
+plt.show()
+
+# Test ADF
+result = adfuller(x, regression='c')
+print(f"ADF statistic: {result[0]:.4f}")
+print(f"p-value: {result[1]:.4f}")
+print(f"Stationnaire: {result[1] < 0.05}")
+
+# Marche aléatoire (non stationnaire)
+rw = np.cumsum(eps)
+result_rw = adfuller(rw, regression='c')
+print(f"\nMarche aléatoire - ADF: {result_rw[0]:.4f}, p={result_rw[1]:.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+Compute the autocovariance function of a white noise $\eps_t\sim\mathrm{WN}(0,\sigma^2)$.
+\end{exercise}
+
+\begin{exercise}[$\star$]
+Compute the ACF of $X_t = \eps_t + \theta\eps_{t-1}$ (MA(1)). Show that $\rho(h)=0$ for $|h|\geq 2$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Show that if $(X_t)$ is strictly stationary with $\E[X_t^2]<\infty$, then $(X_t)$ is weakly stationary.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Prove that the sample autocovariance $\hat{\gamma}(h)$ (divided by $n$) yields a positive semi-definite Toeplitz matrix.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Project]
+Apply the ADF test and the KPSS test to 10 economic time series (GDP, unemployment, inflation, etc.). Compare the conclusions and discuss cases of disagreement.
+\end{exercise}
+
+\begin{keyformulas}
+\begin{align*}
+\gamma(h) &= \Cov(X_t,X_{t+h}), \quad \rho(h)=\gamma(h)/\gamma(0) \\
+\hat{\rho}(h) &\stackrel{\text{approx}}{\sim} \mathcal{N}(0,1/n) \quad\text{under }H_0:\rho(h)=0 \\
+\text{ADF} &: \nabla X_t = (\phi-1)X_{t-1}+\eps_t, \quad H_0:\phi=1
+\end{align*}
+\end{keyformulas}

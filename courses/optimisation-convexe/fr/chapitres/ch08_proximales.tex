@@ -1,0 +1,239 @@
+% ============================================================
+\chapter{M\'ethodes Proximales}
+\label{ch:proximales}
+% ============================================================
+
+\section{Introduction}
+
+Dans les ann\'ees 1960, Jean-Jacques Moreau, math\'ematicien \`a Montpellier, introduit l'\emph{op\'erateur proximal}~: pour une fonction convexe $f$, le proximal de $x$ est le point qui minimise $f$ plus un terme de p\'enalit\'e quadratique autour de $x$. L'id\'ee semble anodine, mais elle r\'ev\`ele une puissance consid\'erable~: l\`a o\`u la descente de gradient exige la diff\'erentiabilit\'e, l'op\'erateur proximal fonctionne pour toute fonction convexe semi-continue inf\'erieurement, m\^eme non lisse. Cette observation a ouvert la voie aux \emph{m\'ethodes proximales}, qui dominent aujourd'hui l'optimisation appliqu\'ee~: ISTA et FISTA pour le LASSO en statistique, ADMM pour l'optimisation distribu\'ee, l'algorithme de Douglas--Rachford pour la faisabilit\'e. Chacun exploite la d\'ecomposition d'un probl\`eme complexe en sous-probl\`emes proximaux simples.
+
+\begin{intuition}
+L'op\'erateur proximal est une g\'en\'eralisation de la projection sur un
+ensemble convexe. L\`a o\`u la descente de gradient fait un pas puis projette,
+l'op\'erateur proximal combine les deux en une seule \'etape~: il cherche un
+point proche de l'argument qui minimise aussi la fonction. C'est un compromis
+entre rester pr\`es du point courant et diminuer la fonction objectif.
+\end{intuition}
+
+\section{Op\'erateur proximal}
+
+\begin{definition}[Op\'erateur proximal]
+\index{op\'erateur proximal}
+Soit $g : \R^n \to \R \cup \{+\infty\}$ convexe, s.c.i., propre.
+L'\textbf{op\'erateur proximal} de $g$ est~:
+\[
+  \mathrm{prox}_g(v) = \argmin_{x \in \R^n} \left\{
+    g(x) + \frac{1}{2} \norm{x - v}^2
+  \right\}.
+\]
+\end{definition}
+
+\begin{proposition}[Existence et unicit\'e]
+Pour toute fonction $g$ convexe, s.c.i., propre, $\mathrm{prox}_g(v)$ existe
+et est unique pour tout $v \in \R^n$.
+\end{proposition}
+
+\begin{theoreme}[Caract\'erisation]
+$x^* = \mathrm{prox}_g(v)$ si et seulement si~:
+\[
+  v - x^* \in \partial g(x^*),
+\]
+o\`u $\partial g$ d\'esigne le sous-diff\'erentiel de $g$.
+\end{theoreme}
+
+\begin{proof}
+La condition d'optimalit\'e de $\min_x g(x) + \frac{1}{2}\norm{x-v}^2$
+s'\'ecrit~: $0 \in \partial g(x^*) + (x^* - v)$, soit
+$v - x^* \in \partial g(x^*)$.
+\end{proof}
+
+\begin{formules}[title=\textbf{Op\'erateurs proximaux classiques}]
+\begin{itemize}
+  \item $g = 0$~: $\mathrm{prox}_g(v) = v$.
+  \item $g = \iota_C$ (indicatrice d'un convexe $C$)~:
+        $\mathrm{prox}_g(v) = \Pi_C(v)$ (projection).
+  \item $g = \lambda \norm{\cdot}_1$ (LASSO)~:
+        $[\mathrm{prox}_g(v)]_i = \mathrm{sign}(v_i)
+        \max(\abs{v_i} - \lambda, 0)$ (seuillage doux).
+  \item $g = \frac{\lambda}{2}\norm{\cdot}^2$~:
+        $\mathrm{prox}_g(v) = \frac{v}{1 + \lambda}$.
+  \item $g = \lambda \norm{\cdot}_2$ (group LASSO)~:
+        $\mathrm{prox}_g(v) = v \max\!\left(1 - \frac{\lambda}{\norm{v}},
+        0\right)$.
+\end{itemize}
+\end{formules}
+
+\begin{definition}[R\'esolvante de Moreau]
+\index{r\'esolvante de Moreau}
+L'identit\'e de \textbf{Moreau} relie l'op\'erateur proximal de $g$ \`a
+celui de sa conjugu\'ee $g^*$~:
+\[
+  \mathrm{prox}_g(v) + \mathrm{prox}_{g^*}(v) = v.
+\]
+\end{definition}
+
+\section{M\'ethode de gradient proximal}
+
+\begin{definition}[Probl\`eme composite]
+On consid\`ere le probl\`eme~:
+\[
+  \min_{x \in \R^n} F(x) = f(x) + g(x),
+\]
+o\`u $f$ est convexe diff\'erentiable ($\nabla f$ est $L$-lipschitzienne)
+et $g$ est convexe, s.c.i., propre (potentiellement non diff\'erentiable).
+\end{definition}
+
+\begin{algorithme}[title=\textbf{Gradient proximal (ISTA)}]
+\index{ISTA}
+\begin{enumerate}
+  \item Choisir $x_0$, pas $\gamma \in (0, 1/L]$.
+  \item Pour $k = 0, 1, 2, \ldots$~:
+  \[
+    x_{k+1} = \mathrm{prox}_{\gamma g}\!\left(x_k - \gamma \nabla f(x_k)\right).
+  \]
+\end{enumerate}
+\end{algorithme}
+
+\begin{theoreme}[Convergence d'ISTA]
+Avec $\gamma = 1/L$, l'algorithme ISTA v\'erifie~:
+\[
+  F(x_k) - F(x^*) \leq \frac{L \norm{x_0 - x^*}^2}{2k}.
+\]
+La convergence est en $\mathcal{O}(1/k)$.
+\end{theoreme}
+
+\section{Acc\'el\'eration de Nesterov : FISTA}
+
+\begin{algorithme}[title=\textbf{FISTA (Fast ISTA)}]
+\index{FISTA}
+\begin{enumerate}
+  \item Choisir $x_0 = y_0$, $t_0 = 1$, $\gamma = 1/L$.
+  \item Pour $k = 0, 1, 2, \ldots$~:
+  \begin{align*}
+    x_{k+1} &= \mathrm{prox}_{\gamma g}\!\left(y_k - \gamma \nabla f(y_k)\right), \\
+    t_{k+1} &= \frac{1 + \sqrt{1 + 4 t_k^2}}{2}, \\
+    y_{k+1} &= x_{k+1} + \frac{t_k - 1}{t_{k+1}}(x_{k+1} - x_k).
+  \end{align*}
+\end{enumerate}
+\end{algorithme}
+
+\begin{theoreme}[Convergence de FISTA]
+L'algorithme FISTA v\'erifie~:
+\[
+  F(x_k) - F(x^*) \leq \frac{2L \norm{x_0 - x^*}^2}{(k+1)^2}.
+\]
+La convergence est en $\mathcal{O}(1/k^2)$, ce qui est \textbf{optimal}
+parmi les m\'ethodes de premier ordre.
+\end{theoreme}
+
+\begin{attention}[title=\textbf{FISTA n'est pas monotone}]
+Contrairement \`a ISTA, la suite $F(x_k)$ g\'en\'er\'ee par FISTA n'est pas
+n\'ecessairement d\'ecroissante. L'extrapolation peut temporairement augmenter
+la valeur de l'objectif.
+\end{attention}
+
+\section{ADMM}
+
+\begin{definition}[ADMM]
+\index{ADMM}
+L'\textbf{Alternating Direction Method of Multipliers} r\'esout~:
+\[
+  \min_{x, z} f(x) + g(z) \quad \text{s.c.} \quad Ax + Bz = c.
+\]
+Les it\'erations sont~:
+\begin{align*}
+  x_{k+1} &= \argmin_x \left\{ f(x) + \frac{\rho}{2}
+    \norm{Ax + Bz_k - c + u_k}^2 \right\}, \\
+  z_{k+1} &= \argmin_z \left\{ g(z) + \frac{\rho}{2}
+    \norm{Ax_{k+1} + Bz - c + u_k}^2 \right\}, \\
+  u_{k+1} &= u_k + Ax_{k+1} + Bz_{k+1} - c,
+\end{align*}
+o\`u $u$ est la variable duale \'echelonn\'ee et $\rho > 0$.
+\end{definition}
+
+\begin{theoreme}[Convergence d'ADMM]
+Sous des hypoth\`eses de convexit\'e de $f$ et $g$ (propres, ferm\'ees,
+convexes) et la faisabilit\'e du probl\`eme, ADMM converge~:
+\begin{itemize}
+  \item \textbf{R\'esidu primal}~: $Ax_{k} + Bz_k - c \to 0$.
+  \item \textbf{R\'esidu dual}~: $\rho A^\top B(z_k - z_{k-1}) \to 0$.
+  \item \textbf{Objectif}~: $f(x_k) + g(z_k) \to p^*$.
+\end{itemize}
+\end{theoreme}
+
+\begin{remarque}
+ADMM est particuli\`erement efficace lorsque les sous-probl\`emes en $x$ et
+$z$ admettent des solutions explicites (par exemple, moindres carr\'es +
+seuillage doux pour le LASSO).
+\end{remarque}
+
+\section{S\'eparation de Douglas-Rachford}
+
+\begin{definition}[Douglas-Rachford]
+\index{Douglas-Rachford}
+Pour r\'esoudre $\min_x f(x) + g(x)$, l'algorithme de Douglas-Rachford
+it\`ere~:
+\begin{align*}
+  \hat{x}_{k} &= \mathrm{prox}_f(z_k), \\
+  z_{k+1} &= z_k + \mathrm{prox}_g(2\hat{x}_k - z_k) - \hat{x}_k.
+\end{align*}
+\end{definition}
+
+\begin{proposition}[Lien avec ADMM]
+ADMM appliqu\'e \`a $\min f(x) + g(z)$ s.c. $x = z$ est \'equivalent \`a
+Douglas-Rachford appliqu\'e \`a la formulation duale.
+\end{proposition}
+
+\section{Applications}
+
+\begin{exemple}[LASSO -- regression parcimoneuse]
+\index{LASSO}
+Le probl\`eme LASSO~:
+\[
+  \min_x \frac{1}{2} \norm{Ax - b}^2 + \lambda \norm{x}_1
+\]
+est un probl\`eme composite avec $f(x) = \frac{1}{2}\norm{Ax-b}^2$ (lisse,
+$L = \norm{A^\top A}$) et $g(x) = \lambda \norm{x}_1$. ISTA donne~:
+\[
+  x_{k+1} = S_{\lambda/L}\!\left(x_k - \frac{1}{L} A^\top(Ax_k - b)\right),
+\]
+o\`u $S_\tau$ est le seuillage doux composante par composante.
+\end{exemple}
+
+\begin{exemple}[D\'ebruitage par variation totale]
+Pour le d\'ebruitage d'un signal $y \in \R^n$~:
+\[
+  \min_x \frac{1}{2}\norm{x - y}^2 + \lambda \norm{Dx}_1,
+\]
+o\`u $D$ est la matrice de diff\'erences finies. ADMM d\'ecompose ce
+probl\`eme en un sous-probl\`eme quadratique et un seuillage doux.
+\end{exemple}
+
+\section{Exercices}
+
+\begin{exercice}[$\star$ -- Op\'erateurs proximaux]
+Calculer l'op\'erateur proximal de $g(x) = \lambda \norm{x}_1$ et de
+$g(x) = \iota_{[0,+\infty)^n}(x)$ (indicatrice de l'orthant positif).
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- ISTA pour le LASSO]
+Impl\'ementer ISTA pour le LASSO avec $A \in \R^{50 \times 200}$,
+$x^* \in \R^{200}$ creux (10 composantes non nulles), et $b = Ax^* + \epsilon$.
+Tracer la convergence et comparer avec FISTA.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- Identit\'e de Moreau]
+D\'emontrer l'identit\'e de Moreau~: $\mathrm{prox}_g(v) + \mathrm{prox}_{g^*}(v) = v$.
+En d\'eduire $\mathrm{prox}_{\lambda \norm{\cdot}_\infty}$.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- ADMM pour le LASSO]
+D\'eriver les it\'erations ADMM pour le probl\`eme LASSO. Montrer que le
+sous-probl\`eme en $x$ est un syst\`eme lin\'eaire et celui en $z$ un
+seuillage doux. Impl\'ementer et comparer avec FISTA.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Convergence acc\'el\'er\'ee]
+Montrer que la suite $t_k$ de FISTA v\'erifie $t_k \geq (k+1)/2$ et en
+d\'eduire le taux de convergence $\mathcal{O}(1/k^2)$.
+\end{exercice}

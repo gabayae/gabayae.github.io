@@ -1,0 +1,678 @@
+%!TEX root = ../main.tex
+\chapter{Monitoring des Mod\`eles en Production}
+\label{ch:monitoring}
+
+\section{Introduction}
+
+D\'eployer un mod\`ele de Machine Learning en production n'est pas la fin du processus~: c'est le d\'ebut d'une nouvelle phase critique. Les mod\`eles se d\'egradent in\'evitablement avec le temps, car les donn\'ees du monde r\'eel \'evoluent. Le monitoring permet de d\'etecter ces d\'egradations avant qu'elles n'impactent les utilisateurs.
+
+\begin{attention}[title=\textbf{Pourquoi les mod\`eles se d\'egradent-ils~?}]
+Un mod\`ele entra\^in\'e capture une relation $f: X \to Y$ valide au moment de l'entra\^inement. Cette relation peut devenir obsol\`ete pour plusieurs raisons~:
+\begin{itemize}
+    \item \textbf{Les donn\'ees changent}~: le profil des utilisateurs \'evolue, de nouveaux comportements apparaissent.
+    \item \textbf{Le contexte change}~: saisonnalit\'e, \'ev\'enements \'economiques, changements r\'eglementaires.
+    \item \textbf{Le syst\`eme en amont change}~: modification d'un capteur, changement de format de donn\'ees.
+    \item \textbf{Les labels changent}~: ce qui \'etait consid\'er\'e comme positif hier ne l'est plus aujourd'hui.
+\end{itemize}
+Sans monitoring, ces d\'egradations passent inaper\c{c}ues pendant des semaines ou des mois.
+\end{attention}
+
+%% ----------------------------------------------------------------
+\section{Types de drift}
+\label{sec:drift-types}
+
+Le \emph{drift} (d\'erive) d\'esigne tout changement dans la distribution des donn\'ees ou dans la relation entre les entr\'ees et les sorties d'un mod\`ele.
+
+\begin{definition}[Covariate Shift]
+Le \emph{covariate shift} (d\'erive des covariables) survient lorsque la distribution des variables d'entr\'ee $P(X)$ change, tandis que la relation conditionnelle $P(Y|X)$ reste identique. Par exemple, un mod\`ele de cr\'edit entra\^in\'e sur des clients de 25--55 ans qui re\c{c}oit soudainement des demandes de clients de 18--25 ans.
+\[
+P_{\text{train}}(X) \neq P_{\text{prod}}(X), \quad P_{\text{train}}(Y|X) = P_{\text{prod}}(Y|X)
+\]
+\end{definition}
+
+\begin{definition}[Prior Probability Shift]
+Le \emph{prior probability shift} (d\'erive de la distribution cible) survient lorsque la distribution de la variable cible $P(Y)$ change. Par exemple, un classificateur de spam entra\^in\'e avec 10\,\% de spam qui fait face \`a 40\,\% de spam en production.
+\[
+P_{\text{train}}(Y) \neq P_{\text{prod}}(Y), \quad P_{\text{train}}(X|Y) = P_{\text{prod}}(X|Y)
+\]
+\end{definition}
+
+\begin{definition}[Concept Drift]
+Le \emph{concept drift} (d\'erive de concept) est le cas le plus s\'ev\`ere~: la relation entre les entr\'ees et la cible change fondamentalement.
+\[
+P_{\text{train}}(Y|X) \neq P_{\text{prod}}(Y|X)
+\]
+Exemple~: un mod\`ele de recommandation dont le comportement des utilisateurs change radicalement apr\`es une crise \'economique.
+\end{definition}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    box/.style={rectangle, draw, rounded corners, minimum width=3.5cm,
+        minimum height=1.5cm, align=center, font=\small},
+    arrow/.style={-{Stealth[length=2.5mm]}, thick},
+    title/.style={font=\bfseries\small}
+]
+
+% Covariate shift
+\node[box, fill=blue!10] (cov) at (0,0) {Covariate Shift\\$P(X)$ change\\$P(Y|X)$ stable};
+
+% Prior probability shift
+\node[box, fill=green!10] (prior) at (5.5,0) {Prior Probability\\Shift\\$P(Y)$ change\\$P(X|Y)$ stable};
+
+% Concept drift
+\node[box, fill=red!10] (concept) at (11,0) {Concept Drift\\$P(Y|X)$ change};
+
+% Severity arrow
+\draw[arrow, very thick, gray!60] (0,-1.8) -- (11,-1.8)
+    node[midway, below, font=\small\bfseries, text=gray!80] {S\'ev\'erit\'e croissante};
+
+% Labels
+\node[title, above=0.3cm of cov] {Mod\'er\'e};
+\node[title, above=0.3cm of prior] {Significatif};
+\node[title, above=0.3cm of concept] {Critique};
+
+\end{tikzpicture}
+\caption{Les trois types de drift class\'es par s\'ev\'erit\'e.}
+\label{fig:drift-types}
+\end{figure}
+
+%% ----------------------------------------------------------------
+\section{Formulation math\'ematique de la d\'etection de drift}
+\label{sec:drift-math}
+
+\begin{formules}[title=\textbf{M\'etriques de d\'etection de drift}]
+\textbf{Divergence de Kullback-Leibler (KL)}~:
+\[
+D_{\mathrm{KL}}(P \| Q) = \sum_{x} P(x) \ln \frac{P(x)}{Q(x)}
+\]
+La divergence KL est \textbf{asym\'etrique}~: $D_{\mathrm{KL}}(P \| Q) \neq D_{\mathrm{KL}}(Q \| P)$. Elle mesure la quantit\'e d'information perdue lorsqu'on utilise $Q$ pour approximer $P$.
+
+\medskip
+\textbf{Population Stability Index (PSI)}~:
+\[
+\mathrm{PSI} = \sum_{i=1}^{k} (p_i - q_i) \ln \frac{p_i}{q_i}
+\]
+o\`u $p_i$ et $q_i$ sont les proportions dans le $i$-\`eme intervalle (\emph{bin}) des distributions de r\'ef\'erence et courante. R\`egles d'interpr\'etation~:
+\begin{itemize}
+    \item $\mathrm{PSI} < 0.1$~: pas de changement significatif
+    \item $0.1 \leq \mathrm{PSI} < 0.2$~: changement mod\'er\'e, \`a surveiller
+    \item $\mathrm{PSI} \geq 0.2$~: changement significatif, action requise
+\end{itemize}
+
+\medskip
+\textbf{Test de Kolmogorov-Smirnov (KS)}~:
+\[
+D_n = \sup_x |F_{\text{ref}}(x) - F_{\text{cur}}(x)|
+\]
+o\`u $F_{\text{ref}}$ et $F_{\text{cur}}$ sont les fonctions de r\'epartition empiriques des distributions de r\'ef\'erence et courante. On rejette l'hypoth\`ese nulle (<<~pas de drift~>>) si la \emph{p-value} est inf\'erieure au seuil $\alpha$ (typiquement 0.05).
+\end{formules}
+
+\begin{codeblock}[title=\textbf{Impl\'ementation des m\'etriques de drift}]
+\begin{minted}{python}
+import numpy as np
+from scipy import stats
+
+
+def kl_divergence(p: np.ndarray, q: np.ndarray,
+                  epsilon: float = 1e-10) -> float:
+    """Divergence KL entre deux distributions discretes."""
+    p = np.clip(p, epsilon, None)
+    q = np.clip(q, epsilon, None)
+    p = p / p.sum()
+    q = q / q.sum()
+    return float(np.sum(p * np.log(p / q)))
+
+
+def psi(reference: np.ndarray, current: np.ndarray,
+        n_bins: int = 10) -> float:
+    """Population Stability Index."""
+    breakpoints = np.linspace(
+        min(reference.min(), current.min()),
+        max(reference.max(), current.max()),
+        n_bins + 1,
+    )
+    ref_counts = np.histogram(reference, bins=breakpoints)[0]
+    cur_counts = np.histogram(current, bins=breakpoints)[0]
+
+    # Eviter les zeros
+    ref_pct = (ref_counts + 1) / (len(reference) + n_bins)
+    cur_pct = (cur_counts + 1) / (len(current) + n_bins)
+
+    return float(np.sum((cur_pct - ref_pct) * np.log(cur_pct / ref_pct)))
+
+
+def ks_test(reference: np.ndarray, current: np.ndarray,
+            alpha: float = 0.05) -> dict:
+    """Test de Kolmogorov-Smirnov pour detecter le drift."""
+    statistic, p_value = stats.ks_2samp(reference, current)
+    return {
+        "statistic": float(statistic),
+        "p_value": float(p_value),
+        "drift_detected": p_value < alpha,
+    }
+\end{minted}
+\end{codeblock}
+
+%% ----------------------------------------------------------------
+\section{Evidently AI~: rapports de monitoring}
+\label{sec:evidently}
+
+Evidently est une biblioth\`eque open-source Python qui g\'en\`ere des rapports de monitoring pour les mod\`eles ML. Elle permet de d\'etecter le drift, d'analyser la qualit\'e des donn\'ees et de suivre les performances du mod\`ele.
+
+\begin{codeblock}[title=\textbf{G\'en\'erer un rapport de drift avec Evidently}]
+\begin{minted}{python}
+import pandas as pd
+from evidently import ColumnMapping
+from evidently.report import Report
+from evidently.metric_preset import (
+    DataDriftPreset,
+    DataQualityPreset,
+    TargetDriftPreset,
+)
+
+
+# Charger les donnees
+reference_data = pd.read_csv("data/reference.csv")
+current_data = pd.read_csv("data/production_week42.csv")
+
+# Definir le mapping des colonnes
+column_mapping = ColumnMapping(
+    target="label",
+    prediction="prediction",
+    numerical_features=["age", "income", "credit_score"],
+    categorical_features=["region", "product_type"],
+)
+
+# Creer le rapport de drift
+drift_report = Report(metrics=[
+    DataDriftPreset(),
+    DataQualityPreset(),
+    TargetDriftPreset(),
+])
+
+drift_report.run(
+    reference_data=reference_data,
+    current_data=current_data,
+    column_mapping=column_mapping,
+)
+
+# Sauvegarder en HTML
+drift_report.save_html("reports/drift_report_week42.html")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Tests automatis\'es avec Evidently}]
+\begin{minted}{python}
+from evidently.test_suite import TestSuite
+from evidently.test_preset import (
+    DataDriftTestPreset,
+    DataStabilityTestPreset,
+    NoTargetPerformanceTestPreset,
+)
+from evidently.tests import (
+    TestColumnDrift,
+    TestShareOfDriftedColumns,
+    TestMeanInNSigmas,
+)
+
+
+# Suite de tests pour la CI
+test_suite = TestSuite(tests=[
+    # Preset : tester le drift sur toutes les colonnes
+    DataDriftTestPreset(),
+
+    # Tests specifiques
+    TestColumnDrift(column_name="income", stattest="ks"),
+    TestShareOfDriftedColumns(lt=0.3),  # < 30% de drift
+    TestMeanInNSigmas(column_name="age", n=2),
+])
+
+test_suite.run(
+    reference_data=reference_data,
+    current_data=current_data,
+    column_mapping=column_mapping,
+)
+
+# Verifier si les tests passent
+result = test_suite.as_dict()
+all_passed = all(
+    t["status"] == "SUCCESS"
+    for t in result["tests"]
+)
+
+if not all_passed:
+    failed = [
+        t["name"] for t in result["tests"]
+        if t["status"] == "FAIL"
+    ]
+    raise RuntimeError(
+        f"Tests de drift echoues : {failed}"
+    )
+
+print("Tous les tests de monitoring sont passes.")
+\end{minted}
+\end{codeblock}
+
+%% ----------------------------------------------------------------
+\section{Prometheus et Grafana pour la collecte de m\'etriques}
+\label{sec:prometheus-grafana}
+
+Prometheus est un syst\`eme de monitoring et d'alerte open-source qui collecte des m\'etriques sous forme de s\'eries temporelles. Grafana est un outil de visualisation qui permet de cr\'eer des tableaux de bord \`a partir de ces m\'etriques.
+
+\begin{codeblock}[title=\textbf{Exposer des m\'etriques ML avec Prometheus}]
+\begin{minted}{python}
+from prometheus_client import (
+    Counter, Histogram, Gauge, Summary,
+    start_http_server,
+)
+import time
+import numpy as np
+
+# Definir les metriques
+PREDICTION_COUNT = Counter(
+    "model_predictions_total",
+    "Nombre total de predictions",
+    ["model_version", "outcome"],
+)
+
+PREDICTION_LATENCY = Histogram(
+    "model_prediction_latency_seconds",
+    "Latence des predictions en secondes",
+    buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0],
+)
+
+FEATURE_DRIFT_SCORE = Gauge(
+    "model_feature_drift_psi",
+    "Score PSI de drift par feature",
+    ["feature_name"],
+)
+
+PREDICTION_CONFIDENCE = Summary(
+    "model_prediction_confidence",
+    "Distribution de la confiance des predictions",
+)
+
+
+class MonitoredModel:
+    """Wrapper qui ajoute le monitoring a un modele."""
+
+    def __init__(self, model, version: str = "v1"):
+        self.model = model
+        self.version = version
+
+    def predict(self, features: np.ndarray) -> np.ndarray:
+        start = time.perf_counter()
+
+        predictions = self.model.predict(features)
+        probabilities = self.model.predict_proba(features)
+
+        # Enregistrer la latence
+        latency = time.perf_counter() - start
+        PREDICTION_LATENCY.observe(latency)
+
+        # Enregistrer les predictions
+        for pred in predictions:
+            PREDICTION_COUNT.labels(
+                model_version=self.version,
+                outcome=str(pred),
+            ).inc()
+
+        # Enregistrer la confiance
+        for prob in probabilities.max(axis=1):
+            PREDICTION_CONFIDENCE.observe(prob)
+
+        return predictions
+
+    def update_drift_metrics(
+        self, feature_name: str, psi_value: float
+    ):
+        """Met a jour le score de drift pour une feature."""
+        FEATURE_DRIFT_SCORE.labels(
+            feature_name=feature_name
+        ).set(psi_value)
+
+
+# Demarrer le serveur de metriques sur le port 8000
+start_http_server(8000)
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Configuration Prometheus \file{prometheus.yml}}]
+\begin{minted}{yaml}
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "ml_alerts.yml"
+
+scrape_configs:
+  - job_name: "ml-model"
+    static_configs:
+      - targets: ["ml-model-service:8000"]
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: "ml-drift-checker"
+    static_configs:
+      - targets: ["drift-service:8001"]
+    scrape_interval: 300s  # Toutes les 5 minutes
+\end{minted}
+\end{codeblock}
+
+%% ----------------------------------------------------------------
+\section{Alertes et tableaux de bord}
+\label{sec:alerts}
+
+\begin{codeblock}[title=\textbf{R\`egles d'alerte Prometheus \file{ml\_alerts.yml}}]
+\begin{minted}{yaml}
+groups:
+  - name: ml-model-alerts
+    rules:
+      - alert: HighPredictionLatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(model_prediction_latency_seconds_bucket[5m])
+          ) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latence p95 > 500ms depuis 10min"
+          description: >
+            La latence au 95e percentile est de
+            {{ $value | humanizeDuration }}.
+
+      - alert: DataDriftDetected
+        expr: model_feature_drift_psi > 0.2
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Drift detecte sur {{ $labels.feature_name }}"
+          description: >
+            PSI = {{ $value }} (seuil: 0.2).
+            Re-entrainement recommande.
+
+      - alert: LowPredictionVolume
+        expr: |
+          rate(model_predictions_total[1h]) < 10
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Volume de predictions anormalement bas"
+
+      - alert: LowModelConfidence
+        expr: |
+          model_prediction_confidence{quantile="0.5"} < 0.6
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Confiance mediane < 60%"
+\end{minted}
+\end{codeblock}
+
+\begin{bonnepratique}[title=\textbf{Tableau de bord Grafana -- m\'etriques essentielles}]
+Un bon tableau de bord ML doit inclure les panneaux suivants~:
+\begin{enumerate}
+    \item \textbf{Volume de pr\'edictions}~: nombre de requ\^etes par minute (d\'etecter les anomalies de trafic).
+    \item \textbf{Distribution des pr\'edictions}~: r\'epartition des classes pr\'edites (d\'etecter le \emph{prior probability shift}).
+    \item \textbf{Latence}~: p50, p95, p99 de la latence d'inf\'erence.
+    \item \textbf{Confiance}~: distribution des scores de confiance du mod\`ele.
+    \item \textbf{Drift par feature}~: score PSI pour chaque variable d'entr\'ee.
+    \item \textbf{Performance}~: accuracy, F1-score glissant (si les labels sont disponibles).
+    \item \textbf{Erreurs syst\`eme}~: taux d'erreur HTTP, utilisation CPU/m\'emoire.
+\end{enumerate}
+\end{bonnepratique}
+
+%% ----------------------------------------------------------------
+\section{Architecture de monitoring}
+\label{sec:monitoring-architecture}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    node distance=1.5cm and 2cm,
+    block/.style={rectangle, draw, rounded corners, fill=blue!8,
+        minimum width=2.6cm, minimum height=1cm, align=center,
+        font=\small},
+    store/.style={cylinder, draw, fill=green!8, shape border rotate=90,
+        minimum width=1.8cm, minimum height=1cm, aspect=0.3,
+        align=center, font=\small},
+    alert/.style={rectangle, draw, rounded corners, fill=red!10,
+        minimum width=2.2cm, minimum height=0.8cm, align=center,
+        font=\small},
+    arrow/.style={-{Stealth[length=2.5mm]}, thick},
+    darrow/.style={-{Stealth[length=2.5mm]}, thick, dashed}
+]
+
+% Application layer
+\node[block] (api) {API de\\pr\'ediction};
+\node[block, right=of api] (exporter) {Exporter\\m\'etriques};
+\node[block, below=of api] (drift) {Service de\\d\'etection drift};
+\node[block, left=of api] (users) {Utilisateurs /\\Applications};
+
+% Storage layer
+\node[store, right=3cm of drift] (prom) {Prometheus\\(TSDB)};
+\node[store, below=of drift] (logs) {Feature\\Store / Logs};
+
+% Visualization and alerts
+\node[block, right=of prom] (grafana) {Grafana\\Dashboards};
+\node[alert, above=of grafana] (alertmgr) {Alert\\Manager};
+\node[alert, right=of alertmgr] (notif) {Slack /\\PagerDuty};
+
+% Re-training
+\node[block, below=of logs] (retrain) {Pipeline de\\r\'e-entra\^inement};
+
+% Arrows
+\draw[arrow] (users) -- (api);
+\draw[arrow] (api) -- (exporter);
+\draw[arrow] (exporter) -- (prom);
+\draw[arrow] (api) -- (drift);
+\draw[arrow] (drift) -- (prom);
+\draw[arrow] (api.south) -- ++(0,-0.4) -| (logs);
+\draw[arrow] (prom) -- (grafana);
+\draw[arrow] (prom) -- (alertmgr);
+\draw[arrow] (alertmgr) -- (notif);
+\draw[darrow] (drift) -- (logs);
+\draw[darrow, red!60] (alertmgr.south) -- ++(0,-0.5) -| (retrain)
+    node[pos=0.25, right, font=\scriptsize] {d\'eclencher};
+\draw[darrow] (logs) -- (retrain);
+
+\end{tikzpicture}
+\caption{Architecture de monitoring pour un mod\`ele ML en production.}
+\label{fig:monitoring-architecture}
+\end{figure}
+
+%% ----------------------------------------------------------------
+\section{Comparaison des outils de monitoring ML}
+\label{sec:monitoring-comparison}
+
+\begin{formules}[title=\textbf{Evidently vs WhyLabs vs Fiddler vs NannyML}]
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Crit\`ere} & \textbf{Evidently} & \textbf{WhyLabs} & \textbf{Fiddler} & \textbf{NannyML} \\
+\midrule
+Licence & Open-source & Freemium & Commercial & Open-source \\
+D\'etection drift & Oui & Oui & Oui & Oui \\
+Qualit\'e donn\'ees & Oui & Oui & Limit\'ee & Non \\
+Explicabilit\'e & Limit\'ee & Non & Oui & Non \\
+Perf. sans labels & Non & Oui & Oui & Oui \\
+Int\'egration CI & Oui & Oui & Non & Oui \\
+Dashboard & HTML/Cloud & Cloud & Cloud & Limit\'e \\
+Complexit\'e & Faible & Mod\'er\'ee & \'Elev\'ee & Faible \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{formules}
+
+\begin{remarque}
+NannyML se distingue par sa capacit\'e \`a estimer la performance d'un mod\`ele \emph{sans avoir acc\`es aux labels r\'eels}, gr\^ace \`a la m\'ethode CBPE (\emph{Confidence-Based Performance Estimation}). Cela est particuli\`erement utile lorsque les labels arrivent avec un d\'elai important (ex.~: d\'etection de fraude, pr\'ediction de churn \`a 90 jours).
+\end{remarque}
+
+\begin{toolbox}[title=\textbf{Stack de monitoring recommand\'ee}]
+Pour un projet MLOps complet, la stack suivante est recommand\'ee~:
+\begin{itemize}
+    \item \textbf{Evidently} pour la d\'etection de drift et les tests en CI
+    \item \textbf{Prometheus} pour la collecte de m\'etriques en temps r\'eel
+    \item \textbf{Grafana} pour la visualisation et les tableaux de bord
+    \item \textbf{AlertManager} pour les notifications (Slack, PagerDuty, email)
+    \item \textbf{NannyML} pour l'estimation de performance sans labels
+\end{itemize}
+Cette combinaison offre une couverture compl\`ete tout en restant open-source.
+\end{toolbox}
+
+%% ----------------------------------------------------------------
+\section{Mini-projet~: ajouter le monitoring au mod\`ele d\'eploy\'e}
+\label{sec:monitoring-miniproject}
+
+\begin{miniprojet}[title=\textbf{Monitoring du mod\`ele en production}]
+\textbf{Objectif}~: ajouter une couche de monitoring compl\`ete au mod\`ele d\'eploy\'e lors des chapitres pr\'ec\'edents.
+
+\textbf{\'Etapes}~:
+\begin{enumerate}
+    \item \textbf{Instrumenter l'API}~: ajouter les m\'etriques Prometheus (compteur de pr\'edictions, histogramme de latence, jauge de drift) \`a l'API FastAPI/Flask.
+    \item \textbf{Logger les pr\'edictions}~: stocker chaque pr\'ediction avec ses features d'entr\'ee dans un fichier CSV ou une base de donn\'ees.
+    \item \textbf{Script de drift}~: cr\'eer un script qui compare les donn\'ees de r\'ef\'erence aux donn\'ees de production de la derni\`ere semaine (PSI + KS test).
+    \item \textbf{Rapport Evidently}~: g\'en\'erer un rapport HTML de drift hebdomadaire automatis\'e via un cron job ou un workflow GitHub Actions.
+    \item \textbf{Prometheus + Grafana}~: d\'eployer Prometheus et Grafana via Docker Compose. Cr\'eer un dashboard avec au moins 5 panneaux.
+    \item \textbf{Alertes}~: configurer au moins 3 alertes (latence \'elev\'ee, drift d\'etect\'e, volume anormal).
+\end{enumerate}
+
+\textbf{Docker Compose}~:
+\begin{minted}{yaml}
+version: "3.8"
+services:
+  ml-model:
+    build: .
+    ports:
+      - "8080:8080"
+      - "8000:8000"  # Metriques Prometheus
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/ml_alerts.yml:/etc/prometheus/ml_alerts.yml
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+volumes:
+  grafana-data:
+\end{minted}
+
+\textbf{Livrables}~:
+\begin{itemize}
+    \item Code source de l'API instrument\'ee avec les m\'etriques Prometheus.
+    \item Fichier \file{docker-compose.yml} pour le d\'eploiement complet.
+    \item Capture d'\'ecran du dashboard Grafana avec les m\'etriques ML.
+    \item Rapport Evidently g\'en\'er\'e automatiquement.
+    \item Documentation des alertes configur\'ees.
+\end{itemize}
+\end{miniprojet}
+
+%% ----------------------------------------------------------------
+\section{Exercices}
+\label{sec:monitoring-exercises}
+
+\begin{exercice}[Niveau 1 -- D\'etection de drift basique]
+\begin{enumerate}
+    \item G\'en\'erez deux distributions normales~: $X_{\text{ref}} \sim \mathcal{N}(0, 1)$ avec 10\,000 \'echantillons et $X_{\text{cur}} \sim \mathcal{N}(0.5, 1.2)$ avec 10\,000 \'echantillons.
+    \item Calculez le PSI entre les deux distributions. Interpr\'etez le r\'esultat.
+    \item Appliquez le test de Kolmogorov-Smirnov. Le drift est-il d\'etect\'e avec $\alpha = 0.05$~?
+    \item Calculez la divergence KL dans les deux sens. Observez l'asym\'etrie.
+    \item Utilisez Evidently pour g\'en\'erer un rapport de drift sur ces donn\'ees synth\'etiques.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Niveau 2 -- Monitoring d'une API de pr\'ediction]
+\begin{enumerate}
+    \item Cr\'eez une API FastAPI qui sert un mod\`ele scikit-learn (classificateur de votre choix).
+    \item Ajoutez les m\'etriques Prometheus suivantes~: nombre de pr\'edictions, latence (histogramme), distribution des classes pr\'edites.
+    \item D\'eployez Prometheus et Grafana avec Docker Compose.
+    \item Cr\'eez un dashboard Grafana affichant les m\'etriques en temps r\'eel.
+    \item \'Ecrivez un script de charge qui envoie des requ\^etes avec des donn\'ees progressivement drift\'ees.
+    \item Configurez une alerte qui se d\'eclenche lorsque la latence p95 d\'epasse 200\,ms.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Niveau 3 -- Syst\`eme de monitoring autonome avec re-entra\^inement]
+Concevez et impl\'ementez un syst\`eme de monitoring complet~:
+\begin{enumerate}
+    \item \textbf{D\'etection multi-m\'ethode}~: impl\'ementez PSI, KS, et la m\'ethode ADWIN (\emph{Adaptive Windowing}) pour la d\'etection de drift en temps r\'eel.
+    \item \textbf{Pipeline de monitoring}~: cr\'eez un service qui~:
+    \begin{itemize}
+        \item Collecte les pr\'edictions et features toutes les 5 minutes
+        \item Calcule les scores de drift sur une fen\^etre glissante
+        \item Met \`a jour les m\'etriques Prometheus
+    \end{itemize}
+    \item \textbf{Re-entra\^inement automatique}~: lorsqu'un drift significatif est d\'etect\'e (PSI $> 0.2$ pendant plus de 30 minutes), d\'eclenchez automatiquement un pipeline de re-entra\^inement via l'API GitHub Actions.
+    \item \textbf{Validation post-entra\^inement}~: le nouveau mod\`ele doit passer les tests de performance avant d\'eploiement (\emph{champion/challenger}).
+    \item \textbf{Observabilit\'e compl\`ete}~: dashboard Grafana avec au moins 10 panneaux couvrant performance, drift, infrastructure et m\'etriques m\'etier.
+\end{enumerate}
+\end{exercice}
+
+%% ----------------------------------------------------------------
+\section{Aide-m\'emoire}
+\label{sec:monitoring-cheatsheet}
+
+\begin{cheatsheet}[title=\textbf{Monitoring des mod\`eles ML}]
+\textbf{Types de drift}~:
+\begin{itemize}
+    \item \textbf{Covariate shift}~: $P(X)$ change, $P(Y|X)$ stable
+    \item \textbf{Prior probability shift}~: $P(Y)$ change
+    \item \textbf{Concept drift}~: $P(Y|X)$ change (le plus grave)
+\end{itemize}
+
+\textbf{M\'etriques de drift}~:
+\begin{itemize}
+    \item \textbf{PSI}~: $< 0.1$ OK, $0.1$--$0.2$ surveiller, $\geq 0.2$ agir
+    \item \textbf{KS test}~: $p < 0.05 \Rightarrow$ drift d\'etect\'e
+    \item \textbf{KL divergence}~: asym\'etrique, $\geq 0$, $= 0$ si identiques
+\end{itemize}
+
+\textbf{Code Evidently essentiel}~:
+\begin{minted}{python}
+from evidently.report import Report
+from evidently.metric_preset import DataDriftPreset
+
+report = Report(metrics=[DataDriftPreset()])
+report.run(
+    reference_data=ref_df,
+    current_data=cur_df,
+)
+report.save_html("drift_report.html")
+\end{minted}
+
+\textbf{Prometheus -- m\'etriques cl\'es}~:
+\begin{minted}{python}
+from prometheus_client import Counter, Histogram, Gauge
+PREDICTIONS = Counter("predictions_total", "...", ["class"])
+LATENCY = Histogram("prediction_latency_s", "...")
+DRIFT = Gauge("feature_drift_psi", "...", ["feature"])
+\end{minted}
+
+\textbf{Checklist monitoring}~:
+\begin{enumerate}
+    \item[$\square$] M\'etriques Prometheus expos\'ees par l'API
+    \item[$\square$] Pr\'edictions et features logu\'ees
+    \item[$\square$] D\'etection de drift automatis\'ee
+    \item[$\square$] Dashboard Grafana op\'erationnel
+    \item[$\square$] Alertes configur\'ees (latence, drift, volume)
+    \item[$\square$] Processus de re-entra\^inement d\'efini
+    \item[$\square$] Strat\'egie de rollback pr\^ete
+\end{enumerate}
+\end{cheatsheet}

@@ -1,0 +1,1349 @@
+% ch2-linear-maps.tex — Chapter 2: Linear Maps and Matrices
+% Definitions, kernel/image, rank-nullity theorem, matrix representations,
+% change of basis, operations on matrices, dual spaces, applications.
+
+\chapter{Linear Maps and Matrices}\label{ch:linear-maps}
+
+% ============================================================
+% Motivating introduction
+% ============================================================
+
+The study of vector spaces becomes truly powerful only when we understand
+the \emph{maps} between them that respect their algebraic structure.
+Consider the Euclidean plane~$\R^2$. Many natural geometric
+transformations---rotations, reflections, projections onto a line,
+scalings---share a remarkable property: they preserve the operations of
+vector addition and scalar multiplication. A rotation through angle
+$\theta$ sends the sum of two vectors to the sum of their rotated
+images; scaling by a factor~$\lambda$ commutes with addition.
+
+\begin{center}
+\begin{tikzpicture}[>=Stealth, scale=1.2]
+  % Original vectors
+  \draw[->, thick, blue!70!black] (0,0) -- (2,0.5) node[right] {$\vec{v}$};
+  \draw[->, thick, red!70!black] (0,0) -- (0.8,1.8) node[above] {$\vec{w}$};
+  \draw[->, thick, black!60] (0,0) -- (2.8,2.3) node[above right] {$\vec{v}+\vec{w}$};
+
+  % Rotation arrow
+  \draw[->, thick, dashed, gray] (3.5,1.2) to[bend left=20]
+    node[midway,above] {\small rotation $R_\theta$} (5.5,1.2);
+
+  % Rotated vectors (approx 45 degrees)
+  \begin{scope}[shift={(7,0)}, rotate=40]
+    \draw[->, thick, blue!70!black] (0,0) -- (2,0.5)
+      node[right] {$R_\theta(\vec{v})$};
+    \draw[->, thick, red!70!black] (0,0) -- (0.8,1.8)
+      node[above] {$R_\theta(\vec{w})$};
+    \draw[->, thick, black!60] (0,0) -- (2.8,2.3)
+      node[above right] {$R_\theta(\vec{v}+\vec{w})$};
+  \end{scope}
+\end{tikzpicture}
+\captionof{figure}{A rotation maps the parallelogram law to a rotated
+  parallelogram: the image of a sum is the sum of the images.}
+\label{fig:rotation-intro}
+\end{center}
+
+These structure-preserving maps are called \emph{linear maps}. They form
+the bridge between the abstract theory of vector spaces and the concrete
+computations of matrix algebra. In this chapter we develop their theory
+systematically: we define linear maps, study their kernel and image,
+prove the fundamental rank--nullity theorem, represent linear maps by
+matrices, and learn to change bases. Along the way we shall see that
+matrix multiplication is nothing but the composition of linear maps in
+disguise.
+
+Throughout this chapter, $\K$ denotes a field (typically $\R$ or $\C$),
+and $E$, $F$, $G$ denote $\K$-vector spaces unless stated otherwise.
+We freely use results from ef{ch:vector-spaces}, especially the
+notions of subspace, basis, and dimension.
+
+
+% ============================================================
+\section{Definition and first properties}\label{sec:linear-map-def}
+% ============================================================
+
+\begin{definition}{Linear map}{def:linear-map}
+\index{linear map}
+Let $E$ and $F$ be vector spaces over~$\K$. A map
+$f\colon E \to F$ is \emph{linear} (or is a \emph{$\K$-linear map},
+or a \emph{homomorphism of vector spaces}) if it satisfies the
+following two conditions:
+\begin{enumerate}[label=(\roman*)]
+  \item \textbf{Additivity:}
+    $f(u+v) = f(u) + f(v)$\quad for all $u,v\in E$.
+  \item \textbf{Homogeneity:}
+    $f(\lambda u) = \lambda\, f(u)$\quad for all $\lambda\in\K$,
+    $u\in E$.
+\end{enumerate}
+Equivalently, $f$ is linear if and only if
+$f(\lambda u + \mu v) = \lambda\, f(u) + \mu\, f(v)$
+for all $\lambda,\mu\in\K$ and all $u,v\in E$.
+\end{definition}
+
+\begin{remark}{Terminology}{rem:terminology}
+\index{endomorphism}\index{isomorphism}\index{automorphism}
+Several special names are used:
+\begin{itemize}
+  \item A linear map $f\colon E\to E$ (same domain and codomain) is
+    called an \emph{endomorphism} of~$E$.
+  \item A bijective linear map is called an \emph{isomorphism}.
+  \item A bijective endomorphism is called an \emph{automorphism}.
+  \item A linear map $f\colon E\to\K$ (codomain is the base field)
+    is called a \emph{linear form}\index{linear form}.
+\end{itemize}
+\end{remark}
+
+\begin{proposition}{Elementary properties}{prop:linear-elementary}
+Let $f\colon E\to F$ be a linear map. Then:
+\begin{enumerate}[label=(\roman*)]
+  \item $f(\vzero_E) = \vzero_F$.
+  \item $f(-v) = -f(v)$ for all $v\in E$.
+  \item $f\!\left(\sum_{i=1}^{n} \lambda_i v_i\right)
+    = \sum_{i=1}^{n} \lambda_i\, f(v_i)$
+    for all $\lambda_i\in\K$, $v_i\in E$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(i) Setting $\lambda = 0$ in homogeneity: $f(\vzero_E) = f(0\cdot v) =
+0\cdot f(v) = \vzero_F$.
+
+(ii) $f(-v) = f((-1)\cdot v) = (-1)\cdot f(v) = -f(v)$.
+
+(iii) By induction on~$n$, using additivity and homogeneity at each step.
+The base case $n=1$ is homogeneity, and the inductive step follows from
+$f\!\left(\sum_{i=1}^{n+1}\lambda_i v_i\right)
+= f\!\left(\sum_{i=1}^{n}\lambda_i v_i + \lambda_{n+1}v_{n+1}\right)
+= f\!\left(\sum_{i=1}^{n}\lambda_i v_i\right) + \lambda_{n+1}\,f(v_{n+1})$.
+\end{proof}
+
+\begin{proposition}{A linear map is determined by its values on a basis}%
+{prop:linear-determined-by-basis}
+\index{linear map!determined by basis}
+Let $\cB = (\vece{1},\ldots,\vece{n})$ be a basis of~$E$, and let
+$w_1,\ldots,w_n$ be arbitrary vectors in~$F$. Then there exists a
+\emph{unique} linear map $f\colon E\to F$ such that
+$f(\vece{i}) = w_i$ for all $i\in\set{1,\ldots,n}$.
+\end{proposition}
+
+\begin{proof}
+\textit{Existence.}\; Every $v\in E$ has a unique decomposition
+$v = \sum_{i=1}^{n}\lambda_i\vece{i}$. Define
+$f(v) \deff \sum_{i=1}^{n}\lambda_i w_i$.
+One verifies directly that $f$ is linear: for
+$v = \sum \lambda_i \vece{i}$ and $v' = \sum \mu_i \vece{i}$ and
+$\alpha,\beta\in\K$,
+\[
+  f(\alpha v + \beta v')
+  = f\!\Bigl(\sum_{i}(\alpha\lambda_i+\beta\mu_i)\vece{i}\Bigr)
+  = \sum_{i}(\alpha\lambda_i+\beta\mu_i)w_i
+  = \alpha\sum_{i}\lambda_i w_i + \beta\sum_{i}\mu_i w_i
+  = \alpha f(v)+\beta f(v').
+\]
+Moreover $f(\vece{i}) = w_i$ since
+$\vece{i} = 0\cdot\vece{1}+\cdots+1\cdot\vece{i}+\cdots+0\cdot\vece{n}$.
+
+\textit{Uniqueness.}\; Suppose $g\colon E\to F$ is linear with
+$g(\vece{i}) = w_i$. For any $v = \sum \lambda_i\vece{i}$,
+$g(v) = \sum \lambda_i\, g(\vece{i}) = \sum \lambda_i w_i = f(v)$.
+\end{proof}
+
+
+% ============================================================
+\section{Examples of linear maps}\label{sec:linear-map-examples}
+% ============================================================
+
+\begin{example}{Rotation in $\R^2$}{ex:rotation}
+\index{rotation}
+For a fixed angle $\theta$, the map $R_\theta\colon\R^2\to\R^2$
+defined by
+\[
+  R_\theta\!\begin{pmatrix}x\\y\end{pmatrix}
+  = \begin{pmatrix}\cos\theta & -\sin\theta\\
+    \sin\theta & \cos\theta\end{pmatrix}
+    \begin{pmatrix}x\\y\end{pmatrix}
+  = \begin{pmatrix}x\cos\theta - y\sin\theta\\
+    x\sin\theta + y\cos\theta\end{pmatrix}
+\]
+is a linear map (an automorphism, in fact, with inverse~$R_{-\theta}$).
+\end{example}
+
+\begin{example}{Orthogonal projection onto a line}{ex:projection-line}
+\index{projection!orthogonal}
+Let $\ell\subset\R^2$ be the line through the origin with unit
+direction vector $\vec{u} = (\cos\alpha,\sin\alpha)^{\mathsf{T}}$.
+The orthogonal projection onto $\ell$ is
+\[
+  \proj_\ell(\vec{v}) = \inner{\vec{v},\vec{u}}\,\vec{u}
+  = \begin{pmatrix}\cos^2\alpha & \cos\alpha\sin\alpha\\
+    \cos\alpha\sin\alpha & \sin^2\alpha\end{pmatrix}
+  \begin{pmatrix}x\\y\end{pmatrix}.
+\]
+This is linear. Note $\proj_\ell \circ \proj_\ell = \proj_\ell$
+(idempotent).
+\end{example}
+
+\begin{example}{Reflection}{ex:reflection}
+\index{reflection}
+The reflection of $\R^2$ across the line $\ell$ through the origin
+with direction angle~$\alpha$ is given by
+\[
+  S_\alpha\!\begin{pmatrix}x\\y\end{pmatrix}
+  = \begin{pmatrix}\cos 2\alpha & \sin 2\alpha\\
+    \sin 2\alpha & -\cos 2\alpha\end{pmatrix}
+  \begin{pmatrix}x\\y\end{pmatrix}.
+\]
+This is a linear map satisfying $S_\alpha^2 = \Id$.
+\end{example}
+
+\begin{example}{Scaling (homothety)}{ex:scaling}
+\index{scaling}\index{homothety}
+For $\lambda\in\K$, the map $h_\lambda\colon E\to E$ defined by
+$h_\lambda(v) = \lambda v$ is linear. It contracts ($|\lambda|<1$),
+dilates ($|\lambda|>1$), or reflects ($\lambda<0$) vectors.
+\end{example}
+
+\begin{example}{Differentiation}{ex:differentiation}
+\index{differentiation}
+Let $\cP_n(\R)$ be the space of real polynomials of degree at most~$n$.
+The derivative map $D\colon\cP_n(\R)\to\cP_{n-1}(\R)$ defined by
+$D(p) = p'$ is linear, since $(p+q)' = p'+q'$ and $(\lambda p)' =
+\lambda p'$.
+\end{example}
+
+\begin{example}{Integration}{ex:integration}
+\index{integration}
+The map $I\colon\mathcal{C}([0,1],\R)\to\R$ defined by
+$I(f) = \int_0^1 f(t)\,dt$ is a linear form on the vector space of
+continuous real-valued functions on $[0,1]$.
+\end{example}
+
+\begin{example}{Matrix--vector multiplication}{ex:matrix-vector}
+\index{matrix!multiplication}
+Let $A\in\Mat_{m,n}(\K)$. The map $f_A\colon\K^n\to\K^m$ defined by
+$f_A(x) = Ax$ is linear. Conversely, every linear map
+$\K^n\to\K^m$ arises this way (see ef{sec:matrix-of-linear-map}).
+\end{example}
+
+
+% ============================================================
+\section{Geometric illustrations}\label{sec:geometric-illustrations}
+% ============================================================
+
+The following figures illustrate how several linear maps transform
+the unit square in~$\R^2$.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[>=Stealth, scale=1.3]
+  % --- Rotation ---
+  \begin{scope}
+    \fill[blue!10] (0,0) -- (1,0) -- (1,1) -- (0,1) -- cycle;
+    \draw[blue!50, thick] (0,0) -- (1,0) -- (1,1) -- (0,1) -- cycle;
+    \node[below] at (0.5,-0.1) {\small original};
+  \end{scope}
+  \begin{scope}[shift={(3,0)}, rotate=30]
+    \fill[red!15] (0,0) -- (1,0) -- (1,1) -- (0,1) -- cycle;
+    \draw[red!60, thick] (0,0) -- (1,0) -- (1,1) -- (0,1) -- cycle;
+  \end{scope}
+  \node[below] at (3.3,-0.2) {\small rotation ($30^\circ$)};
+
+  % --- Projection ---
+  \begin{scope}[shift={(6.5,0)}]
+    \fill[blue!10] (0,0) -- (1,0) -- (1,1) -- (0,1) -- cycle;
+    \draw[blue!50, thick] (0,0) -- (1,0) -- (1,1) -- (0,1) -- cycle;
+    \node[below] at (0.5,-0.1) {\small original};
+  \end{scope}
+  \begin{scope}[shift={(9.5,0)}]
+    \draw[green!60!black, very thick] (0,0) -- (1,0);
+    \draw[green!60!black, very thick] (0,0) -- (1,0)
+      node[midway, below=4pt] {\small proj.\ onto $x$-axis};
+    \fill[green!20, opacity=0.5] (0,0) -- (1,0) -- (1,0) -- (0,0);
+  \end{scope}
+\end{tikzpicture}
+
+\bigskip
+
+\begin{tikzpicture}[>=Stealth, scale=1.3]
+  % --- Shear ---
+  \begin{scope}
+    \fill[blue!10] (0,0) -- (1,0) -- (1,1) -- (0,1) -- cycle;
+    \draw[blue!50, thick] (0,0) -- (1,0) -- (1,1) -- (0,1) -- cycle;
+    \node[below] at (0.5,-0.1) {\small original};
+  \end{scope}
+  \begin{scope}[shift={(3,0)}]
+    \fill[orange!15] (0,0) -- (1,0) -- (1.5,1) -- (0.5,1) -- cycle;
+    \draw[orange!70, thick] (0,0) -- (1,0) -- (1.5,1) -- (0.5,1) -- cycle;
+    \node[below] at (0.75,-0.1) {\small shear ($k=0.5$)};
+  \end{scope}
+
+  % --- Scaling ---
+  \begin{scope}[shift={(6.5,0)}]
+    \fill[blue!10] (0,0) -- (1,0) -- (1,1) -- (0,1) -- cycle;
+    \draw[blue!50, thick] (0,0) -- (1,0) -- (1,1) -- (0,1) -- cycle;
+    \node[below] at (0.5,-0.1) {\small original};
+  \end{scope}
+  \begin{scope}[shift={(9.5,0)}, scale=0.6]
+    \fill[violet!15] (0,0) -- (1,0) -- (1,1) -- (0,1) -- cycle;
+    \draw[violet!60, thick] (0,0) -- (1,0) -- (1,1) -- (0,1) -- cycle;
+  \end{scope}
+  \node[below] at (9.8,-0.1) {\small scaling ($\lambda=0.6$)};
+\end{tikzpicture}
+
+\caption{Effect of linear maps on the unit square: rotation, projection
+  onto the $x$-axis, horizontal shear, and uniform scaling.}
+\label{fig:linear-map-effects}
+\end{figure}
+
+
+% ============================================================
+\section{Kernel and image}\label{sec:kernel-image}
+% ============================================================
+
+\begin{definition}{Kernel}{def:kernel}
+\index{kernel}
+Let $f\colon E\to F$ be a linear map. The \emph{kernel} (or
+\emph{null space}) of~$f$ is
+\[
+  \Ker f \deff \setcond{v\in E}{f(v) = \vzero_F}.
+\]
+\end{definition}
+
+\begin{definition}{Image}{def:image-linear}
+\index{image!of a linear map}
+The \emph{image} (or \emph{range}) of~$f$ is
+\[
+  \im f \deff \setcond{f(v)}{v\in E}
+  = \setcond{w\in F}{\exists\, v\in E,\; f(v) = w}.
+\]
+\end{definition}
+
+\begin{theorem}{Kernel and image are subspaces}{thm:ker-im-subspaces}
+Let $f\colon E\to F$ be linear. Then:
+\begin{enumerate}[label=(\roman*)]
+  \item $\Ker f$ is a subspace of~$E$.
+  \item $\im f$ is a subspace of~$F$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(i) We verify the three subspace criteria.
+\emph{Non-empty:} $f(\vzero_E) = \vzero_F$, so
+$\vzero_E\in\Ker f$.
+\emph{Closed under addition:} if $u,v\in\Ker f$, then
+$f(u+v) = f(u)+f(v) = \vzero_F+\vzero_F = \vzero_F$, so $u+v\in\Ker f$.
+\emph{Closed under scalar multiplication:} if $v\in\Ker f$ and
+$\lambda\in\K$, then
+$f(\lambda v) = \lambda f(v) = \lambda\cdot\vzero_F = \vzero_F$,
+so $\lambda v\in\Ker f$.
+
+(ii) \emph{Non-empty:} $\vzero_F = f(\vzero_E)\in\im f$.
+\emph{Closed under addition:} if $w_1,w_2\in\im f$, write
+$w_i = f(v_i)$; then $w_1+w_2 = f(v_1)+f(v_2) = f(v_1+v_2)\in\im f$.
+\emph{Scalar multiplication:}
+$\lambda w_1 = \lambda f(v_1) = f(\lambda v_1)\in\im f$.
+\end{proof}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[>=Stealth, scale=1.0]
+  % E ellipse
+  \draw[thick, blue!60] (0,0) ellipse (2cm and 3cm);
+  \node[above, blue!80!black, font=\large] at (0,3.2) {$E$};
+
+  % Ker f inside E
+  \fill[red!15, opacity=0.7] (0,-0.5) ellipse (1cm and 1.5cm);
+  \draw[thick, red!60] (0,-0.5) ellipse (1cm and 1.5cm);
+  \node[red!70!black, font=\small] at (0,-0.5) {$\Ker f$};
+
+  % F ellipse
+  \draw[thick, green!50!black] (7,0) ellipse (2cm and 3cm);
+  \node[above, green!60!black, font=\large] at (7,3.2) {$F$};
+
+  % Im f inside F
+  \fill[orange!20, opacity=0.7] (7,0.3) ellipse (1.2cm and 1.8cm);
+  \draw[thick, orange!70] (7,0.3) ellipse (1.2cm and 1.8cm);
+  \node[orange!70!black, font=\small] at (7,0.3) {$\im f$};
+
+  % zero in F
+  \fill (7,-1.2) circle (2pt) node[right, font=\small] {$\vzero_F$};
+
+  % Arrow from Ker f to 0_F
+  \draw[->, thick, red!60, dashed] (1,-0.5) to[bend left=15]
+    node[midway, above, font=\footnotesize] {$f$} (6.3,-1.2);
+
+  % Arrow from E to Im f
+  \draw[->, thick, blue!60] (1.5,1.5) to[bend left=20]
+    node[midway, above, font=\footnotesize] {$f$} (5.8,1.5);
+\end{tikzpicture}
+\caption{The kernel is a subspace of~$E$ mapping to~$\vzero_F$; the
+  image is a subspace of~$F$.}
+\label{fig:kernel-image}
+\end{figure}
+
+\begin{proposition}{Image of a Spanning set}{prop:image-Spanning}
+If $E = \Span(v_1,\ldots,v_p)$, then
+$\im f = \Span(f(v_1),\ldots,f(v_p))$.
+In particular, if $\cB = (\vece{1},\ldots,\vece{n})$ is a basis
+of~$E$, then $\im f = \Span(f(\vece{1}),\ldots,f(\vece{n}))$.
+\end{proposition}
+
+\begin{proof}
+Every $w\in\im f$ has the form $w = f(v)$ where
+$v = \sum_{i=1}^{p}\lambda_i v_i$. By linearity,
+$w = \sum \lambda_i f(v_i) \in \Span(f(v_1),\ldots,f(v_p))$.
+Conversely, each $f(v_i)\in\im f$, and $\im f$ is a subspace, so it
+contains $\Span(f(v_1),\ldots,f(v_p))$.
+\end{proof}
+
+\begin{definition}{Rank and nullity}{def:rank-nullity}
+\index{rank}\index{nullity}
+Let $f\colon E\to F$ be a linear map between finite-dimensional spaces.
+\begin{itemize}
+  \item The \emph{rank} of $f$ is $\rank(f) \deff \dim(\im f)$.
+  \item The \emph{nullity} of $f$ is $\dim(\Ker f)$.
+\end{itemize}
+\end{definition}
+
+
+% ============================================================
+\section{The rank--nullity theorem}\label{sec:rank-nullity}
+% ============================================================
+
+\begin{theorem}{Rank--nullity theorem (dimension theorem)}%
+{thm:rank-nullity}
+\index{rank--nullity theorem}\index{dimension theorem}
+Let $E$ be a finite-dimensional vector space and let $f\colon E\to F$
+be a linear map. Then $\im f$ is finite-dimensional and
+\[
+  \boxed{\dim E \;=\; \dim(\Ker f) \;+\; \dim(\im f)
+    \;=\; \dim(\Ker f) \;+\; \rank(f).}
+\]
+\end{theorem}
+
+\begin{proof}
+Set $n = \dim E$ and $r = \dim(\Ker f)$.
+Let $(u_1,\ldots,u_r)$ be a basis of $\Ker f$. Since $\Ker f$ is a
+subspace of the finite-dimensional space~$E$, we may extend this to a
+basis of~$E$:
+\[
+  (u_1,\ldots,u_r,\, v_1,\ldots,v_s)
+\]
+where $s = n-r$. We claim that $(f(v_1),\ldots,f(v_s))$ is a basis
+of $\im f$, which will prove $\dim(\im f) = s = n - r$.
+
+\medskip
+\textit{Step 1: $(f(v_1),\ldots,f(v_s))$ Spans $\im f$.}\;
+Let $w\in\im f$, say $w = f(x)$ with
+$x = \alpha_1 u_1 + \cdots + \alpha_r u_r +
+\beta_1 v_1 + \cdots + \beta_s v_s$.
+Then
+\[
+  w = f(x) = \alpha_1 \underbrace{f(u_1)}_{=\,\vzero}
+  + \cdots + \alpha_r \underbrace{f(u_r)}_{=\,\vzero}
+  + \beta_1 f(v_1) + \cdots + \beta_s f(v_s)
+  = \beta_1 f(v_1) + \cdots + \beta_s f(v_s),
+\]
+so $w\in\Span(f(v_1),\ldots,f(v_s))$.
+
+\medskip
+\textit{Step 2: $(f(v_1),\ldots,f(v_s))$ is linearly independent.}\;
+Suppose $\beta_1 f(v_1) + \cdots + \beta_s f(v_s) = \vzero_F$.
+By linearity, $f(\beta_1 v_1 + \cdots + \beta_s v_s) = \vzero_F$,
+so $\beta_1 v_1 + \cdots + \beta_s v_s \in \Ker f$.
+Since $(u_1,\ldots,u_r)$ is a basis of $\Ker f$, there exist
+$\gamma_1,\ldots,\gamma_r\in\K$ such that
+\[
+  \beta_1 v_1 + \cdots + \beta_s v_s
+  = \gamma_1 u_1 + \cdots + \gamma_r u_r.
+\]
+Rearranging:
+$\gamma_1 u_1 + \cdots + \gamma_r u_r
+- \beta_1 v_1 - \cdots - \beta_s v_s = \vzero_E$.
+Since $(u_1,\ldots,u_r,v_1,\ldots,v_s)$ is a basis of~$E$, all
+coefficients are zero. In particular, $\beta_1 = \cdots = \beta_s = 0$.
+
+\medskip
+We conclude that $(f(v_1),\ldots,f(v_s))$ is a basis of $\im f$,
+so $\dim(\im f) = s = n - r$, i.e.,
+$\dim E = \dim(\Ker f) + \dim(\im f)$.
+\end{proof}
+
+\begin{corollary}{Dimension bound on rank}{cor:rank-bound}
+For any linear map $f\colon E\to F$ with $E$ finite-dimensional,
+\[
+  \rank(f) \leq \min\!\bigl(\dim E,\, \dim F\bigr).
+\]
+\end{corollary}
+
+\begin{proof}
+$\rank(f) = \dim(\im f) \leq \dim F$ since $\im f\subseteq F$, and
+$\rank(f) = \dim E - \dim(\Ker f) \leq \dim E$.
+\end{proof}
+
+
+% ============================================================
+\section{Injectivity, surjectivity, bijectivity}%
+\label{sec:inject-surject-biject}
+% ============================================================
+
+\begin{theorem}{Injectivity criterion}{thm:inject-kernel}
+\index{injectivity!of linear maps}
+A linear map $f\colon E\to F$ is injective if and only if
+$\Ker f = \set{\vzero_E}$.
+\end{theorem}
+
+\begin{proof}
+$(\Rightarrow)$\; Suppose $f$ is injective. If $v\in\Ker f$, then
+$f(v) = \vzero_F = f(\vzero_E)$. Injectivity gives $v = \vzero_E$.
+
+$(\Leftarrow)$\; Suppose $\Ker f = \set{\vzero_E}$. If
+$f(u) = f(v)$, then $f(u-v) = f(u)-f(v) = \vzero_F$, so
+$u - v\in\Ker f = \set{\vzero_E}$, hence $u = v$.
+\end{proof}
+
+\begin{proposition}{Characterizations in finite dimension}%
+{prop:iso-finite-dim}
+Let $f\colon E\to F$ be linear with $\dim E = \dim F = n < \infty$.
+Then the following are equivalent:
+\begin{enumerate}[label=(\roman*)]
+  \item $f$ is injective.
+  \item $f$ is surjective.
+  \item $f$ is bijective (i.e., an isomorphism).
+  \item $\rank(f) = n$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+By the rank--nullity theorem, $\rank(f) = n - \dim(\Ker f)$.
+
+(i) $\Leftrightarrow$ (iv):
+$f$ is injective $\Leftrightarrow$ $\Ker f = \set{\vzero}$
+$\Leftrightarrow$ $\dim(\Ker f) = 0$ $\Leftrightarrow$ $\rank(f) = n$.
+
+(ii) $\Leftrightarrow$ (iv):
+$f$ is surjective $\Leftrightarrow$ $\im f = F$
+$\Leftrightarrow$ $\dim(\im f) = \dim F = n$ $\Leftrightarrow$
+$\rank(f) = n$.
+
+(iii) $\Leftrightarrow$ (i) $\wedge$ (ii): immediate from the
+equivalences above.
+\end{proof}
+
+\begin{remark}{Same dimension is essential}{rem:same-dim}
+The equivalence of injectivity and surjectivity \emph{fails} when
+$\dim E\neq\dim F$. For instance, the inclusion
+$\R^2\hookrightarrow\R^3$ (sending $(x,y)\mapsto(x,y,0)$) is
+injective but not surjective.
+\end{remark}
+
+\begin{definition}{Isomorphism of vector spaces}{def:isomorphism}
+\index{isomorphism}
+Two vector spaces $E$ and $F$ over $\K$ are \emph{isomorphic},
+written $E\cong F$, if there exists an isomorphism $f\colon E\to F$.
+\end{definition}
+
+\begin{theorem}{Classification by dimension}{thm:classification-dim}
+\index{isomorphism!classification}
+Two finite-dimensional $\K$-vector spaces are isomorphic if and only
+if they have the same dimension. In particular, every
+$n$-dimensional $\K$-vector space is isomorphic to~$\K^n$.
+\end{theorem}
+
+\begin{proof}
+$(\Rightarrow)$\; If $f\colon E\isoto F$ is an isomorphism and
+$(\vece{1},\ldots,\vece{n})$ is a basis of~$E$, then
+$(f(\vece{1}),\ldots,f(\vece{n}))$ is a basis of~$F$
+(an injective linear map sends linearly independent sets to linearly
+independent sets, and a surjective map ensures they Span~$F$). Hence
+$\dim F = n = \dim E$.
+
+$(\Leftarrow)$\; Let $\dim E = \dim F = n$. Choose bases
+$(\vece{1},\ldots,\vece{n})$ of~$E$ and
+$(\vecf{1},\ldots,\vecf{n})$ of~$F$. By
+ef{prop:prop:linear-determined-by-basis}, there is a unique linear map
+$f\colon E\to F$ with $f(\vece{i}) = \vecf{i}$. Since $f$ maps
+a basis to a basis, it is bijective.
+\end{proof}
+
+
+% ============================================================
+\section{Composition of linear maps}\label{sec:composition}
+% ============================================================
+
+\begin{proposition}{Composition is linear}{prop:composition-linear}
+\index{composition!of linear maps}
+If $f\colon E\to F$ and $g\colon F\to G$ are linear maps, then the
+composition $g\circ f\colon E\to G$ is linear.
+\end{proposition}
+
+\begin{proof}
+For all $\lambda,\mu\in\K$ and $u,v\in E$:
+\[
+  (g\circ f)(\lambda u+\mu v)
+  = g\!\bigl(f(\lambda u+\mu v)\bigr)
+  = g\!\bigl(\lambda f(u)+\mu f(v)\bigr)
+  = \lambda\, g(f(u))+\mu\, g(f(v))
+  = \lambda\,(g\circ f)(u)+\mu\,(g\circ f)(v).\qedhere
+\]
+\end{proof}
+
+\begin{proposition}{Properties of composition}{prop:composition-props}
+Let $f\colon E\to F$, $g\colon F\to G$, $h\colon G\to H$ be linear.
+\begin{enumerate}[label=(\roman*)]
+  \item \textbf{Associativity:} $h\circ(g\circ f) = (h\circ g)\circ f$.
+  \item \textbf{Identity:} $f\circ\Id_E = f = \Id_F\circ f$.
+  \item If $f$ is an isomorphism, its inverse $\inv{f}\colon F\to E$
+    is also linear, with $\inv{f}\circ f = \Id_E$ and
+    $f\circ\inv{f} = \Id_F$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(i) and (ii) follow from the corresponding properties of function
+composition. For (iii), let $w_1,w_2\in F$ and $\lambda\in\K$. Write
+$w_i = f(v_i)$. Then $\inv{f}(\lambda w_1 + w_2) =
+\inv{f}(\lambda f(v_1)+f(v_2)) = \inv{f}(f(\lambda v_1+v_2)) =
+\lambda v_1+v_2 = \lambda\inv{f}(w_1)+\inv{f}(w_2)$.
+\end{proof}
+
+\begin{proposition}{Kernel and image under composition}%
+{prop:ker-im-composition}
+Let $f\colon E\to F$ and $g\colon F\to G$ be linear. Then:
+\begin{enumerate}[label=(\roman*)]
+  \item $\Ker f \subseteq \Ker(g\circ f)$.
+  \item $\im(g\circ f) \subseteq \im g$.
+  \item If $g$ is injective, then $\Ker(g\circ f) = \Ker f$.
+  \item If $f$ is surjective, then $\im(g\circ f) = \im g$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(i) If $v\in\Ker f$, then $(g\circ f)(v) = g(\vzero_F) = \vzero_G$.
+
+(ii) Every element of $\im(g\circ f)$ has the form $g(f(v))\in\im g$.
+
+(iii) $v\in\Ker(g\circ f)$ means $g(f(v))=\vzero_G$. If $g$ is
+injective, $f(v) = \vzero_F$, so $v\in\Ker f$.
+
+(iv) If $f$ is surjective, every $w\in F$ is $f(v)$ for some $v$,
+so $g(w) = g(f(v)) \in \im(g\circ f)$. Hence $\im g\subseteq\im(g\circ f)$.
+\end{proof}
+
+
+% ============================================================
+\section{The vector space of linear maps}\label{sec:space-of-linear-maps}
+% ============================================================
+
+\begin{theorem}{$\cL(E,F)$ is a vector space}{thm:L-E-F}
+\index{linear map!space of}
+Let $E$ and $F$ be vector spaces over~$\K$. Define operations on the
+set $\cL(E,F)$ of all linear maps from $E$ to $F$:
+\begin{itemize}
+  \item \textbf{Addition:} $(f+g)(v) \deff f(v)+g(v)$.
+  \item \textbf{Scalar multiplication:} $(\lambda f)(v) \deff \lambda\,f(v)$.
+\end{itemize}
+Then $\cL(E,F)$ is a $\K$-vector space, with zero element the zero map
+$\vzero\colon v\mapsto \vzero_F$.
+\end{theorem}
+
+\begin{proof}
+One must verify the vector space axioms. We check that $f+g$ and
+$\lambda f$ are indeed linear (so that $\cL(E,F)$ is closed under
+these operations), and the remaining axioms are inherited from those
+of~$F$ applied pointwise.
+
+\emph{$f+g$ is linear:}
+$(f+g)(\alpha u + \beta v)
+= f(\alpha u+\beta v) + g(\alpha u+\beta v)
+= \alpha f(u)+\beta f(v)+\alpha g(u)+\beta g(v)
+= \alpha(f+g)(u)+\beta(f+g)(v)$.
+
+\emph{$\lambda f$ is linear:}
+$(\lambda f)(\alpha u+\beta v)
+= \lambda f(\alpha u+\beta v)
+= \lambda(\alpha f(u)+\beta f(v))
+= \alpha(\lambda f)(u)+\beta(\lambda f)(v)$.
+
+Associativity of addition, commutativity, etc., all follow from the
+corresponding properties in~$F$.
+\end{proof}
+
+\begin{proposition}{Dimension of $\cL(E,F)$}{prop:dim-L-E-F}
+If $\dim E = n$ and $\dim F = m$, then $\dim\cL(E,F) = nm$.
+\end{proposition}
+
+\begin{proof}
+This follows from the isomorphism $\cL(E,F)\cong\Mat_{m,n}(\K)$
+established in ef{sec:matrix-of-linear-map}: the space of
+$m\times n$ matrices has dimension~$mn$.
+\end{proof}
+
+\begin{remark}{The endomorphism algebra}{rem:endomorphism-algebra}
+\index{endomorphism!algebra}
+The space $\End(E) = \cL(E,E)$ carries an additional operation:
+composition. This makes $\End(E)$ a \emph{$\K$-algebra} (a vector
+space equipped with an associative bilinear multiplication and a
+unit element~$\Id_E$). Note that composition is not commutative
+in general.
+\end{remark}
+
+
+% ============================================================
+\section{Matrix of a linear map}\label{sec:matrix-of-linear-map}
+% ============================================================
+
+\begin{definition}{Matrix representation}{def:matrix-representation}
+\index{matrix!of a linear map}
+Let $E$ and $F$ be finite-dimensional with ordered bases
+$\cB = (\vece{1},\ldots,\vece{n})$ and
+$\cC = (\vecf{1},\ldots,\vecf{m})$ respectively.
+Let $f\colon E\to F$ be linear. For each $j\in\set{1,\ldots,n}$, write
+\[
+  f(\vece{j}) = \sum_{i=1}^{m} a_{ij}\,\vecf{i}.
+\]
+The $m\times n$ matrix
+\[
+  \Mat_{\cC,\cB}(f) \deff (a_{ij})_{\substack{1\le i\le m\\1\le j\le n}}
+  = \begin{pmatrix}
+    a_{11} & a_{12} & \cdots & a_{1n}\\
+    a_{21} & a_{22} & \cdots & a_{2n}\\
+    \vdots & \vdots & \ddots & \vdots\\
+    a_{m1} & a_{m2} & \cdots & a_{mn}
+  \end{pmatrix}
+\]
+is called the \emph{matrix of~$f$ relative to the bases $\cB$
+and~$\cC$}. The $j$-th column is the coordinate vector of $f(\vece{j})$
+in basis~$\cC$.
+\end{definition}
+
+\begin{remark}{Convention}{rem:matrix-convention}
+When $E = F$ and $\cB = \cC$, we simply write $\Mat_\cB(f)$.
+When working in $\K^n$ with the canonical basis~$\cE$, we identify
+$f$ with the matrix $A = \Mat_\cE(f)$ and write $f(x) = Ax$.
+\end{remark}
+
+\begin{example}{Matrix of a rotation}{ex:matrix-rotation}
+The rotation $R_\theta\colon\R^2\to\R^2$ of
+ef{ex:ex:rotation} has matrix in the canonical basis:
+\[
+  \Mat_\cE(R_\theta)
+  = \begin{pmatrix}\cos\theta & -\sin\theta\\
+    \sin\theta & \cos\theta\end{pmatrix}.
+\]
+The first column is $R_\theta(\vece{1}) = (\cos\theta,\sin\theta)^{\mathsf{T}}$
+and the second column is $R_\theta(\vece{2}) = (-\sin\theta,\cos\theta)^{\mathsf{T}}$.
+\end{example}
+
+\begin{example}{Matrix of differentiation}{ex:matrix-diff}
+Consider $D\colon\cP_3(\R)\to\cP_3(\R)$, $D(p) = p'$, with basis
+$\cB = (1,t,t^2,t^3)$. Then $D(1)=0$, $D(t)=1$, $D(t^2)=2t$,
+$D(t^3)=3t^2$, so
+\[
+  \Mat_\cB(D) = \begin{pmatrix}
+    0 & 1 & 0 & 0\\
+    0 & 0 & 2 & 0\\
+    0 & 0 & 0 & 3\\
+    0 & 0 & 0 & 0
+  \end{pmatrix}.
+\]
+\end{example}
+
+\begin{theorem}{The matrix representation is an isomorphism}%
+{thm:matrix-iso}
+The map
+\[
+  \Phi\colon \cL(E,F) \to \Mat_{m,n}(\K), \qquad
+  f \mapsto \Mat_{\cC,\cB}(f)
+\]
+is an isomorphism of vector spaces. Moreover:
+\begin{enumerate}[label=(\roman*)]
+  \item $\Mat_{\cC,\cB}(f+g) = \Mat_{\cC,\cB}(f) + \Mat_{\cC,\cB}(g)$.
+  \item $\Mat_{\cC,\cB}(\lambda f) = \lambda\,\Mat_{\cC,\cB}(f)$.
+  \item If $g\colon F\to G$ is linear with $G$ having basis~$\cD$, then
+    \[
+      \Mat_{\cD,\cB}(g\circ f)
+      = \Mat_{\cD,\cC}(g)\cdot\Mat_{\cC,\cB}(f).
+    \]
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+Linearity of $\Phi$ (parts (i) and (ii)) follows directly from the
+definitions. Bijectivity follows from
+ef{prop:prop:linear-determined-by-basis}: for every matrix
+$A\in\Mat_{m,n}(\K)$, there is a unique $f\in\cL(E,F)$ with
+$\Phi(f) = A$ (define $f$ by $f(\vece{j}) = \sum_i a_{ij}\vecf{i}$).
+
+(iii) Let $A = \Mat_{\cC,\cB}(f)$ and $B = \Mat_{\cD,\cC}(g)$.
+The $j$-th column of $\Mat_{\cD,\cB}(g\circ f)$ is the coordinate
+vector of $(g\circ f)(\vece{j}) = g(f(\vece{j}))$ in basis~$\cD$.
+Now $f(\vece{j}) = \sum_{k=1}^m a_{kj}\vecf{k}$, so
+\[
+  g(f(\vece{j})) = \sum_{k=1}^m a_{kj}\,g(\vecf{k})
+  = \sum_{k=1}^m a_{kj}\sum_{i=1}^\ell b_{ik}\,\vec{d}_i
+  = \sum_{i=1}^\ell\Bigl(\sum_{k=1}^m b_{ik}\,a_{kj}\Bigr)\vec{d}_i.
+\]
+The coefficient of $\vec{d}_i$ is $\sum_k b_{ik}a_{kj} = (BA)_{ij}$,
+proving $\Mat_{\cD,\cB}(g\circ f) = BA$.
+\end{proof}
+
+\begin{remark}{Matrix multiplication = composition}{rem:mult-comp}
+\index{matrix!multiplication!and composition}
+ef{thm:thm:matrix-iso}(iii) reveals the true meaning of matrix
+multiplication: it is the algebraic encoding of the composition of
+linear maps. The product $BA$ of matrices is defined precisely so that
+the matrix of $g\circ f$ equals the product of the matrices of $g$
+and~$f$.
+\end{remark}
+
+
+% ============================================================
+\section{Change of basis}\label{sec:change-of-basis}
+% ============================================================
+
+\begin{definition}{Transition matrix (change-of-basis matrix)}%
+{def:transition-matrix}
+\index{transition matrix}\index{change of basis}
+Let $\cB = (\vece{1},\ldots,\vece{n})$ and
+$\cB' = (\vece{1}',\ldots,\vece{n}')$ be two bases of~$E$.
+The \emph{transition matrix} from $\cB$ to $\cB'$ is
+\[
+  P_{\cB\to\cB'} \deff \Mat_{\cB}(\Id_E,\cB',\cB)
+  = \bigl[\,[\vece{1}']_\cB \;\; [\vece{2}']_\cB \;\; \cdots \;\;
+    [\vece{n}']_\cB\,\bigr],
+\]
+where $[\vece{j}']_\cB$ is the column of coordinates of $\vece{j}'$
+in basis~$\cB$.
+\end{definition}
+
+\begin{proposition}{Properties of transition matrices}%
+{prop:transition-props}
+\begin{enumerate}[label=(\roman*)]
+  \item $P_{\cB\to\cB'}$ is invertible, with
+    $\inv{(P_{\cB\to\cB'})} = P_{\cB'\to\cB}$.
+  \item If $[v]_\cB$ and $[v]_{\cB'}$ denote the coordinate
+    vectors of $v\in E$ in the two bases, then
+    \[
+      [v]_\cB = P_{\cB\to\cB'}\,[v]_{\cB'}.
+    \]
+  \item For three bases $\cB,\cB',\cB''$:
+    $P_{\cB\to\cB''} = P_{\cB\to\cB'}\cdot P_{\cB'\to\cB''}$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(i) The transition matrix is the matrix of $\Id_E$ relative to
+$\cB'$ (source) and $\cB$ (target). Since $\Id_E$ is an isomorphism,
+its matrix is invertible. The inverse is the matrix of $\Id_E$ relative
+to $\cB$ and $\cB'$, which is $P_{\cB'\to\cB}$.
+
+(ii) Let $v = \sum_j x_j'\,\vece{j}' = \sum_i x_i\,\vece{i}$. Then
+$[v]_\cB = (x_1,\ldots,x_n)^{\mathsf{T}}$ and
+$[v]_{\cB'} = (x_1',\ldots,x_n')^{\mathsf{T}}$. Since
+$\vece{j}' = \sum_i p_{ij}\vece{i}$ where $P = (p_{ij})$,
+$v = \sum_j x_j' \sum_i p_{ij}\vece{i} = \sum_i(\sum_j p_{ij}x_j')\vece{i}$,
+giving $x_i = \sum_j p_{ij}x_j'$, i.e., $[v]_\cB = P[v]_{\cB'}$.
+
+(iii) Follows from (i) and the multiplicativity of matrix
+representations under composition:
+$\Id_E = \Id_E\circ\Id_E$.
+\end{proof}
+
+\begin{theorem}{Change-of-basis formula for linear maps}%
+{thm:change-of-basis}
+\index{change of basis!formula}
+Let $f\in\End(E)$. Let $\cB$ and $\cB'$ be bases of~$E$, and let
+$P = P_{\cB\to\cB'}$. If $A = \Mat_\cB(f)$ and $A' = \Mat_{\cB'}(f)$,
+then
+\[
+  \boxed{A' = \inv{P}\, A\, P.}
+\]
+More generally, if $f\colon E\to F$ with bases $\cB,\cB'$ of~$E$ and
+$\cC,\cC'$ of~$F$, and $P = P_{\cB\to\cB'}$, $Q = P_{\cC\to\cC'}$, then
+\[
+  \Mat_{\cC',\cB'}(f) = \inv{Q}\,\Mat_{\cC,\cB}(f)\,P.
+\]
+\end{theorem}
+
+\begin{proof}
+We have $f = \Id_F\circ f\circ\Id_E$. Using
+ef{thm:thm:matrix-iso}(iii):
+\begin{align*}
+  \Mat_{\cC',\cB'}(f)
+  &= \Mat_{\cC',\cC'}(\Id_F)\cdot\Mat_{\cC',\cB'}(f) \\
+  &= \Mat_{\cC',\cC}(\Id_F)\cdot\Mat_{\cC,\cB}(f)\cdot
+    \Mat_{\cB,\cB'}(\Id_E) \\
+  &= \inv{Q}\cdot A \cdot P.
+\end{align*}
+Here we used $\Mat_{\cC',\cC}(\Id_F) = \inv{(P_{\cC\to\cC'})} = \inv{Q}$
+and $\Mat_{\cB,\cB'}(\Id_E) = P_{\cB\to\cB'} = P$.
+
+For the special case $E = F$, $\cB = \cC$, $\cB' = \cC'$, $P = Q$:
+$A' = \inv{P}AP$.
+\end{proof}
+
+\begin{definition}{Similar matrices}{def:similar}
+\index{similar matrices}
+Two matrices $A,A'\in\Mat_n(\K)$ are \emph{similar} if there exists an
+invertible matrix $P\in\GL_n(\K)$ such that $A' = \inv{P}AP$. Similar
+matrices represent the same endomorphism in different bases.
+\end{definition}
+
+\begin{example}{Change of basis for a projection}{ex:change-basis-proj}
+Consider the projection $\pi\colon\R^2\to\R^2$ onto the $x$-axis,
+with canonical matrix $A = \begin{psmallmatrix}1&0\\0&0\end{psmallmatrix}$.
+In the basis $\cB' = \bigl((1,1)^{\mathsf{T}},\,(1,-1)^{\mathsf{T}}\bigr)$,
+the transition matrix is
+$P = \begin{psmallmatrix}1&1\\1&-1\end{psmallmatrix}$, with
+$\inv{P} = \tfrac{1}{2}\begin{psmallmatrix}1&1\\1&-1\end{psmallmatrix}$.
+Then
+\[
+  A' = \inv{P}AP
+  = \frac{1}{2}\begin{pmatrix}1&1\\1&-1\end{pmatrix}
+    \begin{pmatrix}1&0\\0&0\end{pmatrix}
+    \begin{pmatrix}1&1\\1&-1\end{pmatrix}
+  = \frac{1}{2}\begin{pmatrix}1&1\\1&-1\end{pmatrix}
+    \begin{pmatrix}1&1\\0&0\end{pmatrix}
+  = \begin{pmatrix}\tfrac{1}{2}&\tfrac{1}{2}\\[3pt]
+    \tfrac{1}{2}&\tfrac{1}{2}\end{pmatrix}.
+\]
+\end{example}
+
+
+% ============================================================
+\section{Operations on matrices}\label{sec:matrix-operations}
+% ============================================================
+
+We now consolidate the algebraic operations on matrices, all of which
+are motivated by the corresponding operations on linear maps.
+
+\begin{definition}{Matrix addition and scalar multiplication}%
+{def:matrix-add-scalar}
+\index{matrix!addition}\index{matrix!scalar multiplication}
+Let $A = (a_{ij})$ and $B = (b_{ij})$ be $m\times n$ matrices over~$\K$.
+\begin{enumerate}[label=(\roman*)]
+  \item $A + B \deff (a_{ij}+b_{ij})$.
+  \item $\lambda A \deff (\lambda\,a_{ij})$ for $\lambda\in\K$.
+\end{enumerate}
+With these operations, $\Mat_{m,n}(\K)$ is a vector space of
+dimension~$mn$.
+\end{definition}
+
+\begin{definition}{Matrix multiplication}{def:matrix-mult}
+\index{matrix!multiplication}
+Let $A = (a_{ij})\in\Mat_{m,n}(\K)$ and
+$B = (b_{jk})\in\Mat_{n,p}(\K)$. Their product is the matrix
+$AB = (c_{ik})\in\Mat_{m,p}(\K)$ where
+\[
+  c_{ik} = \sum_{j=1}^{n} a_{ij}\,b_{jk}.
+\]
+This is the ``row-by-column'' rule: the $(i,k)$-entry of $AB$ is the
+dot product of the $i$-th row of $A$ with the $k$-th column of~$B$.
+\end{definition}
+
+\begin{proposition}{Properties of matrix multiplication}%
+{prop:matrix-mult-props}
+\begin{enumerate}[label=(\roman*)]
+  \item \textbf{Associativity:} $A(BC) = (AB)C$ (when dimensions match).
+  \item \textbf{Distributivity:} $A(B+C) = AB+AC$ and $(A+B)C = AC+BC$.
+  \item \textbf{Scalar compatibility:} $\lambda(AB) = (\lambda A)B = A(\lambda B)$.
+  \item \textbf{Identity:} $I_m A = A = A I_n$ for
+    $A\in\Mat_{m,n}(\K)$.
+  \item \textbf{Non-commutativity:} In general, $AB\neq BA$.
+\end{enumerate}
+\end{proposition}
+
+\begin{definition}{Transpose}{def:transpose}
+\index{transpose}
+The \emph{transpose} of $A = (a_{ij})\in\Mat_{m,n}(\K)$ is
+$\transpose{A} = (a_{ji})\in\Mat_{n,m}(\K)$.
+\end{definition}
+
+\begin{proposition}{Properties of the transpose}{prop:transpose-props}
+\begin{enumerate}[label=(\roman*)]
+  \item $\transpose{(A+B)} = \transpose{A}+\transpose{B}$.
+  \item $\transpose{(\lambda A)} = \lambda\,\transpose{A}$.
+  \item $\transpose{(\transpose{A})} = A$.
+  \item $\transpose{(AB)} = \transpose{B}\,\transpose{A}$
+    \quad (reversal of order).
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+We prove (iv); the others are immediate.
+Let $A\in\Mat_{m,n}(\K)$, $B\in\Mat_{n,p}(\K)$. The $(k,i)$-entry of
+$\transpose{(AB)}$ is $(AB)_{ik} = \sum_j a_{ij}b_{jk}$.
+The $(k,i)$-entry of $\transpose{B}\,\transpose{A}$ is
+$\sum_j (\transpose{B})_{kj}(\transpose{A})_{ji}
+= \sum_j b_{jk}\,a_{ij} = \sum_j a_{ij}b_{jk}$.
+\end{proof}
+
+
+% ============================================================
+\section{Inverse matrices}\label{sec:inverse-matrices}
+% ============================================================
+
+\begin{definition}{Invertible matrix}{def:invertible}
+\index{matrix!invertible}\index{invertible matrix}
+A square matrix $A\in\Mat_n(\K)$ is \emph{invertible} (or
+\emph{non-singular}) if there exists a matrix $B\in\Mat_n(\K)$ such
+that $AB = BA = I_n$. The matrix $B$ is unique and is denoted
+$\inv{A}$.
+\end{definition}
+
+\begin{proposition}{Properties of inverses}{prop:inverse-props}
+Let $A,B\in\GL_n(\K)$ (i.e., $A$ and $B$ are invertible).
+\begin{enumerate}[label=(\roman*)]
+  \item $\inv{(\inv{A})} = A$.
+  \item $\inv{(AB)} = \inv{B}\,\inv{A}$ \quad (reversal of order).
+  \item $\inv{(\transpose{A})} = \transpose{(\inv{A})}$.
+  \item $\inv{(\lambda A)} = \lambda^{-1}\inv{A}$ for $\lambda\neq 0$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(ii) We verify: $(AB)(\inv{B}\inv{A}) = A(B\inv{B})\inv{A}
+= AI_n\inv{A} = A\inv{A} = I_n$, and similarly
+$(\inv{B}\inv{A})(AB) = I_n$.
+The remaining parts are proved similarly.
+\end{proof}
+
+\begin{theorem}{Invertibility criteria}{thm:invertibility}
+\index{matrix!invertibility criteria}
+For $A\in\Mat_n(\K)$, the following are equivalent:
+\begin{enumerate}[label=(\roman*)]
+  \item $A$ is invertible.
+  \item The linear map $x\mapsto Ax$ is an isomorphism of $\K^n$.
+  \item $\Ker(A) = \set{\vzero}$ (i.e., $Ax = 0$ implies $x = 0$).
+  \item The columns of $A$ form a basis of $\K^n$.
+  \item $\rank(A) = n$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+This follows from ef{prop:prop:iso-finite-dim} applied to the linear map
+$f_A\colon\K^n\to\K^n$, $f_A(x) = Ax$. The matrix $A$ is invertible if
+and only if $f_A$ is bijective (i.e., an isomorphism). The equivalences
+(ii)--(v) were established in ef{prop:prop:iso-finite-dim} and the
+preceding discussion.
+\end{proof}
+
+\begin{example}{Inverse of a $2\times 2$ matrix}{ex:inverse-2x2}
+\index{matrix!inverse!$2\times 2$}
+For $A = \begin{psmallmatrix}a&b\\c&d\end{psmallmatrix}$ with
+$ad-bc\neq 0$:
+\[
+  \inv{A} = \frac{1}{ad-bc}\begin{pmatrix}d & -b\\-c & a\end{pmatrix}.
+\]
+\end{example}
+
+
+% ============================================================
+\section{Dual spaces}\label{sec:dual-spaces}
+% ============================================================
+
+\begin{definition}{Dual space}{def:dual-space}
+\index{dual space}\index{linear form}
+Let $E$ be a vector space over~$\K$. The \emph{dual space} of $E$ is
+\[
+  E^* \deff \cL(E,\K) = \setcond{\vphi\colon E\to\K}{\vphi
+    \text{ is linear}}.
+\]
+Elements of $E^*$ are called \emph{linear forms} (or \emph{covectors}
+or \emph{linear functionals}).
+\end{definition}
+
+\begin{example}{Linear forms on $\R^n$}{ex:linear-form-Rn}
+Every linear form on $\R^n$ has the form
+$\vphi(\vec{x}) = a_1 x_1 + a_2 x_2 + \cdots + a_n x_n$
+for some fixed scalars $a_1,\ldots,a_n\in\R$.
+\end{example}
+
+\begin{definition}{Dual basis}{def:dual-basis}
+\index{dual basis}
+Let $\cB = (\vece{1},\ldots,\vece{n})$ be a basis of the
+finite-dimensional space~$E$. For each $i\in\set{1,\ldots,n}$, define
+the linear form $\vece{i}^*\in E^*$ by
+\[
+  \vece{i}^*(\vece{j}) = \delta_{ij}
+  = \begin{cases}1 & \text{if } i=j,\\0 & \text{if } i\neq j.\end{cases}
+\]
+The family $\cB^* = (\vece{1}^*,\ldots,\vece{n}^*)$ is called the
+\emph{dual basis} of~$\cB$.
+\end{definition}
+
+\begin{theorem}{The dual basis is a basis of $E^*$}{thm:dual-basis}
+If $\dim E = n$, then $\cB^*$ is a basis of $E^*$, and
+$\dim E^* = n$. Every linear form $\vphi\in E^*$ can be written
+uniquely as
+\[
+  \vphi = \sum_{i=1}^{n}\vphi(\vece{i})\,\vece{i}^*.
+\]
+\end{theorem}
+
+\begin{proof}
+\textit{Spanning.}\; Let $\vphi\in E^*$ and set
+$\psi = \sum_{i=1}^n \vphi(\vece{i})\,\vece{i}^*$. For each basis
+vector $\vece{j}$:
+$\psi(\vece{j}) = \sum_i \vphi(\vece{i})\,\vece{i}^*(\vece{j})
+= \sum_i \vphi(\vece{i})\,\delta_{ij} = \vphi(\vece{j})$.
+Since $\vphi$ and $\psi$ agree on a basis, they are equal
+(ef{prop:prop:linear-determined-by-basis}).
+
+\textit{Linear independence.}\; Suppose
+$\sum_i \lambda_i\,\vece{i}^* = 0$ (the zero form). Evaluating at
+$\vece{j}$: $\sum_i \lambda_i\,\delta_{ij} = \lambda_j = 0$ for
+each~$j$.
+\end{proof}
+
+\begin{remark}{Finite dimension is essential}{rem:dual-infinite}
+In infinite dimension, $E^*$ is generally much larger than~$E$.
+For instance, if $E = \K[t]$ (polynomials of all degrees), then
+$E^*$ is not isomorphic to~$E$. The theory of dual spaces becomes
+significantly richer (and subtler) in that setting.
+\end{remark}
+
+
+% ============================================================
+\section{Applications}\label{sec:applications-ch2}
+% ============================================================
+
+\subsection{Computer graphics transformations}%
+\label{subsec:computer-graphics}
+\index{computer graphics}
+
+Every 2D transformation used in computer graphics---translation,
+rotation, scaling, shearing---can be expressed as a linear map (or, in
+the case of translations, an \emph{affine} map made linear by
+\emph{homogeneous coordinates}).
+
+In homogeneous coordinates, a point $(x,y)$ is represented as the
+triple $(x,y,1)^{\mathsf{T}}$, and transformations become
+$3\times 3$ matrices:
+\[
+  \underbrace{\begin{pmatrix}
+    \cos\theta & -\sin\theta & t_x\\
+    \sin\theta & \cos\theta & t_y\\
+    0 & 0 & 1
+  \end{pmatrix}}_{\text{rotate by $\theta$, translate by $(t_x,t_y)$}}
+  \begin{pmatrix}x\\y\\1\end{pmatrix}
+  = \begin{pmatrix}
+    x\cos\theta - y\sin\theta + t_x\\
+    x\sin\theta + y\cos\theta + t_y\\
+    1
+  \end{pmatrix}.
+\]
+
+Composing transformations corresponds to multiplying their matrices.
+This is the foundation of the rendering pipeline in OpenGL, DirectX,
+and every modern graphics system: the entire scene geometry is
+transformed by chains of matrix multiplications.
+
+\subsection{Preview: Markov chains}\label{subsec:markov-preview}
+\index{Markov chain}
+
+A \emph{Markov chain} models a system that transitions between finitely
+many states with fixed probabilities. The transition probabilities are
+encoded in a \emph{stochastic matrix}
+$P = (p_{ij})\in\Mat_n(\R)$ where $p_{ij}\geq 0$ and
+$\sum_j p_{ij} = 1$ for each row~$i$.
+
+If $\vec{x}^{(k)}\in\R^n$ is the probability distribution at time
+step~$k$ (a row vector), then
+\[
+  \vec{x}^{(k+1)} = \vec{x}^{(k)}\cdot P.
+\]
+The long-term behavior of the chain is governed by the eigenvalues and
+eigenvectors of~$P$---a topic we will study in detail in
+ef{ch:eigenvalues}. For now, observe that computing the state after
+$k$ steps amounts to computing $\vec{x}^{(0)}\cdot P^k$, a purely
+linear-algebraic problem.
+
+
+% ============================================================
+\section{Exercises}\label{sec:exercises-ch2}
+% ============================================================
+
+\begin{exercise}{Verifying linearity \basic}{exo:verify-linearity}
+Which of the following maps are linear? Justify each answer.
+\begin{enumerate}[label=(\alph*)]
+  \item $f\colon\R^2\to\R$, $f(x,y) = 3x - 2y$.
+  \item $g\colon\R^2\to\R$, $g(x,y) = x^2 + y$.
+  \item $h\colon\R^3\to\R^2$, $h(x,y,z) = (x+z,\, 2y-x)$.
+  \item $k\colon\R^2\to\R^2$, $k(x,y) = (x+1,\, y)$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Kernel and image computation \basic}{exo:ker-im-compute}
+Let $f\colon\R^3\to\R^2$ be defined by $f(x,y,z) = (x+y-z,\; 2x+y+z)$.
+\begin{enumerate}[label=(\alph*)]
+  \item Find $\Ker f$ and give a basis.
+  \item Find $\im f$ and determine $\rank(f)$.
+  \item Verify the rank--nullity theorem for this map.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Matrix of a linear map \basic}{exo:matrix-linear-map}
+Let $f\colon\R^3\to\R^2$ be defined by
+$f(\vece{1}) = (1,2)^{\mathsf{T}}$,
+$f(\vece{2}) = (0,-1)^{\mathsf{T}}$,
+$f(\vece{3}) = (3,0)^{\mathsf{T}}$
+(with respect to the canonical bases). Write down $\Mat(f)$ and
+compute $f(1,1,1)^{\mathsf{T}}$.
+\end{exercise}
+
+\begin{exercise}{Composition and matrix multiplication \intermediate}%
+{exo:composition-matrices}
+Let $f\colon\R^2\to\R^3$ and $g\colon\R^3\to\R^2$ have matrices
+\[
+  A = \begin{pmatrix}1&0\\2&1\\0&3\end{pmatrix}, \qquad
+  B = \begin{pmatrix}1&-1&2\\0&1&1\end{pmatrix}.
+\]
+\begin{enumerate}[label=(\alph*)]
+  \item Compute $BA$ and $AB$.
+  \item Which product represents $g\circ f$? Which represents $f\circ g$?
+  \item Determine $\Ker(g\circ f)$ and $\rank(g\circ f)$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Change of basis \intermediate}{exo:change-basis}
+Let $f\colon\R^2\to\R^2$ be defined by $f(x,y) = (3x+y,\; x+3y)$.
+\begin{enumerate}[label=(\alph*)]
+  \item Write $\Mat_\cE(f)$ in the canonical basis $\cE$.
+  \item Let $\cB' = \bigl((1,1)^{\mathsf{T}},(1,-1)^{\mathsf{T}}\bigr)$.
+    Find the transition matrix $P$ from $\cE$ to~$\cB'$.
+  \item Compute $\Mat_{\cB'}(f) = \inv{P}\Mat_\cE(f)\,P$.
+  \item Interpret the result geometrically.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Rank--nullity applications \intermediate}%
+{exo:rank-nullity-app}
+\begin{enumerate}[label=(\alph*)]
+  \item Let $f\colon\R^5\to\R^3$ be linear with $\dim(\Ker f) = 2$.
+    What is $\rank(f)$?
+  \item Let $g\colon\R^4\to\R^4$ be linear with $\rank(g) = 3$.
+    What is $\dim(\Ker g)$? Is $g$ surjective?
+  \item Prove that there is no surjective linear map from $\R^3$ to $\R^4$.
+  \item Prove that there is no injective linear map from $\R^4$ to $\R^3$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Projections \intermediate}{exo:projections}
+\index{projection!idempotent}
+A linear map $p\colon E\to E$ is called a \emph{projection} if
+$p\circ p = p$ (idempotent).
+\begin{enumerate}[label=(\alph*)]
+  \item Show that $\im p = \Ker(\Id_E - p)$.
+  \item Show that $\Ker p = \im(\Id_E - p)$.
+  \item Deduce that $E = \Ker p \oplus \im p$.
+  \item If $\dim E = n$ and $\rank(p) = r$, show there exists a basis
+    in which $\Mat(p) = \diag(1,\ldots,1,0,\ldots,0)$ ($r$ ones).
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Dual basis computation \intermediate}{exo:dual-basis}
+Let $\cB = (\vece{1},\vece{2})$ be the basis of $\R^2$ with
+$\vece{1} = (1,1)^{\mathsf{T}}$, $\vece{2} = (1,-1)^{\mathsf{T}}$.
+Find explicit formulas for $\vece{1}^*$ and $\vece{2}^*$ (as functions
+of the canonical coordinates $x_1,x_2$).
+\end{exercise}
+
+\begin{exercise}{Injectivity and surjectivity \challenging}%
+{exo:inject-surject}
+Let $f\colon E\to F$ and $g\colon F\to G$ be linear maps between
+finite-dimensional spaces.
+\begin{enumerate}[label=(\alph*)]
+  \item Prove: $\rank(g\circ f) \leq \min(\rank f,\, \rank g)$.
+  \item Prove the \emph{Sylvester rank inequality}\index{Sylvester rank inequality}:
+    $\rank f + \rank g - \dim F \leq \rank(g\circ f)$.
+    \textit{Hint:} Apply the rank--nullity theorem to the restriction
+    $g\restrict{\im f}$.
+  \item Deduce: if $g\circ f = 0$, then
+    $\rank f + \rank g \leq \dim F$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Nilpotent endomorphisms \challenging}{exo:nilpotent}
+\index{nilpotent}
+An endomorphism $f\in\End(E)$ is \emph{nilpotent} of index~$k$ if
+$f^k = 0$ but $f^{k-1}\neq 0$.
+\begin{enumerate}[label=(\alph*)]
+  \item Show that if $f$ is nilpotent, then $f$ is not invertible.
+  \item Show that the chain $\set{\vzero}\subseteq\Ker f\subseteq
+    \Ker f^2\subseteq\cdots$ is strictly increasing until it
+    stabilizes at~$E$.
+  \item Prove that the nilpotency index satisfies $k\leq\dim E$.
+  \item Prove that $\Id + f$ is invertible, and find a formula for
+    $(\Id + f)^{-1}$ in terms of powers of $f$.
+    \textit{Hint:} geometric series.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Linear maps on polynomial spaces \challenging}%
+{exo:polynomial-maps}
+Let $E = \cP_3(\R)$ (polynomials of degree $\leq 3$) with basis
+$\cB = (1,t,t^2,t^3)$. Define $T\colon E\to E$ by $T(p)(t) = p(t+1)$.
+\begin{enumerate}[label=(\alph*)]
+  \item Verify that $T$ is linear.
+  \item Compute the matrix $\Mat_\cB(T)$.
+  \item Determine $\Ker T$ and $\im T$. Is $T$ an isomorphism?
+  \item Compute $T^{-1}$ and interpret it.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{The trace as a linear form \basic}{exo:trace-linear}
+\index{trace}
+Show that the trace map $\tr\colon\Mat_n(\K)\to\K$, defined by
+$\tr(A) = \sum_{i=1}^n a_{ii}$, is a linear form.
+Determine $\Ker(\tr)$ and its dimension.
+\end{exercise}
+
+
+% ============================================================
+\section*{Chapter summary}\label{sec:summary-ch2}
+\addcontentsline{toc}{section}{Chapter summary}
+% ============================================================
+
+\begin{itemize}
+  \item A \textbf{linear map}\index{linear map} $f\colon E\to F$
+    preserves addition and scalar multiplication. It is completely
+    determined by its values on a basis
+    (ef{prop:prop:linear-determined-by-basis}).
+
+  \item The \textbf{kernel} $\Ker f$ and \textbf{image} $\im f$ are
+    subspaces (ef{thm:thm:ker-im-subspaces}). The kernel measures
+    ``information lost'' by $f$; the image measures ``information
+    reached.''
+
+  \item The \textbf{rank--nullity theorem}
+    (ef{thm:thm:rank-nullity}):
+    $\dim E = \dim(\Ker f) + \rank(f)$.
+
+  \item A linear map between spaces of equal finite dimension is
+    injective if and only if it is surjective if and only if it is
+    bijective (ef{prop:prop:iso-finite-dim}).
+
+  \item The set $\cL(E,F)$ of all linear maps is itself a vector space
+    of dimension $\dim E\cdot\dim F$
+    (ef{thm:thm:L-E-F,prop:prop:dim-L-E-F}).
+
+  \item Choosing bases allows us to represent every linear map as a
+    \textbf{matrix} (ef{def:def:matrix-representation}).
+    \textbf{Composition} of linear maps corresponds to
+    \textbf{matrix multiplication}
+    (ef{thm:thm:matrix-iso}).
+
+  \item Under a \textbf{change of basis} with transition matrix~$P$,
+    the matrix of an endomorphism transforms as
+    $A' = \inv{P}AP$ (ef{thm:thm:change-of-basis}).
+
+  \item A square matrix is \textbf{invertible} if and only if its
+    kernel is trivial, equivalently if and only if its rank equals
+    its size (ef{thm:thm:invertibility}).
+
+  \item The \textbf{dual space} $E^* = \cL(E,\K)$ has the same
+    dimension as~$E$ in finite dimension, and admits a canonical
+    \textbf{dual basis} (ef{thm:thm:dual-basis}).
+\end{itemize}

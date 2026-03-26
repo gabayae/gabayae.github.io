@@ -1,0 +1,427 @@
+% ============================================================
+\chapter{M\'ethode du Simplexe}
+\label{ch:simplexe}
+% ============================================================
+
+L'id\'ee g\'eom\'etrique est lumineuse~: puisque l'optimum d'un programme lin\'eaire se trouve \`a un sommet du poly\`edre des contraintes, il suffit de se d\'eplacer de sommet en sommet en am\'eliorant l'objectif \`a chaque pas. C'est exactement ce que fait la m\'ethode du simplexe, invent\'ee par George Dantzig en 1947. Malgr\'e une complexit\'e th\'eorique exponentielle dans le pire cas (d\'emontr\'ee par Klee et Minty en 1972), le simplexe reste, en pratique, l'un des algorithmes les plus efficaces jamais con\c{c}us --- une anomalie th\'eorique fascinante qui d\'efie encore notre compr\'ehension.
+
+\section{Principe de l'algorithme}
+
+Le th\'eor\`eme fondamental de la PL (Th\'eor\`eme~\ref{thm:fondamental_pl})
+affirme que si un PL admet un optimum fini, celui-ci est atteint en un
+sommet du poly\`edre r\'ealisable.  La \textbf{m\'ethode du simplexe}, due \`a
+George Dantzig (1947), parcourt les sommets adjacents en am\'eliorant
+l'objectif \`a chaque it\'eration.
+
+\begin{algorithme}[title=\textbf{Id\'ee g\'en\'erale du simplexe}]
+\begin{enumerate}
+  \item Partir d'un sommet (SBR) initial.
+  \item Tester l'optimalit\'e (co\^uts r\'eduits).
+  \item Si non optimal, pivoter vers un sommet adjacent am\'eliorant.
+  \item R\'ep\'eter jusqu'\`a l'optimalit\'e ou d\'etection de non-bornitude.
+\end{enumerate}
+\end{algorithme}
+
+\section{Notations et rappels}
+
+Consid\'erons le PL sous forme standard~:
+\[
+\begin{aligned}
+  \min \quad & z = \mathbf{c}^\top \mathbf{x} \\
+  \text{s.c.} \quad & A\mathbf{x} = \mathbf{b}, \quad \mathbf{x} \ge \mathbf{0}
+\end{aligned}
+\]
+avec $A \in \R^{m \times n}$, $\text{rang}(A) = m$, $\mathbf{b} \ge \mathbf{0}$.
+
+On partitionne $A = [B \mid N]$, $\mathbf{x} = (\mathbf{x}_B, \mathbf{x}_N)^\top$,
+$\mathbf{c} = (\mathbf{c}_B, \mathbf{c}_N)^\top$~:
+\[
+  B\mathbf{x}_B + N\mathbf{x}_N = \mathbf{b}
+  \quad \Rightarrow \quad
+  \mathbf{x}_B = B^{-1}\mathbf{b} - B^{-1}N\mathbf{x}_N
+\]
+
+\begin{definition}[Co\^uts r\'eduits]
+Les \textbf{co\^uts r\'eduits} des variables hors-base sont~:
+\[
+  \bar{c}_j = c_j - \mathbf{c}_B^\top B^{-1} \mathbf{a}_j
+\]
+o\`u $\mathbf{a}_j$ est la $j$-\`eme colonne de $A$.
+\end{definition}
+
+\begin{theoreme}[Crit\`ere d'optimalit\'e]
+\label{thm:optimalite_simplexe}
+Une SBR est optimale si et seulement si tous les co\^uts r\'eduits sont
+non n\'egatifs~: $\bar{c}_j \ge 0$ pour tout $j$ hors-base.
+\end{theoreme}
+
+\section{Le tableau du simplexe}
+
+Le tableau du simplexe organise toute l'information n\'ecessaire~:
+
+\begin{center}
+\begin{tabular}{c|cccc|c}
+  & $x_1$ & $x_2$ & $\cdots$ & $x_n$ & \\
+  \toprule
+  $z$ & $\bar{c}_1$ & $\bar{c}_2$ & $\cdots$ & $\bar{c}_n$ & $-z$ \\
+  \midrule
+  $x_{B_1}$ & $\bar{a}_{11}$ & $\bar{a}_{12}$ & $\cdots$ & $\bar{a}_{1n}$ & $\bar{b}_1$ \\
+  $x_{B_2}$ & $\bar{a}_{21}$ & $\bar{a}_{22}$ & $\cdots$ & $\bar{a}_{2n}$ & $\bar{b}_2$ \\
+  $\vdots$ & $\vdots$ & $\vdots$ & $\ddots$ & $\vdots$ & $\vdots$ \\
+  $x_{B_m}$ & $\bar{a}_{m1}$ & $\bar{a}_{m2}$ & $\cdots$ & $\bar{a}_{mn}$ & $\bar{b}_m$ \\
+\end{tabular}
+\end{center}
+
+o\`u $\bar{A} = B^{-1}A$, $\bar{\mathbf{b}} = B^{-1}\mathbf{b}$.
+
+\section{It\'eration du simplexe}
+
+\begin{algorithme}[title=\textbf{Une it\'eration du simplexe (minimisation)}]
+\begin{enumerate}
+  \item \textbf{Test d'optimalit\'e}~: si $\bar{c}_j \ge 0$ pour tout $j$,
+        \textsc{stop} (solution optimale trouv\'ee).
+  \item \textbf{Variable entrante}~: choisir $k = \argmin_j \bar{c}_j$
+        (co\^ut r\'eduit le plus n\'egatif).
+  \item \textbf{Test de non-bornitude}~: si $\bar{a}_{ik} \le 0$ pour
+        tout $i$, \textsc{stop} (probl\`eme non born\'e).
+  \item \textbf{Variable sortante}~: appliquer la r\`egle du ratio minimum~:
+        \[
+          r = \argmin_{i : \bar{a}_{ik} > 0}
+            \frac{\bar{b}_i}{\bar{a}_{ik}}
+        \]
+  \item \textbf{Pivot}~: l'\'el\'ement pivot est $\bar{a}_{rk}$.  Effectuer
+        le pivotage de Gauss-Jordan pour mettre \`a jour le tableau.
+\end{enumerate}
+\end{algorithme}
+
+\begin{attention}[title=\textbf{R\`egle du ratio}]
+On ne divise que par les coefficients \textbf{strictement positifs}
+$\bar{a}_{ik} > 0$.  Si tous sont $\le 0$, le probl\`eme est non born\'e~:
+on peut augmenter $x_k$ ind\'efiniment.
+\end{attention}
+
+\section{Exemple complet}
+
+\begin{exemple}[Simplexe pas \`a pas]
+R\'esoudre~:
+\[
+\begin{aligned}
+  \max \quad & z = 5x_1 + 4x_2 \\
+  \text{s.c.} \quad
+    & 6x_1 + 4x_2 \le 24 \\
+    & x_1 + 2x_2 \le 6 \\
+    & x_1, x_2 \ge 0
+\end{aligned}
+\]
+
+\textbf{Forme standard}~: on ajoute les variables d'\'ecart $s_1, s_2 \ge 0$
+et on convertit en minimisation ($\min -5x_1 - 4x_2$).
+
+\textbf{Tableau initial}~:
+\begin{center}
+\begin{tabular}{c|cccc|c}
+  & $x_1$ & $x_2$ & $s_1$ & $s_2$ & RHS \\
+  \toprule
+  $z$ & $-5$ & $-4$ & $0$ & $0$ & $0$ \\
+  \midrule
+  $s_1$ & $6$ & $4$ & $1$ & $0$ & $24$ \\
+  $s_2$ & $1$ & $2$ & $0$ & $1$ & $6$ \\
+\end{tabular}
+\end{center}
+
+\textbf{It\'eration 1}~: La variable entrante est $x_1$ ($\bar{c}_1 = -5$).
+Ratios~: $24/6 = 4$, $6/1 = 6$.  Pivot~: ligne $s_1$, colonne $x_1$
+(pivot = 6).
+
+On divise la ligne 1 par 6, puis on \'elimine $x_1$ des autres lignes~:
+\begin{center}
+\begin{tabular}{c|cccc|c}
+  & $x_1$ & $x_2$ & $s_1$ & $s_2$ & RHS \\
+  \toprule
+  $z$ & $0$ & $-\frac{2}{3}$ & $\frac{5}{6}$ & $0$ & $20$ \\
+  \midrule
+  $x_1$ & $1$ & $\frac{2}{3}$ & $\frac{1}{6}$ & $0$ & $4$ \\
+  $s_2$ & $0$ & $\frac{4}{3}$ & $-\frac{1}{6}$ & $1$ & $2$ \\
+\end{tabular}
+\end{center}
+
+\textbf{It\'eration 2}~: La variable entrante est $x_2$ ($\bar{c}_2 = -2/3$).
+Ratios~: $4/(2/3) = 6$, $2/(4/3) = 3/2$.  Pivot~: ligne $s_2$, colonne $x_2$
+(pivot = $4/3$).
+
+\begin{center}
+\begin{tabular}{c|cccc|c}
+  & $x_1$ & $x_2$ & $s_1$ & $s_2$ & RHS \\
+  \toprule
+  $z$ & $0$ & $0$ & $\frac{3}{4}$ & $\frac{1}{2}$ & $21$ \\
+  \midrule
+  $x_1$ & $1$ & $0$ & $\frac{1}{4}$ & $-\frac{1}{2}$ & $3$ \\
+  $x_2$ & $0$ & $1$ & $-\frac{1}{8}$ & $\frac{3}{4}$ & $\frac{3}{2}$ \\
+\end{tabular}
+\end{center}
+
+Tous les co\^uts r\'eduits sont $\ge 0$~: solution optimale~!
+
+$x_1^* = 3$, $x_2^* = 3/2$, $z^* = 5(3) + 4(3/2) = 21$.
+\end{exemple}
+
+\section{Initialisation~: m\'ethode du Grand $M$}
+
+Quand le tableau initial ne fournit pas directement une base r\'ealisable
+(contraintes $\ge$ ou $=$), on utilise des \textbf{variables artificielles}.
+
+\begin{definition}[M\'ethode du Grand $M$]
+Pour chaque contrainte d'\'egalit\'e ou $\ge$ (apr\`es ajout d'une variable de
+surplus), on ajoute une variable artificielle $a_i \ge 0$ dans la fonction
+objectif avec un co\^ut de p\'enalit\'e $+M$ (minimisation) o\`u $M$ est un grand
+nombre positif.
+\end{definition}
+
+\begin{exemple}[Grand $M$]
+\[
+\begin{aligned}
+  \min \quad & z = 2x_1 + 3x_2 \\
+  \text{s.c.} \quad
+    & x_1 + x_2 = 4 \\
+    & x_1 + 2x_2 \ge 6 \\
+    & x_1, x_2 \ge 0
+\end{aligned}
+\]
+Apr\`es ajout de la variable de surplus $s_1$ et des artificielles $a_1, a_2$~:
+\[
+\begin{aligned}
+  \min \quad & z = 2x_1 + 3x_2 + Ma_1 + Ma_2 \\
+  \text{s.c.} \quad
+    & x_1 + x_2 + a_1 = 4 \\
+    & x_1 + 2x_2 - s_1 + a_2 = 6 \\
+    & x_1, x_2, s_1, a_1, a_2 \ge 0
+\end{aligned}
+\]
+
+Si \`a l'optimum $a_1 = a_2 = 0$, la solution est r\'ealisable pour le PL
+original.  Sinon, le PL original est non r\'ealisable.
+\end{exemple}
+
+\section{Initialisation~: m\'ethode \`a deux phases}
+
+\begin{algorithme}[title=\textbf{M\'ethode \`a deux phases}]
+\textbf{Phase I}~: R\'esoudre le probl\`eme auxiliaire~:
+\[
+  \min \sum_{i} a_i \quad \text{s.c.} \quad
+  A\mathbf{x} + I\mathbf{a} = \mathbf{b}, \quad
+  \mathbf{x}, \mathbf{a} \ge 0
+\]
+\begin{itemize}
+  \item Si la valeur optimale est $> 0$~: le PL original est \textbf{non
+        r\'ealisable}.
+  \item Si la valeur optimale est $= 0$~: on obtient une SBR pour le PL
+        original.
+\end{itemize}
+
+\textbf{Phase II}~: Utiliser la SBR obtenue comme point de d\'epart pour
+r\'esoudre le PL original avec la fonction objectif d'origine.
+\end{algorithme}
+
+\begin{bonnepratique}[title=\textbf{Grand $M$ vs.\ Deux phases}]
+\begin{itemize}
+  \item La m\'ethode du Grand $M$ est plus simple \`a programmer mais peut
+        poser des probl\`emes num\'eriques si $M$ est mal choisi.
+  \item La m\'ethode \`a deux phases est num\'eriquement plus stable et
+        pr\'ef\'er\'ee dans les impl\'ementations professionnelles.
+\end{itemize}
+\end{bonnepratique}
+
+\section{Cas de d\'eg\'en\'erescence et cyclage}
+
+\begin{definition}[D\'eg\'en\'erescence]
+Une it\'eration est \textbf{d\'eg\'en\'er\'ee} si le ratio minimum est nul~:
+la variable sortante est d\'ej\`a nulle et $z$ ne change pas.
+\end{definition}
+
+\begin{theoreme}[Risque de cyclage]
+En pr\'esence de d\'eg\'en\'erescence, le simplexe peut th\'eoriquement
+\textbf{cycler} (boucler ind\'efiniment entre les m\^emes bases).
+\end{theoreme}
+
+\begin{definition}[R\`egle de Bland]
+La \textbf{r\`egle de Bland} (r\`egle du plus petit indice) \'elimine le
+cyclage~: choisir comme variable entrante la variable hors-base de plus
+petit indice ayant un co\^ut r\'eduit n\'egatif, et comme variable sortante
+la variable de base de plus petit indice r\'ealisant le ratio minimum.
+\end{definition}
+
+\begin{theoreme}[Anti-cyclage de Bland]
+Sous la r\`egle de Bland, l'algorithme du simplexe termine en un nombre
+fini d'it\'erations.
+\end{theoreme}
+
+\section{Complexit\'e du simplexe}
+
+\begin{proposition}[Nombre de sommets]
+Un poly\`edre d\'efini par $m$ contraintes et $n$ variables a au plus
+$\binom{n}{m}$ sommets.
+\end{proposition}
+
+\begin{remarque}
+Le simplexe a une complexit\'e en $\mathcal{O}(2^n)$ dans le pire cas
+(exemples de \textbf{Klee-Minty}, 1972), mais en pratique il effectue
+environ $2m$ \`a $3m$ it\'erations pour un probl\`eme \`a $m$ contraintes.
+\end{remarque}
+
+\section{Simplexe r\'evis\'e}
+
+Le \textbf{simplexe r\'evis\'e} \'evite de maintenir le tableau complet.
+Il ne calcule que les informations n\'ecessaires \`a chaque it\'eration~:
+
+\begin{algorithme}[title=\textbf{Simplexe r\'evis\'e -- une it\'eration}]
+\begin{enumerate}
+  \item Calculer $\boldsymbol{\pi}^\top = \mathbf{c}_B^\top B^{-1}$
+        (multiplicateurs du simplexe).
+  \item Pour chaque $j \notin$ base, calculer
+        $\bar{c}_j = c_j - \boldsymbol{\pi}^\top \mathbf{a}_j$.
+  \item Si $\bar{c}_j \ge 0$ pour tout $j$~: \textsc{stop}.
+  \item Choisir $k$ avec $\bar{c}_k < 0$ (variable entrante).
+  \item Calculer $\mathbf{d} = B^{-1}\mathbf{a}_k$ (direction).
+  \item Ratio minimum~: $r = \argmin_{i : d_i > 0} \bar{b}_i / d_i$.
+  \item Mettre \`a jour $B^{-1}$ (produit de matrices \'el\'ementaires).
+\end{enumerate}
+\end{algorithme}
+
+\section{Impl\'ementation Python}
+
+\begin{codeblock}[title=\textbf{Simplexe tabulaire en Python}]
+\begin{minted}{python}
+import numpy as np
+
+def simplex_tableau(c, A, b):
+    """Résout max c^T x s.c. Ax <= b, x >= 0."""
+    m, n = A.shape
+    # Ajout des variables d'écart
+    tableau = np.zeros((m + 1, n + m + 1))
+    tableau[0, :n] = -c          # ligne objectif (min -c^T x)
+    tableau[1:, :n] = A
+    tableau[1:, n:n+m] = np.eye(m)
+    tableau[1:, -1] = b
+
+    basis = list(range(n, n + m))
+
+    while True:
+        # Variable entrante : coût réduit le plus négatif
+        pivot_col = np.argmin(tableau[0, :-1])
+        if tableau[0, pivot_col] >= -1e-10:
+            break  # optimal
+
+        # Ratios
+        col = tableau[1:, pivot_col]
+        rhs = tableau[1:, -1]
+        ratios = np.full(m, np.inf)
+        for i in range(m):
+            if col[i] > 1e-10:
+                ratios[i] = rhs[i] / col[i]
+
+        pivot_row = np.argmin(ratios) + 1
+        if ratios[pivot_row - 1] == np.inf:
+            raise ValueError("Problème non borné")
+
+        # Pivotage
+        pivot_val = tableau[pivot_row, pivot_col]
+        tableau[pivot_row] /= pivot_val
+        for i in range(m + 1):
+            if i != pivot_row:
+                tableau[i] -= (tableau[i, pivot_col]
+                               * tableau[pivot_row])
+        basis[pivot_row - 1] = pivot_col
+
+    # Extraction de la solution
+    x = np.zeros(n)
+    for i, var in enumerate(basis):
+        if var < n:
+            x[var] = tableau[i + 1, -1]
+
+    return x, tableau[0, -1]  # (solution, -z_max)
+
+# Test
+c = np.array([5., 4.])
+A = np.array([[6., 4.], [1., 2.]])
+b = np.array([24., 6.])
+
+x_opt, neg_z = simplex_tableau(c, A, b)
+print(f"x* = {x_opt}")
+print(f"z* = {-neg_z:.2f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+x* = [3.  1.5]
+z* = 21.00
+\end{codeoutput}
+
+\begin{codeblock}[title=\textbf{V\'erification avec SciPy}]
+\begin{minted}{python}
+from scipy.optimize import linprog
+
+c_min = [-5, -4]
+A_ub = [[6, 4], [1, 2]]
+b_ub = [24, 6]
+res = linprog(c_min, A_ub=A_ub, b_ub=b_ub,
+              bounds=[(0, None), (0, None)], method='highs')
+print(f"x* = {res.x}, z* = {-res.fun:.2f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+x* = [3.  1.5], z* = 21.00
+\end{codeoutput}
+
+\section{Exercices}
+
+\begin{exercice}[$\star$ -- Simplexe tabulaire]
+R\'esoudre par le simplexe tabulaire~:
+\[
+\begin{aligned}
+  \max \quad & z = 3x_1 + 5x_2 \\
+  \text{s.c.} \quad
+    & x_1 \le 4 \\
+    & 2x_2 \le 12 \\
+    & 3x_1 + 5x_2 \le 25 \\
+    & x_1, x_2 \ge 0
+\end{aligned}
+\]
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- Grand $M$]
+R\'esoudre par la m\'ethode du Grand $M$~:
+\[
+\begin{aligned}
+  \min \quad & z = 4x_1 + x_2 \\
+  \text{s.c.} \quad
+    & 3x_1 + x_2 = 3 \\
+    & 4x_1 + 3x_2 \ge 6 \\
+    & x_1 + 2x_2 \le 4 \\
+    & x_1, x_2 \ge 0
+\end{aligned}
+\]
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- Deux phases]
+Reprendre l'exercice pr\'ec\'edent avec la m\'ethode \`a deux phases.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- D\'eg\'en\'erescence]
+V\'erifier qu'une d\'eg\'en\'erescence se produit dans~:
+\[
+\begin{aligned}
+  \max \quad & z = 2x_1 + x_2 \\
+  \text{s.c.} \quad
+    & x_1 + x_2 \le 4 \\
+    & x_1 \le 3 \\
+    & x_2 \le 1 \\
+    & x_1, x_2 \ge 0
+\end{aligned}
+\]
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Impl\'ementation]
+Impl\'ementer la m\'ethode \`a deux phases en Python et la tester sur un
+PL de votre choix ayant des contraintes $\ge$ et $=$.
+\end{exercice}

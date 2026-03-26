@@ -1,0 +1,506 @@
+% ============================================================
+\chapter{Experiment Tracking --- MLflow, Weights \& Biases}
+\label{ch:experiment-tracking}
+\index{experiment tracking}
+% ============================================================
+
+\section{Why Track Experiments?}
+\label{sec:why-tracking}
+
+During an ML project, a data scientist may run hundreds of experiments
+varying hyperparameters, features, data splits, and model architectures.
+Without systematic tracking, critical questions become unanswerable:
+
+\begin{itemize}
+  \item Which hyperparameters produced the best F1 score?
+  \item What data version was used for model v2.3?
+  \item Why did accuracy drop between Tuesday and Wednesday?
+  \item Can we reproduce the result from last month?
+\end{itemize}
+
+\begin{definition}[Experiment tracking]
+\textbf{Experiment tracking}\index{experiment tracking} is the practice of
+systematically recording the parameters, metrics, artefacts, code versions,
+and environment details of every ML experiment, enabling comparison,
+reproducibility, and auditability.
+\end{definition}
+
+\begin{warning}[title=\textbf{The spreadsheet trap}]
+Tracking experiments in spreadsheets or notebooks is fragile:
+\begin{itemize}
+  \item Manual entry is error-prone and incomplete.
+  \item No link between logged values and actual code/data.
+  \item No automatic artefact storage.
+  \item Impossible to search, filter, or visualise at scale.
+\end{itemize}
+\end{warning}
+
+\section{Experiment Tracking Architecture}
+\label{sec:tracking-architecture}
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, rounded corners, minimum width=2.8cm,
+    minimum height=1.2cm, align=center, font=\small},
+  storage/.style={cylinder, draw, shape border rotate=90,
+    minimum width=2cm, minimum height=1cm, align=center,
+    font=\scriptsize, aspect=0.3},
+  arr/.style={-{Stealth[length=2.5mm]}, thick, steelblue}
+]
+  % Training script
+  \node[box, fill=blue!10] (script) {\textbf{Training Script}\\
+    \scriptsize\texttt{train.py}};
+
+  % Tracking server
+  \node[box, fill=green!10, right=3cm of script] (server)
+    {\textbf{Tracking Server}\\
+    \scriptsize MLflow / W\&B};
+
+  % Backend store
+  \node[storage, fill=orange!10, above right=1.5cm and 1cm of server]
+    (backend) {\textbf{Backend}\\Params, metrics};
+
+  % Artefact store
+  \node[storage, fill=red!10, below right=1.5cm and 1cm of server]
+    (artefact) {\textbf{Artefact Store}\\Models, plots\\(S3, GCS)};
+
+  % UI
+  \node[box, fill=yellow!10, right=3cm of server] (ui)
+    {\textbf{Web UI}\\Compare, visualise};
+
+  % Arrows
+  \draw[arr] (script) -- (server)
+    node[midway, above, font=\scriptsize] {log params, metrics};
+  \draw[arr] (server) -- (backend);
+  \draw[arr] (server) -- (artefact);
+  \draw[arr] (server) -- (ui);
+\end{tikzpicture}
+\end{center}
+
+\section{MLflow}
+\label{sec:mlflow}
+\index{MLflow}
+
+\textbf{MLflow}\index{MLflow} is an open-source platform for managing the
+ML lifecycle. Its \emph{Tracking} component logs parameters, metrics, and
+artefacts. Its \emph{Model Registry} manages model versions and deployment
+stages.
+
+\subsection{MLflow Tracking API}
+
+\begin{codeblock}[title=\textbf{Complete MLflow tracking example}]
+\begin{minted}{python}
+import mlflow
+import mlflow.sklearn
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, f1_score
+
+# Set the tracking URI (local or remote server)
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("iris-classification")
+
+# Load data
+X, y = load_iris(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# Experiment parameters
+params = {
+    "n_estimators": 200,
+    "max_depth": 10,
+    "min_samples_split": 5,
+    "random_state": 42,
+}
+
+with mlflow.start_run(run_name="rf-baseline"):
+    # Log parameters
+    mlflow.log_params(params)
+
+    # Train
+    model = RandomForestClassifier(**params)
+    model.fit(X_train, y_train)
+
+    # Evaluate
+    y_pred = model.predict(X_test)
+    acc = accuracy_score(y_test, y_pred)
+    f1 = f1_score(y_test, y_pred, average="weighted")
+
+    # Log metrics
+    mlflow.log_metric("accuracy", acc)
+    mlflow.log_metric("f1_weighted", f1)
+
+    # Log the model as an artefact
+    mlflow.sklearn.log_model(model, "random-forest-model")
+
+    # Log additional artefacts (plots, configs, etc.)
+    mlflow.log_artifact("configs/config.yaml")
+
+    print(f"Run ID: {mlflow.active_run().info.run_id}")
+    print(f"Accuracy: {acc:.4f}, F1: {f1:.4f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Launching the MLflow UI}]
+\begin{minted}{bash}
+# Start the tracking server
+mlflow server --host 0.0.0.0 --port 5000 \
+    --backend-store-uri sqlite:///mlflow.db \
+    --default-artifact-root ./mlartifacts
+
+# Open in browser: http://localhost:5000
+\end{minted}
+\end{codeblock}
+
+\subsection{MLflow Model Registry}
+\index{MLflow!model registry}
+
+The Model Registry provides a centralised store for managing model versions
+and their lifecycle stages (\emph{Staging}, \emph{Production},
+\emph{Archived}).
+
+\begin{codeblock}[title=\textbf{MLflow Model Registry workflow}]
+\begin{minted}{python}
+import mlflow
+from mlflow.tracking import MlflowClient
+
+client = MlflowClient()
+
+# Register a model from a run
+model_uri = f"runs:/{run_id}/random-forest-model"
+result = mlflow.register_model(model_uri, "IrisClassifier")
+print(f"Version: {result.version}")
+
+# Transition to staging
+client.transition_model_version_stage(
+    name="IrisClassifier",
+    version=result.version,
+    stage="Staging",
+)
+
+# Promote to production
+client.transition_model_version_stage(
+    name="IrisClassifier",
+    version=result.version,
+    stage="Production",
+)
+
+# Load a production model for inference
+model = mlflow.pyfunc.load_model(
+    "models:/IrisClassifier/Production"
+)
+predictions = model.predict(X_test)
+\end{minted}
+\end{codeblock}
+
+\begin{bestpractice}[title=\textbf{MLflow best practices}]
+\begin{itemize}
+  \item Use a \textbf{remote tracking server} (not local \file{mlruns/})
+    for team collaboration.
+  \item Use \textbf{experiment names} that reflect the project and task.
+  \item Log \textbf{all} hyperparameters, not just the ones you are tuning.
+  \item Use \cli{mlflow.autolog()} for supported frameworks (scikit-learn,
+    PyTorch, TensorFlow) to automatically log parameters and metrics.
+  \item Store artefacts (models, plots) in a shared object store (S3, GCS).
+\end{itemize}
+\end{bestpractice}
+
+\section{Weights \& Biases (W\&B)}
+\label{sec:wandb}
+\index{Weights \& Biases}
+
+\textbf{Weights \& Biases}\index{W\&B} (W\&B) is a cloud-hosted (or
+self-hosted) experiment tracking platform with rich visualisation,
+hyperparameter sweeps, and team collaboration features.
+
+\begin{codeblock}[title=\textbf{Complete W\&B tracking example}]
+\begin{minted}{python}
+import wandb
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
+
+# Initialise a W&B run
+wandb.init(
+    project="mnist-classification",
+    name="cnn-baseline",
+    config={
+        "learning_rate": 1e-3,
+        "batch_size": 64,
+        "epochs": 20,
+        "architecture": "SimpleCNN",
+        "optimizer": "Adam",
+    },
+)
+config = wandb.config
+
+# Define model
+class SimpleCNN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 32, 3, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, 3, padding=1)
+        self.pool = nn.MaxPool2d(2)
+        self.fc = nn.Linear(64 * 7 * 7, 10)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.pool(self.relu(self.conv1(x)))
+        x = self.pool(self.relu(self.conv2(x)))
+        x = x.view(x.size(0), -1)
+        return self.fc(x)
+
+model = SimpleCNN()
+optimizer = torch.optim.Adam(
+    model.parameters(), lr=config.learning_rate
+)
+criterion = nn.CrossEntropyLoss()
+
+# Watch model (log gradients and parameters)
+wandb.watch(model, log="all", log_freq=100)
+
+# Training loop
+for epoch in range(config.epochs):
+    model.train()
+    total_loss = 0
+    correct = 0
+    total = 0
+
+    for X_batch, y_batch in train_loader:
+        optimizer.zero_grad()
+        outputs = model(X_batch)
+        loss = criterion(outputs, y_batch)
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item()
+        _, predicted = outputs.max(1)
+        correct += predicted.eq(y_batch).sum().item()
+        total += y_batch.size(0)
+
+    # Log metrics per epoch
+    wandb.log({
+        "epoch": epoch,
+        "train/loss": total_loss / len(train_loader),
+        "train/accuracy": correct / total,
+    })
+
+# Log final model as artefact
+artifact = wandb.Artifact("cnn-model", type="model")
+torch.save(model.state_dict(), "model.pt")
+artifact.add_file("model.pt")
+wandb.log_artifact(artifact)
+
+wandb.finish()
+\end{minted}
+\end{codeblock}
+
+\begin{remark}
+W\&B automatically captures Git commit hashes, system information (GPU,
+OS, Python version), and console output. The web dashboard allows
+real-time comparison of runs with interactive charts.
+\end{remark}
+
+\section{Hydra for Configuration Management}
+\label{sec:hydra}
+\index{Hydra}
+
+\textbf{Hydra}\index{Hydra} (by Meta) is a configuration framework that
+simplifies managing complex configs with composition, overrides, and
+multi-run sweeps.
+
+\begin{codeblock}[title=\textbf{Hydra configuration example}]
+\begin{minted}{yaml}
+# configs/config.yaml
+defaults:
+  - model: random_forest
+  - data: iris
+  - _self_
+
+training:
+  seed: 42
+  test_size: 0.2
+
+# configs/model/random_forest.yaml
+n_estimators: 200
+max_depth: 10
+
+# configs/model/gradient_boosting.yaml
+n_estimators: 300
+learning_rate: 0.1
+max_depth: 5
+
+# configs/data/iris.yaml
+path: data/iris.csv
+target_col: species
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Using Hydra in Python}]
+\begin{minted}{python}
+import hydra
+from omegaconf import DictConfig
+import mlflow
+
+@hydra.main(version_base=None, config_path="configs",
+            config_name="config")
+def train(cfg: DictConfig) -> float:
+    mlflow.set_experiment("hydra-experiments")
+
+    with mlflow.start_run():
+        mlflow.log_params(dict(cfg.model))
+        # ... training code ...
+        mlflow.log_metric("accuracy", accuracy)
+
+    return accuracy
+
+if __name__ == "__main__":
+    train()
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Hydra command-line overrides and sweeps}]
+\begin{minted}{bash}
+# Override a parameter
+python train.py model.n_estimators=500
+
+# Switch model configuration
+python train.py model=gradient_boosting
+
+# Multi-run sweep
+python train.py --multirun \
+    model.n_estimators=100,200,500 \
+    model.max_depth=5,10,20
+\end{minted}
+\end{codeblock}
+
+\section{Tool Comparison}
+\label{sec:tracking-comparison}
+
+\begin{center}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Criterion} & \textbf{MLflow} & \textbf{W\&B} & \textbf{Neptune} & \textbf{ClearML} \\
+\midrule
+Open source     & Yes   & Partial & Partial & Yes \\
+Self-hosted     & Yes   & Yes     & Yes     & Yes \\
+Cloud hosted    & No    & Yes     & Yes     & Yes \\
+Free tier       & N/A   & Yes     & Yes     & Yes \\
+Model registry  & Yes   & Yes     & Yes     & Yes \\
+HPO sweeps      & No    & Yes     & Yes     & Yes \\
+Real-time logs  & No    & Yes     & Yes     & Yes \\
+Team collab     & Basic & Excellent & Good  & Good \\
+Framework support & Broad & Broad  & Broad  & Broad \\
+Learning curve  & Low   & Low     & Low     & Medium \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{remark}
+\textbf{MLflow} is the de facto standard for self-hosted, open-source
+experiment tracking. \textbf{W\&B} excels in visualisation and team
+collaboration for cloud-hosted workflows. Many teams use both: MLflow for
+the model registry and W\&B for experiment visualisation.
+\end{remark}
+
+\section{Best Practices}
+
+\begin{bestpractice}[title=\textbf{Experiment tracking golden rules}]
+\begin{enumerate}
+  \item \textbf{Log everything}: parameters, metrics, data version, code
+    version, environment, random seeds.
+  \item \textbf{Use meaningful run names}: \texttt{rf-200trees-depth10},
+    not \texttt{run-42}.
+  \item \textbf{Organise experiments}: one experiment per task or project.
+  \item \textbf{Store artefacts}: save models, plots, and configs alongside
+    metrics.
+  \item \textbf{Automate logging}: use \cli{mlflow.autolog()} or W\&B
+    integrations.
+  \item \textbf{Compare systematically}: use the UI to compare runs, not
+    memory or spreadsheets.
+\end{enumerate}
+\end{bestpractice}
+
+\begin{antipattern}[title=\textbf{Common anti-patterns}]
+\begin{itemize}
+  \item Logging only the final metric, not per-epoch curves
+  \item Forgetting to log the data version used for training
+  \item Using \texttt{print()} instead of a tracking tool
+  \item Running experiments without setting random seeds
+  \item Not saving the model artefact alongside the metrics
+\end{itemize}
+\end{antipattern}
+
+\section{Mini-project: Tracked Experiment Campaign}
+\label{sec:mini-project-ch4}
+
+\begin{miniproject}[title=\textbf{Mini-project 4: Full experiment tracking}]
+Building on the DVC-versioned project from Chapter~\ref{ch:version-control}:
+\begin{enumerate}
+  \item Set up an MLflow tracking server (local or Docker).
+  \item Instrument your training script to log parameters, metrics, and
+    the trained model.
+  \item Run at least 5 experiments varying hyperparameters.
+  \item Use the MLflow UI to identify the best run.
+  \item Register the best model in the MLflow Model Registry and promote
+    it to \emph{Production}.
+  \item Add W\&B tracking alongside MLflow and compare the dashboards.
+  \item Use Hydra to manage experiment configurations and run a sweep
+    over 3 hyperparameters.
+\end{enumerate}
+\end{miniproject}
+
+\section{Exercises}
+\label{sec:exercises-ch4}
+
+\begin{exercise}[$\bigstar$ --- MLflow basics]
+Write a training script that logs at least 5 parameters and 3 metrics to
+MLflow. Launch the MLflow UI and take a screenshot of the comparison view
+for three different runs. Explain what each column represents.
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar$ --- W\&B integration]
+Rewrite the training script from the previous exercise using W\&B instead
+of MLflow. Log training curves (loss and accuracy per epoch), a confusion
+matrix, and a model artefact. Use \cli{wandb.sweep} to perform a
+hyperparameter search over learning rate, batch size, and number of layers.
+Compare the W\&B and MLflow experiences.
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar\bigstar$ --- End-to-end tracked pipeline]
+Build a complete tracked pipeline for image classification (e.g., CIFAR-10):
+\begin{enumerate}
+  \item Use Hydra for configuration management with at least 3 config
+    groups (model, data, training)
+  \item Log all experiments to both MLflow and W\&B
+  \item Implement early stopping based on validation loss
+  \item Log per-epoch metrics, learning rate schedules, and sample
+    predictions
+  \item Use the MLflow Model Registry to manage model versions
+  \item Write a comparison report using data exported from the tracking
+    tools
+\end{enumerate}
+\end{exercise}
+
+\section{Cheatsheet}
+
+\begin{cheatsheet}[title=\textbf{Chapter 4 Summary}]
+\begin{tabular}{@{}p{4cm}p{8.5cm}@{}}
+\toprule
+\textbf{Tool / Concept} & \textbf{Key Commands / API} \\
+\midrule
+\textbf{MLflow tracking} & \cli{mlflow.start\_run()},
+  \cli{mlflow.log\_params()}, \cli{mlflow.log\_metric()} \\
+\textbf{MLflow registry} & \cli{mlflow.register\_model()},
+  \cli{client.transition\_model\_version\_stage()} \\
+\textbf{MLflow server} & \cli{mlflow server --host 0.0.0.0 --port 5000} \\
+\textbf{W\&B} & \cli{wandb.init()}, \cli{wandb.log()},
+  \cli{wandb.log\_artifact()} \\
+\textbf{Hydra} & \cli{@hydra.main()}, \cli{--multirun},
+  \cli{model=gradient\_boosting} \\
+\textbf{Best practice} & Log everything; meaningful names; store artefacts \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}

@@ -1,0 +1,371 @@
+% ============================================================
+\chapter{Environnements et Gestion de D\'ependances}
+\label{ch:environnements}
+\index{environnements}
+% ============================================================
+
+\section{Pourquoi isoler les environnements~?}
+\label{sec:why-envs}
+
+Un probl\`eme classique en ML~: <<~\c{C}a marche sur ma machine~!~>>
+(\emph{works on my machine}). Les causes~:
+\begin{itemize}
+  \item Versions de Python diff\'erentes
+  \item Versions de biblioth\`eques incompatibles
+  \item D\'ependances syst\`eme manquantes (CUDA, cuDNN)
+  \item Variables d'environnement non configur\'ees
+\end{itemize}
+
+\begin{definition}[Environnement virtuel]
+Un \textbf{environnement virtuel}\index{environnement virtuel} est un
+r\'epertoire isol\'e contenant une installation Python sp\'ecifique et un
+ensemble de packages, ind\'ependant du syst\`eme et des autres projets.
+\end{definition}
+
+\begin{center}
+\begin{tikzpicture}[
+  env/.style={rectangle, draw, rounded corners, minimum width=3cm,
+    minimum height=2.5cm, align=center, font=\small},
+  pkg/.style={rectangle, draw, fill=blue!10, font=\scriptsize,
+    minimum width=2.5cm, rounded corners}
+]
+  \node[env, fill=green!5] (env1) {};
+  \node[above=0.1cm] at (env1.north) {\textbf{Projet A}};
+  \node[pkg] at ([yshift=0.3cm]env1.center) {scikit-learn 1.3};
+  \node[pkg] at ([yshift=-0.3cm]env1.center) {pandas 2.0};
+  \node[below=0.1cm, font=\scriptsize] at (env1.south) {Python 3.10};
+
+  \node[env, fill=orange!5, right=2cm of env1] (env2) {};
+  \node[above=0.1cm] at (env2.north) {\textbf{Projet B}};
+  \node[pkg] at ([yshift=0.3cm]env2.center) {scikit-learn 1.5};
+  \node[pkg] at ([yshift=-0.3cm]env2.center) {pandas 2.2};
+  \node[below=0.1cm, font=\scriptsize] at (env2.south) {Python 3.12};
+
+  \node[below=1.5cm of env1, font=\small] (sys) {Syst\`eme};
+  \node[below=1.5cm of env2, font=\small] (sys2) {Syst\`eme};
+  \draw[dashed, gray] ([xshift=-1cm]sys.north) -- ([xshift=1cm]sys2.north);
+\end{tikzpicture}
+\end{center}
+
+\section{venv --- L'outil int\'egr\'e \`a Python}
+\label{sec:venv}
+\index{venv}
+
+\cli{venv} est le module standard de Python pour cr\'eer des environnements
+virtuels. Il est simple, l\'eger, et ne n\'ecessite aucune installation
+suppl\'ementaire.
+
+\begin{codeblock}[title=\textbf{Commandes venv essentielles}]
+\begin{minted}{bash}
+# Creer un environnement virtuel
+python -m venv .venv
+
+# Activer (Linux/macOS)
+source .venv/bin/activate
+
+# Activer (Windows)
+.venv\Scripts\activate
+
+# Installer des packages
+pip install numpy pandas scikit-learn
+
+# Sauvegarder les dependances
+pip freeze > requirements.txt
+
+# Recreer l'environnement
+pip install -r requirements.txt
+
+# Desactiver
+deactivate
+\end{minted}
+\end{codeblock}
+
+\begin{attention}[title=\textbf{Pi\`eges de pip freeze}]
+\cli{pip freeze} inclut \textbf{toutes} les d\'ependances transitives, ce
+qui rend le fichier fragile. Pr\'ef\'erez~:
+\begin{itemize}
+  \item Maintenir manuellement un \file{requirements.txt} avec les
+    d\'ependances directes et leurs versions.
+  \item Utiliser \pkg{pip-tools} pour g\'en\'erer un \file{requirements.txt}
+    verrouill\'e \`a partir d'un \file{requirements.in}.
+\end{itemize}
+\end{attention}
+
+\subsection{pip-tools~: le verrouillage des d\'ependances}
+\index{pip-tools}
+
+\begin{codeblock}[title=\textbf{Workflow pip-tools}]
+\begin{minted}{bash}
+# Installer pip-tools
+pip install pip-tools
+
+# requirements.in (dependances directes seulement)
+# numpy>=1.24
+# pandas>=2.0
+# scikit-learn>=1.3
+
+# Compiler (resoudre et verrouiller)
+pip-compile requirements.in -o requirements.txt
+
+# Installer exactement les versions verrouillees
+pip-sync requirements.txt
+\end{minted}
+\end{codeblock}
+
+\section{Conda --- Environnements avec d\'ependances syst\`eme}
+\label{sec:conda}
+\index{Conda}
+
+\textbf{Conda}\index{Conda} g\`ere non seulement les packages Python mais
+aussi les biblioth\`eques syst\`eme (CUDA, MKL, OpenSSL). C'est l'outil
+privil\'egi\'e pour les projets ML n\'ecessitant des GPU.
+
+\begin{codeblock}[title=\textbf{Commandes Conda essentielles}]
+\begin{minted}{bash}
+# Creer un environnement
+conda create -n ml-project python=3.11
+
+# Activer
+conda activate ml-project
+
+# Installer des packages
+conda install numpy pandas scikit-learn
+conda install -c pytorch pytorch torchvision  # canal PyTorch
+
+# Exporter l'environnement
+conda env export > environment.yml
+
+# Exporter sans les dependances specifiques a l'OS
+conda env export --from-history > environment.yml
+
+# Recreer l'environnement
+conda env create -f environment.yml
+
+# Lister les environnements
+conda env list
+
+# Supprimer un environnement
+conda env remove -n ml-project
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{environment.yml}]
+\begin{minted}{yaml}
+name: ml-project
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - numpy=1.26
+  - pandas=2.1
+  - scikit-learn=1.3
+  - pytorch=2.1
+  - pip:
+    - mlflow>=2.8      # packages pip si non dispo en conda
+    - wandb>=0.16
+\end{minted}
+\end{codeblock}
+
+\begin{bonnepratique}[title=\textbf{Conda vs pip}]
+\begin{itemize}
+  \item Utilisez Conda pour les d\'ependances syst\`eme (CUDA, compilateurs).
+  \item Utilisez pip \`a l'int\'erieur d'un environnement Conda pour les
+    packages Python purs.
+  \item Ne m\'elangez \textbf{jamais} \cli{conda install} et \cli{pip install}
+    pour le m\^eme package --- Conda ne verra pas les packages install\'es
+    par pip et vice versa.
+\end{itemize}
+\end{bonnepratique}
+
+\section{Poetry --- Gestion moderne des d\'ependances}
+\label{sec:poetry}
+\index{Poetry}
+
+\textbf{Poetry}\index{Poetry} est un gestionnaire de d\'ependances moderne
+qui combine la gestion des packages, le verrouillage des versions et la
+publication de packages dans un seul outil.
+
+\begin{codeblock}[title=\textbf{Workflow Poetry}]
+\begin{minted}{bash}
+# Installer Poetry
+curl -sSL https://install.python-poetry.org | python3 -
+
+# Creer un nouveau projet
+poetry new ml-project
+cd ml-project
+
+# Ajouter des dependances
+poetry add numpy pandas scikit-learn
+poetry add --group dev pytest black mypy
+
+# Installer les dependances
+poetry install
+
+# Executer dans l'environnement
+poetry run python train.py
+poetry run pytest tests/
+
+# Exporter en requirements.txt (compatibilite)
+poetry export -f requirements.txt -o requirements.txt
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{pyproject.toml (extrait)}]
+\begin{minted}{toml}
+[tool.poetry]
+name = "ml-project"
+version = "0.1.0"
+description = "ML classification project"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+numpy = "^1.26"
+pandas = "^2.1"
+scikit-learn = "^1.3"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4"
+black = "^23.10"
+mypy = "^1.6"
+\end{minted}
+\end{codeblock}
+
+\section{Comparaison des outils}
+\label{sec:env-comparison}
+
+\begin{center}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Crit\`ere} & \textbf{venv+pip} & \textbf{Conda} & \textbf{Poetry} & \textbf{uv} \\
+\midrule
+Int\'egr\'e Python & Oui & Non & Non & Non \\
+D\'ep.\ syst\`eme & Non & Oui & Non & Non \\
+Verrouillage & pip-tools & Oui & Oui & Oui \\
+GPU/CUDA & Manuel & Oui & Manuel & Manuel \\
+Rapidit\'e & Rapide & Lent & Moyen & Tr\`es rapide \\
+Publication pkg & Non & Non & Oui & Non \\
+Courbe d'apprentissage & Faible & Moyenne & Moyenne & Faible \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{uv --- Le nouvel outil rapide}
+\label{sec:uv}
+\index{uv}
+
+\textbf{uv} est un gestionnaire de packages Python \'ecrit en Rust,
+compatible avec pip, extr\^emement rapide (10--100$\times$ plus rapide
+que pip).
+
+\begin{codeblock}[title=\textbf{Workflow uv}]
+\begin{minted}{bash}
+# Installer uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Creer un environnement et installer
+uv venv
+source .venv/bin/activate
+uv pip install numpy pandas scikit-learn
+
+# Ou tout en un
+uv pip install -r requirements.txt
+
+# Verrouillage
+uv pip compile requirements.in -o requirements.txt
+uv pip sync requirements.txt
+\end{minted}
+\end{codeblock}
+
+\section{Bonnes pratiques pour la reproductibilit\'e}
+\label{sec:env-best-practices}
+
+\begin{bonnepratique}[title=\textbf{R\`egles d'or pour les environnements}]
+\begin{enumerate}
+  \item \textbf{Un projet = un environnement}~: ne jamais partager
+    d'environnement entre projets.
+  \item \textbf{Fichier de d\'ependances versionn\'e}~: \file{requirements.txt}
+    ou \file{environment.yml} dans le d\'ep\^ot Git.
+  \item \textbf{\'Epingler les versions}~: \cli{numpy==1.26.2}, pas
+    \cli{numpy} sans version.
+  \item \textbf{S\'eparer dev et prod}~: les outils de d\'eveloppement
+    (pytest, black) ne doivent pas \^etre en production.
+  \item \textbf{Documenter la version de Python}~: dans le README ou
+    \file{pyproject.toml}.
+  \item \textbf{Ne jamais modifier l'environnement syst\`eme}~: ne jamais
+    utiliser \cli{sudo pip install}.
+\end{enumerate}
+\end{bonnepratique}
+
+\begin{antipattern}[title=\textbf{Anti-patterns courants}]
+\begin{itemize}
+  \item Installer tous les packages dans l'environnement syst\`eme
+  \item Utiliser \cli{pip install} sans \cli{-r requirements.txt}
+  \item Oublier de mettre \`a jour \file{requirements.txt} apr\`es ajout d'un
+    package
+  \item M\'elanger Conda et pip de mani\`ere anarchique
+  \item Partager un environnement Conda via un chemin absolu
+\end{itemize}
+\end{antipattern}
+
+\section{Mini-projet~: environnement reproductible}
+\label{sec:mini-project-ch2}
+
+\begin{miniprojet}[title=\textbf{Mini-projet 2~: Mise en place d'un environnement}]
+En reprenant le projet structur\'e du chapitre~\ref{ch:introduction}~:
+\begin{enumerate}
+  \item Cr\'eez un environnement virtuel avec \cli{venv} ou Conda.
+  \item \'Ecrivez un \file{requirements.in} avec les d\'ependances directes.
+  \item G\'en\'erez un \file{requirements.txt} verrouill\'e avec \pkg{pip-tools}.
+  \item \'Ecrivez un \file{environment.yml} \'equivalent pour Conda.
+  \item V\'erifiez que votre coll\`egue peut recr\'eer l'environnement
+    \`a partir du fichier de d\'ependances uniquement.
+  \item Ajoutez un script \cli{setup.sh} qui automatise la cr\'eation
+    de l'environnement.
+\end{enumerate}
+\end{miniprojet}
+
+\section{Exercices}
+\label{sec:exercises-ch2}
+
+\begin{exercice}[$\bigstar$ --- Cr\'eation d'environnement]
+Cr\'eez un environnement virtuel avec chacun des trois outils (venv, Conda,
+Poetry) pour un projet utilisant \pkg{numpy}, \pkg{pandas} et \pkg{matplotlib}.
+Comparez les tailles des environnements et les temps de cr\'eation.
+\end{exercice}
+
+\begin{exercice}[$\bigstar\bigstar$ --- R\'esolution de conflits]
+Un projet n\'ecessite \pkg{tensorflow>=2.15} et \pkg{numpy<1.24} (conflit
+r\'eel). Utilisez \pkg{pip-tools} pour identifier le conflit, puis trouvez
+des versions compatibles. Documentez le processus de r\'esolution.
+\end{exercice}
+
+\begin{exercice}[$\bigstar\bigstar\bigstar$ --- Environnement multi-plateforme]
+Cr\'eez un projet ML qui fonctionne sur Linux, macOS et Windows~:
+\begin{enumerate}
+  \item \'Ecrivez un \file{environment.yml} Conda compatible multi-OS
+    (\cli{conda env export --from-history})
+  \item Cr\'eez un script \cli{setup.sh} / \cli{setup.bat} qui d\'etecte
+    l'OS et installe les d\'ependances adapt\'ees
+  \item Testez sur au moins deux syst\`emes (ou utilisez des conteneurs
+    Docker pour simuler)
+  \item G\'erez le cas GPU (installer PyTorch CPU vs CUDA selon la machine)
+\end{enumerate}
+\end{exercice}
+
+\section{Aide-m\'emoire}
+
+\begin{cheatsheet}[title=\textbf{R\'esum\'e du chapitre 2}]
+\begin{tabular}{@{}p{4cm}p{8.5cm}@{}}
+\toprule
+\textbf{Outil} & \textbf{Commandes cl\'es} \\
+\midrule
+\textbf{venv} & \cli{python -m venv .venv}, \cli{source .venv/bin/activate} \\
+\textbf{pip-tools} & \cli{pip-compile requirements.in}, \cli{pip-sync} \\
+\textbf{Conda} & \cli{conda create -n env python=3.11}, \cli{conda env export} \\
+\textbf{Poetry} & \cli{poetry add pkg}, \cli{poetry install}, \cli{poetry run} \\
+\textbf{uv} & \cli{uv pip install}, \cli{uv pip compile}, \cli{uv pip sync} \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}

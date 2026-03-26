@@ -1,0 +1,1264 @@
+% ch4-determinants.tex — Chapitre 4 : Déterminants
+% Ce chapitre développe la théorie des déterminants : définition via les
+% permutations, propriétés fondamentales, développement selon une ligne
+% ou colonne, comatrice, règle de Cramer, interprétation géométrique.
+
+\chapter{Déterminants}\label{ch:determinants}
+
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+
+Le \emph{déterminant}\index{déterminant} est l'un des invariants les plus
+fondamentaux de l'algèbre linéaire. Il associe à toute matrice carrée un
+scalaire qui encode des informations essentielles~: inversibilité,
+volume, orientation.
+
+\medskip
+
+Avant d'en donner la construction rigoureuse, observons les cas les plus
+simples. Pour une matrice $2\times 2$~:
+\[
+  A=\begin{pmatrix}a&b\\c&d\end{pmatrix},\qquad
+  \det(A)=ad-bc.
+\]
+Ce nombre apparaît naturellement en géométrie~: si $\vec{u}=(a,c)$ et
+$\vec{v}=(b,d)$ sont les colonnes de~$A$, alors $\abs{\det(A)}$ est
+l'aire du parallélogramme engendré par $\vec{u}$ et $\vec{v}$, et le
+\emph{signe} de $\det(A)$ détermine l'orientation du couple $(\vec{u},\vec{v})$.
+
+\medskip
+
+De plus, la matrice $A$ est inversible si et seulement si $\det(A)\neq 0$.
+Cette caractérisation se généralise à toute dimension~: le déterminant
+d'une matrice $n\times n$ est un scalaire qui s'annule exactement lorsque
+la matrice est singulière.
+
+\medskip
+
+La construction du déterminant en dimension quelconque repose sur le
+\emph{groupe symétrique}\index{groupe symétrique} $\mathfrak{S}_n$ et la
+notion de \emph{signature}\index{signature (permutation)} d'une
+permutation. C'est pourquoi nous commençons ce chapitre par une étude
+des permutations.
+
+\begin{center}
+\begin{tikzpicture}[scale=1.4, >=Stealth]
+  % Parallélogramme
+  \draw[->,thick,blue!70!black] (0,0) -- (3,1)
+    node[midway,below right] {$\vec{u}$};
+  \draw[->,thick,red!70!black] (0,0) -- (1,2.5)
+    node[midway,above left] {$\vec{v}$};
+  \draw[thick,dashed,gray] (3,1) -- (4,3.5);
+  \draw[thick,dashed,gray] (1,2.5) -- (4,3.5);
+  \fill[blue!10,opacity=0.5] (0,0) -- (3,1) -- (4,3.5) -- (1,2.5) -- cycle;
+  \node at (2,1.75) {$\abs{\det(A)}$};
+  \node[below] at (2,-0.3) {Aire du parallélogramme $= \abs{ad-bc}$};
+\end{tikzpicture}
+\captionof{figure}{L'aire du parallélogramme engendré par les colonnes
+  d'une matrice $2\times 2$ est $\abs{\det(A)}$.}
+\label{fig:parallelogramme-det}
+\end{center}
+
+% ============================================================
+\section{Permutations et groupe symétrique}\label{sec:permutations}
+% ============================================================
+
+\subsection{Définitions fondamentales}\label{subsec:perm-def}
+
+\begin{definition}{Permutation}{def:permutation}
+  Soit $n\in\N^*$. Une \emph{permutation}\index{permutation} de
+  l'ensemble $\set{1,2,\ldots,n}$ est une bijection
+  $\sigma\colon\set{1,2,\ldots,n}\to\set{1,2,\ldots,n}$.
+  L'ensemble de toutes les permutations de $\set{1,2,\ldots,n}$,
+  muni de la composition, forme un groupe appelé le \emph{groupe
+  symétrique}\index{groupe symétrique} et noté $\mathfrak{S}_n$.
+\end{definition}
+
+Le cardinal de $\mathfrak{S}_n$ est~$n!$ (factorielle de~$n$). On note
+une permutation $\sigma$ par la notation en deux lignes~:
+\[
+  \sigma=\begin{pmatrix}1&2&\cdots&n\\
+  \sigma(1)&\sigma(2)&\cdots&\sigma(n)\end{pmatrix}.
+\]
+
+\begin{example}{Permutations de $\mathfrak{S}_3$}{ex:S3}
+  Le groupe $\mathfrak{S}_3$ contient $3!=6$ éléments~:
+  \[
+    \Id=\begin{pmatrix}1&2&3\\1&2&3\end{pmatrix},\quad
+    \begin{pmatrix}1&2&3\\1&3&2\end{pmatrix},\quad
+    \begin{pmatrix}1&2&3\\2&1&3\end{pmatrix},\quad
+    \begin{pmatrix}1&2&3\\2&3&1\end{pmatrix},\quad
+    \begin{pmatrix}1&2&3\\3&1&2\end{pmatrix},\quad
+    \begin{pmatrix}1&2&3\\3&2&1\end{pmatrix}.
+  \]
+\end{example}
+
+\subsection{Transpositions}\label{subsec:transpositions}
+
+\begin{definition}{Transposition}{def:transposition}
+  Une \emph{transposition}\index{transposition} est une permutation
+  $\tau\in\mathfrak{S}_n$ qui échange exactement deux éléments et laisse
+  tous les autres fixes. On la note $\tau=(i\;j)$ avec $i\neq j$.
+\end{definition}
+
+\begin{proposition}{Décomposition en transpositions}{prop:decomp-transpositions}
+  Toute permutation $\sigma\in\mathfrak{S}_n$ peut s'écrire comme
+  composée d'un nombre fini de transpositions~:
+  \[
+    \sigma=\tau_1\circ\tau_2\circ\cdots\circ\tau_k.
+  \]
+  La décomposition n'est pas unique, mais la \emph{parité} du nombre de
+  transpositions est toujours la même.
+\end{proposition}
+
+\begin{proof}
+  Il suffit de vérifier qu'un cycle $(a_1\;a_2\;\cdots\;a_r)$ se
+  décompose en transpositions~:
+  \[
+    (a_1\;a_2\;\cdots\;a_r)=(a_1\;a_r)\circ(a_1\;a_{r-1})\circ
+    \cdots\circ(a_1\;a_2).
+  \]
+  Comme toute permutation est un produit de cycles à supports disjoints,
+  on obtient la décomposition voulue.
+
+  Pour la parité, considérons l'application
+  $P(\sigma)\deff\prod_{1\leq i<j\leq n}\frac{\sigma(j)-\sigma(i)}{j-i}$.
+  Chaque transposition change le signe de~$P$, donc $P(\sigma)=(-1)^k$
+  pour toute décomposition $\sigma=\tau_1\circ\cdots\circ\tau_k$. La
+  parité de~$k$ est ainsi indépendante de la décomposition choisie.
+\end{proof}
+
+\subsection{Signature}\label{subsec:signature}
+
+\begin{definition}{Signature d'une permutation}{def:signature}
+  La \emph{signature}\index{signature (permutation)} d'une permutation
+  $\sigma\in\mathfrak{S}_n$ est définie par~:
+  \[
+    \sgn(\sigma)\deff(-1)^{N(\sigma)}
+    =\prod_{1\leq i<j\leq n}\frac{\sigma(j)-\sigma(i)}{j-i},
+  \]
+  où $N(\sigma)$ est le nombre d'\emph{inversions}\index{inversion} de
+  $\sigma$, c'est-à-dire le nombre de couples $(i,j)$ avec $i<j$ et
+  $\sigma(i)>\sigma(j)$.
+
+  Si $\sgn(\sigma)=+1$, la permutation est dite \emph{paire}\index{permutation!paire}~;
+  si $\sgn(\sigma)=-1$, elle est dite \emph{impaire}\index{permutation!impaire}.
+\end{definition}
+
+\begin{proposition}{Propriétés de la signature}{prop:signature-props}
+  La signature est un morphisme de groupes
+  $\sgn\colon\mathfrak{S}_n\to\set{+1,-1}$~:
+  \begin{enumerate}[label=(\roman*)]
+    \item $\sgn(\Id)=+1$.
+    \item $\sgn(\sigma\circ\tau)=\sgn(\sigma)\cdot\sgn(\tau)$ pour tous
+      $\sigma,\tau\in\mathfrak{S}_n$.
+    \item $\sgn(\tau)=-1$ pour toute transposition $\tau$.
+    \item $\sgn(\inv{\sigma})=\sgn(\sigma)$ pour tout
+      $\sigma\in\mathfrak{S}_n$.
+  \end{enumerate}
+\end{proposition}
+
+\begin{proof}
+  \emph{(i)} L'identité n'a aucune inversion, donc $\sgn(\Id)=(-1)^0=1$.
+
+  \emph{(ii)} Pour $\sigma,\tau\in\mathfrak{S}_n$, on a~:
+  \[
+    \prod_{i<j}\frac{(\sigma\circ\tau)(j)-(\sigma\circ\tau)(i)}{j-i}
+    =\prod_{i<j}\frac{\sigma(\tau(j))-\sigma(\tau(i))}{\tau(j)-\tau(i)}
+    \cdot\prod_{i<j}\frac{\tau(j)-\tau(i)}{j-i}
+    =\sgn(\sigma)\cdot\sgn(\tau).
+  \]
+
+  \emph{(iii)} Soit $\tau=(a\;b)$ avec $a<b$. Parmi les couples $(i,j)$
+  avec $i<j$, le couple $(a,b)$ est inversé, et pour chaque élément $c$
+  avec $a<c<b$, les deux couples $(a,c)$ et $(c,b)$ changent
+  simultanément de statut. Le nombre total d'inversions créées est donc
+  impair (il vaut $2(b-a-1)+1$), d'où $\sgn(\tau)=-1$.
+
+  \emph{(iv)} Comme $\sigma\circ\inv{\sigma}=\Id$, on a
+  $\sgn(\sigma)\cdot\sgn(\inv{\sigma})=1$, ce qui donne
+  $\sgn(\inv{\sigma})=\sgn(\sigma)$.
+\end{proof}
+
+\begin{example}{Calcul de signatures}{ex:calcul-signature}
+  Considérons $\sigma=\begin{pmatrix}1&2&3&4\\2&4&1&3\end{pmatrix}
+  \in\mathfrak{S}_4$. Les inversions sont~:
+  $(1,3)$ car $\sigma(1)=2>\sigma(3)=1$~;
+  $(2,3)$ car $\sigma(2)=4>\sigma(3)=1$~;
+  $(2,4)$ car $\sigma(2)=4>\sigma(4)=3$.
+  Donc $N(\sigma)=3$ et $\sgn(\sigma)=(-1)^3=-1$~: la permutation est
+  impaire.
+
+  \medskip
+
+  On vérifie~: $\sigma=(1\;2\;4\;3)=(1\;3)\circ(1\;4)\circ(1\;2)$,
+  produit de $3$ transpositions, ce qui confirme $\sgn(\sigma)=-1$.
+\end{example}
+
+% ============================================================
+\section{Définition du déterminant}\label{sec:def-determinant}
+% ============================================================
+
+\subsection{Formule de Leibniz}\label{subsec:leibniz}
+
+\begin{definition}{Déterminant (formule de Leibniz)}{def:det-leibniz}
+  Soit $A=(a_{ij})\in\Mat_n(\K)$. Le \emph{déterminant}\index{déterminant!formule de Leibniz}
+  de~$A$ est le scalaire~:
+  \[
+    \det(A)\deff\sum_{\sigma\in\mathfrak{S}_n}\sgn(\sigma)\,
+    a_{1,\sigma(1)}\,a_{2,\sigma(2)}\cdots a_{n,\sigma(n)}
+    =\sum_{\sigma\in\mathfrak{S}_n}\sgn(\sigma)\prod_{i=1}^{n}
+    a_{i,\sigma(i)}.
+  \]
+\end{definition}
+
+\begin{remark}{Nombre de termes}{rem:nb-termes-det}
+  La somme porte sur les $n!$ permutations de $\mathfrak{S}_n$. Pour
+  $n=2$, cela donne $2!=2$ termes~; pour $n=3$, $3!=6$ termes~; pour
+  $n=10$, plus de $3{,}6$ millions de termes. La formule de Leibniz est
+  donc utile pour les démonstrations théoriques, mais peu efficace pour
+  le calcul pratique en grande dimension.
+\end{remark}
+
+\begin{example}{Déterminant $2\times 2$}{ex:det-2x2}
+  Pour $n=2$, $\mathfrak{S}_2=\set{\Id,(1\;2)}$. La formule donne~:
+  \[
+    \det\begin{pmatrix}a&b\\c&d\end{pmatrix}
+    =\sgn(\Id)\,a\cdot d+\sgn((1\;2))\,b\cdot c=ad-bc.
+  \]
+\end{example}
+
+\begin{example}{Déterminant $3\times 3$}{ex:det-3x3}
+  Pour $n=3$, la formule de Leibniz donne (règle de Sarrus)\index{règle de Sarrus}~:
+  \begin{align*}
+    \det\begin{pmatrix}a_{11}&a_{12}&a_{13}\\a_{21}&a_{22}&a_{23}\\
+    a_{31}&a_{32}&a_{33}\end{pmatrix}
+    &= a_{11}a_{22}a_{33}+a_{12}a_{23}a_{31}+a_{13}a_{21}a_{32}\\
+    &\quad -a_{13}a_{22}a_{31}-a_{12}a_{21}a_{33}-a_{11}a_{23}a_{32}.
+  \end{align*}
+\end{example}
+
+\subsection{Caractérisation par les formes multilinéaires alternées}%
+\label{subsec:multilin-altern}
+
+On peut caractériser le déterminant de manière axiomatique, sans passer
+par les permutations. Notons $C_1,\ldots,C_n\in\K^n$ les colonnes d'une
+matrice $A\in\Mat_n(\K)$, de sorte que $A=(C_1\mid\cdots\mid C_n)$.
+
+\begin{definition}{Forme multilinéaire alternée}{def:multilin-altern}
+  Une application $\vphi\colon(\K^n)^n\to\K$ est dite~:
+  \begin{enumerate}[label=(\roman*)]
+    \item \emph{multilinéaire}\index{forme multilinéaire} si elle est
+      linéaire en chacune de ses $n$ variables (les autres étant fixées)~;
+    \item \emph{alternée}\index{forme alternée} si elle s'annule dès que
+      deux de ses arguments sont égaux~:
+      $\vphi(\ldots,C,\ldots,C,\ldots)=0$.
+  \end{enumerate}
+\end{definition}
+
+\begin{remark}{Alternée implique antisymétrique}{rem:alterne-antisym}
+  Si $\vphi$ est multilinéaire et alternée, alors échanger deux arguments
+  change le signe~:
+  \[
+    \vphi(\ldots,C_i,\ldots,C_j,\ldots)
+    =-\vphi(\ldots,C_j,\ldots,C_i,\ldots).
+  \]
+  En effet,
+  $0=\vphi(\ldots,C_i+C_j,\ldots,C_i+C_j,\ldots)
+  =\vphi(\ldots,C_i,\ldots,C_j,\ldots)+\vphi(\ldots,C_j,\ldots,C_i,\ldots)$
+  par multilinéarité et le fait que $\vphi$ s'annule sur les termes
+  avec deux arguments identiques.
+\end{remark}
+
+\begin{theorem}{Caractérisation axiomatique du déterminant}{thm:det-axiomatique}
+  Il existe une unique application
+  $\det\colon\Mat_n(\K)\to\K$ qui est~:
+  \begin{enumerate}[label=(\roman*)]
+    \item multilinéaire par rapport aux colonnes~;
+    \item alternée~;
+    \item normalisée~: $\det(I_n)=1$.
+  \end{enumerate}
+  Cette application coïncide avec la formule de Leibniz.
+\end{theorem}
+
+\begin{proof}
+  \emph{Existence.} La formule de Leibniz définit une application
+  $\det$ qui vérifie les trois propriétés. La multilinéarité résulte du
+  fait que chaque terme $\prod_{i=1}^n a_{i,\sigma(i)}$ est linéaire en
+  chaque colonne. Le caractère alternée provient du fait que si deux
+  colonnes $C_j=C_k$ ($j\neq k$), on peut apparier les permutations
+  $\sigma$ et $\sigma\circ(j\;k)$ qui contribuent des termes opposés. La
+  normalisation $\det(I_n)=1$ se vérifie puisque seule l'identité
+  contribue un terme non nul.
+
+  \emph{Unicité.} Soit $\vphi$ vérifiant (i)--(iii). En notant
+  $e_1,\ldots,e_n$ la base canonique de $\K^n$ et en écrivant
+  $C_j=\sum_{i=1}^n a_{ij}\,e_i$, la multilinéarité donne~:
+  \[
+    \vphi(C_1,\ldots,C_n)
+    =\sum_{i_1,\ldots,i_n=1}^n a_{i_1,1}\cdots a_{i_n,n}\;
+    \vphi(e_{i_1},\ldots,e_{i_n}).
+  \]
+  Le caractère alternée impose $\vphi(e_{i_1},\ldots,e_{i_n})=0$ dès que
+  deux indices coïncident. Donc seuls les $n$-uplets $(i_1,\ldots,i_n)$
+  qui sont des permutations de $(1,\ldots,n)$ subsistent. Pour une
+  permutation $\sigma$, on a
+  $\vphi(e_{\sigma(1)},\ldots,e_{\sigma(n)})=\sgn(\sigma)\,\vphi(e_1,\ldots,e_n)
+  =\sgn(\sigma)$ par (iii). On retrouve la formule de Leibniz.
+\end{proof}
+
+% ============================================================
+\section{Propriétés fondamentales}\label{sec:proprietes-det}
+% ============================================================
+
+\subsection{Multilinéarité par rapport aux lignes et colonnes}%
+\label{subsec:multilin-lignes}
+
+Le déterminant est multilinéaire par rapport aux colonnes par
+construction. Nous verrons dans la ef{subsec:det-transpose} qu'il
+est aussi multilinéaire par rapport aux lignes.
+
+\begin{proposition}{Effet des opérations élémentaires}{prop:ops-elem-det}
+  Soit $A\in\Mat_n(\K)$.
+  \begin{enumerate}[label=(\roman*)]
+    \item \textbf{Échange de deux colonnes (ou lignes)~:}
+      $\det(\ldots,C_j,\ldots,C_k,\ldots)
+      =-\det(\ldots,C_k,\ldots,C_j,\ldots)$.
+    \item \textbf{Multiplication d'une colonne (ou ligne) par $\lambda\in\K$~:}
+      $\det(\ldots,\lambda C_j,\ldots)=\lambda\,\det(\ldots,C_j,\ldots)$.
+    \item \textbf{Ajout d'un multiple d'une colonne (ou ligne) à une autre~:}
+      $\det(\ldots,C_j+\lambda C_k,\ldots,C_k,\ldots)
+      =\det(\ldots,C_j,\ldots,C_k,\ldots)$.
+  \end{enumerate}
+\end{proposition}
+
+\begin{proof}
+  \emph{(i)} C'est la propriété d'antisymétrie (voir ef{rem:rem:alterne-antisym}).
+
+  \emph{(ii)} C'est l'homogénéité de la multilinéarité en la colonne $j$.
+
+  \emph{(iii)} Par multilinéarité~:
+  $\det(\ldots,C_j+\lambda C_k,\ldots,C_k,\ldots)
+  =\det(\ldots,C_j,\ldots,C_k,\ldots)
+  +\lambda\,\det(\ldots,C_k,\ldots,C_k,\ldots)$.
+  Le second terme est nul car deux colonnes sont égales.
+\end{proof}
+
+\begin{corollary}{Colonne nulle ou colonnes proportionnelles}{cor:col-nulle}
+  \begin{enumerate}[label=(\roman*)]
+    \item Si $A$ possède une colonne (ou ligne) nulle, alors $\det(A)=0$.
+    \item Si $A$ possède deux colonnes (ou lignes) proportionnelles,
+      alors $\det(A)=0$.
+  \end{enumerate}
+\end{corollary}
+
+\subsection{Déterminant d'un produit}\label{subsec:det-produit}
+
+\begin{theorem}{Multiplicativité du déterminant}{thm:det-produit}
+  Pour toutes matrices $A,B\in\Mat_n(\K)$~:
+  \[
+    \det(AB)=\det(A)\cdot\det(B).
+  \]
+\end{theorem}
+
+\begin{proof}
+  Si $\det(B)=0$, alors $B$ n'est pas inversible, donc
+  $\rg(AB)\leq\rg(B)<n$, ce qui implique que $AB$ n'est pas inversible
+  et $\det(AB)=0=\det(A)\cdot\det(B)$.
+
+  Si $\det(B)\neq 0$, considérons l'application
+  $\vphi\colon\Mat_n(\K)\to\K$ définie par
+  $\vphi(A)\deff\frac{\det(AB)}{\det(B)}$.
+  Alors $\vphi$ est multilinéaire alternée par rapport aux colonnes
+  de~$A$ (car la multiplication à droite par~$B$ opère linéairement sur
+  les colonnes) et $\vphi(I_n)=\frac{\det(B)}{\det(B)}=1$.
+  Par l'unicité du ef{thm:thm:det-axiomatique}, $\vphi(A)=\det(A)$,
+  d'où $\det(AB)=\det(A)\cdot\det(B)$.
+\end{proof}
+
+\begin{corollary}{Déterminant de l'inverse}{cor:det-inverse}
+  Si $A\in\GL_n(\K)$, alors~:
+  \[
+    \det(\inv{A})=\frac{1}{\det(A)}=(\det(A))^{-1}.
+  \]
+\end{corollary}
+
+\begin{proof}
+  On a $A\cdot\inv{A}=I_n$, donc
+  $\det(A)\cdot\det(\inv{A})=\det(I_n)=1$.
+\end{proof}
+
+\begin{corollary}{Déterminant de matrices semblables}{cor:det-semblables}
+  Si $A$ et $B$ sont semblables (i.e.\ $B=\inv{P}AP$ pour
+  $P\in\GL_n(\K)$), alors $\det(A)=\det(B)$.
+\end{corollary}
+
+\begin{proof}
+  $\det(B)=\det(\inv{P})\cdot\det(A)\cdot\det(P)
+  =\frac{1}{\det(P)}\cdot\det(A)\cdot\det(P)=\det(A)$.
+\end{proof}
+
+% ============================================================
+\section{Développement selon une ligne ou une colonne}%
+\label{sec:developpement-laplace}
+% ============================================================
+
+\subsection{Mineur et cofacteur}\label{subsec:mineur-cofacteur}
+
+\begin{definition}{Mineur et cofacteur}{def:mineur-cofacteur}
+  Soit $A=(a_{ij})\in\Mat_n(\K)$ avec $n\geq 2$.
+  \begin{enumerate}[label=(\roman*)]
+    \item Le \emph{mineur}\index{mineur} $M_{ij}$ est le déterminant de
+      la matrice $(n-1)\times(n-1)$ obtenue en supprimant la $i$-ème
+      ligne et la $j$-ème colonne de~$A$.
+    \item Le \emph{cofacteur}\index{cofacteur} (ou \emph{complément
+      algébrique}) est $A_{ij}\deff(-1)^{i+j}M_{ij}$.
+  \end{enumerate}
+\end{definition}
+
+\subsection{Développement de Laplace}\label{subsec:laplace}
+
+\begin{theorem}{Développement selon une ligne ou une colonne (Laplace)}{thm:laplace}
+  Soit $A=(a_{ij})\in\Mat_n(\K)$ avec $n\geq 2$.
+  \begin{enumerate}[label=(\roman*)]
+    \item \textbf{Développement selon la $i$-ème ligne\index{développement de Laplace}~:}
+      \[
+        \det(A)=\sum_{j=1}^{n}a_{ij}\,A_{ij}
+        =\sum_{j=1}^{n}(-1)^{i+j}\,a_{ij}\,M_{ij}.
+      \]
+    \item \textbf{Développement selon la $j$-ème colonne~:}
+      \[
+        \det(A)=\sum_{i=1}^{n}a_{ij}\,A_{ij}
+        =\sum_{i=1}^{n}(-1)^{i+j}\,a_{ij}\,M_{ij}.
+      \]
+  \end{enumerate}
+  Le résultat est indépendant du choix de la ligne ou de la colonne.
+\end{theorem}
+
+\begin{proof}
+  Montrons le développement selon la $i$-ème ligne. D'après la formule
+  de Leibniz~:
+  \[
+    \det(A)=\sum_{\sigma\in\mathfrak{S}_n}\sgn(\sigma)
+    \prod_{k=1}^{n}a_{k,\sigma(k)}.
+  \]
+  On regroupe les termes selon la valeur $j=\sigma(i)$~:
+  \[
+    \det(A)=\sum_{j=1}^{n}a_{ij}\sum_{\substack{\sigma\in\mathfrak{S}_n\\
+    \sigma(i)=j}}\sgn(\sigma)\prod_{\substack{k=1\\k\neq i}}^{n}
+    a_{k,\sigma(k)}.
+  \]
+  Il faut montrer que la somme intérieure vaut $(-1)^{i+j}M_{ij}$.
+
+  Fixons $j$ et considérons une permutation $\sigma$ avec $\sigma(i)=j$.
+  Pour ramener la $i$-ème ligne en première position et la $j$-ème
+  colonne en première position, on effectue $i-1$ échanges de lignes
+  adjacentes et $j-1$ échanges de colonnes adjacentes, ce qui contribue
+  un facteur $(-1)^{i-1+j-1}=(-1)^{i+j}$.
+
+  Plus précisément, à chaque $\sigma\in\mathfrak{S}_n$ avec $\sigma(i)=j$,
+  on associe bijectivement une permutation $\sigma'$ de $\mathfrak{S}_{n-1}$
+  sur les indices restants $\set{1,\ldots,n}\setminus\set{i}
+  \to\set{1,\ldots,n}\setminus\set{j}$, avec
+  $\sgn(\sigma)=(-1)^{i+j}\sgn(\sigma')$. La somme intérieure devient~:
+  \[
+    \sum_{\sigma'\in\mathfrak{S}_{n-1}}\sgn(\sigma')\prod_{k'}
+    a_{k',\sigma'(k')}=(-1)^{i+j}\,M_{ij}.
+  \]
+  D'où le résultat. Le développement selon une colonne se démontre de
+  manière analogue (ou en appliquant le résultat à $\transpose{A}$, cf.\
+  ef{prop:prop:det-transpose}).
+\end{proof}
+
+\begin{example}{Développement d'un déterminant $3\times 3$}{ex:dev-3x3}
+  Calculons le déterminant suivant en développant selon la première ligne~:
+  \[
+    \det\begin{pmatrix}2&1&3\\0&-1&4\\5&2&-1\end{pmatrix}
+    =2\det\begin{pmatrix}-1&4\\2&-1\end{pmatrix}
+    -1\det\begin{pmatrix}0&4\\5&-1\end{pmatrix}
+    +3\det\begin{pmatrix}0&-1\\5&2\end{pmatrix}.
+  \]
+  On calcule~:
+  $2(1-8)-1(0-20)+3(0+5)=2(-7)-1(-20)+3(5)=-14+20+15=21$.
+\end{example}
+
+\begin{remark}{Stratégie de calcul}{rem:strategie-dev}
+  En pratique, on développe selon la ligne ou la colonne qui contient le
+  plus de zéros, afin de minimiser le nombre de termes à calculer. On
+  peut aussi effectuer des opérations élémentaires sur les lignes et
+  colonnes pour créer des zéros avant le développement.
+\end{remark}
+
+% ============================================================
+\section{Propriétés complémentaires}\label{sec:proprietes-complementaires}
+% ============================================================
+
+\subsection{Déterminant de la transposée}\label{subsec:det-transpose}
+
+\begin{proposition}{Déterminant de la transposée}{prop:det-transpose}
+  Pour toute matrice $A\in\Mat_n(\K)$~:
+  \[
+    \det(\transpose{A})=\det(A).
+  \]
+\end{proposition}
+
+\begin{proof}
+  Notons $B=\transpose{A}$, de sorte que $b_{ij}=a_{ji}$. Alors~:
+  \[
+    \det(B)=\sum_{\sigma\in\mathfrak{S}_n}\sgn(\sigma)
+    \prod_{i=1}^{n}b_{i,\sigma(i)}
+    =\sum_{\sigma\in\mathfrak{S}_n}\sgn(\sigma)
+    \prod_{i=1}^{n}a_{\sigma(i),i}.
+  \]
+  En posant $\tau=\inv{\sigma}$ (et donc $\sgn(\tau)=\sgn(\sigma)$), et
+  en réindexant le produit par $j=\sigma(i)$, c'est-à-dire $i=\tau(j)$~:
+  \[
+    \det(B)=\sum_{\tau\in\mathfrak{S}_n}\sgn(\tau)
+    \prod_{j=1}^{n}a_{j,\tau(j)}=\det(A).
+    \qedhere
+  \]
+\end{proof}
+
+\begin{remark}{Conséquence importante}{rem:lignes-colonnes}
+  Cette propriété signifie que tout résultat établi pour les colonnes
+  vaut aussi pour les lignes (et réciproquement). En particulier, le
+  déterminant est aussi multilinéaire alternée par rapport aux lignes.
+\end{remark}
+
+\subsection{Matrices triangulaires}\label{subsec:det-triangulaires}
+
+\begin{proposition}{Déterminant d'une matrice triangulaire}{prop:det-triangulaire}
+  Le déterminant d'une matrice triangulaire\index{matrice!triangulaire}
+  (supérieure ou inférieure) est le produit de ses coefficients
+  diagonaux~:
+  \[
+    \det(A)=\prod_{i=1}^{n}a_{ii}.
+  \]
+  En particulier, $\det(I_n)=1$ et $\det(\lambda I_n)=\lambda^n$.
+\end{proposition}
+
+\begin{proof}
+  Si $A$ est triangulaire supérieure ($a_{ij}=0$ pour $i>j$), alors dans
+  la formule de Leibniz, un terme $\prod_{i=1}^n a_{i,\sigma(i)}$ est
+  non nul seulement si $\sigma(i)\geq i$ pour tout~$i$. La seule
+  permutation de $\set{1,\ldots,n}$ vérifiant $\sigma(i)\geq i$ pour
+  tout~$i$ est l'identité (car $\sum_{i=1}^n \sigma(i)=\sum_{i=1}^n i$
+  impose $\sigma(i)=i$). Donc
+  $\det(A)=\sgn(\Id)\prod_{i=1}^n a_{ii}=\prod_{i=1}^n a_{ii}$.
+\end{proof}
+
+\subsection{Matrices par blocs}\label{subsec:det-blocs}
+
+\begin{proposition}{Déterminant d'une matrice triangulaire par blocs}{prop:det-blocs}
+  Soient $A\in\Mat_p(\K)$, $B\in\Mat_q(\K)$ et $C\in\Mat_{p,q}(\K)$.
+  Alors~:
+  \[
+    \det\begin{pmatrix}A&C\\0&B\end{pmatrix}=\det(A)\cdot\det(B).
+  \]
+  De même~:
+  \[
+    \det\begin{pmatrix}A&0\\C&B\end{pmatrix}=\det(A)\cdot\det(B).
+  \]
+\end{proposition}
+
+\begin{proof}
+  Notons $M=\begin{pmatrix}A&C\\0&B\end{pmatrix}\in\Mat_{p+q}(\K)$.
+  Dans la formule de Leibniz, un terme
+  $\prod_{i=1}^{p+q}m_{i,\sigma(i)}$ est non nul seulement si
+  $\sigma(i)\leq p$ pour $i\leq p$ (car $m_{i,j}=0$ pour $i>p$ et
+  $j\leq p$ seulement si le bloc est nul, mais ici le bloc inférieur
+  gauche est nul). Plus précisément, pour $i>p$, on a $m_{i,j}=0$ si
+  $j\leq p$, donc $\sigma(i)>p$. Ainsi $\sigma$ doit préserver
+  $\set{1,\ldots,p}$ et $\set{p+1,\ldots,p+q}$, ce qui implique que
+  $\sigma$ se décompose en $\sigma_1\in\mathfrak{S}_p$ et
+  $\sigma_2\in\mathfrak{S}_q$ avec
+  $\sgn(\sigma)=\sgn(\sigma_1)\cdot\sgn(\sigma_2)$. Le produit se
+  factorise alors en
+  $\prod_{i=1}^{p}a_{i,\sigma_1(i)}\cdot\prod_{j=1}^{q}b_{j,\sigma_2(j)}$,
+  et la somme donne $\det(A)\cdot\det(B)$.
+\end{proof}
+
+% ============================================================
+\section{Comatrice et règle de Cramer}\label{sec:comatrice-cramer}
+% ============================================================
+
+\subsection{Comatrice (matrice adjointe)}\label{subsec:comatrice}
+
+\begin{definition}{Comatrice}{def:comatrice}
+  Soit $A=(a_{ij})\in\Mat_n(\K)$. La \emph{comatrice}\index{comatrice}
+  (ou \emph{matrice des cofacteurs}\index{matrice des cofacteurs}) de~$A$
+  est la matrice $\operatorname{Com}(A)\in\Mat_n(\K)$ dont le coefficient
+  $(i,j)$ est le cofacteur $A_{ij}=(-1)^{i+j}M_{ij}$.
+
+  La \emph{matrice adjointe}\index{matrice adjointe (comatrice)}
+  (adjugate en anglais)\index{adjugate} est~:
+  \[
+    \widetilde{A}\deff\transpose{(\operatorname{Com}(A))}.
+  \]
+  Son coefficient $(i,j)$ est donc $A_{ji}=(-1)^{i+j}M_{ji}$.
+\end{definition}
+
+\begin{theorem}{Formule de la comatrice}{thm:comatrice}
+  Pour toute matrice $A\in\Mat_n(\K)$~:
+  \[
+    A\cdot\widetilde{A}=\widetilde{A}\cdot A=\det(A)\cdot I_n.
+  \]
+\end{theorem}
+
+\begin{proof}
+  Calculons le coefficient $(i,k)$ du produit $A\cdot\widetilde{A}$~:
+  \[
+    (A\cdot\widetilde{A})_{ik}=\sum_{j=1}^{n}a_{ij}\,(\widetilde{A})_{jk}
+    =\sum_{j=1}^{n}a_{ij}\,A_{kj}
+    =\sum_{j=1}^{n}a_{ij}\,(-1)^{k+j}M_{kj}.
+  \]
+
+  \emph{Cas $i=k$~:} C'est exactement le développement de $\det(A)$
+  selon la $i$-ème ligne (ef{thm:thm:laplace}).
+
+  \emph{Cas $i\neq k$~:} La somme $\sum_{j=1}^n a_{ij}(-1)^{k+j}M_{kj}$
+  est le développement selon la $k$-ème ligne du déterminant de la
+  matrice $A'$ obtenue en remplaçant la $k$-ème ligne de~$A$ par la
+  $i$-ème ligne. Puisque $A'$ possède deux lignes identiques (les lignes
+  $i$ et~$k$), $\det(A')=0$.
+
+  Donc $(A\cdot\widetilde{A})_{ik}=\delta_{ik}\det(A)$, c'est-à-dire
+  $A\cdot\widetilde{A}=\det(A)\cdot I_n$. La preuve de
+  $\widetilde{A}\cdot A=\det(A)\cdot I_n$ est analogue (on développe
+  selon les colonnes).
+\end{proof}
+
+\begin{corollary}{Formule de l'inverse par la comatrice}{cor:inverse-comatrice}
+  Si $A\in\GL_n(\K)$ (i.e.\ $\det(A)\neq 0$), alors~:
+  \[
+    \inv{A}=\frac{1}{\det(A)}\,\widetilde{A}.
+  \]
+\end{corollary}
+
+\begin{example}{Inverse d'une matrice $2\times 2$}{ex:inverse-2x2}
+  Pour $A=\begin{pmatrix}a&b\\c&d\end{pmatrix}$ avec $ad-bc\neq 0$~:
+  \[
+    \inv{A}=\frac{1}{ad-bc}\begin{pmatrix}d&-b\\-c&a\end{pmatrix}.
+  \]
+\end{example}
+
+\subsection{Règle de Cramer}\label{subsec:cramer}
+
+\begin{theorem}{Règle de Cramer}{thm:cramer}
+  Soit $A\in\GL_n(\K)$ et $b\in\K^n$. L'unique solution du système
+  linéaire $Ax=b$ est donnée par\index{règle de Cramer}~:
+  \[
+    x_j=\frac{\det(A_j)}{\det(A)},\qquad j=1,\ldots,n,
+  \]
+  où $A_j$ est la matrice obtenue en remplaçant la $j$-ème colonne
+  de~$A$ par le vecteur~$b$~:
+  \[
+    A_j=(C_1\mid\cdots\mid C_{j-1}\mid b\mid C_{j+1}\mid\cdots\mid C_n).
+  \]
+\end{theorem}
+
+\begin{proof}
+  Puisque $A$ est inversible, le système admet une unique solution
+  $x=\inv{A}b$. D'après le ef{cor:cor:inverse-comatrice}~:
+  \[
+    x_j=(\inv{A}b)_j=\frac{1}{\det(A)}\sum_{i=1}^{n}A_{ij}\,b_i
+    =\frac{1}{\det(A)}\sum_{i=1}^{n}(-1)^{i+j}M_{ij}\,b_i.
+  \]
+  Or $\sum_{i=1}^n(-1)^{i+j}M_{ij}\,b_i$ est le développement de
+  $\det(A_j)$ selon la $j$-ème colonne (dont les coefficients sont
+  $b_1,\ldots,b_n$), d'où $x_j=\frac{\det(A_j)}{\det(A)}$.
+\end{proof}
+
+\begin{example}{Système $2\times 2$ par Cramer}{ex:cramer-2x2}
+  Résolvons $\begin{cases}2x+3y=5\\x-y=1\end{cases}$ par Cramer.
+
+  $\det(A)=\det\begin{pmatrix}2&3\\1&-1\end{pmatrix}=-2-3=-5$.
+
+  $x=\frac{\det\begin{pmatrix}5&3\\1&-1\end{pmatrix}}{-5}
+  =\frac{-5-3}{-5}=\frac{-8}{-5}=\frac{8}{5}$.
+
+  $y=\frac{\det\begin{pmatrix}2&5\\1&1\end{pmatrix}}{-5}
+  =\frac{2-5}{-5}=\frac{-3}{-5}=\frac{3}{5}$.
+\end{example}
+
+\begin{remark}{Complexité de Cramer}{rem:complexite-cramer}
+  La règle de Cramer nécessite le calcul de $n+1$ déterminants
+  $n\times n$. Pour de grands systèmes, l'élimination de Gauss est bien
+  plus efficace ($O(n^3)$ contre $O(n!\cdot n)$ pour Cramer via la
+  formule de Leibniz). La règle de Cramer est néanmoins utile pour les
+  petites dimensions et pour les démonstrations théoriques.
+\end{remark}
+
+% ============================================================
+\section{Déterminant et inversibilité}\label{sec:det-inversibilite}
+% ============================================================
+
+\begin{theorem}{Critère d'inversibilité}{thm:det-inversibilite}
+  Soit $A\in\Mat_n(\K)$. Les assertions suivantes sont équivalentes~:
+  \begin{enumerate}[label=(\roman*)]
+    \item $A$ est inversible~;
+    \item $\det(A)\neq 0$~;
+    \item les colonnes de $A$ forment une base de $\K^n$~;
+    \item les lignes de $A$ forment une base de $\K^n$~;
+    \item $\rg(A)=n$.
+  \end{enumerate}
+\end{theorem}
+
+\begin{proof}
+  Les équivalences (i)$\Leftrightarrow$(iii)$\Leftrightarrow$(iv)$\Leftrightarrow$(v)
+  ont été établies au ef{ch:applications-lineaires}.
+
+  (i)$\Rightarrow$(ii)~: Si $A$ est inversible, alors
+  $1=\det(I_n)=\det(A\cdot\inv{A})=\det(A)\cdot\det(\inv{A})$, donc
+  $\det(A)\neq 0$.
+
+  (ii)$\Rightarrow$(i)~: Si $\det(A)\neq 0$, alors
+  $\inv{A}=\frac{1}{\det(A)}\widetilde{A}$ d'après le
+  ef{cor:cor:inverse-comatrice}, donc $A$ est inversible.
+\end{proof}
+
+\begin{corollary}{Noyau et déterminant}{cor:noyau-det}
+  Soit $A\in\Mat_n(\K)$. Le système homogène $Ax=0$ admet une solution
+  non triviale si et seulement si $\det(A)=0$.
+\end{corollary}
+
+% ============================================================
+\section{Déterminant d'un endomorphisme}\label{sec:det-endomorphisme}
+% ============================================================
+
+\begin{definition}{Déterminant d'un endomorphisme}{def:det-endo}
+  Soit $E$ un $\K$-espace vectoriel de dimension finie~$n$ et
+  $f\in\End(E)$. Le \emph{déterminant de~$f$}\index{déterminant!d'un endomorphisme}
+  est défini par~:
+  \[
+    \det(f)\deff\det(\Mat_\cB(f)),
+  \]
+  où $\cB$ est une base quelconque de~$E$.
+\end{definition}
+
+\begin{proposition}{Indépendance de la base}{prop:det-endo-base}
+  Le déterminant d'un endomorphisme est bien défini~: il ne dépend pas
+  du choix de la base.
+\end{proposition}
+
+\begin{proof}
+  Soient $\cB$ et $\cB'$ deux bases de~$E$, et $P$ la matrice de passage
+  de $\cB$ à $\cB'$. Alors
+  $\Mat_{\cB'}(f)=\inv{P}\,\Mat_\cB(f)\,P$. Par le
+  ef{cor:cor:det-semblables}~:
+  \[
+    \det(\Mat_{\cB'}(f))=\det(\inv{P}\,\Mat_\cB(f)\,P)=\det(\Mat_\cB(f)).
+    \qedhere
+  \]
+\end{proof}
+
+\begin{proposition}{Propriétés du déterminant d'un endomorphisme}{prop:det-endo-props}
+  Soient $f,g\in\End(E)$ avec $\dim E=n$.
+  \begin{enumerate}[label=(\roman*)]
+    \item $\det(g\circ f)=\det(g)\cdot\det(f)$.
+    \item $\det(\Id_E)=1$.
+    \item $f$ est un automorphisme si et seulement si $\det(f)\neq 0$.
+    \item $\det(\lambda f)=\lambda^n\det(f)$ pour tout $\lambda\in\K$.
+  \end{enumerate}
+\end{proposition}
+
+% ============================================================
+\section{Interprétation géométrique}\label{sec:interpretation-geometrique}
+% ============================================================
+
+\subsection{Volume signé}\label{subsec:volume-signe}
+
+Le déterminant possède une interprétation géométrique fondamentale en
+tant que \emph{volume signé}\index{volume signé}.
+
+\begin{proposition}{Déterminant et volume}{prop:det-volume}
+  Soient $\vec{v}_1,\ldots,\vec{v}_n\in\R^n$ et
+  $A=(\vec{v}_1\mid\cdots\mid\vec{v}_n)$ la matrice dont les colonnes
+  sont ces vecteurs. Alors~:
+  \begin{enumerate}[label=(\roman*)]
+    \item $\abs{\det(A)}$ est le \emph{volume} du parallélotope engendré
+      par $\vec{v}_1,\ldots,\vec{v}_n$.
+    \item Le signe de $\det(A)$ indique l'\emph{orientation}\index{orientation}~:
+      $\det(A)>0$ si la famille $(\vec{v}_1,\ldots,\vec{v}_n)$ est
+      orientée positivement (même orientation que la base canonique),
+      $\det(A)<0$ sinon.
+  \end{enumerate}
+\end{proposition}
+
+\subsection{Cas du plan~: aire du parallélogramme}\label{subsec:aire-parallelogramme}
+
+Dans $\R^2$, si $\vec{u}=\begin{pmatrix}a\\c\end{pmatrix}$ et
+$\vec{v}=\begin{pmatrix}b\\d\end{pmatrix}$, l'aire du
+parallélogramme engendré par $\vec{u}$ et $\vec{v}$ est~:
+\[
+  \text{Aire}=\abs*{\det\begin{pmatrix}a&b\\c&d\end{pmatrix}}=\abs{ad-bc}.
+\]
+
+\begin{center}
+\begin{tikzpicture}[scale=1.0, >=Stealth]
+  \coordinate (O) at (0,0);
+  \coordinate (U) at (3,1);
+  \coordinate (V) at (1,2);
+  \coordinate (UV) at (4,3);
+  % Parallélogramme
+  \fill[blue!10,opacity=0.6] (O) -- (U) -- (UV) -- (V) -- cycle;
+  \draw[thick] (O) -- (U) -- (UV) -- (V) -- cycle;
+  \draw[->,very thick,blue!70!black] (O) -- (U)
+    node[midway,below right] {$\vec{u}=(3,1)$};
+  \draw[->,very thick,red!70!black] (O) -- (V)
+    node[midway,above left] {$\vec{v}=(1,2)$};
+  % Axes
+  \draw[->,gray] (-0.5,0) -- (5,0) node[right] {$x$};
+  \draw[->,gray] (0,-0.5) -- (0,3.5) node[above] {$y$};
+  % Aire
+  \node at (2,1.5) {$\text{Aire}=5$};
+  % Annotation
+  \node[below] at (2.5,-0.8)
+    {$\det\begin{pmatrix}3&1\\1&2\end{pmatrix}=6-1=5$};
+\end{tikzpicture}
+\captionof{figure}{Aire du parallélogramme~: $\abs{\det(A)}=5$.}
+\label{fig:aire-parallelogramme}
+\end{center}
+
+\subsection{Cas de l'espace~: volume du parallélépipède}%
+\label{subsec:volume-parallelepipede}
+
+Dans $\R^3$, le volume du parallélépipède engendré par trois vecteurs
+$\vec{u}$, $\vec{v}$, $\vec{w}$ est~:
+\[
+  \text{Volume}=\abs*{\det(\vec{u}\mid\vec{v}\mid\vec{w})}.
+\]
+
+\begin{center}
+\begin{tikzpicture}[scale=1.2, >=Stealth,
+  x={(-0.4cm,-0.3cm)}, y={(1cm,0cm)}, z={(0cm,1cm)}]
+  \coordinate (O) at (0,0,0);
+  \coordinate (A) at (2,0,0);
+  \coordinate (B) at (0,3,0);
+  \coordinate (C) at (0,0,2);
+  \coordinate (AB) at (2,3,0);
+  \coordinate (AC) at (2,0,2);
+  \coordinate (BC) at (0,3,2);
+  \coordinate (ABC) at (2,3,2);
+  % Faces arrière
+  \fill[blue!8,opacity=0.5] (O) -- (A) -- (AB) -- (B) -- cycle;
+  \fill[red!8,opacity=0.5] (O) -- (A) -- (AC) -- (C) -- cycle;
+  \fill[green!8,opacity=0.5] (O) -- (B) -- (BC) -- (C) -- cycle;
+  % Faces avant
+  \fill[blue!15,opacity=0.4] (C) -- (AC) -- (ABC) -- (BC) -- cycle;
+  \fill[red!15,opacity=0.4] (B) -- (AB) -- (ABC) -- (BC) -- cycle;
+  \fill[green!15,opacity=0.4] (A) -- (AB) -- (ABC) -- (AC) -- cycle;
+  % Arêtes
+  \draw[thick] (O) -- (A) -- (AB) -- (B) -- cycle;
+  \draw[thick] (O) -- (C) -- (AC) -- (A);
+  \draw[thick] (C) -- (BC) -- (B);
+  \draw[thick] (AC) -- (ABC) -- (AB);
+  \draw[thick] (BC) -- (ABC);
+  % Vecteurs
+  \draw[->,very thick,blue!70!black] (O) -- (A)
+    node[midway,below left] {$\vec{u}$};
+  \draw[->,very thick,red!70!black] (O) -- (B)
+    node[midway,below right] {$\vec{v}$};
+  \draw[->,very thick,green!60!black] (O) -- (C)
+    node[midway,left] {$\vec{w}$};
+  % Label
+  \node at (1,1.5,1) {$V$};
+\end{tikzpicture}
+\captionof{figure}{Volume du parallélépipède~:
+  $V=\abs{\det(\vec{u}\mid\vec{v}\mid\vec{w})}$.}
+\label{fig:volume-parallelepipede}
+\end{center}
+
+\subsection{Orientation}\label{subsec:orientation}
+
+\begin{definition}{Orientation d'une base}{def:orientation}
+  Soit $\cB=(\vec{v}_1,\ldots,\vec{v}_n)$ une base de~$\R^n$. On dit
+  que $\cB$ est \emph{orientée positivement}\index{orientation!positive}
+  (ou \emph{directe}) si $\det(\vec{v}_1\mid\cdots\mid\vec{v}_n)>0$, et
+  \emph{orientée négativement}\index{orientation!négative} (ou
+  \emph{indirecte}) sinon.
+\end{definition}
+
+\begin{center}
+\begin{tikzpicture}[scale=1.0, >=Stealth]
+  % Orientation positive
+  \begin{scope}
+    \draw[->,gray] (-0.5,0) -- (3,0) node[right] {$x$};
+    \draw[->,gray] (0,-0.5) -- (0,3) node[above] {$y$};
+    \draw[->,very thick,blue!70!black] (0,0) -- (2,0.5)
+      node[right] {$\vec{u}$};
+    \draw[->,very thick,red!70!black] (0,0) -- (-0.5,2)
+      node[above] {$\vec{v}$};
+    \draw[->,thick,green!60!black] (0.8,0.2) arc[start angle=14,
+      end angle=104,radius=0.83];
+    \node[green!50!black] at (0.3,1.1) {\small$+$};
+    \node[below] at (1.2,-0.7) {$\det>0$ (directe)};
+  \end{scope}
+  % Orientation négative
+  \begin{scope}[xshift=6cm]
+    \draw[->,gray] (-0.5,0) -- (3,0) node[right] {$x$};
+    \draw[->,gray] (0,-0.5) -- (0,3) node[above] {$y$};
+    \draw[->,very thick,blue!70!black] (0,0) -- (-0.5,2)
+      node[above] {$\vec{u}$};
+    \draw[->,very thick,red!70!black] (0,0) -- (2,0.5)
+      node[right] {$\vec{v}$};
+    \draw[->,thick,red!60!black] (0.8,0.2) arc[start angle=14,
+      end angle=-76,radius=0.83];
+    \node[red!50!black] at (1.1,-0.5) {\small$-$};
+    \node[below] at (1.2,-0.7) {$\det<0$ (indirecte)};
+  \end{scope}
+\end{tikzpicture}
+\captionof{figure}{Orientation du plan~: le signe du déterminant
+  distingue les bases directes des bases indirectes.}
+\label{fig:orientation-plan}
+\end{center}
+
+% ============================================================
+\section{Applications}\label{sec:applications-det}
+% ============================================================
+
+\subsection{Produit vectoriel dans $\R^3$}\label{subsec:produit-vectoriel}
+
+\begin{definition}{Produit vectoriel}{def:produit-vectoriel}
+  Soient $\vec{u}=(u_1,u_2,u_3)$ et $\vec{v}=(v_1,v_2,v_3)$ dans
+  $\R^3$. Le \emph{produit vectoriel}\index{produit vectoriel}
+  $\vec{u}\times\vec{v}$ est le vecteur~:
+  \[
+    \vec{u}\times\vec{v}\deff\begin{pmatrix}
+    u_2 v_3-u_3 v_2\\u_3 v_1-u_1 v_3\\u_1 v_2-u_2 v_1
+    \end{pmatrix}.
+  \]
+  On peut l'écrire symboliquement comme le développement selon la
+  première ligne du déterminant formel~:
+  \[
+    \vec{u}\times\vec{v}=\det\begin{pmatrix}
+    \vece{1}&\vece{2}&\vece{3}\\u_1&u_2&u_3\\v_1&v_2&v_3
+    \end{pmatrix}.
+  \]
+\end{definition}
+
+\begin{proposition}{Propriétés du produit vectoriel}{prop:produit-vectoriel}
+  Pour $\vec{u},\vec{v},\vec{w}\in\R^3$ et $\lambda\in\R$~:
+  \begin{enumerate}[label=(\roman*)]
+    \item $\vec{u}\times\vec{v}=-(\vec{v}\times\vec{u})$
+      (antisymétrie)~;
+    \item $\vec{u}\times\vec{v}$ est orthogonal à $\vec{u}$ et à
+      $\vec{v}$~;
+    \item $\norm{\vec{u}\times\vec{v}}=\norm{\vec{u}}\,\norm{\vec{v}}\,
+      \abs{\sin\theta}$ où $\theta$ est l'angle entre $\vec{u}$ et
+      $\vec{v}$~;
+    \item $\vec{u}\times\vec{v}=\vzero$ si et seulement si $\vec{u}$ et
+      $\vec{v}$ sont colinéaires.
+  \end{enumerate}
+\end{proposition}
+
+\begin{remark}{Produit mixte}{rem:produit-mixte}
+  Le \emph{produit mixte}\index{produit mixte}
+  $[\vec{u},\vec{v},\vec{w}]\deff\inner*{\vec{u}\times\vec{v},\vec{w}}$
+  est égal à $\det(\vec{u}\mid\vec{v}\mid\vec{w})$. Son module est le
+  volume du parallélépipède construit sur $\vec{u}$, $\vec{v}$,
+  $\vec{w}$.
+\end{remark}
+
+\subsection{Formule de l'aire d'un triangle}\label{subsec:aire-triangle}
+
+\begin{proposition}{Aire d'un triangle}{prop:aire-triangle}
+  L'aire du triangle de sommets $P_1=(x_1,y_1)$, $P_2=(x_2,y_2)$,
+  $P_3=(x_3,y_3)$ dans $\R^2$ est~:
+  \[
+    \text{Aire}=\frac{1}{2}\abs*{\det\begin{pmatrix}
+    x_2-x_1&x_3-x_1\\y_2-y_1&y_3-y_1\end{pmatrix}}
+    =\frac{1}{2}\abs{(x_2-x_1)(y_3-y_1)-(x_3-x_1)(y_2-y_1)}.
+  \]
+\end{proposition}
+
+\subsection{Déterminant de Vandermonde}\label{subsec:vandermonde}
+
+\begin{theorem}{Déterminant de Vandermonde}{thm:vandermonde}
+  Soient $x_1,x_2,\ldots,x_n\in\K$. Le
+  \emph{déterminant de Vandermonde}\index{déterminant!de Vandermonde} est~:
+  \[
+    V(x_1,\ldots,x_n)\deff
+    \det\begin{pmatrix}
+    1&1&\cdots&1\\
+    x_1&x_2&\cdots&x_n\\
+    x_1^2&x_2^2&\cdots&x_n^2\\
+    \vdots&\vdots&\ddots&\vdots\\
+    x_1^{n-1}&x_2^{n-1}&\cdots&x_n^{n-1}
+    \end{pmatrix}
+    =\prod_{1\leq i<j\leq n}(x_j-x_i).
+  \]
+  En particulier, $V(x_1,\ldots,x_n)\neq 0$ si et seulement si les
+  $x_i$ sont deux à deux distincts.
+\end{theorem}
+
+\begin{proof}
+  Procédons par récurrence sur~$n$.
+
+  \emph{Cas $n=1$~:} $V(x_1)=1$ et le produit vide vaut $1$.
+
+  \emph{Cas $n=2$~:}
+  $V(x_1,x_2)=\det\begin{pmatrix}1&1\\x_1&x_2\end{pmatrix}
+  =x_2-x_1$.
+
+  \emph{Hérédité~:} Supposons le résultat pour $n-1$. On effectue les
+  opérations $C_j\leftarrow C_j-x_1\,C_{j-1}$ pour $j=n,n-1,\ldots,2$
+  (en partant de la dernière colonne). Cela ne change pas le déterminant
+  et crée des zéros dans la première ligne sauf en position $(1,1)$.
+  Plus précisément, après ces opérations la première ligne devient
+  $(1,0,0,\ldots,0)$ et le coefficient en position $(i,j)$ pour
+  $i\geq 2$, $j\geq 2$ devient $x_j^{i-1}-x_1\cdot x_j^{i-2}
+  =x_j^{i-2}(x_j-x_1)$.
+
+  En développant selon la première ligne~:
+  \[
+    V(x_1,\ldots,x_n)=\det\bigl((x_j-x_1)\cdot x_j^{i-2}\bigr)_{%
+    2\leq i\leq n,\,2\leq j\leq n}.
+  \]
+  En factorisant $(x_j-x_1)$ dans chaque colonne $j\geq 2$~:
+  \[
+    V(x_1,\ldots,x_n)=\prod_{j=2}^{n}(x_j-x_1)\cdot
+    V(x_2,\ldots,x_n).
+  \]
+  Par hypothèse de récurrence,
+  $V(x_2,\ldots,x_n)=\prod_{2\leq i<j\leq n}(x_j-x_i)$, d'où~:
+  \[
+    V(x_1,\ldots,x_n)=\prod_{j=2}^{n}(x_j-x_1)\cdot
+    \prod_{2\leq i<j\leq n}(x_j-x_i)=\prod_{1\leq i<j\leq n}(x_j-x_i).
+    \qedhere
+  \]
+\end{proof}
+
+\begin{remark}{Application du déterminant de Vandermonde}{rem:vandermonde-app}
+  Le déterminant de Vandermonde intervient notamment dans~:
+  \begin{itemize}
+    \item l'interpolation de Lagrange\index{interpolation de Lagrange}
+      (existence et unicité du polynôme interpolateur)~;
+    \item la théorie des polynômes symétriques~;
+    \item la preuve que des scalaires distincts donnent des vecteurs
+      propres linéairement indépendants.
+  \end{itemize}
+\end{remark}
+
+% ============================================================
+\section{Exercices}\label{sec:exercices-det}
+% ============================================================
+
+\begin{exercise}{\basic{} Calcul de déterminants $2\times 2$ et $3\times 3$}{exo:det-petits}
+  Calculer les déterminants suivants~:
+  \begin{enumerate}[label=(\alph*)]
+    \item $\det\begin{pmatrix}3&7\\2&5\end{pmatrix}$.
+    \item $\det\begin{pmatrix}-1&4\\6&-2\end{pmatrix}$.
+    \item $\det\begin{pmatrix}1&2&3\\4&5&6\\7&8&9\end{pmatrix}$.
+    \item $\det\begin{pmatrix}2&-1&0\\3&1&-2\\1&4&3\end{pmatrix}$.
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{\basic{} Signature de permutations}{exo:signature}
+  \begin{enumerate}[label=(\alph*)]
+    \item Déterminer la signature de $\sigma=\begin{pmatrix}1&2&3&4\\
+      3&1&4&2\end{pmatrix}$.
+    \item Décomposer $\sigma$ en produit de transpositions et vérifier.
+    \item Combien y a-t-il de permutations paires dans $\mathfrak{S}_4$~?
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{\basic{} Matrices triangulaires et diagonales}{exo:det-triangulaire}
+  \begin{enumerate}[label=(\alph*)]
+    \item Calculer $\det\begin{pmatrix}2&3&-1\\0&5&4\\0&0&-3\end{pmatrix}$.
+    \item Montrer que $\det(\lambda A)=\lambda^n\det(A)$ pour
+      $A\in\Mat_n(\K)$.
+    \item Calculer $\det(A)$ pour
+      $A=\diag(d_1,d_2,\ldots,d_n)$.
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{\basic{} Opérations élémentaires}{exo:ops-elem}
+  Soit $A=\begin{pmatrix}1&2&3\\2&5&7\\3&7&11\end{pmatrix}$.
+  \begin{enumerate}[label=(\alph*)]
+    \item En effectuant des opérations élémentaires sur les lignes,
+      réduire $A$ sous forme triangulaire et en déduire $\det(A)$.
+    \item Vérifier le résultat par un développement selon la première
+      colonne.
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{\intermediate{} Déterminant d'un produit}{exo:det-produit}
+  Soient $A=\begin{pmatrix}1&2\\3&4\end{pmatrix}$ et
+  $B=\begin{pmatrix}0&1\\-1&2\end{pmatrix}$.
+  \begin{enumerate}[label=(\alph*)]
+    \item Calculer $\det(A)$, $\det(B)$ et $\det(AB)$ séparément.
+    \item Vérifier que $\det(AB)=\det(A)\cdot\det(B)$.
+    \item A-t-on $\det(A+B)=\det(A)+\det(B)$~? Justifier.
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{\intermediate{} Comatrice et inverse}{exo:comatrice-inverse}
+  Soit $A=\begin{pmatrix}1&0&2\\-1&3&1\\2&1&-1\end{pmatrix}$.
+  \begin{enumerate}[label=(\alph*)]
+    \item Calculer tous les cofacteurs $A_{ij}$.
+    \item En déduire la comatrice $\operatorname{Com}(A)$ et la matrice
+      adjointe $\widetilde{A}$.
+    \item Vérifier que $A\cdot\widetilde{A}=\det(A)\cdot I_3$.
+    \item Calculer $\inv{A}$.
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{\intermediate{} Règle de Cramer}{exo:cramer}
+  Résoudre les systèmes suivants par la règle de Cramer~:
+  \begin{enumerate}[label=(\alph*)]
+    \item $\begin{cases}3x+2y=7\\x-y=1\end{cases}$.
+    \item $\begin{cases}x+y+z=6\\2x-y+z=3\\x+2y-z=2\end{cases}$.
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{\intermediate{} Développement selon une ligne ou colonne}{exo:dev-laplace}
+  Calculer le déterminant de la matrice suivante par développement selon
+  la colonne la plus avantageuse~:
+  \[
+    A=\begin{pmatrix}1&0&3&0\\2&1&0&-1\\0&0&2&4\\3&0&1&0\end{pmatrix}.
+  \]
+\end{exercise}
+
+\begin{exercise}{\intermediate{} Déterminant et paramètre}{exo:det-parametre}
+  Soit $A(\lambda)=\begin{pmatrix}\lambda&1&0\\0&\lambda&1\\
+  1&0&\lambda\end{pmatrix}$.
+  \begin{enumerate}[label=(\alph*)]
+    \item Calculer $\det(A(\lambda))$ en fonction de $\lambda$.
+    \item Pour quelles valeurs de $\lambda$ la matrice $A(\lambda)$
+      est-elle inversible~?
+    \item Pour $\lambda=2$, calculer $\inv{A(2)}$ par la méthode de la
+      comatrice.
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{\intermediate{} Déterminant de Vandermonde}{exo:vandermonde}
+  \begin{enumerate}[label=(\alph*)]
+    \item Calculer $V(1,2,3)=\det\begin{pmatrix}1&1&1\\1&2&3\\
+      1&4&9\end{pmatrix}$ directement, puis vérifier avec la formule
+      $\prod_{i<j}(x_j-x_i)$.
+    \item Montrer que si $P\in\K_n[X]$ admet $n+1$ racines distinctes,
+      alors $P=0$.
+
+      \emph{Indication~:} utiliser le déterminant de Vandermonde.
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{\challenging{} Formule de Leibniz et antisymétrie}{exo:leibniz-antisym}
+  \begin{enumerate}[label=(\alph*)]
+    \item Montrer directement à partir de la formule de Leibniz que si
+      $A$ a deux colonnes identiques, alors $\det(A)=0$.
+
+      \emph{Indication~:} apparier les permutations $\sigma$ et
+      $\sigma\circ(j\;k)$.
+    \item En déduire que le déterminant est une forme alternée.
+    \item Montrer que si $\car(\K)\neq 2$, une forme multilinéaire
+      antisymétrique est alternée. Donner un contre-exemple en
+      caractéristique~$2$.
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{\challenging{} Déterminant par blocs}{exo:det-blocs}
+  \begin{enumerate}[label=(\alph*)]
+    \item Soit $M=\begin{pmatrix}A&B\\0&D\end{pmatrix}$ avec
+      $A\in\Mat_p(\K)$ et $D\in\Mat_q(\K)$. Montrer que
+      $\det(M)=\det(A)\cdot\det(D)$.
+    \item La formule $\det\begin{pmatrix}A&B\\C&D\end{pmatrix}
+      =\det(A)\cdot\det(D)-\det(B)\cdot\det(C)$ est-elle vraie en
+      général~? Donner un contre-exemple.
+    \item Montrer que si $A$ est inversible, alors
+      $\det\begin{pmatrix}A&B\\C&D\end{pmatrix}
+      =\det(A)\cdot\det(D-C\inv{A}B)$.
+
+      \emph{Indication~:} multiplier par
+      $\begin{pmatrix}I&0\\-C\inv{A}&I\end{pmatrix}$ à gauche.
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{\challenging{} Déterminant d'un endomorphisme}{exo:det-endo}
+  Soit $E=\R_2[X]$ (polynômes de degré $\leq 2$) et $f\colon E\to E$
+  défini par $f(P)=P(X+1)-P(X)$.
+  \begin{enumerate}[label=(\alph*)]
+    \item Montrer que $f$ est un endomorphisme de~$E$.
+    \item Écrire la matrice de $f$ dans la base $\cB=(1,X,X^2)$.
+    \item Calculer $\det(f)$. L'endomorphisme $f$ est-il un
+      automorphisme~?
+    \item Déterminer $\Ker(f)$ et $\im(f)$.
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{\challenging{} Déterminant de matrices particulières}{exo:det-particulieres}
+  \begin{enumerate}[label=(\alph*)]
+    \item Calculer le déterminant de la matrice $n\times n$ dont tous les
+      coefficients valent $1$ (matrice de uns).
+
+      \emph{Indication~:} soustraire la première ligne aux autres.
+    \item Calculer le déterminant de la matrice $n\times n$~:
+      $A=(a_{ij})$ avec $a_{ij}=\min(i,j)$.
+
+      \emph{Indication~:} effectuer $L_i\leftarrow L_i-L_{i-1}$ pour
+      $i=n,n-1,\ldots,2$.
+    \item Soit $J_n$ la matrice $n\times n$ avec $a_{ij}=1$ pour tout
+      $i,j$, et $A=\alpha I_n+\beta J_n$. Calculer $\det(A)$ en
+      fonction de $\alpha$, $\beta$ et $n$.
+
+      \emph{Indication~:} utiliser $J_n^2=nJ_n$.
+  \end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section*{Résumé du chapitre}
+\addcontentsline{toc}{section}{Résumé du chapitre}
+% ============================================================
+
+\begin{framed}
+\textbf{Ce qu'il faut retenir.}
+
+\begin{enumerate}[label=\textbf{\arabic*.},leftmargin=2em]
+  \item \textbf{Permutations.} Le groupe symétrique $\mathfrak{S}_n$
+    contient $n!$ éléments. Chaque permutation est un produit de
+    transpositions, et sa signature
+    $\sgn(\sigma)\in\set{+1,-1}$ est bien définie.
+
+  \item \textbf{Formule de Leibniz.}
+    $\det(A)=\displaystyle\sum_{\sigma\in\mathfrak{S}_n}\sgn(\sigma)
+    \prod_{i=1}^n a_{i,\sigma(i)}$.
+
+  \item \textbf{Caractérisation axiomatique.} Le déterminant est
+    l'unique forme multilinéaire alternée normalisée ($\det(I_n)=1$).
+
+  \item \textbf{Propriétés clés.}
+    \begin{itemize}
+      \item $\det(\transpose{A})=\det(A)$.
+      \item $\det(AB)=\det(A)\cdot\det(B)$.
+      \item $\det(\lambda A)=\lambda^n\det(A)$.
+      \item $\det(\inv{A})=(\det(A))^{-1}$.
+    \end{itemize}
+
+  \item \textbf{Opérations élémentaires.} Échange de lignes~: facteur
+    $-1$. Multiplication d'une ligne par $\lambda$~: facteur $\lambda$.
+    Ajout d'un multiple~: déterminant inchangé.
+
+  \item \textbf{Développement de Laplace.} Développement selon la
+    $i$-ème ligne~: $\det(A)=\sum_j (-1)^{i+j}a_{ij}M_{ij}$.
+
+  \item \textbf{Comatrice et inverse.}
+    $A\cdot\widetilde{A}=\det(A)\cdot I_n$, d'où
+    $\inv{A}=\frac{1}{\det(A)}\widetilde{A}$ si $\det(A)\neq 0$.
+
+  \item \textbf{Règle de Cramer.} $x_j=\frac{\det(A_j)}{\det(A)}$.
+
+  \item \textbf{Inversibilité.} $A$ inversible $\Leftrightarrow$
+    $\det(A)\neq 0$.
+
+  \item \textbf{Déterminant d'un endomorphisme.} $\det(f)$ est
+    indépendant de la base~; $f$ est un automorphisme ssi $\det(f)\neq 0$.
+
+  \item \textbf{Interprétation géométrique.} $\abs{\det(A)}$ est le
+    volume du parallélotope~; le signe donne l'orientation.
+
+  \item \textbf{Applications.} Produit vectoriel, aire du triangle,
+    déterminant de Vandermonde
+    $V(x_1,\ldots,x_n)=\prod_{i<j}(x_j-x_i)$.
+\end{enumerate}
+\end{framed}

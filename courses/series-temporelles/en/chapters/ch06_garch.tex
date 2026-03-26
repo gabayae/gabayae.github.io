@@ -1,0 +1,168 @@
+% ============================================================
+\chapter{GARCH Models and Conditional Volatility}
+\label{ch:garch}
+% ============================================================
+
+\section{Motivating example}
+Financial returns are approximately uncorrelated, but their squares $r_t^2$ exhibit strong autocorrelation: periods of high volatility are clustered (\textbf{volatility clustering}\index{volatility clustering}). ARMA models do not capture this phenomenon.
+
+\section{Stylised facts of financial returns}\index{stylised facts}
+
+\begin{enumerate}
+\item Returns are approximately uncorrelated: $\rho_{r}(h)\approx 0$.
+\item Squared returns are correlated: $\rho_{r^2}(h)>0$ (volatility persistence).
+\item Heavy tails (leptokurtosis): kurtosis $>3$.
+\item Volatility asymmetry (leverage effect): declines increase volatility more than rises.
+\end{enumerate}
+
+\section{ARCH model}\index{ARCH}
+
+\begin{definition}[ARCH$(q)$]
+\[
+r_t = \sigma_t\,z_t, \quad z_t\iid(0,1), \quad \sigma_t^2 = \omega + \sum_{i=1}^q\alpha_i r_{t-i}^2,
+\]
+where $\omega>0$, $\alpha_i\geq 0$, and $\sum\alpha_i<1$ for stationarity.
+\end{definition}
+
+\begin{theorem}[Properties of an ARCH$(q)$]
+\begin{enumerate}
+\item $\E[r_t]=0$, $\Var(r_t)=\omega/(1-\sum\alpha_i)$.
+\item $(r_t)$ is a white noise (uncorrelated).
+\item $(r_t^2)$ follows an AR$(q)$: $r_t^2 = \omega+\sum\alpha_i r_{t-i}^2+v_t$ where $v_t=r_t^2-\sigma_t^2$ is a white noise.
+\item Kurtosis $>3$ (heavy tails even if $z_t$ is Gaussian).
+\end{enumerate}
+\end{theorem}
+
+\section{GARCH model}\index{GARCH}
+
+\begin{definition}[GARCH$(p,q)$]
+\[
+r_t = \sigma_t z_t, \quad \sigma_t^2 = \omega + \sum_{i=1}^q\alpha_i r_{t-i}^2 + \sum_{j=1}^p\beta_j\sigma_{t-j}^2.
+\]
+Stationarity conditions: $\omega>0$, $\alpha_i,\beta_j\geq 0$, $\sum_{i=1}^q\alpha_i+\sum_{j=1}^p\beta_j<1$.
+\end{definition}
+
+\begin{theorem}[Unconditional variance of GARCH$(1,1)$]
+\[
+\Var(r_t) = \frac{\omega}{1-\alpha_1-\beta_1}.
+\]
+The \textbf{persistence} of volatility is measured by $\alpha_1+\beta_1$ (close to 1 in finance).
+\end{theorem}
+
+\begin{intuition}
+The GARCH$(1,1)$ is the most widely used volatility model in practice. The one-step-ahead conditional variance forecast is:
+\[
+\hat{\sigma}_{t+1}^2 = \omega + \alpha_1 r_t^2 + \beta_1\sigma_t^2.
+\]
+It is an exponentially weighted moving average of past squared values.
+\end{intuition}
+
+\section{IGARCH}\index{IGARCH}
+
+\begin{definition}
+If $\alpha_1+\beta_1=1$ (integrated GARCH), volatility shocks persist indefinitely. The process is not second-order stationary but remains \textbf{strictly stationary}.
+\end{definition}
+
+\section{Extensions}
+
+\subsection{EGARCH}\index{EGARCH}
+\begin{definition}
+Nelson's EGARCH model:
+\[
+\ln\sigma_t^2 = \omega + \alpha(|z_{t-1}|-\E[|z_{t-1}|]) + \gamma z_{t-1} + \beta\ln\sigma_{t-1}^2.
+\]
+The term $\gamma z_{t-1}$ captures the \textbf{leverage effect}. No positivity constraint on the parameters is needed.
+\end{definition}
+
+\subsection{GJR-GARCH}\index{GJR-GARCH}
+\begin{definition}
+\[
+\sigma_t^2 = \omega + (\alpha+\gamma\mathbf{1}_{r_{t-1}<0})r_{t-1}^2 + \beta\sigma_{t-1}^2.
+\]
+$\gamma>0$ implies that negative returns increase volatility more.
+\end{definition}
+
+\section{Estimation}\index{estimation!GARCH}
+
+\begin{definition}[Quasi-maximum likelihood]
+The Gaussian conditional log-likelihood:
+\[
+\ell(\bm\theta) = -\frac{1}{2}\sum_{t=1}^n\left(\ln\sigma_t^2 + \frac{r_t^2}{\sigma_t^2}\right).
+\]
+Even if $z_t$ is not Gaussian, the QMLE is consistent under certain conditions.
+\end{definition}
+
+\section{Tests for ARCH effects}\index{test!ARCH}
+
+\begin{definition}[Engle's ARCH-LM test]
+Regress $r_t^2$ on $r_{t-1}^2,\ldots,r_{t-q}^2$ and test for joint significance via $nR^2\sim\chi^2(q)$.
+\end{definition}
+
+\section{Implementation}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from arch import arch_model
+
+# Simuler un GARCH(1,1)
+np.random.seed(42)
+n = 1000
+omega, alpha, beta = 0.05, 0.10, 0.85
+sigma2 = np.zeros(n)
+r = np.zeros(n)
+sigma2[0] = omega / (1 - alpha - beta)
+for t in range(1, n):
+    sigma2[t] = omega + alpha * r[t-1]**2 + beta * sigma2[t-1]
+    r[t] = np.sqrt(sigma2[t]) * np.random.normal()
+
+fig, axes = plt.subplots(3, 1, figsize=(12, 8))
+axes[0].plot(r, lw=0.5)
+axes[0].set_title('Rendements simulés (GARCH(1,1))')
+axes[1].plot(r**2, lw=0.5, color='orange')
+axes[1].set_title('$r_t^2$ (volatilité réalisée)')
+axes[2].plot(np.sqrt(sigma2), lw=0.5, color='red')
+axes[2].set_title('$\\sigma_t$ (volatilité conditionnelle)')
+plt.tight_layout()
+plt.savefig('ch06_garch.pdf')
+plt.show()
+
+# Ajuster un GARCH(1,1)
+am = arch_model(r, vol='Garch', p=1, q=1, dist='normal')
+res = am.fit(disp='off')
+print(res.summary())
+
+# Prévision de volatilité
+forecasts = res.forecast(horizon=10)
+print("Variance prévisionnelle:")
+print(forecasts.variance.iloc[-1])
+\end{minted}
+\end{codeblock}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+Show that an ARCH(1) with $r_t=\sigma_t z_t$, $\sigma_t^2=\omega+\alpha r_{t-1}^2$ implies $\E[r_t^4]=3\omega^2(1+\alpha)/(1-3\alpha^2)$ (if $3\alpha^2<1$). Deduce the kurtosis.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Show that the GARCH$(1,1)$ can be written as an ARCH$(\infty)$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Prove that the process $r_t^2$ of a GARCH$(1,1)$ follows an ARMA$(1,1)$.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Project]
+Download the daily returns of the S\&P~500 over 10 years. Estimate a GARCH$(1,1)$, an EGARCH$(1,1)$, and a GJR-GARCH$(1,1)$. Compare by AIC and analyse the leverage effect.
+\end{exercise}
+
+\begin{keyformulas}
+\begin{align*}
+\text{GARCH}(1,1) &: \sigma_t^2 = \omega+\alpha r_{t-1}^2+\beta\sigma_{t-1}^2, \quad \alpha+\beta<1 \\
+\Var(r_t) &= \omega/(1-\alpha-\beta) \\
+\text{EGARCH} &: \ln\sigma_t^2 = \omega+\alpha(|z_{t-1}|-\E|z_{t-1}|)+\gamma z_{t-1}+\beta\ln\sigma_{t-1}^2
+\end{align*}
+\end{keyformulas}

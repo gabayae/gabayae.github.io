@@ -1,0 +1,303 @@
+% ============================================================
+\chapter{Multi-Agent Reinforcement Learning}
+\label{ch:multi_agent}
+% ============================================================
+
+What happens when multiple agents learn simultaneously in the same environment? The question is fundamental: the real world is populated by interacting agents --- chess players, robots in a warehouse, autonomous vehicles on a road, trading algorithms on a market. The transition from the MDP (single agent) to the \emph{stochastic game} (multiple agents) introduces formidable challenges: the environment becomes \emph{non-stationary} from each agent's perspective (since the other agents are also learning), and the joint action space explodes combinatorially. The work of Littman (1994) on Markov games, followed by Lowe et al.\ (MADDPG, 2017) and Rashid et al.\ (QMIX, 2018), paved the way for methods that balance centralization and decentralization.
+
+\begin{intuition}
+Multi-Agent Reinforcement Learning (MARL) extends RL to settings with
+multiple interacting agents. Each agent's optimal behavior depends on
+the other agents' policies, creating non-stationary environments from
+each agent's perspective. MARL encompasses cooperative, competitive,
+and mixed settings, with applications ranging from traffic control to
+multi-player games.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Problem Formulation}
+\label{sec:marl:formulation}
+% ------------------------------------------------------------
+
+\begin{definition}[Stochastic Game (Markov Game)]
+\index{stochastic game}
+A \textbf{stochastic game} for $n$ agents is defined by
+$(\mathcal{S}, \{\mathcal{A}_i\}_{i=1}^n, P, \{R_i\}_{i=1}^n, \gamma)$ where:
+\begin{itemize}
+    \item $\mathcal{S}$ is the shared state space
+    \item $\mathcal{A}_i$ is the action space of agent $i$
+    \item $P(s' | s, a_1, \ldots, a_n)$ is the joint transition function
+    \item $R_i(s, a_1, \ldots, a_n)$ is the reward function for agent $i$
+    \item $\gamma \in [0,1)$ is the discount factor
+\end{itemize}
+\end{definition}
+
+\begin{definition}[Nash Equilibrium]
+\index{Nash equilibrium}
+A joint policy $(\pi_1^*, \ldots, \pi_n^*)$ is a \textbf{Nash equilibrium}
+if no agent can improve its expected return by unilaterally changing its
+policy:
+\[
+    \forall i, \forall \pi_i: \quad
+    J_i(\pi_i^*, \pi_{-i}^*) \geq J_i(\pi_i, \pi_{-i}^*)
+\]
+where $\pi_{-i}^*$ denotes the policies of all agents except $i$.
+\end{definition}
+
+\begin{proposition}[Existence of Nash Equilibrium]
+Every finite stochastic game has at least one Nash equilibrium (possibly
+in mixed strategies). However, finding a Nash equilibrium is PPAD-complete
+in general, even for two-player games.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Cooperative vs Competitive Settings}
+\label{sec:marl:settings}
+% ------------------------------------------------------------
+
+\begin{definition}[Cooperative MARL]
+\index{cooperative MARL}
+In \textbf{fully cooperative} settings, all agents share a common reward:
+$R_1 = R_2 = \cdots = R_n = R$. The goal is to find a joint policy
+maximizing the shared return.
+\end{definition}
+
+\begin{definition}[Zero-Sum Games]
+\index{zero-sum game}
+In a \textbf{two-player zero-sum} game: $R_1 = -R_2$. One agent's gain
+is the other's loss. The solution concept is the \textbf{minimax} policy:
+\[
+    \pi_1^* = \argmax_{\pi_1} \min_{\pi_2} J_1(\pi_1, \pi_2).
+\]
+\end{definition}
+
+\begin{example}[Mixed Settings]
+Many real-world problems involve mixed incentives. In autonomous driving,
+cars cooperate to avoid collisions but compete for lane space. In team
+sports, players cooperate within teams but compete between teams.
+\end{example}
+
+% ------------------------------------------------------------
+\section{Independent Learners}
+\label{sec:marl:independent}
+% ------------------------------------------------------------
+
+\begin{definition}[Independent Q-Learning (IQL)]
+\index{independent Q-learning}
+Each agent $i$ independently runs Q-Learning, treating other agents as
+part of the environment:
+\[
+    Q_i(s, a_i) \leftarrow Q_i(s, a_i) + \alpha\left[
+    r_i + \gamma \max_{a'_i} Q_i(s', a'_i) - Q_i(s, a_i)\right]
+\]
+\end{definition}
+
+\begin{attention}[title=\textbf{Non-Stationarity Problem}]
+Independent learners face a non-stationary environment because other
+agents' policies change during training. This violates the Markov
+property from each agent's perspective and can prevent convergence.
+In practice, IQL often works surprisingly well despite lacking
+theoretical guarantees.
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Centralized Training, Decentralized Execution (CTDE)}
+\label{sec:ctde}
+% ------------------------------------------------------------
+
+\begin{definition}[CTDE Paradigm]
+\index{CTDE}
+The \textbf{Centralized Training, Decentralized Execution} paradigm
+allows agents to share information during training (centralized critic,
+global state) but requires each agent to act using only local observations
+at execution time:
+\begin{itemize}
+    \item \textbf{Training}: access to global state $s$, all actions
+    $\mathbf{a}$, joint reward $r$
+    \item \textbf{Execution}: agent $i$ observes only $o_i$ and selects
+    $a_i = \pi_i(o_i)$
+\end{itemize}
+\end{definition}
+
+\begin{intuition}
+CTDE resolves the tension between the benefits of shared information
+(stability, coordination) and the practical need for decentralized
+policies (communication constraints, partial observability). The
+centralized critic guides training but is discarded at deployment.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{QMIX}
+\label{sec:qmix}
+% ------------------------------------------------------------
+
+\begin{definition}[QMIX]
+\index{QMIX}
+QMIX (Rashid et al., 2018) learns a joint action-value function
+$Q_{\text{tot}}$ that factorizes as a monotonic function of individual
+Q-values:
+\[
+    Q_{\text{tot}}(s, \mathbf{a}) = f_{\text{mix}}\left(
+    Q_1(o_1, a_1), \ldots, Q_n(o_n, a_n); s\right)
+\]
+where $f_{\text{mix}}$ is a mixing network with non-negative weights
+(ensured by hypernetworks conditioned on $s$).
+\end{definition}
+
+\begin{proposition}[IGM Condition]
+The monotonicity constraint ensures \textbf{Individual-Global-Max} (IGM):
+\[
+    \argmax_{\mathbf{a}} Q_{\text{tot}}(s, \mathbf{a})
+    = \left(\argmax_{a_1} Q_1(o_1, a_1), \ldots,
+    \argmax_{a_n} Q_n(o_n, a_n)\right)
+\]
+This allows decentralized greedy action selection.
+\end{proposition}
+
+\begin{remark}
+QMIX can only represent monotonic value decompositions, which limits
+its expressiveness. Extensions like QPLEX and WQMIX address this by
+allowing more general decompositions while preserving the IGM property.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{MAPPO}
+\label{sec:mappo}
+% ------------------------------------------------------------
+
+\begin{definition}[MAPPO]
+\index{MAPPO}
+Multi-Agent PPO (Yu et al., 2022) applies PPO independently to each
+agent with a shared centralized value function:
+\begin{itemize}
+    \item \textbf{Actor}: $\pi_{\theta_i}(a_i | o_i)$ for each agent $i$
+    (decentralized)
+    \item \textbf{Critic}: $V_\phi(s)$ uses the global state (centralized)
+    \item \textbf{Training}: PPO clipped objective with shared advantages
+\end{itemize}
+\end{definition}
+
+\begin{proposition}[MAPPO Effectiveness]
+Despite its simplicity, MAPPO achieves competitive or superior performance
+to more complex MARL algorithms on cooperative benchmarks (SMAC,
+Hanabi, MPE). Key factors include parameter sharing, value normalization,
+and large batch sizes.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Communication Protocols}
+\label{sec:marl:communication}
+% ------------------------------------------------------------
+
+\begin{definition}[Learned Communication]
+\index{learned communication}
+In \textbf{differentiable communication}, agents learn to send messages
+$m_i$ through a differentiable channel:
+\begin{enumerate}
+    \item Agent $i$ produces message $m_i = g_\psi(o_i)$
+    \item Messages are aggregated: $\bar{m}_i = \text{Aggregate}(\{m_j\}_{j \neq i})$
+    \item Agent $i$ acts: $a_i = \pi_\theta(o_i, \bar{m}_i)$
+\end{enumerate}
+Examples include CommNet, TarMAC, and IC3Net.
+\end{definition}
+
+\begin{example}[Emergent Communication]
+In referential games, agents develop emergent communication protocols:
+a ``speaker'' agent describes an image using discrete symbols, and a
+``listener'' agent identifies the image. The resulting languages exhibit
+properties like compositionality, reminiscent of natural language.
+\end{example}
+
+% ------------------------------------------------------------
+\section{Emergent Behaviors}
+\label{sec:marl:emergent}
+% ------------------------------------------------------------
+
+\begin{example}[Hide and Seek]
+\index{emergent behavior}
+In the OpenAI hide-and-seek environment, teams of hiders and seekers
+develop increasingly sophisticated strategies through self-play:
+\begin{enumerate}
+    \item Seekers chase hiders directly.
+    \item Hiders learn to build shelters using movable boxes.
+    \item Seekers learn to use ramps to jump over walls.
+    \item Hiders learn to lock ramps before seekers can use them.
+\end{enumerate}
+This illustrates the emergence of tool use and strategic reasoning
+purely from multi-agent competition.
+\end{example}
+
+\begin{remark}
+Self-play in competitive settings can produce open-ended learning
+dynamics where agents continuously develop new strategies in an
+arms-race fashion. This has been central to breakthroughs in Go
+(AlphaGo/AlphaZero) and StarCraft (AlphaStar).
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Python Example}
+\label{sec:marl:code}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Independent Q-Learning for Two Agents}]
+\begin{minted}{python}
+import numpy as np
+
+def independent_q_learning(env, n_episodes=5000,
+                           alpha=0.1, gamma=0.99,
+                           epsilon=0.1):
+    """IQL for a two-agent grid world."""
+    n_agents = 2
+    nS = env.observation_space.n
+    nA = env.action_space.n
+    Q = [np.zeros((nS, nA)) for _ in range(n_agents)]
+
+    for ep in range(n_episodes):
+        obs = env.reset()  # obs[i] for agent i
+        done = False
+        while not done:
+            actions = []
+            for i in range(n_agents):
+                if np.random.random() < epsilon:
+                    a = np.random.randint(nA)
+                else:
+                    a = np.argmax(Q[i][obs[i]])
+                actions.append(a)
+            next_obs, rewards, done, info = env.step(actions)
+            for i in range(n_agents):
+                s, a, r, s2 = obs[i], actions[i], rewards[i], next_obs[i]
+                Q[i][s, a] += alpha * (
+                    r + gamma * np.max(Q[i][s2]) - Q[i][s, a])
+            obs = next_obs
+    return Q
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+\label{sec:marl:exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}[Matrix Games]
+Implement independent Q-Learning for the Prisoner's Dilemma repeated
+game. Does the algorithm converge to the Nash equilibrium? How does
+the result change with different exploration rates?
+\end{exercise}
+
+\begin{exercise}[QMIX Mixing Network]
+Design and implement the QMIX mixing network with hypernetworks.
+Verify that the monotonicity constraint holds by checking that all
+mixing weights are non-negative.
+\end{exercise}
+
+\begin{exercise}[CTDE Analysis]
+Compare IQL, VDN (additive decomposition), and QMIX on the
+\texttt{spread} task from the Multi-Agent Particle Environment.
+Which method benefits most from centralized training?
+\end{exercise}
+
+\begin{exercise}[Self-Play]
+Implement self-play for Tic-Tac-Toe using tabular Q-Learning.
+Track the win rate of the latest policy against a random opponent
+over training. Does the agent converge to optimal play?
+\end{exercise}

@@ -1,0 +1,262 @@
+% ============================================================
+\chapter{Machine Learning in Finance}
+\label{ch:ml_finance}
+% ============================================================
+
+\section{Introduction}
+
+Machine learning\index{machine learning!finance} (ML) is transforming
+quantitative finance by enabling the discovery of nonlinear structures in
+market data. This chapter presents the main applications: algorithmic trading,
+neural network option pricing, reinforcement learning for portfolio management,
+NLP-based sentiment analysis, and associated risks and regulations.
+
+\begin{intuition}
+Classical models (Black-Scholes, GARCH) impose parametric structure. ML allows
+the data to ``speak for itself'' by learning complex relationships directly,
+at the cost of increased overfitting risk and reduced interpretability.
+\end{intuition}
+
+\section{Algorithmic Trading}
+
+\begin{definition}[Algorithmic trading strategy]
+\index{algorithmic trading}
+An \textbf{algorithmic trading strategy} is a systematic rule
+$\delta_t = g(x_t; \theta)$ determining the position $\delta_t$ at time $t$
+as a function of observable features $x_t$ and parameters $\theta$ optimised
+on historical data.
+\end{definition}
+
+\begin{proposition}[Classical features]
+Typical predictors include:
+\begin{enumerate}
+    \item \textbf{Technical indicators}: moving averages, RSI, Bollinger bands,
+    MACD.
+    \item \textbf{Microstructure}: order flow imbalance, bid-ask spread, volume.
+    \item \textbf{Fundamental features}: financial ratios, earnings surprises.
+    \item \textbf{Alternative data}: satellite imagery, web traffic, social
+    media sentiment.
+\end{enumerate}
+\end{proposition}
+
+\begin{attention}[title=\textbf{Overfitting and data snooping}]
+Extensive backtesting on historical data produces strategies that perform
+perfectly in-sample but fail out-of-sample. Remedies include: time-series
+cross-validation (walk-forward), Bonferroni correction for multiple testing,
+and holding out fresh data for the final test.
+\end{attention}
+
+\begin{theorem}[Generalisation bound]
+\index{generalisation bound}
+For a hypothesis class $\mathcal{H}$ of VC dimension $d_{\mathrm{VC}}$, with
+probability at least $1 - \delta$ on a sample of size $n$:
+\[
+    R(h) \leq \hat{R}(h) + \sqrt{\frac{d_{\mathrm{VC}}(\ln(2n/d_{\mathrm{VC}}) + 1)
+    + \ln(4/\delta)}{n}},
+\]
+where $R(h)$ is the true risk and $\hat{R}(h)$ is the empirical risk.
+\end{theorem}
+
+\section{Neural Networks for Option Pricing}
+
+\begin{definition}[Feedforward neural network]
+\index{neural network}
+A \textbf{feedforward neural network} with $L$ layers is a function
+\[
+    f_\theta(x) = W_L\,\sigma(W_{L-1}\,\sigma(\cdots\sigma(W_1 x + b_1)\cdots)
+    + b_{L-1}) + b_L,
+\]
+where $\sigma$ is a nonlinear activation function (ReLU, tanh, etc.),
+$W_\ell$ are weight matrices, and $b_\ell$ are biases.
+\end{definition}
+
+\begin{theorem}[Universal approximation]
+\index{universal approximation}
+For any continuous function $g : \R^d \to \R$ on a compact set $K$ and any
+$\epsilon > 0$, there exists a single-hidden-layer feedforward network with
+sigmoid activation such that
+$\sup_{x \in K}\abs{f_\theta(x) - g(x)} < \epsilon$.
+\end{theorem}
+
+\begin{proposition}[Neural network pricing]
+The approach consists of:
+\begin{enumerate}
+    \item Generate $N$ parameter sets $(S_0^{(i)}, K^{(i)}, T^{(i)},
+    \sigma^{(i)}, r^{(i)})$ and compute prices $V^{(i)}$ via Black-Scholes
+    or Monte Carlo.
+    \item Train a network $f_\theta$ minimising
+    $\frac{1}{N}\sum_{i=1}^N (f_\theta(x^{(i)}) - V^{(i)})^2$.
+    \item At inference, $f_\theta$ yields prices and Greeks
+    ($\Delta = \partial f_\theta/\partial S$) near-instantaneously.
+\end{enumerate}
+\end{proposition}
+
+\begin{remark}
+Neural networks accelerate pricing by a factor of $10^3$ to $10^5$ compared
+to Monte Carlo, which is crucial for XVA computation (CVA, DVA, FVA) on
+portfolios containing thousands of trades.
+\end{remark}
+
+\section{Reinforcement Learning for Portfolio Management}
+
+\begin{definition}[Markov Decision Process (MDP)]
+\index{MDP}
+An \textbf{MDP} is a tuple $(\mathcal{S}, \mathcal{A}, P, R, \gamma)$ where
+$\mathcal{S}$ is the state space, $\mathcal{A}$ is the action space,
+$P(s'|s, a)$ is the transition dynamics, $R(s, a)$ is the reward, and
+$\gamma \in [0, 1)$ is the discount factor.
+\end{definition}
+
+\begin{definition}[Policy and value function]
+\index{policy!reinforcement learning}
+A \textbf{policy} $\pi : \mathcal{S} \to \mathcal{A}$ specifies the action at
+each state. The \textbf{value function} is
+$V^\pi(s) = \E_\pi\!\left[\sum_{t=0}^\infty \gamma^t R(s_t, a_t) \mid
+s_0 = s\right]$. The optimal policy satisfies
+$V^*(s) = \max_\pi V^\pi(s)$.
+\end{definition}
+
+\begin{theorem}[Bellman equation]
+\index{Bellman equation}
+The optimal value function satisfies
+\[
+    V^*(s) = \max_{a \in \mathcal{A}} \left[R(s, a)
+    + \gamma \sum_{s'} P(s'|s, a)\,V^*(s')\right].
+\]
+\end{theorem}
+
+\begin{proposition}[Application to portfolio management]
+\begin{itemize}
+    \item \textbf{State}: $s_t = (w_t, S_t, \text{features}_t)$ (wealth,
+    prices, indicators).
+    \item \textbf{Action}: $a_t = (\delta_1, \ldots, \delta_d)$ (allocations
+    across $d$ assets).
+    \item \textbf{Reward}: $R_t = \ln(w_{t+1}/w_t)$ (log return) or
+    differential Sharpe ratio.
+    \item \textbf{Algorithms}: DDPG, PPO, SAC for continuous action spaces.
+\end{itemize}
+\end{proposition}
+
+\section{NLP and Sentiment Analysis}
+
+\begin{definition}[Financial sentiment analysis]
+\index{sentiment analysis}
+\textbf{Sentiment analysis} in finance consists of extracting a
+bullish/bearish signal from textual sources: press releases, analyst reports,
+tweets, earnings call transcripts.
+\end{definition}
+
+\begin{proposition}[NLP pipeline for finance]
+\begin{enumerate}
+    \item \textbf{Collection}: Reuters/Bloomberg feeds, Twitter/Reddit APIs.
+    \item \textbf{Preprocessing}: tokenisation, stop word removal,
+    lemmatisation.
+    \item \textbf{Model}: FinBERT (BERT fine-tuned on financial text) or
+    specialised GPT.
+    \item \textbf{Aggregation}: weighted average sentiment score by source
+    and recency.
+    \item \textbf{Trading signal}: combination with quantitative features.
+\end{enumerate}
+\end{proposition}
+
+\begin{keyformulas}[title=\textbf{ML Strategy Performance Metrics}]
+\begin{align*}
+    \text{Sharpe Ratio} &= \frac{\E[R_p] - r_f}{\sqrt{\Var(R_p)}} \\
+    \text{Sortino Ratio} &= \frac{\E[R_p] - r_f}{\sqrt{\E[\min(R_p - r_f, 0)^2]}} \\
+    \text{Maximum Drawdown} &= \max_{t}\frac{\max_{s \leq t} W_s - W_t}{\max_{s \leq t} W_s}
+\end{align*}
+\end{keyformulas}
+
+\section{Risks and Regulation}
+
+\begin{definition}[Model risk]
+\index{model risk}
+\textbf{Model risk} in ML includes:
+\begin{itemize}
+    \item \textbf{Overfitting}: the model memorises noise.
+    \item \textbf{Distribution shift}: future data differs from training data
+    (regime changes).
+    \item \textbf{Black box}: inability to explain decisions
+    (interpretability problem).
+    \item \textbf{Adversarial attacks}: deliberate manipulation of inputs to
+    deceive the model.
+\end{itemize}
+\end{definition}
+
+\begin{remark}
+The EU AI Act (2024) classifies credit scoring and algorithmic trading systems
+as ``high risk,'' imposing transparency, documentation, and human oversight
+requirements.
+\end{remark}
+
+\begin{codeblock}[title=\textbf{Option pricing with a neural network}]
+\begin{minted}{python}
+import numpy as np
+import torch
+import torch.nn as nn
+from scipy.stats import norm
+
+def bs_call(S, K, T, r, sigma):
+    d1 = (np.log(S/K) + (r + sigma**2/2)*T) / (sigma*np.sqrt(T))
+    d2 = d1 - sigma*np.sqrt(T)
+    return S*norm.cdf(d1) - K*np.exp(-r*T)*norm.cdf(d2)
+
+n_train = 50_000
+S = np.random.uniform(50, 150, n_train)
+K = np.random.uniform(50, 150, n_train)
+T = np.random.uniform(0.1, 2.0, n_train)
+sigma = np.random.uniform(0.1, 0.5, n_train)
+prices = bs_call(S, K, T, 0.05, sigma)
+
+X = torch.tensor(np.column_stack([S, K, T, sigma]), dtype=torch.float32)
+y = torch.tensor(prices, dtype=torch.float32).unsqueeze(1)
+
+model = nn.Sequential(
+    nn.Linear(4, 64), nn.ReLU(),
+    nn.Linear(64, 64), nn.ReLU(),
+    nn.Linear(64, 1))
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+for epoch in range(200):
+    pred = model(X)
+    loss = nn.MSELoss()(pred, y)
+    optimizer.zero_grad(); loss.backward(); optimizer.step()
+print(f"Final MSE: {loss.item():.6f}")
+\end{minted}
+\end{codeblock}
+
+\section{Exercises}
+
+\begin{exercise}[Feature engineering]
+For an S\&P 500 trading strategy, propose 10 relevant features. Discuss
+look-ahead bias and multicollinearity issues.
+\end{exercise}
+
+\begin{exercise}[Greeks via autodiff]
+Train a neural network to price European calls. Compute delta via automatic
+differentiation and compare with the analytical formula.
+\end{exercise}
+
+\begin{exercise}[RL for allocation]
+Implement a simple DQN agent for allocation between a risky asset (return
+$\mathcal{N}(8\%, 20\%)$) and a risk-free asset (3\%). Compare the learned
+policy with Merton's rule.
+\end{exercise}
+
+\begin{exercise}[Sentiment analysis]
+Collect 1000 financial news headlines and classify them as
+positive/negative/neutral. Measure the correlation between the aggregated
+sentiment score and next-day returns.
+\end{exercise}
+
+\begin{exercise}[Temporal validation]
+Explain why standard k-fold cross-validation is inappropriate in finance.
+Implement walk-forward validation with a 2-year training window and a 6-month
+test window.
+\end{exercise}
+
+\begin{exercise}[Interpretability]
+Apply Shapley values (SHAP) to an XGBoost model for return prediction.
+Identify the most important features and discuss the stability of
+explanations over time.
+\end{exercise}

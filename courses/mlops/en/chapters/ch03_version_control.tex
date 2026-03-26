@@ -1,0 +1,450 @@
+% ============================================================
+\chapter{Version Control --- Git and DVC}
+\label{ch:version-control}
+\index{version control}
+% ============================================================
+
+\section{Why Version Everything?}
+\label{sec:why-version}
+
+In software engineering, versioning code with Git is standard practice.
+In ML, we must also version \textbf{data} and \textbf{models}---two
+artefacts that evolve independently of the code and that jointly determine
+the behaviour of the system.
+
+\begin{definition}[Reproducibility]
+An ML experiment is \textbf{reproducible}\index{reproducibility} if, given
+the same code, the same data, and the same configuration, it produces the
+same model and the same metrics (up to hardware non-determinism).
+\end{definition}
+
+\begin{remark}
+Git alone is insufficient for ML projects: datasets and model weights are
+often too large for Git (files $>100$\,MB are impractical), and binary
+files do not benefit from line-level diffing.
+\end{remark}
+
+\section{Git Essentials for ML}
+\label{sec:git-essentials}
+\index{Git}
+
+\subsection{Core workflow}
+
+\begin{codeblock}[title=\textbf{Essential Git commands for ML projects}]
+\begin{minted}{bash}
+# Initialise a repository
+git init
+
+# Stage and commit
+git add src/ configs/
+git commit -m "Add training pipeline"
+
+# Create a feature branch
+git checkout -b experiment/new-feature-engineering
+
+# Merge back
+git checkout main
+git merge experiment/new-feature-engineering
+
+# Tag a release (e.g., after a successful model)
+git tag -a v1.0.0 -m "Baseline model, accuracy 0.87"
+\end{minted}
+\end{codeblock}
+
+\subsection{.gitignore for ML projects}
+\index{.gitignore}
+
+\begin{codeblock}[title=\textbf{.gitignore tailored for ML}]
+\begin{minted}{text}
+# Data and models (managed by DVC)
+data/
+models/
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.onnx
+
+# Environments
+.venv/
+__pycache__/
+*.pyc
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Experiment artefacts
+mlruns/
+wandb/
+outputs/
+
+# Secrets
+.env
+*.secret
+\end{minted}
+\end{codeblock}
+
+\begin{bestpractice}[title=\textbf{Git branching strategy for ML}]
+\begin{itemize}
+  \item \textbf{main}: production-ready code and pipeline definitions.
+  \item \textbf{develop}: integration branch for ongoing work.
+  \item \textbf{experiment/*}: one branch per experiment (short-lived).
+  \item \textbf{data/*}: branches for data processing changes.
+  \item Use \textbf{tags} to mark successful model versions
+    (e.g., \cli{v1.2.0-acc0.91}).
+\end{itemize}
+\end{bestpractice}
+
+\section{DVC --- Data Version Control}
+\label{sec:dvc}
+\index{DVC}
+
+\textbf{DVC}\index{DVC} (Data Version Control) extends Git to handle large
+files (datasets, model weights) without storing them in the Git repository.
+Instead, DVC stores metadata (\file{.dvc} files) in Git and the actual data
+in a configurable remote storage (S3, GCS, Azure Blob, local, SSH).
+
+\begin{definition}[DVC]
+DVC is an open-source version control system for data and ML models.
+It works \emph{alongside} Git: Git tracks code and \file{.dvc} metadata
+files, while DVC tracks the actual large files via content-addressable
+storage.
+\end{definition}
+
+\subsection{Getting started with DVC}
+
+\begin{codeblock}[title=\textbf{DVC initialisation and basic usage}]
+\begin{minted}{bash}
+# Install DVC
+pip install dvc dvc-s3  # add dvc-gdrive, dvc-azure, etc.
+
+# Initialise DVC in an existing Git repo
+cd my-ml-project
+dvc init
+
+# Track a dataset
+dvc add data/train.csv
+# Creates: data/train.csv.dvc  (metadata, tracked by Git)
+#          data/.gitignore      (so Git ignores train.csv)
+
+git add data/train.csv.dvc data/.gitignore
+git commit -m "Track training data with DVC"
+
+# Configure remote storage
+dvc remote add -d myremote s3://my-bucket/dvc-store
+
+# Push data to remote
+dvc push
+
+# Pull data on another machine
+git clone <repo-url>
+dvc pull
+\end{minted}
+\end{codeblock}
+
+\subsection{.dvc file anatomy}
+
+\begin{codeblock}[title=\textbf{data/train.csv.dvc}]
+\begin{minted}{yaml}
+outs:
+  - md5: a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
+    size: 157286400
+    hash: md5
+    path: train.csv
+\end{minted}
+\end{codeblock}
+
+The \file{.dvc} file records the MD5 hash and size of the tracked file.
+When you run \cli{dvc push}, DVC uploads the file to the remote, indexed
+by its hash. When you run \cli{dvc pull}, DVC downloads the file matching
+the hash in the \file{.dvc} file.
+
+\subsection{Switching between data versions}
+
+\begin{codeblock}[title=\textbf{Time-travelling through data versions}]
+\begin{minted}{bash}
+# Check out a previous data version
+git checkout v1.0 -- data/train.csv.dvc
+dvc checkout
+
+# Compare data versions
+dvc diff HEAD~1
+
+# List tracked files
+dvc list . --dvc-only
+\end{minted}
+\end{codeblock}
+
+\subsection{.dvcignore}
+\index{.dvcignore}
+
+Like \file{.gitignore}, the \file{.dvcignore} file tells DVC which files
+to exclude when scanning directories.
+
+\begin{codeblock}[title=\textbf{.dvcignore}]
+\begin{minted}{text}
+# Temporary files
+*.tmp
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Intermediate artefacts
+data/raw/scratch/
+\end{minted}
+\end{codeblock}
+
+\section{DVC Pipelines}
+\label{sec:dvc-pipelines}
+\index{DVC!pipelines}
+
+DVC can define reproducible ML pipelines in a \file{dvc.yaml} file.
+Each stage declares its dependencies and outputs; DVC tracks which stages
+need to be re-run when inputs change.
+
+\begin{codeblock}[title=\textbf{dvc.yaml --- Complete ML pipeline}]
+\begin{minted}{yaml}
+stages:
+  prepare:
+    cmd: python src/prepare.py --config configs/config.yaml
+    deps:
+      - src/prepare.py
+      - data/raw/
+      - configs/config.yaml
+    outs:
+      - data/processed/train.csv
+      - data/processed/test.csv
+
+  train:
+    cmd: python src/train.py --config configs/config.yaml
+    deps:
+      - src/train.py
+      - data/processed/train.csv
+      - configs/config.yaml
+    outs:
+      - models/model.pkl
+    metrics:
+      - metrics/train_metrics.json:
+          cache: false
+
+  evaluate:
+    cmd: python src/evaluate.py --config configs/config.yaml
+    deps:
+      - src/evaluate.py
+      - models/model.pkl
+      - data/processed/test.csv
+    metrics:
+      - metrics/eval_metrics.json:
+          cache: false
+    plots:
+      - metrics/confusion_matrix.csv:
+          x: predicted
+          y: actual
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Running and inspecting DVC pipelines}]
+\begin{minted}{bash}
+# Run the full pipeline (only re-runs changed stages)
+dvc repro
+
+# Visualise the DAG
+dvc dag
+
+# Compare metrics across Git commits
+dvc metrics diff
+
+# Show metrics
+dvc metrics show
+
+# Show plots
+dvc plots show
+\end{minted}
+\end{codeblock}
+
+\begin{remark}
+DVC uses file hashes to determine whether a stage needs re-execution.
+If neither the dependencies nor the code have changed, the stage is
+skipped---making iteration fast.
+\end{remark}
+
+\section{Git + DVC Workflow}
+\label{sec:git-dvc-workflow}
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, rounded corners, minimum width=3.2cm,
+    minimum height=1.4cm, align=center, font=\small},
+  storage/.style={cylinder, draw, shape border rotate=90,
+    minimum width=2cm, minimum height=1.2cm, align=center,
+    font=\scriptsize, aspect=0.3},
+  arr/.style={-{Stealth[length=2.5mm]}, thick},
+  lbl/.style={font=\scriptsize, midway, fill=white, inner sep=1pt}
+]
+  % Developer
+  \node[box, fill=blue!10] (dev) {\textbf{Developer}\\Working Directory};
+
+  % Git
+  \node[storage, fill=green!10, above right=2cm and 2.5cm of dev] (git)
+    {\textbf{Git Remote}\\Code, configs,\\\file{.dvc} files};
+
+  % DVC
+  \node[storage, fill=orange!10, below right=2cm and 2.5cm of dev] (dvc)
+    {\textbf{DVC Remote}\\Data, models\\(S3, GCS, \ldots)};
+
+  % Arrows
+  \draw[arr, steelblue] (dev.north east) -- (git.west)
+    node[lbl, above, sloped] {\cli{git push}};
+  \draw[arr, steelblue] (git.west) -- (dev.north east)
+    node[lbl, below, sloped] {\cli{git pull}};
+
+  \draw[arr, deepred] (dev.south east) -- (dvc.west)
+    node[lbl, above, sloped] {\cli{dvc push}};
+  \draw[arr, deepred] (dvc.west) -- (dev.south east)
+    node[lbl, below, sloped] {\cli{dvc pull}};
+
+  % Labels
+  \node[font=\scriptsize, text=steelblue, above=0.3cm of git]
+    {Code + metadata};
+  \node[font=\scriptsize, text=deepred, below=0.3cm of dvc]
+    {Large files};
+\end{tikzpicture}
+\end{center}
+
+\section{Tool Comparison}
+\label{sec:version-comparison}
+
+\begin{center}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Criterion} & \textbf{DVC} & \textbf{Git LFS} & \textbf{Delta Lake} & \textbf{LakeFS} \\
+\midrule
+Open source        & Yes  & Yes  & Yes  & Yes  \\
+Git integration    & Excellent & Native & No & Git-like \\
+Pipeline support   & Yes  & No   & No   & No   \\
+Storage backends   & Many & Git server & Object store & S3-compatible \\
+Data format        & Any  & Any  & Parquet & Any  \\
+Branching for data & Via Git & Via Git & No & Yes \\
+Scalability        & Good & Limited & Excellent & Excellent \\
+Learning curve     & Low  & Very low & Medium & Medium \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{warning}[title=\textbf{Git LFS limitations}]
+Git LFS stores large files on the Git server itself, which can become
+expensive and slow for multi-GB datasets. DVC decouples data storage from
+the Git server, allowing you to use cheap cloud storage (S3, GCS).
+Git LFS also lacks pipeline support and metric tracking.
+\end{warning}
+
+\section{Best Practices}
+
+\begin{bestpractice}[title=\textbf{Version control golden rules}]
+\begin{enumerate}
+  \item \textbf{Commit often, commit small}: each commit should represent
+    one logical change.
+  \item \textbf{Never commit data to Git}: use DVC or a similar tool.
+  \item \textbf{Never commit secrets}: use \file{.env} files excluded via
+    \file{.gitignore}.
+  \item \textbf{Tag successful experiments}: \cli{git tag v1.0-acc0.92}.
+  \item \textbf{Use DVC pipelines}: make your workflow reproducible with
+    \file{dvc.yaml}.
+  \item \textbf{Automate with hooks}: pre-commit hooks for linting,
+    formatting, secret scanning.
+\end{enumerate}
+\end{bestpractice}
+
+\begin{antipattern}[title=\textbf{Common anti-patterns}]
+\begin{itemize}
+  \item Storing datasets in Git (slow clone, bloated history)
+  \item Using \cli{model\_v2\_final\_FINAL.pkl} naming instead of proper
+    versioning
+  \item Not versioning data at all (``I'll remember which file I used'')
+  \item Giant commits with thousands of changed files
+  \item Forgetting to \cli{dvc push} after \cli{git push}
+\end{itemize}
+\end{antipattern}
+
+\section{Mini-project: Versioned ML Pipeline}
+\label{sec:mini-project-ch3}
+
+\begin{miniproject}[title=\textbf{Mini-project 3: Git + DVC pipeline}]
+Building on the project from Chapters~\ref{ch:introduction}
+and~\ref{ch:environments}:
+\begin{enumerate}
+  \item Initialise a Git repository and DVC.
+  \item Track a dataset ($\ge 50$\,MB) with DVC and configure a remote
+    (local directory or S3).
+  \item Write a \file{dvc.yaml} with three stages: \texttt{prepare},
+    \texttt{train}, \texttt{evaluate}.
+  \item Run \cli{dvc repro} and verify that only changed stages re-run.
+  \item Tag the first successful run as \cli{v1.0}.
+  \item Modify a hyperparameter, re-run, and use \cli{dvc metrics diff}
+    to compare with the previous version.
+  \item Push code to Git and data to DVC remote; verify a colleague can
+    reproduce the results with \cli{git clone} + \cli{dvc pull} +
+    \cli{dvc repro}.
+\end{enumerate}
+\end{miniproject}
+
+\section{Exercises}
+\label{sec:exercises-ch3}
+
+\begin{exercise}[$\bigstar$ --- DVC basics]
+Initialise a Git+DVC project. Track a CSV file ($\ge 10$\,MB) with DVC.
+Configure a local remote (\cli{dvc remote add -d local /tmp/dvc-store}).
+Push and pull the file. Verify the \file{.dvc} file contents and explain
+each field.
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar$ --- Pipeline design]
+Design and implement a DVC pipeline (\file{dvc.yaml}) for a text
+classification task with the following stages:
+\begin{enumerate}
+  \item \texttt{download}: download the dataset from a URL
+  \item \texttt{preprocess}: tokenisation, vocabulary building
+  \item \texttt{train}: train a model, log metrics to JSON
+  \item \texttt{evaluate}: compute precision, recall, F1 on the test set
+\end{enumerate}
+Run the pipeline, change a hyperparameter, re-run, and compare metrics
+with \cli{dvc metrics diff}.
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar\bigstar$ --- Collaborative workflow]
+Simulate a two-person collaboration using Git branches and DVC:
+\begin{enumerate}
+  \item Person A creates an experiment branch, modifies the feature
+    engineering, trains, and pushes code + data
+  \item Person B creates a different experiment branch with a different
+    model architecture
+  \item Both merge into \texttt{develop}, resolving any conflicts in
+    \file{dvc.yaml} and \file{dvc.lock}
+  \item Compare results using \cli{dvc metrics diff} across branches
+  \item Write a short report documenting the collaboration workflow and
+    any issues encountered
+\end{enumerate}
+\end{exercise}
+
+\section{Cheatsheet}
+
+\begin{cheatsheet}[title=\textbf{Chapter 3 Summary}]
+\begin{tabular}{@{}p{4cm}p{8.5cm}@{}}
+\toprule
+\textbf{Tool / Concept} & \textbf{Key Commands} \\
+\midrule
+\textbf{Git basics} & \cli{git init}, \cli{git add}, \cli{git commit},
+  \cli{git tag} \\
+\textbf{DVC init} & \cli{dvc init}, \cli{dvc add <file>},
+  \cli{dvc remote add} \\
+\textbf{DVC data} & \cli{dvc push}, \cli{dvc pull}, \cli{dvc checkout},
+  \cli{dvc diff} \\
+\textbf{DVC pipelines} & \file{dvc.yaml}, \cli{dvc repro}, \cli{dvc dag},
+  \cli{dvc metrics show} \\
+\textbf{Best practice} & Git for code + \file{.dvc} files; DVC remote for
+  data + models \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}

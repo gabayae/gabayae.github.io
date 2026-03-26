@@ -1,0 +1,167 @@
+% ============================================================
+\chapter{Forecasting and Confidence Intervals}
+\label{ch:prevision}
+% ============================================================
+
+\section{Motivating Example}
+Forecasting electricity demand for the next day, together with a confidence interval, is essential for grid management. The quality of the forecast determines economic costs.
+
+\section{Optimal Forecast}\index{forecasting}
+
+\begin{definition}[Optimal Forecast]
+The \textbf{optimal forecast} of $X_{n+h}$ given $X_1,\ldots,X_n$ in the least squares sense is:
+\[
+\hat{X}_{n+h|n} = \E[X_{n+h}|X_1,\ldots,X_n].
+\]
+The forecast error is $e_{n+h|n}=X_{n+h}-\hat{X}_{n+h|n}$.
+\end{definition}
+
+\begin{theorem}[Mean Squared Error]
+The conditional expectation minimizes the MSE:
+\[
+\hat{X}_{n+h|n} = \arg\min_{g(X_1,\ldots,X_n)}\E\left[(X_{n+h}-g)^2\right].
+\]
+\end{theorem}
+
+\section{ARMA Forecasting}
+
+\begin{theorem}[Forecast of an ARMA$(p,q)$]
+Using the MA$(\infty)$ representation: $X_t=\sum_{j=0}^{\infty}\psi_j\eps_{t-j}$, the $h$-step-ahead forecast is:
+\[
+\hat{X}_{n+h|n} = \sum_{j=h}^{\infty}\psi_j\eps_{n+h-j}.
+\]
+The forecast error is $e_{n+h|n}=\sum_{j=0}^{h-1}\psi_j\eps_{n+h-j}$, with variance:
+\[
+\sigma_h^2 = \sigma^2\sum_{j=0}^{h-1}\psi_j^2.
+\]
+\end{theorem}
+
+\begin{corollary}
+For a stationary ARMA, $\sigma_h^2\to\gamma(0)=\Var(X_t)$ as $h\to\infty$: the forecast converges to the unconditional mean and the confidence interval widens to the unconditional interval.
+\end{corollary}
+
+\section{Prediction Intervals}\index{prediction interval}
+
+\begin{definition}
+Under the Gaussian assumption, a $(1-\alpha)$ prediction interval for $X_{n+h}$ is:
+\[
+\hat{X}_{n+h|n} \pm z_{1-\alpha/2}\,\sigma_h,
+\]
+where $z_{1-\alpha/2}$ is the quantile of the standard normal distribution.
+\end{definition}
+
+\begin{warning}
+Prediction intervals do not account for the uncertainty in estimated parameters. Bootstrap or simulation methods can be used to obtain more realistic intervals.
+\end{warning}
+
+\section{ARIMA Forecasting}
+
+\begin{theorem}
+For an ARIMA$(p,d,q)$, the long-term forecast of the \emph{level} $X_{n+h}$ grows linearly (if $d=1$) or quadratically (if $d=2$): the prediction interval widens without bound.
+\end{theorem}
+
+\section{Evaluation Criteria}\index{evaluation}
+
+\begin{definition}[Forecast Metrics]
+\begin{align}
+\text{MAE} &= \frac{1}{H}\sum_{h=1}^H|e_{n+h|n}|, \\
+\text{RMSE} &= \sqrt{\frac{1}{H}\sum_{h=1}^H e_{n+h|n}^2}, \\
+\text{MAPE} &= \frac{100}{H}\sum_{h=1}^H\frac{|e_{n+h|n}|}{|X_{n+h}|}\%.
+\end{align}
+\end{definition}
+
+\begin{definition}[Temporal Cross-Validation]\index{cross-validation}
+To evaluate predictive ability, one uses a \textbf{train/test} split that respects the temporal order (no shuffling). The \textbf{rolling window} or \textbf{expanding window} method is standard.
+\end{definition}
+
+\section{Diebold--Mariano Test}\index{test!Diebold--Mariano}
+
+\begin{definition}
+To compare two forecasting models, let $d_t = L(e_{1,t})-L(e_{2,t})$ be the loss differential. Under $H_0$ (equality):
+\[
+\text{DM} = \frac{\bar{d}}{\sqrt{\hat\sigma_d^2/H}} \dto \mathcal{N}(0,1).
+\]
+\end{definition}
+
+\section{Implementation}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from statsmodels.tsa.arima.model import ARIMA
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+
+# Simuler un ARMA(1,1)
+np.random.seed(42)
+from statsmodels.tsa.arima_process import ArmaProcess
+ar = np.array([1, -0.7])
+ma = np.array([1, 0.3])
+data = ArmaProcess(ar, ma).generate_sample(nsample=300)
+
+# Train/test split
+train, test = data[:250], data[250:]
+
+# Ajuster et prévoir
+model = ARIMA(train, order=(1, 0, 1))
+results = model.fit()
+
+forecast = results.get_forecast(steps=50)
+pred = forecast.predicted_mean
+ci = forecast.conf_int(alpha=0.05)
+
+# Métriques
+mae = mean_absolute_error(test, pred)
+rmse = np.sqrt(mean_squared_error(test, pred))
+print(f"MAE  = {mae:.4f}")
+print(f"RMSE = {rmse:.4f}")
+
+# Graphique
+fig, ax = plt.subplots(figsize=(12, 5))
+ax.plot(range(250), train, 'b-', lw=0.7, label='Train')
+ax.plot(range(250, 300), test, 'g-', lw=1, label='Test')
+ax.plot(range(250, 300), pred, 'r--', lw=1.5, label='Prévision')
+ax.fill_between(range(250, 300), ci[:, 0], ci[:, 1],
+                alpha=0.2, color='red')
+ax.legend()
+ax.set_title('Prévision ARMA(1,1)')
+plt.savefig('ch10_forecast.pdf')
+plt.show()
+
+# Rolling forecast
+rolling_preds = []
+for i in range(len(test)):
+    train_i = data[:250+i]
+    model_i = ARIMA(train_i, order=(1,0,1)).fit()
+    rolling_preds.append(model_i.forecast(steps=1)[0])
+rmse_roll = np.sqrt(mean_squared_error(test, rolling_preds))
+print(f"RMSE rolling: {rmse_roll:.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+For an AR(1) with $\phi=0.8$ and $\sigma^2=1$, compute $\hat{X}_{n+1|n}$, $\hat{X}_{n+2|n}$ and the corresponding forecast error variances.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Show that the $h$-step-ahead forecast error variance of an AR(1) is $\sigma^2\frac{1-\phi^{2h}}{1-\phi^2}$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Explain why the MAPE is problematic when $X_t$ takes values close to zero.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Project]
+Compare out-of-sample forecasts of an ARIMA, exponential smoothing, and a naive model ($\hat{X}_{n+h}=X_n$) on 5 real-world series. Use the Diebold--Mariano test.
+\end{exercise}
+
+\begin{keyformulas}
+\begin{align*}
+\hat{X}_{n+h|n} &= \sum_{j=h}^{\infty}\psi_j\eps_{n+h-j}, \quad \sigma_h^2=\sigma^2\sum_{j=0}^{h-1}\psi_j^2 \\
+\text{CI}_{95\%} &: \hat{X}_{n+h|n}\pm 1.96\,\sigma_h \\
+\text{RMSE} &= \sqrt{\frac{1}{H}\sum e_{n+h}^2}
+\end{align*}
+\end{keyformulas}

@@ -1,0 +1,335 @@
+% ============================================================
+\chapter{Mod\'elisation \'Economique et Financi\`ere}
+\label{ch:economique}
+% ============================================================
+
+\section{Introduction}
+
+Les \'economistes ont longtemps envi\'e la physique pour la pr\'ecision de ses mod\`eles. En 1956, Robert Solow propose un mod\`ele de croissance \'economique d'une \'el\'egance newtonienne~: le capital s'accumule, la main-d'\oe uvre cro\^it, et la technologie progresse, le tout r\'egi par une \'equation diff\'erentielle dont l'\'etat stationnaire \'eclaire les disparit\'es de richesse entre nations. Ce mod\`ele lui vaudra le prix Nobel en 1987. Mais l'\'economie est aussi le domaine de l'incertitude~: les march\'es financiers oscillent, les prix des options d\'efient l'intuition. C'est l\`a que le mod\`ele de Black--Scholes, enracin\'e dans le calcul stochastique d'It\^o, r\'evolutionne la finance en 1973. Ce chapitre tisse le lien entre \'equations diff\'erentielles d\'eterministes et stochastiques appliqu\'ees \`a l'\'economie et \`a la finance, du mod\`ele de Solow \`a l'\'evaluation des options.
+
+% ------------------------------------------------------------
+\section{Mod\`ele de croissance de Solow}
+\label{sec:solow}
+% ------------------------------------------------------------
+
+\begin{definition}[Mod\`ele de Solow]
+Le mod\`ele de Solow d\'ecrit la croissance \'economique \`a long
+terme.  Soit $K(t)$ le capital, $L(t)$ le travail et $Y(t)$ la
+production.  La fonction de production est de type Cobb--Douglas :
+\[
+  Y = AK^\alpha L^{1-\alpha}, \qquad 0<\alpha<1,
+\]
+o\`u $A$ est la productivit\'e totale des facteurs (PTF).
+L'accumulation du capital v\'erifie :
+\[
+  \dot{K} = sY - \delta K,
+\]
+o\`u $s\in(0,1)$ est le taux d'\'epargne et $\delta>0$ le taux de
+d\'epr\'eciation.
+\end{definition}
+
+\subsection{Capital par t\^ete}
+
+Supposons $L(t)=L_0 e^{nt}$ (croissance d\'emographique au taux $n$).
+En posant $k=K/L$ (capital par t\^ete) et $y=Y/L$ :
+
+\begin{theoreme}[\'Equation fondamentale de Solow]
+Le capital par t\^ete v\'erifie :
+\[
+  \dot{k} = sAk^\alpha - (n+\delta)k.
+\]
+\end{theoreme}
+
+\begin{proof}
+$\dot{k} = \dot{K}/L - Kn/L = (sY-\delta K)/L - nk
+= sy - \delta k - nk = sAk^\alpha - (n+\delta)k$.
+\end{proof}
+
+\begin{proposition}[\'Equilibre de Solow]
+L'\'equilibre $k^* > 0$ v\'erifie $sAk^{*\alpha} = (n+\delta)k^*$,
+d'o\`u :
+\[
+  k^* = \left(\frac{sA}{n+\delta}\right)^{1/(1-\alpha)}.
+\]
+Cet \'equilibre est \textbf{globalement stable} pour $k>0$.
+\end{proposition}
+
+\begin{formules}[title=\textbf{\'Equilibre de Solow}]
+\[
+  k^* = \left(\frac{sA}{n+\delta}\right)^{1/(1-\alpha)}, \qquad
+  y^* = A\left(\frac{sA}{n+\delta}\right)^{\alpha/(1-\alpha)}.
+\]
+\end{formules}
+
+\begin{codeblock}[title=\textbf{Simulation du mod\`ele de Solow}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+
+A, alpha = 1.0, 0.3
+s, delta, n = 0.2, 0.05, 0.02
+
+def solow(t, k):
+    return s * A * k**alpha - (n + delta) * k
+
+k_star = (s * A / (n + delta))**(1 / (1 - alpha))
+print(f"Équilibre : k* = {k_star:.4f}")
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
+
+for k0 in [0.5, 1, 2, 5, 10, 15]:
+    sol = solve_ivp(solow, [0, 100], [k0],
+                    t_eval=np.linspace(0, 100, 500))
+    ax1.plot(sol.t, sol.y[0], label=f'$k_0={k0}$')
+
+ax1.axhline(k_star, color='gray', ls='--', label=f'$k^*={k_star:.2f}$')
+ax1.set_xlabel('$t$'); ax1.set_ylabel('$k(t)$')
+ax1.legend(fontsize=8); ax1.set_title('Convergence vers $k^*$')
+
+# Diagramme de Solow
+k_vals = np.linspace(0, 15, 200)
+ax2.plot(k_vals, s * A * k_vals**alpha, 'b-', label='$sAk^\\alpha$')
+ax2.plot(k_vals, (n + delta) * k_vals, 'r-', label='$(n+\\delta)k$')
+ax2.plot(k_star, (n+delta)*k_star, 'ko', markersize=8)
+ax2.set_xlabel('$k$'); ax2.set_ylabel('Investissement / Dépréciation')
+ax2.legend(); ax2.set_title('Diagramme de Solow')
+plt.tight_layout(); plt.savefig('solow.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{\'Equilibre offre-demande}
+\label{sec:offre_demande}
+% ------------------------------------------------------------
+
+\begin{definition}[Mod\`ele d'ajustement des prix]
+Soient $D(p)$ la demande et $S(p)$ l'offre en fonction du prix $p$.
+Le prix s'ajuste proportionnellement \`a l'exc\`es de demande :
+\[
+  \dot{p} = \kappa\bigl(D(p) - S(p)\bigr), \qquad \kappa > 0.
+\]
+\end{definition}
+
+\begin{exemple}[Fonctions lin\'eaires]
+Avec $D(p)=a-bp$ et $S(p)=c+dp$ ($a,b,c,d>0$) :
+\[
+  \dot{p} = \kappa\bigl((a-c)-(b+d)p\bigr).
+\]
+L'\'equilibre est $p^* = (a-c)/(b+d)$.  C'est un \'equilibre
+globalement stable (l'\'equation est lin\'eaire avec coefficient
+n\'egatif devant $p$).
+\end{exemple}
+
+\subsection{Mod\`ele du cobweb (toile d'araign\'ee)}
+
+\begin{definition}[Mod\`ele du cobweb]
+En temps discret, les producteurs d\'ecident leur offre sur la base
+du prix pass\'e :
+\[
+  S_t = S(p_{t-1}), \qquad p_t = D^{-1}(S_t).
+\]
+\end{definition}
+
+\begin{proposition}
+Si $\abs{S'(p^*)/D'(p^*)} < 1$, le mod\`ele converge vers l'\'equilibre.
+Si $\abs{S'(p^*)/D'(p^*)} > 1$, les oscillations divergent.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Mod\`ele de Black--Scholes}
+\label{sec:black_scholes}
+% ------------------------------------------------------------
+
+\begin{definition}[Mouvement brownien g\'eom\'etrique]
+Le prix d'un actif financier $S(t)$ suit un mouvement brownien
+g\'eom\'etrique :
+\[
+  dS = \mu S\,dt + \sigma S\,dW_t,
+\]
+o\`u $\mu$ est le rendement moyen, $\sigma$ la volatilit\'e et $W_t$
+un mouvement brownien standard.
+\end{definition}
+
+\begin{theoreme}[\'Equation de Black--Scholes]
+Le prix $V(S,t)$ d'une option europ\'eenne sur un actif de prix $S$
+v\'erifie l'EDP :
+\[
+  \frac{\partial V}{\partial t}
+  + \frac{1}{2}\sigma^2 S^2\frac{\partial^2 V}{\partial S^2}
+  + rS\frac{\partial V}{\partial S} - rV = 0,
+\]
+o\`u $r$ est le taux sans risque.
+\end{theoreme}
+
+\begin{formules}[title=\textbf{Formule de Black--Scholes pour un call europ\'een}]
+\[
+  C(S,t) = S\,\Phi(d_1) - Ke^{-r(T-t)}\Phi(d_2),
+\]
+o\`u $K$ est le prix d'exercice, $T$ la maturit\'e, $\Phi$ la
+fonction de r\'epartition de la loi normale, et
+\[
+  d_1 = \frac{\ln(S/K)+(r+\sigma^2/2)(T-t)}{\sigma\sqrt{T-t}},
+  \qquad d_2 = d_1 - \sigma\sqrt{T-t}.
+\]
+\end{formules}
+
+\begin{codeblock}[title=\textbf{Formule de Black--Scholes en Python}]
+\begin{minted}{python}
+import numpy as np
+from scipy.stats import norm
+
+def black_scholes_call(S, K, T, r, sigma):
+    d1 = (np.log(S/K) + (r + sigma**2/2)*T) / (sigma*np.sqrt(T))
+    d2 = d1 - sigma * np.sqrt(T)
+    return S * norm.cdf(d1) - K * np.exp(-r*T) * norm.cdf(d2)
+
+def black_scholes_put(S, K, T, r, sigma):
+    d1 = (np.log(S/K) + (r + sigma**2/2)*T) / (sigma*np.sqrt(T))
+    d2 = d1 - sigma * np.sqrt(T)
+    return K * np.exp(-r*T) * norm.cdf(-d2) - S * norm.cdf(-d1)
+
+# Exemple
+S0, K, T, r, sigma = 100, 100, 1.0, 0.05, 0.2
+print(f"Call = {black_scholes_call(S0, K, T, r, sigma):.4f}")
+print(f"Put  = {black_scholes_put(S0, K, T, r, sigma):.4f}")
+
+# Les Grecs
+import matplotlib.pyplot as plt
+S_range = np.linspace(60, 140, 200)
+calls = [black_scholes_call(S, K, T, r, sigma) for S in S_range]
+
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.plot(S_range, calls, 'b-', lw=2, label='Call')
+ax.plot(S_range, np.maximum(S_range - K, 0), 'r--', label='Payoff')
+ax.set_xlabel('$S$'); ax.set_ylabel('Prix du call')
+ax.legend(); ax.set_title('Prix du call européen (Black-Scholes)')
+plt.tight_layout(); plt.savefig('black_scholes.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Simulation Monte Carlo}
+\label{sec:monte_carlo}
+% ------------------------------------------------------------
+
+\begin{definition}[\'Evaluation par Monte Carlo]
+On simule $M$ trajectoires du prix $S(T)$ et on estime le prix
+de l'option par la moyenne actualis\'ee des payoffs :
+\[
+  \hat{C} = e^{-rT}\frac{1}{M}\sum_{i=1}^M \max(S_i(T)-K,\;0).
+\]
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Monte Carlo pour le call europ\'een}]
+\begin{minted}{python}
+import numpy as np
+
+S0, K, T, r, sigma = 100, 100, 1.0, 0.05, 0.2
+M = 100000
+np.random.seed(42)
+
+Z = np.random.standard_normal(M)
+S_T = S0 * np.exp((r - 0.5*sigma**2)*T + sigma*np.sqrt(T)*Z)
+payoffs = np.maximum(S_T - K, 0)
+C_mc = np.exp(-r*T) * np.mean(payoffs)
+se = np.exp(-r*T) * np.std(payoffs) / np.sqrt(M)
+
+print(f"Prix MC = {C_mc:.4f} ± {1.96*se:.4f} (IC 95%)")
+print(f"Prix BS = {black_scholes_call(S0, K, T, r, sigma):.4f}")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Mod\`ele de Markowitz}
+\label{sec:markowitz}
+% ------------------------------------------------------------
+
+\begin{definition}[Optimisation de portefeuille]
+Pour $n$ actifs de rendements esp\'er\'es $\boldsymbol{\mu}\in\R^n$
+et de matrice de covariance $\Sigma$, le portefeuille optimal au
+sens de Markowitz minimise la variance pour un rendement cible $r_c$ :
+\[
+  \min_{\mathbf{w}} \;\mathbf{w}^\top\Sigma\mathbf{w}
+  \quad\text{s.c.}\quad
+  \mathbf{w}^\top\boldsymbol{\mu}=r_c,\quad
+  \mathbf{w}^\top\mathbf{1}=1.
+\]
+\end{definition}
+
+\begin{proposition}[Fronti\`ere efficiente]
+L'ensemble des portefeuilles optimaux forme une parabole dans le
+plan (risque, rendement), appel\'ee \textbf{fronti\`ere efficiente}.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Mod\`ele de r\'eseau d'entreprises}
+% ------------------------------------------------------------
+
+\begin{definition}[Mod\`ele entr\'ee-sortie de Leontief]
+Soient $n$ secteurs \'economiques. La matrice $A=(a_{ij})$ donne
+la quantit\'e de bien $i$ n\'ecessaire pour produire une unit\'e
+de bien $j$.  L'\'equilibre de production v\'erifie :
+\[
+  \mathbf{x} = A\mathbf{x} + \mathbf{d}
+  \quad\Leftrightarrow\quad
+  \mathbf{x} = (I-A)^{-1}\mathbf{d},
+\]
+o\`u $\mathbf{d}$ est la demande finale.
+\end{definition}
+
+\begin{proposition}
+Si le rayon spectral de $A$ v\'erifie $\rho(A)<1$, alors $(I-A)$
+est inversible et $(I-A)^{-1}=\sum_{k=0}^\infty A^k\geq 0$.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Limites des mod\`eles financiers}
+% ------------------------------------------------------------
+
+\begin{attention}[title=\textbf{Limites du mod\`ele de Black--Scholes}]
+\begin{itemize}
+  \item La volatilit\'e $\sigma$ n'est pas constante (smile de volatilit\'e).
+  \item Les rendements r\'eels ont des queues lourdes (\'ev\'enements extr\^emes
+    plus fr\'equents que pr\'evu par la loi normale).
+  \item Le march\'e n'est pas toujours liquide et sans friction.
+  \item Les crises financi\`eres r\'ev\`elent des corr\'elations non
+    lin\'eaires que les mod\`eles gaussiens ignorent.
+\end{itemize}
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}
+Pour le mod\`ele de Solow avec $A=1$, $\alpha=0{,}3$, $s=0{,}25$,
+$\delta=0{,}05$, $n=0{,}01$ :
+\begin{enumerate}
+  \item Calculer $k^*$ et $y^*$.
+  \item \'Etudier l'effet d'une augmentation du taux d'\'epargne $s$.
+  \item Trouver le taux d'\'epargne optimal (r\`egle d'or de Phelps).
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}
+Simuler le mod\`ele du cobweb avec $D(p)=100-2p$ et $S(p)=-10+3p$.
+D\'eterminer si les oscillations convergent ou divergent.
+\end{exercice}
+
+\begin{exercice}
+Calculer les <<\,Grecs\,>> du call europ\'een (Delta, Gamma, Vega,
+Theta, Rho) analytiquement et num\'eriquement.
+\end{exercice}
+
+\begin{exercice}
+Comparer le prix Monte Carlo d'un put europ\'een avec la formule
+de Black--Scholes pour diff\'erents nombres de trajectoires $M$.
+Tracer l'erreur en fonction de $M$ et v\'erifier la convergence en
+$O(1/\sqrt{M})$.
+\end{exercice}
+
+\begin{exercice}
+Pour un portefeuille de 3 actifs avec rendements et covariances
+donn\'es, tracer la fronti\`ere efficiente de Markowitz.
+\end{exercice}

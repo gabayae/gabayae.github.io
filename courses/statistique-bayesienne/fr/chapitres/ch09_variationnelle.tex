@@ -1,0 +1,347 @@
+% ============================================================
+\chapter{Inf\'erence Variationnelle}
+\label{ch:variationnelle}
+% ============================================================
+
+Les m\'ethodes MCMC sont puissantes mais lentes~: chaque \'echantillon d\'epend du pr\'ec\'edent, la convergence est difficile \`a diagnostiquer, et le passage \`a l'\'echelle reste probl\'ematique. Dans les ann\'ees 2000, une alternative \'emerge~: l'\emph{inf\'erence variationnelle}, qui transforme le probl\`eme d'\'echantillonnage en un probl\`eme d'\emph{optimisation}. L'id\'ee, formalis\'ee par Michael Jordan, Tommi Jaakkola et leurs collaborateurs, est de chercher dans une famille de distributions simples $\mathcal{Q}$ celle qui approxime le mieux la loi a posteriori, en minimisant la divergence de Kullback--Leibler. David Blei et ses \'etudiants d\'emocratiseront l'approche en 2017 avec l'ADVI (Automatic Differentiation Variational Inference), rendant l'inf\'erence variationnelle aussi accessible qu'un appel de fonction. Aujourd'hui, elle alimente les autoencodeurs variationnels (VAE) et les mod\`eles g\'en\'eratifs profonds.
+
+\begin{intuition}[title=\textbf{Id\'ee centrale}]
+L'inf\'erence variationnelle transforme le probl\`eme d'int\'egration
+bay\'esienne (calcul de la loi a posteriori) en un probl\`eme
+d'\emph{optimisation}. Au lieu d'\'echantillonner comme en MCMC, on
+cherche la distribution $q^*(\theta)$ dans une famille param\'etrique
+qui approxime au mieux la vraie loi a posteriori $p(\theta \mid x)$.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Motivation et position du probl\`eme}
+% ------------------------------------------------------------
+
+Dans de nombreux mod\`eles bay\'esiens, la loi a posteriori
+\[
+  p(\theta \mid x) = \frac{p(x \mid \theta)\,\pi(\theta)}{p(x)}
+\]
+est intraitable car la constante de normalisation
+$p(x) = \int p(x \mid \theta)\,\pi(\theta)\,d\theta$ ne se calcule pas
+en forme close. Les m\'ethodes MCMC fournissent des solutions exactes
+asymptotiquement mais peuvent \^etre co\^uteuses en grande dimension.
+
+\begin{remarque}
+L'inf\'erence variationnelle est souvent pr\'ef\'er\'ee au MCMC lorsque~:
+\begin{itemize}
+  \item le jeu de donn\'ees est tr\`es grand ($n > 10^5$),
+  \item on a besoin d'une r\'eponse rapide plut\^ot que d'une pr\'ecision asymptotique,
+  \item le mod\`ele comporte de nombreuses variables latentes (LDA, VAE).
+\end{itemize}
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Divergence de Kullback--Leibler et ELBO}
+% ------------------------------------------------------------
+
+\begin{definition}[Divergence KL]
+\index{divergence de Kullback--Leibler}
+Soient $q$ et $p$ deux densit\'es sur $\Theta$. La \textbf{divergence de
+Kullback--Leibler} de $q$ vers $p$ est~:
+\[
+  \mathrm{KL}(q \| p) = \int q(\theta) \ln \frac{q(\theta)}{p(\theta)}\,d\theta.
+\]
+Elle satisfait $\mathrm{KL}(q \| p) \geq 0$ avec \'egalit\'e si et seulement si
+$q = p$ presque partout.
+\end{definition}
+
+L'objectif variationnel est de minimiser $\mathrm{KL}(q \| p(\cdot \mid x))$
+sur une famille $\mathcal{Q}$. En d\'ecomposant~:
+\[
+  \ln p(x) = \underbrace{\E_q\!\bigl[\ln p(x, \theta) - \ln q(\theta)\bigr]}_{\mathrm{ELBO}(q)}
+              + \mathrm{KL}\bigl(q \| p(\cdot \mid x)\bigr).
+\]
+
+\begin{definition}[ELBO --- Evidence Lower Bound]
+\index{ELBO}
+Le \textbf{ELBO} (\emph{Evidence Lower Bound}) est d\'efini par~:
+\[
+  \mathcal{L}(q) = \E_q\!\bigl[\ln p(x, \theta)\bigr] - \E_q\!\bigl[\ln q(\theta)\bigr].
+\]
+Puisque $\mathrm{KL} \geq 0$, on a $\mathcal{L}(q) \leq \ln p(x)$ pour tout $q$.
+\end{definition}
+
+\begin{theoreme}[\'Equivalence des objectifs]
+Maximiser le ELBO $\mathcal{L}(q)$ par rapport \`a $q \in \mathcal{Q}$ est
+\'equivalent \`a minimiser $\mathrm{KL}(q \| p(\cdot \mid x))$.
+\end{theoreme}
+
+\begin{attention}
+La divergence KL n'est pas sym\'etrique~: $\mathrm{KL}(q \| p) \neq \mathrm{KL}(p \| q)$.
+L'inf\'erence variationnelle utilise $\mathrm{KL}(q \| p)$ (direction \og exclusive \fg,
+\emph{reverse KL}, $\to$ $q$ tend \`a \^etre plus concentr\'ee que $p$, cherchant un mode).
+L'EP utilise $\mathrm{KL}(p \| q)$ (direction \og inclusive \fg, \emph{forward KL},
+$\to$ $q$ couvre tout le support de $p$).
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Approximation en champ moyen}
+% ------------------------------------------------------------
+
+\begin{definition}[Famille champ moyen]
+\index{champ moyen}
+On partitionne $\theta = (\theta_1, \ldots, \theta_K)$ et on pose~:
+\[
+  \mathcal{Q}_{\mathrm{MF}} = \Bigl\{ q : q(\theta) = \prod_{k=1}^K q_k(\theta_k) \Bigr\}.
+\]
+Chaque facteur $q_k$ est libre (non param\'etrique au sein de la factorisation).
+\end{definition}
+
+\begin{theoreme}[Mise \`a jour optimale en champ moyen]
+\label{thm:cavi_update}
+En fixant tous les $q_j$ ($j \neq k$), le facteur optimal $q_k^*$ satisfait~:
+\[
+  \ln q_k^*(\theta_k) = \E_{q_{-k}}\!\bigl[\ln p(x, \theta)\bigr] + \mathrm{cste},
+\]
+o\`u $q_{-k} = \prod_{j \neq k} q_j(\theta_j)$.
+\end{theoreme}
+
+\begin{remarque}
+Pour les mod\`eles \`a famille exponentielle conjugu\'ee, chaque $q_k^*$ appartient
+\`a la m\^eme famille que le prior conditionnel complet, ce qui rend les mises \`a
+jour analytiques.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{CAVI --- Coordinate Ascent Variational Inference}
+% ------------------------------------------------------------
+
+\begin{definition}[Algorithme CAVI]
+\index{CAVI}
+L'algorithme \textbf{CAVI} it\`ere cycliquement la mise \`a jour du
+th\'eor\`eme~\ref{thm:cavi_update} pour $k = 1, \ldots, K$ et
+surveille la convergence via le ELBO.
+\end{definition}
+
+\begin{proposition}[Convergence de CAVI]
+Chaque mise \`a jour de CAVI augmente (ou maintient) le ELBO. L'algorithme
+converge vers un maximum local de $\mathcal{L}(q)$.
+\end{proposition}
+
+\begin{exemple}
+Consid\'erons un mod\`ele gaussien univari\'e~: $x_i \mid \mu, \tau \sim \mathcal{N}(\mu, \tau^{-1})$,
+avec $\mu \sim \mathcal{N}(0, \sigma_0^2)$ et $\tau \sim \mathrm{Gamma}(a_0, b_0)$.
+L'approximation champ moyen $q(\mu, \tau) = q_\mu(\mu)\,q_\tau(\tau)$ donne~:
+\begin{align}
+  q_\mu^*(\mu) &= \mathcal{N}\!\left(\frac{n\bar{x}\,\E[\tau]}{n\E[\tau] + \sigma_0^{-2}},\;
+                   \frac{1}{n\E[\tau] + \sigma_0^{-2}}\right), \\
+  q_\tau^*(\tau) &= \mathrm{Gamma}\!\left(a_0 + \tfrac{n}{2},\;
+                   b_0 + \tfrac{1}{2}\sum_{i=1}^n \E_\mu\!\bigl[(x_i - \mu)^2\bigr]\right).
+\end{align}
+Les esp\'erances crois\'ees sont it\'er\'ees jusqu'\`a convergence.
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Inf\'erence variationnelle stochastique (SVI)}
+% ------------------------------------------------------------
+
+CAVI n\'ecessite de parcourir toutes les donn\'ees \`a chaque it\'eration.
+Pour les grands jeux de donn\'ees, on utilise la \textbf{SVI}
+(\emph{Stochastic Variational Inference}).
+
+\begin{definition}[SVI]
+\index{SVI}
+On distingue les variables \emph{globales} $\beta$ et \emph{locales} $z_i$.
+\`A chaque it\'eration~:
+\begin{enumerate}
+  \item Tirer un mini-batch $S \subset \{1, \ldots, n\}$.
+  \item Mettre \`a jour les variables locales $q(z_i)$ pour $i \in S$.
+  \item Calculer le gradient naturel du ELBO par rapport aux param\`etres
+        globaux et effectuer un pas de descente.
+\end{enumerate}
+\end{definition}
+
+\begin{proposition}[Gradient naturel]
+Pour un mod\`ele \`a famille exponentielle, le gradient naturel du ELBO
+par rapport aux param\`etres naturels $\lambda$ de $q(\beta)$ est~:
+\[
+  \hat{\nabla}_\lambda \mathcal{L} = \lambda_{\mathrm{prior}} + n \cdot
+  \E_{q(z_S)}\!\bigl[t(\beta, x_S, z_S)\bigr] - \lambda,
+\]
+o\`u $t$ est la statistique suffisante et $S$ le mini-batch.
+\end{proposition}
+
+\begin{minted}{python}
+# Pseudo-code SVI
+for epoch in range(max_epochs):
+    S = random_minibatch(data, batch_size)
+    # Mise a jour locale
+    for i in S:
+        q_z[i] = update_local(q_beta, x[i])
+    # Gradient naturel pour les parametres globaux
+    grad = lambda_prior + (n / len(S)) * sufficient_stats(S) - lam
+    lam = lam + rho * grad  # rho = pas de Robbins-Monro
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Inf\'erence variationnelle par r\'eparametrisation}
+% ------------------------------------------------------------
+
+\begin{definition}[Astuce de r\'eparametrisation]
+\index{r\'eparametrisation}
+Si $\theta \sim q_\phi(\theta)$ peut s'\'ecrire $\theta = g(\phi, \epsilon)$
+avec $\epsilon \sim p(\epsilon)$ ind\'ependant de $\phi$, alors~:
+\[
+  \nabla_\phi \E_{q_\phi}\!\bigl[f(\theta)\bigr]
+  = \E_{p(\epsilon)}\!\bigl[\nabla_\phi f(g(\phi, \epsilon))\bigr],
+\]
+ce qui permet d'utiliser la r\'etropropagation.
+\end{definition}
+
+\begin{exemple}
+Pour $q_\phi(\theta) = \mathcal{N}(\mu, \sigma^2)$, on pose
+$\theta = \mu + \sigma \epsilon$ avec $\epsilon \sim \mathcal{N}(0,1)$.
+C'est la base des \textbf{auto-encodeurs variationnels} (VAE).
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Comparaison avec MCMC}
+% ------------------------------------------------------------
+
+\begin{center}
+\begin{tabular}{lcc}
+\hline
+\textbf{Crit\`ere} & \textbf{MCMC} & \textbf{VI} \\
+\hline
+Nature & \'Echantillonnage & Optimisation \\
+Convergence & Exacte (asymptotique) & Approximative \\
+Vitesse & Lente pour $n$ grand & Rapide, scalable \\
+Diagnostic & Traces, $\hat{R}$ & ELBO \\
+Multimodalit\'e & Possible (HMC, \ldots) & Difficult \\
+Incertitude & Fid\`ele & Sous-estim\'ee (KL forward) \\
+\hline
+\end{tabular}
+\end{center}
+
+\begin{remarque}
+En pratique, il est recommand\'e d'utiliser le VI pour l'exploration
+de mod\`eles et le MCMC pour l'inf\'erence finale lorsque la pr\'ecision
+est critique.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Extensions}
+% ------------------------------------------------------------
+
+\subsection{Normalizing flows}
+
+On peut enrichir la famille variationnelle $\mathcal{Q}$ en composant
+des transformations inversibles~:
+\[
+  \theta_K = f_K \circ f_{K-1} \circ \cdots \circ f_1(\theta_0),
+  \quad \theta_0 \sim q_0(\theta_0).
+\]
+La densit\'e r\'esultante s'obtient par la formule du changement de variable~:
+\[
+  \ln q_K(\theta_K) = \ln q_0(\theta_0)
+  - \sum_{k=1}^K \ln \abs{\det \frac{\partial f_k}{\partial \theta_{k-1}}}.
+\]
+
+\subsection{Inf\'erence variationnelle amortie}
+
+Dans les mod\`eles \`a variables latentes $z_i$ par observation, on
+param\`etre $q_\phi(z_i \mid x_i)$ par un r\'eseau de neurones
+(\emph{encoder}). C'est le principe du VAE.
+
+% ------------------------------------------------------------
+\section{Formules cl\'es}
+% ------------------------------------------------------------
+
+\begin{formules}
+\begin{align}
+  \text{ELBO :} \quad & \mathcal{L}(q) = \E_q[\ln p(x,\theta)] - \E_q[\ln q(\theta)] \\
+  \text{D\'ecomposition :} \quad & \ln p(x) = \mathcal{L}(q) + \mathrm{KL}(q \| p(\cdot \mid x)) \\
+  \text{Champ moyen :} \quad & \ln q_k^*(\theta_k) = \E_{q_{-k}}[\ln p(x,\theta)] + C \\
+  \text{R\'eparametrisation :} \quad & \nabla_\phi \E_{q_\phi}[f(\theta)]
+    = \E_\epsilon[\nabla_\phi f(g(\phi,\epsilon))]
+\end{align}
+\end{formules}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}
+Montrer que $\mathrm{KL}(q \| p) \geq 0$ en utilisant l'in\'egalit\'e de Jensen.
+En d\'eduire que le ELBO est bien une borne inf\'erieure de $\ln p(x)$.
+\end{exercice}
+
+\begin{exercice}
+Consid\'erer le mod\`ele~: $x_i \mid \mu \sim \mathcal{N}(\mu, 1)$, $i=1,\ldots,n$,
+avec $\mu \sim \mathcal{N}(0, \sigma_0^2)$. Calculer le ELBO pour
+$q(\mu) = \mathcal{N}(m, s^2)$ et le maximiser analytiquement en $m$ et $s^2$.
+V\'erifier que l'on retrouve la loi a posteriori exacte.
+\end{exercice}
+
+\begin{exercice}
+Impl\'ementer l'algorithme CAVI pour le mod\`ele gaussien avec pr\'ecision
+inconnue de la section pr\'ec\'edente. Tracer l'\'evolution du ELBO au fil
+des it\'erations.
+\end{exercice}
+
+\begin{exercice}
+Comparer exp\'erimentalement (en Python) l'approximation variationnelle
+champ moyen et l'\'echantillonneur de Gibbs pour un m\'elange de deux
+gaussiennes. Discuter les diff\'erences observ\'ees sur l'estimation
+de l'incertitude.
+\end{exercice}
+
+\begin{exercice}[Calcul du ELBO pour un mod\`ele gaussien]
+On consid\`ere le mod\`ele~:
+$x_1, \ldots, x_n \mid \mu, \sigma^2 \sim \mathcal{N}(\mu, \sigma^2)$
+avec $\sigma^2$ connu, et le prior $\mu \sim \mathcal{N}(\mu_0, \tau_0^2)$.
+Soit $q(\mu) = \mathcal{N}(m, s^2)$ la famille variationnelle.
+\begin{enumerate}
+  \item \'Ecrire explicitement le ELBO $\mathcal{L}(m, s^2) =
+        \E_q[\ln p(x_{1:n}, \mu)] - \E_q[\ln q(\mu)]$ en fonction de
+        $m$, $s^2$, $\mu_0$, $\tau_0^2$, $\sigma^2$, $\bar{x}$ et $n$.
+  \item Maximiser $\mathcal{L}$ par rapport \`a $m$ et $s^2$ et montrer
+        que l'on retrouve la loi a posteriori exacte
+        $\mathcal{N}(m^*, (s^*)^2)$.
+  \item Calculer le ELBO au point optimal et v\'erifier que
+        $\mathcal{L}(m^*, (s^*)^2) = \ln p(x_{1:n})$ (la KL s'annule).
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Mise \`a jour champ moyen pour un mod\`ele lin\'eaire]
+Soit le mod\`ele de r\'egression bay\'esienne~:
+$y \mid X, \beta, \tau \sim \mathcal{N}(X\beta, \tau^{-1} I_n)$,
+$\beta \sim \mathcal{N}(0, \alpha^{-1} I_p)$,
+$\tau \sim \mathrm{Gamma}(a_0, b_0)$, avec $\alpha$ fix\'e.
+On pose $q(\beta, \tau) = q_\beta(\beta)\,q_\tau(\tau)$.
+\begin{enumerate}
+  \item D\'eriver la mise \`a jour optimale $q_\beta^*(\beta)$ en calculant
+        $\E_{q_\tau}[\ln p(y, \beta, \tau)]$ et montrer que
+        $q_\beta^*(\beta) = \mathcal{N}(\mu_\beta, \Sigma_\beta)$
+        avec $\Sigma_\beta = (\E[\tau]\,X^\top X + \alpha I_p)^{-1}$
+        et $\mu_\beta = \E[\tau]\,\Sigma_\beta\,X^\top y$.
+  \item D\'eriver $q_\tau^*(\tau) = \mathrm{Gamma}(a_n, b_n)$ en
+        calculant $\E_{q_\beta}[\ln p(y, \beta, \tau)]$.
+        Exprimer $a_n$ et $b_n$.
+  \item Impl\'ementer l'algorithme CAVI r\'esultant et v\'erifier la
+        convergence du ELBO sur des donn\'ees simul\'ees.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Comparaison de m\'etriques de qualit\'e pour le VI]
+Soit $p(\theta \mid x)$ une loi a posteriori bimodale (m\'elange de deux
+gaussiennes en dimension 1) et $q(\theta) = \mathcal{N}(m, s^2)$.
+\begin{enumerate}
+  \item Calculer num\'eriquement $\mathrm{KL}(q \| p)$ (reverse KL) et
+        $\mathrm{KL}(p \| q)$ (forward KL) pour diff\'erentes valeurs
+        de $m$ et $s$. Illustrer graphiquement les minimiseurs respectifs.
+  \item Montrer que le minimiseur de $\mathrm{KL}(q \| p)$ se concentre
+        sur un seul mode (\og mode-seeking \fg), tandis que le minimiseur
+        de $\mathrm{KL}(p \| q)$ couvre les deux modes
+        (\og mass-covering \fg).
+  \item Calculer \'egalement le \emph{chi-squared divergence}
+        $\chi^2(q \| p) = \int \frac{(q - p)^2}{p}\,d\theta$ et la
+        distance de Wasserstein $W_2(q, p)$. Comparer les approximations
+        variationnelles obtenues par minimisation de ces quatre m\'etriques.
+\end{enumerate}
+\end{exercice}

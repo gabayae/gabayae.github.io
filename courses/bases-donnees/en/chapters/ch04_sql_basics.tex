@@ -1,0 +1,498 @@
+% ============================================================
+\chapter{SQL --- Basic Queries}
+\label{ch:sql_basics}
+% ============================================================
+
+In 1974, Donald Chamberlin and Raymond Boyce, researchers at IBM, created SEQUEL (\emph{Structured English Query Language}), later renamed SQL for legal reasons. Their ambition: to allow non-programmers to query databases by writing sentences close to English. The idea was revolutionary: instead of saying \emph{how} to traverse the data (loops, indexes, pointers), you simply say \emph{what} you want. The system finds the most efficient path. Fifty years later, SQL remains the universal language of relational databases, used by millions of developers every day.
+
+\section{Introduction to SQL}
+
+\begin{definition}[SQL]
+\emph{SQL} (\emph{Structured Query Language}) is the standard language
+for querying and manipulating relational databases. Unlike relational
+algebra, SQL is a \emph{declarative} language: you specify \emph{what}
+you want, not \emph{how} to get it.
+\end{definition}
+
+SQL has been standardized by ISO/ANSI. Major versions include:
+SQL-86, SQL-92, SQL:1999, SQL:2003, SQL:2011, SQL:2016, SQL:2023.
+
+\section{Structure of a SELECT Query}
+
+\begin{keyformulas}[title=\textbf{General SELECT Syntax}]
+\begin{minted}{sql}
+SELECT [DISTINCT] columns
+FROM   tables
+[WHERE  condition]
+[ORDER BY column [ASC|DESC]]
+[LIMIT  n [OFFSET m]];
+\end{minted}
+\end{keyformulas}
+
+The logical execution order differs from the writing order:
+\begin{enumerate}
+    \item \texttt{FROM} --- determine source tables.
+    \item \texttt{WHERE} --- filter rows.
+    \item \texttt{SELECT} --- project columns.
+    \item \texttt{DISTINCT} --- eliminate duplicates.
+    \item \texttt{ORDER BY} --- sort the result.
+    \item \texttt{LIMIT / OFFSET} --- limit the number of rows.
+\end{enumerate}
+
+\section{SELECT and FROM}
+
+\begin{codeblock}[title=\textbf{Selecting All Columns}]
+\begin{minted}{sql}
+SELECT * FROM Students;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+student_id | last_name | first_name | birth_date | major
+-----------+-----------+------------+------------+------
+1          | Brown     | Alice      | 2004-03-15 | CS
+2          | Davis     | Bob        | 2003-11-22 | CS
+3          | Miller    | Claire     | 2004-07-08 | Math
+4          | Wilson    | David      | 2003-01-30 | CS
+5          | Taylor    | Emma       | 2004-09-12 | Math
+\end{verbatim}
+\end{codeoutput}
+
+\begin{codeblock}[title=\textbf{Selecting Specific Columns}]
+\begin{minted}{sql}
+SELECT last_name, first_name, major FROM Students;
+\end{minted}
+\end{codeblock}
+
+\begin{bestpractice}[title=\textbf{Avoid SELECT *}]
+In production, avoid \texttt{SELECT *}:
+\begin{itemize}
+    \item It transfers unnecessary data.
+    \item Results depend on the schema: adding a column may break code.
+    \item Use \texttt{SELECT *} only for exploration and debugging.
+\end{itemize}
+\end{bestpractice}
+
+\section{Column and Table Aliases}
+
+\begin{codeblock}[title=\textbf{Using Aliases}]
+\begin{minted}{sql}
+SELECT s.last_name AS student_name,
+       s.first_name AS student_first,
+       s.major AS department
+FROM Students AS s;
+\end{minted}
+\end{codeblock}
+
+The \texttt{AS} keyword is optional in most DBMS:
+\texttt{SELECT last\_name student\_name FROM Students s}.
+
+\section{WHERE Clause --- Filtering}
+
+\begin{definition}[WHERE Clause]
+The \texttt{WHERE} clause filters rows based on a Boolean condition.
+Only rows for which the condition evaluates to \texttt{TRUE} are kept
+(\texttt{FALSE} and \texttt{UNKNOWN} are rejected).
+\end{definition}
+
+\subsection{Comparison Operators}
+
+\begin{keyformulas}[title=\textbf{SQL Comparison Operators}]
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Operator} & \textbf{Meaning} \\
+\midrule
+\texttt{=} & Equal \\
+\texttt{<>} or \texttt{!=} & Not equal \\
+\texttt{<}, \texttt{>} & Less than, greater than \\
+\texttt{<=}, \texttt{>=} & Less/greater than or equal \\
+\texttt{BETWEEN a AND b} & Between $a$ and $b$ (inclusive) \\
+\texttt{IN (v1, v2, ...)} & Member of a list \\
+\texttt{LIKE 'pattern'} & Pattern matching \\
+\texttt{IS NULL} / \texttt{IS NOT NULL} & Null test \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{keyformulas}
+
+\begin{codeblock}[title=\textbf{Filtering Examples}]
+\begin{minted}{sql}
+-- CS students
+SELECT * FROM Students WHERE major = 'CS';
+
+-- Grades between 70 and 90
+SELECT * FROM Enrollments WHERE grade BETWEEN 70 AND 90;
+
+-- Names starting with 'B'
+SELECT * FROM Students WHERE last_name LIKE 'B%';
+
+-- Students in CS or Math
+SELECT * FROM Students WHERE major IN ('CS', 'Math');
+
+-- Enrollments with no grade
+SELECT * FROM Enrollments WHERE grade IS NULL;
+\end{minted}
+\end{codeblock}
+
+\subsection{Logical Operators}
+
+\begin{codeblock}[title=\textbf{Combining Conditions}]
+\begin{minted}{sql}
+-- AND: both conditions must be true
+SELECT * FROM Students
+WHERE major = 'CS' AND birth_date > '2004-01-01';
+
+-- OR: at least one condition true
+SELECT * FROM Enrollments
+WHERE grade > 90 OR grade < 50;
+
+-- NOT: negation
+SELECT * FROM Students
+WHERE NOT major = 'Math';
+\end{minted}
+\end{codeblock}
+
+\begin{warning}[title=\textbf{Three-Valued Logic and NULL}]
+SQL uses \emph{three-valued logic}: \texttt{TRUE}, \texttt{FALSE}, \texttt{UNKNOWN}.
+\begin{center}
+\begin{tabular}{c|ccc}
+\texttt{AND} & T & F & U \\
+\hline
+T & T & F & U \\
+F & F & F & F \\
+U & U & F & U \\
+\end{tabular}
+\qquad
+\begin{tabular}{c|ccc}
+\texttt{OR} & T & F & U \\
+\hline
+T & T & T & T \\
+F & T & F & U \\
+U & T & U & U \\
+\end{tabular}
+\end{center}
+\texttt{NOT UNKNOWN = UNKNOWN}. Consequence: \texttt{grade = NULL}
+returns \texttt{UNKNOWN}, not \texttt{TRUE}. Use \texttt{IS NULL}.
+\end{warning}
+
+\subsection{LIKE Patterns}
+
+\begin{keyformulas}[title=\textbf{LIKE Wildcards}]
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Wildcard} & \textbf{Meaning} \\
+\midrule
+\texttt{\%} & Zero or more arbitrary characters \\
+\texttt{\_} & Exactly one arbitrary character \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{keyformulas}
+
+\begin{codeblock}[title=\textbf{LIKE Examples}]
+\begin{minted}{sql}
+-- Names starting with 'M'
+SELECT * FROM Students WHERE last_name LIKE 'M%';
+
+-- First names with exactly 5 characters
+SELECT * FROM Students WHERE first_name LIKE '_____';
+
+-- Names containing 'il'
+SELECT * FROM Students WHERE last_name LIKE '%il%';
+\end{minted}
+\end{codeblock}
+
+\section{ORDER BY --- Sorting}
+
+\begin{codeblock}[title=\textbf{Sorting Results}]
+\begin{minted}{sql}
+-- Ascending sort (default)
+SELECT last_name, first_name FROM Students ORDER BY last_name ASC;
+
+-- Descending sort
+SELECT * FROM Enrollments ORDER BY grade DESC;
+
+-- Multi-column sort
+SELECT * FROM Students ORDER BY major ASC, last_name ASC;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+-- Sorted by grade descending:
+student_id | course_id | grade | year
+-----------+-----------+-------+-----
+5          | 104       | 97.0  | 2025
+3          | 102       | 95.5  | 2025
+2          | 103       | 91.0  | 2025
+1          | 101       | 88.5  | 2025
+3          | 104       | 82.0  | 2025
+1          | 102       | 76.0  | 2025
+2          | 101       | 72.0  | 2025
+4          | 101       | 55.0  | 2025
+\end{verbatim}
+\end{codeoutput}
+
+\section{DISTINCT --- Eliminating Duplicates}
+
+\begin{codeblock}[title=\textbf{Using DISTINCT}]
+\begin{minted}{sql}
+-- Without DISTINCT: duplicates possible
+SELECT major FROM Students;
+-- CS, CS, Math, CS, Math
+
+-- With DISTINCT: unique values
+SELECT DISTINCT major FROM Students;
+-- CS, Math
+\end{minted}
+\end{codeblock}
+
+\section{LIMIT and OFFSET --- Pagination}
+
+\begin{codeblock}[title=\textbf{Limiting Results}]
+\begin{minted}{sql}
+-- Top 3 grades
+SELECT s.last_name, e.grade
+FROM Students s
+JOIN Enrollments e ON s.student_id = e.student_id
+ORDER BY e.grade DESC
+LIMIT 3;
+
+-- Pagination: page 2 (rows 4 to 6)
+SELECT * FROM Students ORDER BY student_id LIMIT 3 OFFSET 3;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+-- Top 3 grades:
+last_name | grade
+----------+------
+Taylor    | 97.0
+Miller    | 95.5
+Davis     | 91.0
+\end{verbatim}
+\end{codeoutput}
+
+\begin{warning}[title=\textbf{LIMIT Is Not Standard SQL}]
+\texttt{LIMIT} is supported by PostgreSQL, MySQL, SQLite.
+The SQL:2008 standard uses \texttt{FETCH FIRST n ROWS ONLY}:
+\begin{minted}{sql}
+SELECT * FROM Students
+ORDER BY last_name
+FETCH FIRST 3 ROWS ONLY;  -- Standard SQL
+\end{minted}
+\end{warning}
+
+\section{Expressions and Scalar Functions}
+
+\begin{codeblock}[title=\textbf{Computed Expressions}]
+\begin{minted}{sql}
+-- Arithmetic expression
+SELECT last_name, grade, ROUND(grade / 100.0 * 20, 1) AS grade_20
+FROM Enrollments e
+JOIN Students s ON e.student_id = s.student_id;
+
+-- String concatenation
+SELECT last_name || ' ' || first_name AS full_name
+FROM Students;
+
+-- Conditional expression CASE
+SELECT last_name, grade,
+    CASE
+        WHEN grade >= 90 THEN 'Excellent'
+        WHEN grade >= 80 THEN 'Very Good'
+        WHEN grade >= 70 THEN 'Good'
+        WHEN grade >= 60 THEN 'Satisfactory'
+        ELSE 'Failing'
+    END AS letter_grade
+FROM Enrollments e
+JOIN Students s ON e.student_id = s.student_id;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+last_name | grade | letter_grade
+----------+-------+-------------
+Brown     | 88.5  | Very Good
+Brown     | 76.0  | Good
+Davis     | 72.0  | Good
+Davis     | 91.0  | Excellent
+Miller    | 95.5  | Excellent
+Miller    | 82.0  | Very Good
+Wilson    | 55.0  | Failing
+Taylor    | 97.0  | Excellent
+\end{verbatim}
+\end{codeoutput}
+
+\section{Useful Functions}
+
+\begin{keyformulas}[title=\textbf{Common Scalar Functions}]
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Category} & \textbf{Function} & \textbf{Description} \\
+\midrule
+Text & \texttt{UPPER(s)}, \texttt{LOWER(s)} & Uppercase, lowercase \\
+     & \texttt{LENGTH(s)} & Length \\
+     & \texttt{SUBSTR(s, start, len)} & Substring \\
+     & \texttt{TRIM(s)} & Remove whitespace \\
+     & \texttt{REPLACE(s, a, b)} & Replace \\
+Number & \texttt{ABS(x)}, \texttt{ROUND(x, n)} & Absolute value, rounding \\
+       & \texttt{CEIL(x)}, \texttt{FLOOR(x)} & Ceiling, floor \\
+Date   & \texttt{CURRENT\_DATE} & Current date \\
+       & \texttt{DATE('now')} & Current date (SQLite) \\
+NULL   & \texttt{COALESCE(a, b, c)} & First non-NULL value \\
+       & \texttt{NULLIF(a, b)} & NULL if $a = b$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{keyformulas}
+
+\begin{codeblock}[title=\textbf{Function Examples}]
+\begin{minted}{sql}
+SELECT UPPER(last_name) AS upper_name,
+       LENGTH(first_name) AS name_len,
+       COALESCE(grade, 0) AS grade_or_zero
+FROM Students s
+LEFT JOIN Enrollments e ON s.student_id = e.student_id;
+\end{minted}
+\end{codeblock}
+
+\section{INSERT, UPDATE, DELETE}
+
+\begin{codeblock}[title=\textbf{Inserting Data}]
+\begin{minted}{sql}
+-- Insert a single row
+INSERT INTO Students (student_id, last_name, first_name, major)
+VALUES (6, 'Garcia', 'Lucy', 'CS');
+
+-- Insert multiple rows
+INSERT INTO Students (student_id, last_name, first_name, major) VALUES
+    (7, 'White', 'Mark', 'Math'),
+    (8, 'Thomas', 'Julie', 'CS');
+
+-- Insert from a query
+INSERT INTO Archived_Students
+SELECT * FROM Students WHERE major = 'Math';
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Updating and Deleting}]
+\begin{minted}{sql}
+-- Update
+UPDATE Enrollments SET grade = 65.0
+WHERE student_id = 4 AND course_id = 101;
+
+-- Conditional delete
+DELETE FROM Enrollments WHERE grade < 40;
+
+-- Delete all rows
+DELETE FROM Archived_Students;
+-- or TRUNCATE TABLE Archived_Students;  (PostgreSQL)
+\end{minted}
+\end{codeblock}
+
+\begin{warning}[title=\textbf{UPDATE/DELETE Without WHERE}]
+An \texttt{UPDATE} or \texttt{DELETE} without a \texttt{WHERE} clause affects
+\emph{all} rows in the table. Always verify your \texttt{WHERE} clause
+before executing!
+\end{warning}
+
+\section{Python Integration}
+
+\begin{codeblock}[title=\textbf{Complete CRUD with Python/sqlite3}]
+\begin{minted}{python}
+import sqlite3
+
+conn = sqlite3.connect(':memory:')  # in-memory database
+cur = conn.cursor()
+
+# Create and insert
+cur.executescript('''
+    CREATE TABLE Students (
+        id INTEGER PRIMARY KEY, last_name TEXT, first_name TEXT, major TEXT
+    );
+    INSERT INTO Students VALUES (1, 'Brown', 'Alice', 'CS');
+    INSERT INTO Students VALUES (2, 'Davis', 'Bob', 'CS');
+    INSERT INTO Students VALUES (3, 'Miller', 'Claire', 'Math');
+''')
+
+# Read with parameters
+major = 'CS'
+cur.execute("SELECT * FROM Students WHERE major = ?", (major,))
+print("CS Students:", cur.fetchall())
+
+# Update
+cur.execute("UPDATE Students SET major = ? WHERE id = ?", ('Math', 2))
+conn.commit()
+
+# Verify
+cur.execute("SELECT * FROM Students ORDER BY id")
+for row in cur.fetchall():
+    print(row)
+
+conn.close()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+CS Students: [(1, 'Brown', 'Alice', 'CS'), (2, 'Davis', 'Bob', 'CS')]
+(1, 'Brown', 'Alice', 'CS')
+(2, 'Davis', 'Bob', 'Math')
+(3, 'Miller', 'Claire', 'Math')
+\end{verbatim}
+\end{codeoutput}
+
+\section*{Exercises}
+
+\begin{exercise}
+Write SQL queries for the following:
+\begin{enumerate}
+    \item All courses with more than 3 credits.
+    \item Names of students born before 2004.
+    \item Enrollments with a grade above 85, sorted by grade descending.
+    \item The top 3 students by grade.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}
+Explain the difference between the two queries:
+\begin{minted}{sql}
+SELECT DISTINCT major FROM Students;
+SELECT major FROM Students GROUP BY major;
+\end{minted}
+\end{exercise}
+
+\begin{exercise}
+Write a SQL query that displays for each enrollment: the student's name,
+the course title, the grade, and the corresponding letter grade
+(Excellent $\geq$ 90, Very Good $\geq$ 80, Good $\geq$ 70,
+Satisfactory $\geq$ 60, Failing otherwise).
+\end{exercise}
+
+\begin{exercise}
+What are the results of the following expressions?
+\begin{enumerate}
+    \item \texttt{NULL = NULL}
+    \item \texttt{NULL <> 5}
+    \item \texttt{NULL AND TRUE}
+    \item \texttt{NULL OR TRUE}
+    \item \texttt{NOT NULL}
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}
+Write a Python program that:
+\begin{enumerate}
+    \item Creates a SQLite database with the University schema tables.
+    \item Inserts the sample data.
+    \item Executes 3 different queries and displays formatted results.
+    \item Uses parameterized queries for all user inputs.
+\end{enumerate}
+\end{exercise}

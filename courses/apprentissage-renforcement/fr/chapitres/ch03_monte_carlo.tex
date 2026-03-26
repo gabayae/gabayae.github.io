@@ -1,0 +1,367 @@
+% =============================================================================
+\chapter{M\'ethodes Monte Carlo et Diff\'erences Temporelles}
+\label{ch:monte_carlo}
+% =============================================================================
+
+La programmation dynamique suppose une connaissance parfaite de l'environnement~: les probabilit\'es de transition, les r\'ecompenses, tout est donn\'e. Mais dans le monde r\'eel, un robot qui apprend \`a marcher ne conna\^it pas les \'equations de la physique --- il n'a que son \emph{exp\'erience}, les trajectoires qu'il a effectivement parcourues. Comment apprendre \`a partir de cette seule exp\'erience~?
+
+Deux r\'eponses fondamentales \'emergent. Les m\'ethodes \emph{Monte Carlo}, h\'eriti\`eres des travaux de Stanislaw Ulam et John von Neumann au laboratoire de Los Alamos dans les ann\'ees 1940, estiment les valeurs en moyennant les retours observ\'es sur des \'episodes complets. Les m\'ethodes de \emph{diff\'erences temporelles} (TD), introduites par Richard Sutton en 1988, font quelque chose de plus audacieux~: elles mettent \`a jour les estimations \`a chaque pas de temps, en utilisant leurs propres pr\'edictions comme cibles --- un m\'ecanisme appel\'e \emph{bootstrap}. Cette id\'ee, intellectuellement vertigineuse (on apprend \`a partir de ce qu'on ne conna\^it pas encore), est la cl\'e de vo\^ute de l'apprentissage par renforcement moderne.
+
+\begin{intuition}
+Les m\'ethodes Monte Carlo et les diff\'erences temporelles (TD) permettent
+d'apprendre les fonctions de valeur directement \`a partir de l'exp\'erience,
+sans conna\^itre le mod\`ele de transition. Monte Carlo attend la fin d'un
+\'episode pour mettre \`a jour~; TD met \`a jour \`a chaque pas de temps en
+utilisant une estimation bootstrap.
+\end{intuition}
+
+% -----------------------------------------------------------------------------
+\section{Apprentissage sans mod\`ele}
+% -----------------------------------------------------------------------------
+
+Contrairement \`a la programmation dynamique qui requiert la connaissance compl\`ete
+du mod\`ele $(P, R)$, les m\'ethodes sans mod\`ele (\emph{model-free}) apprennent
+\`a partir d'\'episodes g\'en\'er\'es par interaction directe avec l'environnement.
+Un \'episode est une s\'equence~:
+\[
+    S_0, A_0, R_1, S_1, A_1, R_2, \ldots, S_{T-1}, A_{T-1}, R_T, S_T
+\]
+o\`u $S_T$ est un \'etat terminal.
+
+% -----------------------------------------------------------------------------
+\section{M\'ethodes Monte Carlo}
+% -----------------------------------------------------------------------------
+
+\subsection{Estimation MC de la valeur}
+
+\begin{definition}[\'Evaluation MC premi\`ere visite]
+L'estimation MC \textbf{premi\`ere visite} de $V^\pi(s)$ est la moyenne des
+retours $G_t$ observ\'es \`a la premi\`ere occurrence de $s$ dans chaque \'episode~:
+\[
+    V^\pi(s) \approx \frac{1}{N(s)} \sum_{i=1}^{N(s)} G_t^{(i)}
+\]
+o\`u $N(s)$ est le nombre d'\'episodes o\`u $s$ a \'et\'e visit\'e.
+\end{definition}
+
+\begin{definition}[\'Evaluation MC toutes visites]
+L'estimation MC \textbf{toutes visites} utilise toutes les occurrences de $s$
+dans tous les \'episodes, pas seulement la premi\`ere.
+\end{definition}
+
+\begin{theoreme}[Convergence MC premi\`ere visite]
+L'estimation MC premi\`ere visite converge vers $V^\pi(s)$ lorsque $N(s) \to \infty$,
+par la loi forte des grands nombres, car les retours $G_t^{(i)}$ sont des variables
+al\'eatoires i.i.d.\ d'esp\'erance $V^\pi(s)$.
+\end{theoreme}
+
+\begin{algorithme}[title=\textbf{\'Evaluation MC premi\`ere visite}]
+\begin{enumerate}
+    \item Initialiser $V(s) \leftarrow 0$, $N(s) \leftarrow 0$ pour tout $s$
+    \item Pour chaque \'episode~:
+    \begin{enumerate}
+        \item G\'en\'erer l'\'episode en suivant $\pi$~: $S_0, A_0, R_1, \ldots, S_T$
+        \item $G \leftarrow 0$
+        \item Pour $t = T-1, T-2, \ldots, 0$~:
+        \begin{enumerate}
+            \item $G \leftarrow \gamma G + R_{t+1}$
+            \item Si $S_t$ n'appara\^it pas dans $S_0, \ldots, S_{t-1}$~:
+            \begin{enumerate}
+                \item $N(S_t) \leftarrow N(S_t) + 1$
+                \item $V(S_t) \leftarrow V(S_t) + \frac{1}{N(S_t)}(G - V(S_t))$
+            \end{enumerate}
+        \end{enumerate}
+    \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+\subsection{Estimation MC de la fonction Q}
+
+Pour l'am\'elioration de politique sans mod\`ele, il est n\'ecessaire d'estimer
+$Q^\pi(s,a)$ plut\^ot que $V^\pi(s)$~:
+\[
+    Q^\pi(s,a) \approx \frac{1}{N(s,a)} \sum_{i=1}^{N(s,a)} G_t^{(i)}.
+\]
+
+\begin{attention}[title=\textbf{Probl\`eme d'exploration}]
+Si $\pi$ est d\'eterministe, certaines paires $(s,a)$ ne seront jamais
+visit\'ees. Solution~: utiliser des \textbf{d\'eparts exploratoires}
+(\emph{exploring starts}) ou une politique $\epsilon$-gloutonne.
+\end{attention}
+
+\subsection{MC avec politique $\epsilon$-gloutonne}
+
+\begin{definition}[Politique $\epsilon$-gloutonne]
+La politique $\epsilon$-gloutonne d\'eriv\'ee de $Q$ est~:
+\[
+    \pi_\epsilon(a \mid s) = \begin{cases}
+        1 - \epsilon + \frac{\epsilon}{|\mathcal{A}|} & \text{si } a = \argmax_{a'} Q(s,a') \\
+        \frac{\epsilon}{|\mathcal{A}|} & \text{sinon}
+    \end{cases}
+\]
+\end{definition}
+
+\begin{theoreme}[Am\'elioration $\epsilon$-gloutonne]
+La politique $\epsilon$-gloutonne $\pi'$ par rapport \`a $Q^{\pi_\epsilon}$
+satisfait $V^{\pi'}(s) \geq V^{\pi_\epsilon}(s)$ pour tout $s$.
+\end{theoreme}
+
+% -----------------------------------------------------------------------------
+\section{MC hors-politique avec \'echantillonnage d'importance}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Rapport d'importance]
+Soit $b$ la politique de comportement et $\pi$ la politique cible. Le
+\textbf{rapport d'importance} pour une trajectoire de $t$ \`a $T-1$ est~:
+\[
+    \rho_{t:T-1} = \prod_{k=t}^{T-1} \frac{\pi(A_k \mid S_k)}{b(A_k \mid S_k)}.
+\]
+\end{definition}
+
+\begin{formules}[title=\textbf{Estimateur MC hors-politique}]
+L'estimation hors-politique de $V^\pi$ est~:
+\[
+    V^\pi(s) \approx \frac{\sum_{i} \rho_{t_i:T_i-1} G_{t_i}^{(i)}}
+    {\sum_{i} \rho_{t_i:T_i-1}}
+    \quad \text{(\'echantillonnage d'importance pond\'er\'e)}.
+\]
+\end{formules}
+
+\begin{proposition}[Biais et variance]
+L'estimateur ordinaire $\hat{V} = \frac{1}{n}\sum_i \rho_i G_i$ est non biais\'e
+mais a une variance potentiellement infinie. L'estimateur pond\'er\'e
+$\hat{V}_w = \frac{\sum_i \rho_i G_i}{\sum_i \rho_i}$ est biais\'e mais \`a
+variance born\'ee. Le biais tend vers z\'ero quand $n \to \infty$.
+\end{proposition}
+
+% -----------------------------------------------------------------------------
+\section{Diff\'erences temporelles --- TD(0)}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Mise \`a jour TD(0)]
+La m\'ethode TD(0) met \`a jour $V$ \`a chaque pas de temps en utilisant la
+\textbf{cible TD}~:
+\[
+    V(S_t) \leftarrow V(S_t) + \alpha \big[ \underbrace{R_{t+1} + \gamma V(S_{t+1})}_{\text{cible TD}} - V(S_t) \big].
+\]
+Le terme $\delta_t = R_{t+1} + \gamma V(S_{t+1}) - V(S_t)$ est appel\'e
+\textbf{erreur TD}.
+\end{definition}
+
+\begin{formules}[title=\textbf{Erreur de diff\'erence temporelle}]
+\[
+    \delta_t = R_{t+1} + \gamma V(S_{t+1}) - V(S_t)
+\]
+L'erreur TD est un estimateur non biais\'e de l'avantage $A^\pi(S_t, A_t)$ en
+esp\'erance.
+\end{formules}
+
+\begin{theoreme}[Convergence de TD(0)]
+Sous les conditions de Robbins-Monro sur le taux d'apprentissage~:
+\[
+    \sum_{t=0}^{\infty} \alpha_t = \infty, \qquad
+    \sum_{t=0}^{\infty} \alpha_t^2 < \infty,
+\]
+l'algorithme TD(0) converge presque s\^urement vers $V^\pi$.
+\end{theoreme}
+
+\begin{algorithme}[title=\textbf{TD(0) pour l'\'evaluation de politique}]
+\begin{enumerate}
+    \item Initialiser $V(s)$ arbitrairement pour tout $s$, fixer $\alpha$
+    \item Pour chaque \'episode~:
+    \begin{enumerate}
+        \item Initialiser $S_0$
+        \item Pour chaque pas $t = 0, 1, 2, \ldots$ jusqu'\`a terminaison~:
+        \begin{enumerate}
+            \item $A_t \sim \pi(\cdot | S_t)$
+            \item Observer $R_{t+1}, S_{t+1}$
+            \item $V(S_t) \leftarrow V(S_t) + \alpha[R_{t+1} + \gamma V(S_{t+1}) - V(S_t)]$
+        \end{enumerate}
+    \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+% -----------------------------------------------------------------------------
+\section{Comparaison MC vs TD}
+% -----------------------------------------------------------------------------
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lcc}
+    \toprule
+    & \textbf{Monte Carlo} & \textbf{TD(0)} \\
+    \midrule
+    N\'ecessite \'episodes complets & Oui & Non \\
+    Bootstrap & Non & Oui \\
+    Biais & Aucun & Biais (diminue) \\
+    Variance & \'Elev\'ee & Faible \\
+    Convergence & $1/\sqrt{N}$ & Plus rapide en pratique \\
+    Sensibilit\'e \`a $\alpha$ & Faible & \'Elev\'ee \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+\begin{remarque}
+Le \textbf{dilemme biais-variance} est central~: MC a un biais nul mais une
+variance \'elev\'ee (car le retour $G_t$ int\`egre toutes les r\'ecompenses
+futures). TD a un biais d\^u au bootstrap ($V(S_{t+1})$ est une estimation)
+mais une variance plus faible.
+\end{remarque}
+
+% -----------------------------------------------------------------------------
+\section{TD($\lambda$) et traces d'\'eligibilit\'e}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Retour $\lambda$]
+Le \textbf{retour $\lambda$} est une moyenne pond\'er\'ee des retours \`a $n$ pas~:
+\[
+    G_t^\lambda = (1-\lambda) \sum_{n=1}^{\infty} \lambda^{n-1} G_t^{(n)}
+\]
+o\`u $G_t^{(n)} = \sum_{k=0}^{n-1} \gamma^k R_{t+k+1} + \gamma^n V(S_{t+n})$
+est le retour \`a $n$ pas.
+\end{definition}
+
+\begin{definition}[Trace d'\'eligibilit\'e]
+La \textbf{trace d'\'eligibilit\'e} pour l'\'etat $s$ au temps $t$ est~:
+\[
+    e_t(s) = \begin{cases}
+        \gamma \lambda \, e_{t-1}(s) + 1 & \text{si } S_t = s \\
+        \gamma \lambda \, e_{t-1}(s) & \text{sinon}
+    \end{cases}
+\]
+avec $e_0(s) = \mathbb{1}_{S_0 = s}$.
+\end{definition}
+
+\begin{algorithme}[title=\textbf{TD($\lambda$) avec traces d'\'eligibilit\'e}]
+\begin{enumerate}
+    \item Initialiser $V(s)$ pour tout $s$
+    \item Pour chaque \'episode~:
+    \begin{enumerate}
+        \item $e(s) \leftarrow 0$ pour tout $s$
+        \item Pour chaque pas $t$~:
+        \begin{enumerate}
+            \item Observer $R_{t+1}, S_{t+1}$
+            \item $\delta_t \leftarrow R_{t+1} + \gamma V(S_{t+1}) - V(S_t)$
+            \item $e(S_t) \leftarrow e(S_t) + 1$
+            \item Pour tout $s$~: $V(s) \leftarrow V(s) + \alpha \delta_t e(s)$
+            \item Pour tout $s$~: $e(s) \leftarrow \gamma \lambda \, e(s)$
+        \end{enumerate}
+    \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+\begin{remarque}
+$\lambda = 0$ donne TD(0)~; $\lambda = 1$ donne (essentiellement) MC. Les valeurs
+interm\'ediaires $\lambda \in (0,1)$ offrent un compromis biais-variance optimal
+en pratique.
+\end{remarque}
+
+% -----------------------------------------------------------------------------
+\section{Impl\'ementation en Python}
+% -----------------------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{\'Evaluation Monte Carlo premi\`ere visite}]
+\begin{minted}{python}
+import numpy as np
+import gymnasium as gym
+
+def mc_first_visit(env, pi, n_episodes=10000, gamma=0.99):
+    """Evaluation MC premiere visite de V^pi."""
+    nS = env.observation_space.n
+    V = np.zeros(nS)
+    N = np.zeros(nS)
+
+    for _ in range(n_episodes):
+        episode = []
+        s, _ = env.reset()
+        done = False
+        while not done:
+            a = pi(s)
+            s_next, r, terminated, truncated, _ = env.step(a)
+            episode.append((s, a, r))
+            s = s_next
+            done = terminated or truncated
+
+        G = 0.0
+        visited = set()
+        for s, a, r in reversed(episode):
+            G = gamma * G + r
+            if s not in visited:
+                visited.add(s)
+                N[s] += 1
+                V[s] += (G - V[s]) / N[s]
+    return V
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{TD(0) pour l'\'evaluation de politique}]
+\begin{minted}{python}
+def td0_evaluation(env, pi, n_episodes=10000, alpha=0.01, gamma=0.99):
+    """Evaluation TD(0) de V^pi."""
+    nS = env.observation_space.n
+    V = np.zeros(nS)
+
+    for _ in range(n_episodes):
+        s, _ = env.reset()
+        done = False
+        while not done:
+            a = pi(s)
+            s_next, r, terminated, truncated, _ = env.step(a)
+            done = terminated or truncated
+            V_next = 0.0 if terminated else V[s_next]
+            V[s] += alpha * (r + gamma * V_next - V[s])
+            s = s_next
+    return V
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{TD($\lambda$) avec traces d'\'eligibilit\'e}]
+\begin{minted}{python}
+def td_lambda(env, pi, n_episodes=10000, alpha=0.01,
+              gamma=0.99, lam=0.8):
+    """TD(lambda) avec traces d'eligibilite."""
+    nS = env.observation_space.n
+    V = np.zeros(nS)
+
+    for _ in range(n_episodes):
+        e = np.zeros(nS)  # traces d'eligibilite
+        s, _ = env.reset()
+        done = False
+        while not done:
+            a = pi(s)
+            s_next, r, terminated, truncated, _ = env.step(a)
+            done = terminated or truncated
+            V_next = 0.0 if terminated else V[s_next]
+            delta = r + gamma * V_next - V[s]
+            e[s] += 1.0  # trace accumulee
+            V += alpha * delta * e
+            e *= gamma * lam
+            s = s_next
+    return V
+\end{minted}
+\end{codeblock}
+
+% -----------------------------------------------------------------------------
+\section{Exercices}
+% -----------------------------------------------------------------------------
+
+\begin{exercice}[Variance MC vs TD]
+G\'en\'erez 1000 \'episodes dans un MDP \`a 5 \'etats avec une politique fixe.
+Estimez $V^\pi$ par MC premi\`ere visite et TD(0). Tracez les courbes d'erreur
+$\norm{V_n - V^\pi}_2$ en fonction du nombre d'\'episodes $n$.
+\end{exercice}
+
+\begin{exercice}[Retour \`a $n$ pas]
+Impl\'ementez le retour \`a $n$ pas $G_t^{(n)}$ et comparez les performances
+pour $n \in \{1, 2, 4, 8, \infty\}$ sur l'environnement \texttt{FrozenLake-v1}.
+\end{exercice}
+
+\begin{exercice}[Preuve de convergence TD]
+D\'emontrez que l'erreur TD $\delta_t$ satisfait $\E_\pi[\delta_t | S_t = s] = 0$
+lorsque $V = V^\pi$. Qu'en d\'eduit-on sur le point fixe de TD(0)~?
+\end{exercice}
+
+\begin{exercice}[\'Echantillonnage d'importance]
+Impl\'ementez l'estimation MC hors-politique avec \'echantillonnage d'importance
+pond\'er\'e pour estimer $V^\pi$ \`a partir de trajectoires g\'en\'er\'ees par
+une politique uniforme $b$. Comparez avec l'estimateur ordinaire.
+\end{exercice}

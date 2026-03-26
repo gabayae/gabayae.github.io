@@ -1,0 +1,280 @@
+% ============================================================
+\chapter{ETL and Data Warehousing}
+\label{ch:etl}
+% ============================================================
+
+\begin{intuition}[title=\textbf{Central idea}]
+A data warehouse centralizes enterprise data in a schema optimized for
+analytical queries. ETL (Extract, Transform, Load) pipelines feed this
+warehouse by cleaning and transforming data from heterogeneous sources.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Fundamental concepts}
+% ------------------------------------------------------------
+
+\begin{definition}[Data warehouse]
+\index{data warehouse}
+A \textbf{data warehouse} is a database that is \emph{subject-oriented},
+\emph{integrated}, \emph{non-volatile}, and \emph{time-variant}, designed
+for decision support (Inmon, 1992).
+\end{definition}
+
+\begin{remark}
+A data warehouse contrasts with \textbf{OLTP} (\emph{Online Transaction
+Processing}) databases that serve daily operations. Analytical workloads
+fall under \textbf{OLAP} (\emph{Online Analytical Processing}).
+\end{remark}
+
+\begin{center}
+\begin{tabular}{lcc}
+\hline
+\textbf{Characteristic} & \textbf{OLTP} & \textbf{OLAP} \\
+\hline
+Operations & Short reads/writes & Long analytical queries \\
+Users & Many, operational & Few, analysts \\
+Data & Current, detailed & Historical, aggregated \\
+Schema & Normalized (3NF) & Denormalized (star, snowflake) \\
+\hline
+\end{tabular}
+\end{center}
+
+% ------------------------------------------------------------
+\section{Dimensional modeling}
+% ------------------------------------------------------------
+
+\begin{definition}[Star schema]
+\index{star schema}
+A \textbf{star schema} organizes data around a central \textbf{fact table}
+(quantitative measures) surrounded by \textbf{dimension tables}
+(descriptive attributes). Dimensions are linked to the fact table via
+foreign keys.
+\end{definition}
+
+\begin{example}
+Data warehouse for retail sales:
+\begin{minted}{python}
+-- Fact table
+CREATE TABLE fact_sales (
+    sale_id      SERIAL PRIMARY KEY,
+    product_id   INT REFERENCES dim_product(id),
+    customer_id  INT REFERENCES dim_customer(id),
+    date_id      INT REFERENCES dim_date(id),
+    store_id     INT REFERENCES dim_store(id),
+    quantity     INT,
+    amount       DECIMAL(10,2),
+    cost         DECIMAL(10,2)
+);
+
+-- Dimension table
+CREATE TABLE dim_date (
+    id        INT PRIMARY KEY,
+    full_date DATE,
+    month     INT,
+    quarter   INT,
+    year      INT,
+    day_of_week VARCHAR(10)
+);
+\end{minted}
+\end{example}
+
+\begin{definition}[Snowflake schema]
+\index{snowflake schema}
+The \textbf{snowflake schema} is a variant where dimension tables are
+normalized: each hierarchy is extracted into a separate table
+(e.g., \texttt{dim\_city} $\to$ \texttt{dim\_region} $\to$
+\texttt{dim\_country}).
+\end{definition}
+
+\begin{attention}
+The star schema is generally preferred over the snowflake because:
+\begin{itemize}
+  \item joins are simpler (single step),
+  \item performance is better (fewer joins),
+  \item redundancy is acceptable in OLAP (disk space is cheap).
+\end{itemize}
+\end{attention}
+
+% ------------------------------------------------------------
+\section{The ETL process}
+% ------------------------------------------------------------
+
+\begin{definition}[ETL]
+\index{ETL}
+The \textbf{ETL} (\emph{Extract, Transform, Load}) process consists of:
+\begin{enumerate}
+  \item \textbf{Extract}: retrieve data from sources (OLTP databases,
+        CSV files, APIs, logs).
+  \item \textbf{Transform}: clean, normalize, deduplicate, aggregate,
+        compute derived metrics.
+  \item \textbf{Load}: insert the transformed data into the warehouse.
+\end{enumerate}
+\end{definition}
+
+\begin{example}
+ETL pipeline in Python with pandas:
+\begin{minted}{python}
+import pandas as pd
+from sqlalchemy import create_engine
+
+# 1. Extract
+df_sales = pd.read_csv("sales_2025.csv")
+df_customers = pd.read_sql("SELECT * FROM customers", engine_oltp)
+
+# 2. Transform
+df_sales["date"] = pd.to_datetime(df_sales["date"])
+df_sales = df_sales.dropna(subset=["amount"])
+df_sales["amount"] = df_sales["amount"].clip(lower=0)
+df = df_sales.merge(df_customers, on="customer_id", how="left")
+df["quarter"] = df["date"].dt.quarter
+
+# 3. Load
+engine_dw = create_engine("postgresql://user:pass@host/warehouse")
+df.to_sql("fact_sales", engine_dw, if_exists="append", index=False)
+\end{minted}
+\end{example}
+
+\begin{definition}[ELT]
+\index{ELT}
+The \textbf{ELT} (\emph{Extract, Load, Transform}) variant loads raw data
+into the warehouse first, then performs transformations directly in SQL.
+This approach is popular with cloud warehouses (BigQuery, Snowflake,
+Redshift) thanks to their compute power.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Slowly Changing Dimensions (SCD)}
+% ------------------------------------------------------------
+
+\begin{definition}[Slowly Changing Dimensions]
+\index{SCD}
+\textbf{SCDs} manage modifications to dimension attributes:
+\begin{itemize}
+  \item \textbf{Type 1}: overwrite the old value (no history).
+  \item \textbf{Type 2}: create a new row with validity dates
+        (\texttt{start\_date}, \texttt{end\_date}, \texttt{is\_current}).
+  \item \textbf{Type 3}: add a column for the old value (limited history).
+\end{itemize}
+\end{definition}
+
+\begin{example}
+SCD Type 2 --- a customer moves:
+\begin{minted}{python}
+-- Before: current row
+-- id=1, name='Smith', city='New York', start_date='2020-01-01',
+--        end_date='9999-12-31', is_current=TRUE
+
+-- After relocation:
+UPDATE dim_customer SET end_date = '2025-06-15', is_current = FALSE
+WHERE id = 1 AND is_current = TRUE;
+
+INSERT INTO dim_customer (natural_id, name, city, start_date, end_date, is_current)
+VALUES (1, 'Smith', 'Boston', '2025-06-15', '9999-12-31', TRUE);
+\end{minted}
+\end{example}
+
+% ------------------------------------------------------------
+\section{OLAP operations}
+% ------------------------------------------------------------
+
+\begin{definition}[OLAP operations]
+\index{OLAP}
+The classic OLAP operations on a multidimensional cube are:
+\begin{itemize}
+  \item \textbf{Roll-up} (aggregation): move up in the hierarchy
+        (day $\to$ month $\to$ year).
+  \item \textbf{Drill-down} (disaggregation): move down in the hierarchy.
+  \item \textbf{Slice}: fix one dimension (e.g., \texttt{year = 2025}).
+  \item \textbf{Dice}: select a multi-dimensional sub-cube.
+  \item \textbf{Pivot}: rotate the axes of the cube.
+\end{itemize}
+\end{definition}
+
+\begin{minted}{python}
+-- Roll-up: sales by month -> sales by quarter
+SELECT d.quarter, d.year, SUM(f.amount) AS total
+FROM fact_sales f
+JOIN dim_date d ON f.date_id = d.id
+GROUP BY d.quarter, d.year
+ORDER BY d.year, d.quarter;
+
+-- Slice + Dice with CUBE
+SELECT d.year, p.category, s.region,
+       SUM(f.amount) AS total
+FROM fact_sales f
+JOIN dim_date d ON f.date_id = d.id
+JOIN dim_product p ON f.product_id = p.id
+JOIN dim_store s ON f.store_id = s.id
+WHERE d.year IN (2024, 2025)
+GROUP BY CUBE (d.year, p.category, s.region);
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Materialized views}
+% ------------------------------------------------------------
+
+\begin{definition}[Materialized view]
+\index{materialized view}
+A \textbf{materialized view} is a view whose result is physically stored
+on disk. It accelerates repetitive analytical queries at the cost of
+additional storage and a refresh overhead.
+\end{definition}
+
+\begin{minted}{python}
+-- Creating a materialized view
+CREATE MATERIALIZED VIEW mv_monthly_sales AS
+SELECT d.year, d.month, p.category,
+       SUM(f.amount) AS total, COUNT(*) AS num_sales
+FROM fact_sales f
+JOIN dim_date d ON f.date_id = d.id
+JOIN dim_product p ON f.product_id = p.id
+GROUP BY d.year, d.month, p.category;
+
+-- Refreshing
+REFRESH MATERIALIZED VIEW CONCURRENTLY mv_monthly_sales;
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Key formulas}
+% ------------------------------------------------------------
+
+\begin{keyformulas}
+\begin{itemize}
+  \item \textbf{ETL}: Extract $\to$ Transform $\to$ Load (vs.\ ELT: Extract $\to$ Load $\to$ Transform)
+  \item \textbf{Star schema}: 1 fact table + $k$ dimension tables, simple joins
+  \item \textbf{OLAP}: Roll-up, Drill-down, Slice, Dice, Pivot
+  \item \textbf{SCD Type 2}: historization via \texttt{start\_date}/\texttt{end\_date}
+  \item \textbf{Materialized view}: space vs.\ query time trade-off
+\end{itemize}
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+Design a star schema for an airline reservation system. Identify the fact
+table, measures, and at least four dimensions.
+\end{exercise}
+
+\begin{exercise}
+Transform the star schema from the previous exercise into a snowflake
+schema. Discuss the advantages and disadvantages.
+\end{exercise}
+
+\begin{exercise}
+Write an ETL pipeline in Python that: (a) extracts data from a JSON file,
+(b) cleans missing values and normalizes dates, (c) loads the result into
+a PostgreSQL table.
+\end{exercise}
+
+\begin{exercise}
+Implement a Type 2 slowly changing dimension for the \texttt{dim\_product}
+table. Simulate a price change and verify that history is preserved.
+\end{exercise}
+
+\begin{exercise}
+Write the SQL queries corresponding to the following OLAP operations on the
+sales schema: (a) roll-up from day to quarter, (b) slice on the year 2025,
+(c) dice on electronics products sold in California.
+\end{exercise}

@@ -1,0 +1,378 @@
+% ============================================================
+\chapter{Discrete Dynamical Systems and Chaos}
+\label{ch:chaos}
+% ============================================================
+
+In 1963, Edward Lorenz, a meteorologist at MIT, accidentally discovered that his simplified atmospheric model was extremely sensitive to initial conditions: a tiny difference in starting data produced radically different trajectories. This is the ``butterfly effect,'' and the birth of chaos theory. But chaos is not disorder: it obeys precise rules, generates magnificent fractal structures (the Lorenz attractor, the Mandelbrot set), and possesses a rigorous mathematical theory. This chapter explores this fascinating world through discrete dynamical systems---iterations of functions---where chaos appears in its purest form.
+
+\section{Introduction}
+
+Discrete dynamical systems, defined by iterations $x_{n+1}=f(x_n)$,
+provide a remarkably simple framework in which complex behaviours
+emerge: bifurcations, period doubling, and deterministic chaos.
+This chapter studies the logistic map in depth, Lyapunov exponents,
+and bifurcation diagrams.
+
+% ------------------------------------------------------------
+\section{Iterations and Orbits}
+% ------------------------------------------------------------
+
+\begin{definition}[Discrete dynamical system]
+A one-dimensional \textbf{discrete dynamical system} is defined by a
+map $f:\R\to\R$ and the recurrence:
+\[
+  x_{n+1} = f(x_n), \qquad x_0 \text{ given}.
+\]
+The \textbf{orbit} of $x_0$ is the sequence $(x_0, x_1, x_2, \ldots)$.
+\end{definition}
+
+\begin{definition}[Fixed point and cycle]
+\begin{itemize}
+  \item A \textbf{fixed point} is a point $x^*$ such that $f(x^*)=x^*$.
+  \item A \textbf{cycle of period $p$} is a set
+    $\{x_1^*,\ldots,x_p^*\}$ with $f^p(x_i^*)=x_i^*$ and
+    $f^k(x_i^*)\neq x_i^*$ for $0<k<p$.
+\end{itemize}
+\end{definition}
+
+\begin{theorem}[Stability of a fixed point]
+Let $x^*$ be a fixed point of $f$ with $f$ differentiable at $x^*$.
+\begin{itemize}
+  \item If $\abs{f'(x^*)} < 1$, the fixed point is
+    \textbf{asymptotically stable} (attractor).
+  \item If $\abs{f'(x^*)} > 1$, the fixed point is \textbf{unstable}
+    (repeller).
+  \item If $\abs{f'(x^*)} = 1$, stability depends on higher-order
+    terms.
+\end{itemize}
+\end{theorem}
+
+\begin{example}[Cobweb diagram]
+For $f(x)=\cos(x)$, the fixed point satisfies $x^*=\cos(x^*)
+\approx 0.7391$.  We have $f'(x^*)=-\sin(x^*)\approx -0.6736$,
+so $\abs{f'(x^*)}<1$: the fixed point is stable.
+\end{example}
+
+\begin{codeblock}[title=\textbf{Cobweb diagram}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+def cobweb(f, x0, n_iter, ax, xmin=0, xmax=1):
+    x = np.linspace(xmin, xmax, 500)
+    ax.plot(x, f(x), 'b-', lw=2, label='$f(x)$')
+    ax.plot(x, x, 'k--', lw=1, label='$y=x$')
+    xn = x0
+    for _ in range(n_iter):
+        xn1 = f(xn)
+        ax.plot([xn, xn], [xn, xn1], 'r-', lw=0.8)
+        ax.plot([xn, xn1], [xn1, xn1], 'r-', lw=0.8)
+        xn = xn1
+    ax.set_xlabel('$x_n$'); ax.set_ylabel('$x_{n+1}$')
+
+fig, ax = plt.subplots(figsize=(6, 6))
+cobweb(np.cos, 0.1, 30, ax, xmin=-0.5, xmax=1.5)
+ax.set_title('Cobweb diagram for $f(x) = \\cos(x)$')
+plt.tight_layout(); plt.savefig('cobweb.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{The Logistic Map}
+\label{sec:logistic_map}
+% ------------------------------------------------------------
+
+\begin{definition}[Logistic map]
+The \textbf{logistic map} is defined by:
+\[
+  f_r(x) = rx(1-x), \qquad x\in[0,1], \quad r\in[0,4].
+\]
+It models population growth with saturation in discrete time.
+\end{definition}
+
+\subsection{Fixed Points}
+
+Fixed points satisfy $x=rx(1-x)$:
+\[
+  x^*_1 = 0, \qquad x^*_2 = 1 - \frac{1}{r} \quad (r>1).
+\]
+
+\begin{proposition}[Stability of fixed points]
+We have $f_r'(x) = r(1-2x)$.
+\begin{itemize}
+  \item $x^*_1=0$: $f_r'(0)=r$.  Stable if $r<1$, unstable if $r>1$.
+  \item $x^*_2=1-1/r$: $f_r'(x^*_2)=2-r$.  Stable if $1<r<3$.
+\end{itemize}
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Period-Doubling Cascade}
+\label{sec:doubling}
+% ------------------------------------------------------------
+
+\begin{theorem}[Feigenbaum scenario]
+As $r$ increases beyond $3$, the fixed point $x^*_2$ becomes unstable
+and gives birth to a period-$2$ cycle (period-doubling bifurcation).
+This process repeats: $2\to 4\to 8\to\cdots$  The bifurcation values
+$r_n$ converge geometrically to $r_\infty\approx 3.5699$ with the
+universal Feigenbaum ratio:
+\[
+  \delta = \lim_{n\to\infty}\frac{r_n - r_{n-1}}{r_{n+1}-r_n}
+  \approx 4.6692.
+\]
+\end{theorem}
+
+\begin{remark}
+The Feigenbaum constant $\delta$ is \textbf{universal}: it does not
+depend on the precise form of $f$, provided $f$ has a single
+quadratic maximum.
+\end{remark}
+
+\begin{codeblock}[title=\textbf{Bifurcation diagram of the logistic map}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+r_vals = np.linspace(2.5, 4.0, 2000)
+n_skip = 300
+n_plot = 200
+
+r_list, x_list = [], []
+
+for r in r_vals:
+    x = 0.5
+    for _ in range(n_skip):
+        x = r * x * (1 - x)
+    for _ in range(n_plot):
+        x = r * x * (1 - x)
+        r_list.append(r)
+        x_list.append(x)
+
+plt.figure(figsize=(12, 7))
+plt.scatter(r_list, x_list, s=0.01, c='black', alpha=0.5)
+plt.xlabel('$r$'); plt.ylabel('$x^*$')
+plt.title('Bifurcation Diagram --- Logistic Map')
+plt.tight_layout(); plt.savefig('bifurcation.pdf', dpi=200)
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Deterministic Chaos}
+\label{sec:chaos_def}
+% ------------------------------------------------------------
+
+\begin{definition}[Chaos (Devaney)]
+A discrete dynamical system $x_{n+1}=f(x_n)$ is said to be
+\textbf{chaotic} in the sense of Devaney if it satisfies:
+\begin{enumerate}
+  \item \textbf{Sensitive dependence on initial conditions:}
+    $\exists\,\varepsilon>0$ such that for every $x_0$ and every
+    neighbourhood $U$ of $x_0$, $\exists\,y_0\in U$ and $\exists\,n$
+    with $\abs{f^n(x_0)-f^n(y_0)}>\varepsilon$.
+  \item \textbf{Topological transitivity:} for every pair of non-empty
+    open sets $U,V$, $\exists\,n$ with $f^n(U)\cap V\neq\emptyset$.
+  \item \textbf{Dense periodic orbits:} periodic points are dense.
+\end{enumerate}
+\end{definition}
+
+\begin{theorem}
+The logistic map $f_4(x)=4x(1-x)$ is chaotic on $[0,1]$.
+\end{theorem}
+
+\begin{intuition}[title=\textbf{Chaos and predictability}]
+A chaotic system is \textbf{deterministic}: there is no randomness.
+However, sensitive dependence on initial conditions makes long-term
+predictions practically impossible, as any measurement error is
+amplified exponentially.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Lyapunov Exponents}
+\label{sec:lyapunov}
+% ------------------------------------------------------------
+
+\begin{definition}[Lyapunov exponent]
+The \textbf{Lyapunov exponent} of an orbit $(x_0,x_1,\ldots)$
+under $f$ is:
+\[
+  \lambda = \lim_{n\to\infty}\frac{1}{n}\sum_{k=0}^{n-1}
+  \ln\abs{f'(x_k)}.
+\]
+\begin{itemize}
+  \item $\lambda < 0$: convergence to an attractor (stable fixed point
+    or cycle).
+  \item $\lambda = 0$: marginally stable behaviour.
+  \item $\lambda > 0$: \textbf{chaos} (sensitive dependence).
+\end{itemize}
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Computing the Lyapunov exponent}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+def lyapunov_exponent(r, x0=0.5, n_skip=1000, n_calc=5000):
+    x = x0
+    for _ in range(n_skip):
+        x = r * x * (1 - x)
+    lyap = 0.0
+    for _ in range(n_calc):
+        deriv = abs(r * (1 - 2 * x))
+        if deriv == 0:
+            return -np.inf
+        lyap += np.log(deriv)
+        x = r * x * (1 - x)
+    return lyap / n_calc
+
+r_vals = np.linspace(2.5, 4.0, 2000)
+lyap_vals = [lyapunov_exponent(r) for r in r_vals]
+
+plt.figure(figsize=(12, 4))
+plt.plot(r_vals, lyap_vals, 'b-', lw=0.5)
+plt.axhline(0, color='red', ls='--')
+plt.xlabel('$r$'); plt.ylabel('$\\lambda$')
+plt.title('Lyapunov exponent of the logistic map')
+plt.tight_layout(); plt.savefig('lyapunov.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Periodic Windows}
+% ------------------------------------------------------------
+
+\begin{remark}
+Within the chaotic region ($r>r_\infty$), there exist
+\textbf{periodic windows} where the orbit becomes periodic again.
+The largest is the period-$3$ window around $r\approx 3.83$.
+\end{remark}
+
+\begin{theorem}[Li--Yorke, 1975]
+If $f$ has a periodic point of period~$3$, then $f$ has periodic
+orbits of \textbf{every} period (``period three implies chaos'').
+\end{theorem}
+
+% ------------------------------------------------------------
+\section{The H\'enon Map}
+\label{sec:henon}
+% ------------------------------------------------------------
+
+\begin{definition}[H\'enon map]
+The \textbf{H\'enon map} is a two-dimensional discrete dynamical
+system:
+\[
+  \begin{cases}
+    x_{n+1} = 1 - ax_n^2 + y_n, \\
+    y_{n+1} = bx_n.
+  \end{cases}
+\]
+For $a=1.4$ and $b=0.3$, it possesses a strange attractor of fractal
+dimension $\approx 1.26$.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{H\'enon attractor}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+a, b = 1.4, 0.3
+n_iter = 50000
+x, y = np.zeros(n_iter), np.zeros(n_iter)
+x[0], y[0] = 0.1, 0.1
+
+for n in range(n_iter - 1):
+    x[n+1] = 1 - a * x[n]**2 + y[n]
+    y[n+1] = b * x[n]
+
+plt.figure(figsize=(10, 6))
+plt.scatter(x[1000:], y[1000:], s=0.1, c='blue', alpha=0.5)
+plt.xlabel('$x$'); plt.ylabel('$y$')
+plt.title("Henon Attractor ($a=1.4$, $b=0.3$)")
+plt.tight_layout(); plt.savefig('henon.pdf', dpi=200)
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Continuous-Time Chaos: The Lorenz System}
+% ------------------------------------------------------------
+
+\begin{definition}[Lorenz system]
+The Lorenz system models atmospheric convection:
+\begin{align}
+  \dot{x} &= \sigma(y-x), \\
+  \dot{y} &= \rho x - y - xz, \\
+  \dot{z} &= xy - \beta z.
+\end{align}
+For $\sigma=10$, $\rho=28$, $\beta=8/3$, it exhibits a butterfly-shaped
+\textbf{strange attractor}.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Lorenz attractor}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+from mpl_toolkits.mplot3d import Axes3D
+
+sigma, rho, beta_l = 10, 28, 8/3
+
+def lorenz(t, state):
+    x, y, z = state
+    return [sigma*(y-x), rho*x - y - x*z, x*y - beta_l*z]
+
+sol = solve_ivp(lorenz, [0, 50], [1, 1, 1],
+                t_eval=np.linspace(0, 50, 20000),
+                method='RK45', rtol=1e-10)
+
+fig = plt.figure(figsize=(10, 8))
+ax = fig.add_subplot(111, projection='3d')
+ax.plot(sol.y[0], sol.y[1], sol.y[2], lw=0.3, color='blue')
+ax.set_xlabel('$x$'); ax.set_ylabel('$y$'); ax.set_zlabel('$z$')
+ax.set_title('Lorenz Attractor')
+plt.tight_layout(); plt.savefig('lorenz.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+For the logistic map with $r=3.2$:
+\begin{enumerate}
+  \item Find the period-$2$ cycle analytically.
+  \item Verify by simulation.
+  \item Show the cycle is stable by computing $(f_r^2)'$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}
+Write a program that numerically computes the first bifurcation
+values $r_1, r_2, \ldots, r_6$ and verify convergence to the
+Feigenbaum ratio $\delta\approx 4.6692$.
+\end{exercise}
+
+\begin{exercise}
+Plot the Lyapunov exponent of the logistic map as a function of $r$
+and verify that $\lambda>0$ in chaotic regions and $\lambda<0$ in
+periodic windows.
+\end{exercise}
+
+\begin{exercise}
+For the H\'enon map with different values of $a$ (fixing $b=0.3$),
+plot the attractor and compute the two Lyapunov exponents.
+\end{exercise}
+
+\begin{exercise}
+Study sensitive dependence on initial conditions in the Lorenz
+system: plot two trajectories starting from $(1,1,1)$ and
+$(1.001,1,1)$ and measure the exponential divergence.
+\end{exercise}
+
+\begin{exercise}
+Consider the tent map $f(x)=\min(2x, 2(1-x))$ on $[0,1]$.
+\begin{enumerate}
+  \item Show that the Lyapunov exponent is $\lambda=\ln 2$.
+  \item Draw the cobweb diagram.
+  \item Why is this map exactly conjugate to the logistic map $f_4$?
+\end{enumerate}
+\end{exercise}

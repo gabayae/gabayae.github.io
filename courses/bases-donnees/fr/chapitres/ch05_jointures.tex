@@ -1,0 +1,462 @@
+% ============================================================
+\chapter{SQL --- Jointures et Sous-requ\^etes}
+\label{ch:jointures}
+% ============================================================
+
+La puissance du mod\`ele relationnel r\'eside dans sa capacit\'e \`a relier des tables entre elles. Un \'etudiant est inscrit dans un d\'epartement, qui appartient \`a une universit\'e~; chaque inscription r\'ef\'erence un cours, qui est enseign\'e par un professeur. Pour extraire l'information compl\`ete --- par exemple, \og quels \'etudiants suivent les cours du Professeur Dupont~? \fg --- il faut \emph{joindre} plusieurs tables. La jointure est l'op\'eration reine de SQL, et sa ma\^itrise distingue le d\'ebutant de l'expert. Les sous-requ\^etes, quant \`a elles, permettent d'imbriquer des questions les unes dans les autres, offrant une expressivit\'e consid\'erable.
+
+\section{Introduction}
+
+Les \emph{jointures} permettent de combiner des donn\'ees provenant de plusieurs
+tables en exploitant les relations entre elles (cl\'es \'etrang\`eres).
+Les \emph{sous-requ\^etes} (ou requ\^etes imbriqu\'ees) permettent d'utiliser
+le r\'esultat d'une requ\^ete comme entr\'ee d'une autre.
+
+\section{Jointure interne (INNER JOIN)}
+
+\begin{definition}[Jointure interne]
+La \emph{jointure interne} combine les lignes de deux tables o\`u la condition
+de jointure est satisfaite. Les lignes sans correspondance sont \'elimin\'ees.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Syntaxes \'equivalentes de la jointure interne}]
+\begin{minted}{sql}
+-- Syntaxe explicite (recommandee)
+SELECT e.nom, c.intitule, i.note
+FROM Etudiants e
+INNER JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+INNER JOIN Cours c ON i.id_cours = c.id_cours;
+
+-- Syntaxe implicite (ancienne, a eviter)
+SELECT e.nom, c.intitule, i.note
+FROM Etudiants e, Inscriptions i, Cours c
+WHERE e.id_etudiant = i.id_etudiant
+  AND i.id_cours = c.id_cours;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+nom     | intitule         | note
+--------+------------------+------
+Bernard | Bases de donnees | 15.5
+Bernard | Algorithmes      | 13.0
+Petit   | Bases de donnees | 12.0
+Petit   | Reseaux          | 16.0
+Moreau  | Algorithmes      | 17.5
+Moreau  | Statistiques     | 14.0
+Leroy   | Bases de donnees | 9.0
+Roux    | Statistiques     | 18.0
+\end{verbatim}
+\end{codeoutput}
+
+\begin{bonnepratique}[title=\textbf{Toujours utiliser la syntaxe explicite JOIN}]
+La syntaxe implicite (virgule dans le \texttt{FROM}) est source d'erreurs~:
+un oubli de condition dans le \texttt{WHERE} produit un produit cart\'esien
+accidentel. La syntaxe \texttt{JOIN ... ON} est plus claire et s\'eparere
+la logique de jointure du filtrage.
+\end{bonnepratique}
+
+\section{Jointure naturelle (NATURAL JOIN)}
+
+\begin{codeblock}[title=\textbf{Jointure naturelle}]
+\begin{minted}{sql}
+-- Joint sur les colonnes de meme nom
+SELECT * FROM Etudiants NATURAL JOIN Inscriptions;
+\end{minted}
+\end{codeblock}
+
+\begin{attention}[title=\textbf{Danger de NATURAL JOIN}]
+La jointure naturelle d\'etermine automatiquement les colonnes communes.
+Si deux tables partagent un nom de colonne par co\"incidence (ex.\ \texttt{nom}
+dans \texttt{Etudiants} et \texttt{Professeurs}), le r\'esultat sera incorrect.
+Pr\'ef\'erez toujours la jointure explicite avec \texttt{ON}.
+\end{attention}
+
+\section{Jointures externes (OUTER JOIN)}
+
+\begin{definition}[Jointure externe]
+Une \emph{jointure externe} conserve toutes les lignes d'une table (ou des deux),
+m\^eme celles sans correspondance dans l'autre table. Les colonnes manquantes
+sont remplies par \texttt{NULL}.
+\end{definition}
+
+\subsection{LEFT JOIN}
+
+\begin{codeblock}[title=\textbf{LEFT JOIN --- tous les \'etudiants, m\^eme sans inscription}]
+\begin{minted}{sql}
+SELECT e.nom, e.prenom, c.intitule, i.note
+FROM Etudiants e
+LEFT JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+LEFT JOIN Cours c ON i.id_cours = c.id_cours
+ORDER BY e.nom;
+\end{minted}
+\end{codeblock}
+
+Si un \'etudiant n'est inscrit \`a aucun cours, il appara\^it quand m\^eme avec
+des \texttt{NULL} pour \texttt{intitule} et \texttt{note}.
+
+\subsection{RIGHT JOIN}
+
+\begin{codeblock}[title=\textbf{RIGHT JOIN --- tous les cours, m\^eme sans inscription}]
+\begin{minted}{sql}
+SELECT c.intitule, e.nom, i.note
+FROM Inscriptions i
+RIGHT JOIN Cours c ON i.id_cours = c.id_cours
+LEFT JOIN Etudiants e ON i.id_etudiant = e.id_etudiant;
+\end{minted}
+\end{codeblock}
+
+\begin{remarque}
+\texttt{RIGHT JOIN} est moins utilis\'e car on peut toujours le remplacer
+par un \texttt{LEFT JOIN} en inversant l'ordre des tables.
+SQLite ne supporte pas \texttt{RIGHT JOIN} (avant la version 3.39).
+\end{remarque}
+
+\subsection{FULL OUTER JOIN}
+
+\begin{codeblock}[title=\textbf{FULL OUTER JOIN}]
+\begin{minted}{sql}
+-- Tous les etudiants et tous les cours (PostgreSQL)
+SELECT e.nom, c.intitule
+FROM Etudiants e
+FULL OUTER JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+FULL OUTER JOIN Cours c ON i.id_cours = c.id_cours;
+\end{minted}
+\end{codeblock}
+
+\begin{formules}[title=\textbf{R\'esum\'e des types de jointures}]
+\begin{center}
+\begin{tabular}{lp{8cm}}
+\toprule
+\textbf{Type} & \textbf{Description} \\
+\midrule
+\texttt{INNER JOIN} & Lignes avec correspondance dans les deux tables \\
+\texttt{LEFT JOIN} & Toutes les lignes de la table gauche + correspondances \\
+\texttt{RIGHT JOIN} & Toutes les lignes de la table droite + correspondances \\
+\texttt{FULL OUTER JOIN} & Toutes les lignes des deux tables \\
+\texttt{CROSS JOIN} & Produit cart\'esien (toutes les combinaisons) \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{formules}
+
+\section{Jointure crois\'ee (CROSS JOIN)}
+
+\begin{codeblock}[title=\textbf{Produit cart\'esien}]
+\begin{minted}{sql}
+-- Toutes les combinaisons etudiant-cours
+SELECT e.nom, c.intitule
+FROM Etudiants e
+CROSS JOIN Cours c;
+-- 5 etudiants x 4 cours = 20 lignes
+\end{minted}
+\end{codeblock}
+
+\section{Auto-jointure (Self Join)}
+
+\begin{definition}[Auto-jointure]
+Une \emph{auto-jointure} est une jointure d'une table avec elle-m\^eme.
+Elle n\'ecessite l'utilisation d'alias pour distinguer les deux
+\og copies \fg de la table.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Trouver les paires d'\'etudiants de la m\^eme fili\`ere}]
+\begin{minted}{sql}
+SELECT e1.nom AS etudiant1, e2.nom AS etudiant2, e1.filiere
+FROM Etudiants e1
+JOIN Etudiants e2 ON e1.filiere = e2.filiere
+                  AND e1.id_etudiant < e2.id_etudiant;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+etudiant1 | etudiant2 | filiere
+----------+-----------+--------
+Bernard   | Petit     | Info
+Bernard   | Leroy     | Info
+Petit     | Leroy     | Info
+Moreau    | Roux      | Maths
+\end{verbatim}
+\end{codeoutput}
+
+\section{Sous-requ\^etes}
+
+\begin{definition}[Sous-requ\^ete]
+Une \emph{sous-requ\^ete} est une requ\^ete \texttt{SELECT} imbriqu\'ee
+dans une autre requ\^ete. Elle peut appara\^itre dans les clauses
+\texttt{WHERE}, \texttt{FROM}, ou \texttt{SELECT}.
+\end{definition}
+
+\subsection{Sous-requ\^ete scalaire}
+
+Une sous-requ\^ete qui retourne exactement une valeur~:
+
+\begin{codeblock}[title=\textbf{Sous-requ\^ete scalaire}]
+\begin{minted}{sql}
+-- Etudiants ayant une note superieure a la moyenne
+SELECT e.nom, i.note
+FROM Etudiants e
+JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+WHERE i.note > (SELECT AVG(note) FROM Inscriptions);
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+-- Moyenne = 14.375
+nom     | note
+--------+------
+Bernard | 15.5
+Petit   | 16.0
+Moreau  | 17.5
+Roux    | 18.0
+\end{verbatim}
+\end{codeoutput}
+
+\subsection{Sous-requ\^ete avec IN}
+
+\begin{codeblock}[title=\textbf{Sous-requ\^ete avec IN}]
+\begin{minted}{sql}
+-- Etudiants inscrits a un cours du professeur Dupont
+SELECT nom, prenom
+FROM Etudiants
+WHERE id_etudiant IN (
+    SELECT id_etudiant
+    FROM Inscriptions
+    WHERE id_cours IN (
+        SELECT id_cours FROM Cours WHERE id_prof = 1
+    )
+);
+\end{minted}
+\end{codeblock}
+
+\subsection{Sous-requ\^ete corr\'el\'ee}
+
+\begin{definition}[Sous-requ\^ete corr\'el\'ee]
+Une sous-requ\^ete est \emph{corr\'el\'ee} lorsqu'elle r\'ef\'erence une colonne
+de la requ\^ete externe. Elle est r\'e\'evalu\'ee pour chaque ligne de la
+requ\^ete externe.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Sous-requ\^ete corr\'el\'ee avec EXISTS}]
+\begin{minted}{sql}
+-- Etudiants inscrits a au moins un cours
+SELECT e.nom, e.prenom
+FROM Etudiants e
+WHERE EXISTS (
+    SELECT 1
+    FROM Inscriptions i
+    WHERE i.id_etudiant = e.id_etudiant
+);
+
+-- Etudiants NON inscrits a aucun cours
+SELECT e.nom, e.prenom
+FROM Etudiants e
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM Inscriptions i
+    WHERE i.id_etudiant = e.id_etudiant
+);
+\end{minted}
+\end{codeblock}
+
+\begin{attention}[title=\textbf{Performance des sous-requ\^etes corr\'el\'ees}]
+Les sous-requ\^etes corr\'el\'ees sont r\'e\'evalu\'ees pour chaque ligne.
+Sur de grandes tables, elles peuvent \^etre lentes. Les optimiseurs
+modernes les transforment souvent en jointures, mais il est bon de
+conna\^itre l'alternative avec \texttt{JOIN}~:
+\begin{minted}{sql}
+-- Equivalent avec LEFT JOIN + IS NULL
+SELECT e.nom FROM Etudiants e
+LEFT JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+WHERE i.id_etudiant IS NULL;
+\end{minted}
+\end{attention}
+
+\subsection{Sous-requ\^ete dans FROM (table d\'eriv\'ee)}
+
+\begin{codeblock}[title=\textbf{Sous-requ\^ete dans FROM}]
+\begin{minted}{sql}
+-- Moyenne par etudiant, puis filtrage
+SELECT sub.nom, sub.moyenne
+FROM (
+    SELECT e.nom, AVG(i.note) AS moyenne
+    FROM Etudiants e
+    JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+    GROUP BY e.id_etudiant, e.nom
+) AS sub
+WHERE sub.moyenne > 14;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+nom     | moyenne
+--------+--------
+Bernard | 14.25
+Petit   | 14.0
+Moreau  | 15.75
+Roux    | 18.0
+\end{verbatim}
+\end{codeoutput}
+
+\subsection{Sous-requ\^ete dans SELECT}
+
+\begin{codeblock}[title=\textbf{Sous-requ\^ete dans SELECT}]
+\begin{minted}{sql}
+SELECT e.nom,
+       (SELECT COUNT(*) FROM Inscriptions i
+        WHERE i.id_etudiant = e.id_etudiant) AS nb_cours
+FROM Etudiants e;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+nom     | nb_cours
+--------+---------
+Bernard | 2
+Petit   | 2
+Moreau  | 2
+Leroy   | 1
+Roux    | 1
+\end{verbatim}
+\end{codeoutput}
+
+\section{Op\'erateurs ALL, ANY/SOME}
+
+\begin{codeblock}[title=\textbf{Comparaison avec ALL et ANY}]
+\begin{minted}{sql}
+-- Note superieure a TOUTES les notes du cours 101
+SELECT e.nom, i.note
+FROM Etudiants e
+JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+WHERE i.note > ALL (
+    SELECT note FROM Inscriptions WHERE id_cours = 101
+);
+
+-- Note superieure a AU MOINS UNE note du cours 101
+SELECT e.nom, i.note
+FROM Etudiants e
+JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+WHERE i.note > ANY (
+    SELECT note FROM Inscriptions WHERE id_cours = 101
+);
+\end{minted}
+\end{codeblock}
+
+\section{Expressions de table communes (CTE)}
+
+\begin{definition}[CTE (Common Table Expression)]
+Une \emph{CTE} est une requ\^ete nomm\'ee temporaire, d\'efinie avec le mot-cl\'e
+\texttt{WITH}, qui peut \^etre r\'ef\'erenc\'ee dans la requ\^ete principale.
+Elle am\'eliore la lisibilit\'e et permet la r\'ecursion.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{CTE simple}]
+\begin{minted}{sql}
+WITH Moyennes AS (
+    SELECT id_etudiant, AVG(note) AS moy
+    FROM Inscriptions
+    GROUP BY id_etudiant
+)
+SELECT e.nom, m.moy
+FROM Etudiants e
+JOIN Moyennes m ON e.id_etudiant = m.id_etudiant
+WHERE m.moy > 14
+ORDER BY m.moy DESC;
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{CTE r\'ecursive --- hi\'erarchie}]
+\begin{minted}{sql}
+-- Table de categories avec parent
+CREATE TABLE Categories (
+    id INTEGER PRIMARY KEY,
+    nom TEXT,
+    parent_id INTEGER REFERENCES Categories(id)
+);
+
+-- Parcours recursif de la hierarchie
+WITH RECURSIVE Arbre AS (
+    -- Cas de base : racines
+    SELECT id, nom, parent_id, 0 AS niveau
+    FROM Categories WHERE parent_id IS NULL
+
+    UNION ALL
+
+    -- Cas recursif
+    SELECT c.id, c.nom, c.parent_id, a.niveau + 1
+    FROM Categories c
+    JOIN Arbre a ON c.parent_id = a.id
+)
+SELECT * FROM Arbre ORDER BY niveau, nom;
+\end{minted}
+\end{codeblock}
+
+\section{Int\'egration Python}
+
+\begin{codeblock}[title=\textbf{Jointures et sous-requ\^etes avec Python}]
+\begin{minted}{python}
+import sqlite3
+
+conn = sqlite3.connect('universite.db')
+cur = conn.cursor()
+
+# Jointure : etudiants et leurs cours
+cur.execute('''
+    SELECT e.nom, c.intitule, i.note
+    FROM Etudiants e
+    JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+    JOIN Cours c ON i.id_cours = c.id_cours
+    WHERE i.note > ?
+    ORDER BY i.note DESC
+''', (14,))
+
+print("Etudiants avec note > 14 :")
+for nom, cours, note in cur.fetchall():
+    print(f"  {nom:10} | {cours:20} | {note:.1f}")
+
+# Sous-requete : etudiants au-dessus de la moyenne
+cur.execute('''
+    SELECT nom, prenom FROM Etudiants
+    WHERE id_etudiant IN (
+        SELECT id_etudiant FROM Inscriptions
+        WHERE note > (SELECT AVG(note) FROM Inscriptions)
+    )
+''')
+print("\nAu-dessus de la moyenne :", cur.fetchall())
+
+conn.close()
+\end{minted}
+\end{codeblock}
+
+\section*{Exercices}
+
+\begin{exercice}
+\'Ecrivez une requ\^ete qui affiche le nom de chaque professeur et le nombre
+de cours qu'il enseigne. Incluez les professeurs qui n'enseignent aucun cours.
+\end{exercice}
+
+\begin{exercice}
+Trouvez les \'etudiants qui sont inscrits \`a tous les cours du professeur
+dont l'\texttt{id\_prof} est 2. Utilisez une sous-requ\^ete avec \texttt{NOT EXISTS}.
+\end{exercice}
+
+\begin{exercice}
+\'Ecrivez la m\^eme requ\^ete que l'exercice pr\'ec\'edent en utilisant
+\texttt{GROUP BY} et \texttt{HAVING} avec \texttt{COUNT}.
+Comparez les deux approches.
+\end{exercice}
+
+\begin{exercice}
+Trouvez les paires d'\'etudiants qui ont au moins deux cours en commun.
+Affichez les noms des deux \'etudiants et le nombre de cours partag\'es.
+\end{exercice}
+
+\begin{exercice}
+En utilisant une CTE r\'ecursive, g\'en\'erez la table des nombres de 1 \`a 20
+et affichez leur factorielle.
+\end{exercice}

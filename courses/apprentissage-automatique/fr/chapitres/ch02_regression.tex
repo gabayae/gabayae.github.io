@@ -1,0 +1,426 @@
+% ============================================================
+% Chapitre 2 : R\'egression Lin\'eaire et Polynomiale
+% ============================================================
+\chapter{R\'egression Lin\'eaire et Polynomiale}
+\label{ch:regression}
+
+\begin{intuition}[title=\textbf{Id\'ee centrale}]
+La r\'egression lin\'eaire est le mod\`ele fondamental de l'apprentissage supervis\'e : on cherche
+la <<~meilleure~>> relation affine entre des variables explicatives $\bm{x}$ et une variable
+cible $y \in \R$, au sens des moindres carr\'es.
+\end{intuition}
+
+% ============================================================
+\section{R\'egression lin\'eaire simple}
+\label{sec:reg-simple}
+
+\subsection{Mod\`ele}
+
+On dispose de $n$ observations $(x_i, y_i)_{i=1}^{n}$ avec $x_i \in \R$ et $y_i \in \R$.
+On suppose le mod\`ele :
+\[
+  y_i = \beta_0 + \beta_1 x_i + \varepsilon_i, \qquad \varepsilon_i \sim \mathcal{N}(0, \sigma^2),
+  \quad \varepsilon_i \text{ i.i.d.}
+\]
+
+\begin{definition}[Fonction de co\^ut des moindres carr\'es]
+La fonction de co\^ut \emph{Ordinary Least Squares} (OLS) est :
+\[
+  \mathcal{L}(\beta_0, \beta_1) = \sum_{i=1}^{n} (y_i - \beta_0 - \beta_1 x_i)^2
+\]
+L'objectif est de trouver $(\hat{\beta}_0, \hat{\beta}_1) = \argmin_{\beta_0, \beta_1} \mathcal{L}(\beta_0, \beta_1)$.
+\end{definition}
+
+\subsection{D\'erivation des estimateurs OLS}
+
+\begin{theoreme}[Estimateurs des moindres carr\'es]
+\label{thm:ols-simple}
+Les estimateurs OLS de la r\'egression lin\'eaire simple sont :
+\[
+  \hat{\beta}_1 = \frac{\sum_{i=1}^{n}(x_i - \bar{x})(y_i - \bar{y})}{\sum_{i=1}^{n}(x_i - \bar{x})^2}
+  = \frac{\Cov(X, Y)}{\Var(X)}, \qquad
+  \hat{\beta}_0 = \bar{y} - \hat{\beta}_1 \bar{x}
+\]
+o\`u $\bar{x} = \frac{1}{n}\sum_{i} x_i$ et $\bar{y} = \frac{1}{n}\sum_{i} y_i$.
+\end{theoreme}
+
+\begin{proof}
+On annule les d\'eriv\'ees partielles de $\mathcal{L}$ :
+\[
+  \frac{\partial \mathcal{L}}{\partial \beta_0} = -2\sum_{i=1}^{n}(y_i - \beta_0 - \beta_1 x_i) = 0
+  \implies \hat{\beta}_0 = \bar{y} - \hat{\beta}_1 \bar{x}
+\]
+\[
+  \frac{\partial \mathcal{L}}{\partial \beta_1} = -2\sum_{i=1}^{n} x_i(y_i - \beta_0 - \beta_1 x_i) = 0
+\]
+En substituant $\hat{\beta}_0$ dans la seconde \'equation :
+\[
+  \sum_{i=1}^{n} x_i \bigl(y_i - \bar{y} + \hat{\beta}_1(\bar{x} - x_i)\bigr) = 0
+  \implies \hat{\beta}_1 = \frac{\sum_{i}(x_i - \bar{x})(y_i - \bar{y})}{\sum_{i}(x_i - \bar{x})^2}
+\]
+\end{proof}
+
+\begin{formules}[title=\textbf{Coefficient de d\'etermination}]
+\[
+  R^2 = 1 - \frac{\sum_{i}(y_i - \hat{y}_i)^2}{\sum_{i}(y_i - \bar{y})^2}
+  = 1 - \frac{\text{RSS}}{\text{TSS}} \in [0, 1]
+\]
+$R^2$ mesure la proportion de variance expliqu\'ee par le mod\`ele.
+\end{formules}
+
+% ============================================================
+\section{R\'egression lin\'eaire multiple}
+\label{sec:reg-multiple}
+
+\subsection{Formulation matricielle}
+
+On g\'en\'eralise \`a $p$ variables explicatives. Pour $n$ observations :
+\[
+  \bm{y} = \bm{X}\bm{\beta} + \bm{\varepsilon}
+\]
+o\`u $\bm{X} \in \R^{n \times (p+1)}$ est la matrice de design (premi\`ere colonne de 1),
+$\bm{\beta} \in \R^{p+1}$ et $\bm{\varepsilon} \sim \mathcal{N}(\bm{0}, \sigma^2 \bm{I}_n)$.
+
+\begin{definition}[Fonction de co\^ut matricielle]
+\[
+  \mathcal{L}(\bm{\beta}) = \norm{\bm{y} - \bm{X}\bm{\beta}}^2
+  = (\bm{y} - \bm{X}\bm{\beta})^\top (\bm{y} - \bm{X}\bm{\beta})
+\]
+\end{definition}
+
+\subsection{\'Equations normales}
+
+\begin{theoreme}[\'Equations normales]
+\label{thm:normal-equations}
+Si $\bm{X}^\top \bm{X}$ est inversible, l'unique minimiseur de $\mathcal{L}$ est :
+\[
+  \hat{\bm{\beta}} = (\bm{X}^\top \bm{X})^{-1} \bm{X}^\top \bm{y}
+\]
+\end{theoreme}
+
+\begin{proof}
+On d\'eveloppe et on d\'erive :
+\begin{align*}
+  \mathcal{L}(\bm{\beta})
+  &= \bm{y}^\top \bm{y} - 2\bm{\beta}^\top \bm{X}^\top \bm{y}
+     + \bm{\beta}^\top \bm{X}^\top \bm{X} \bm{\beta} \\
+  \nabla_{\bm{\beta}} \mathcal{L}
+  &= -2\bm{X}^\top \bm{y} + 2\bm{X}^\top \bm{X}\bm{\beta} = \bm{0}
+\end{align*}
+D'o\`u $\bm{X}^\top \bm{X} \hat{\bm{\beta}} = \bm{X}^\top \bm{y}$. La matrice hessienne
+$2\bm{X}^\top \bm{X}$ est semi-d\'efinie positive, donc c'est bien un minimum.
+\end{proof}
+
+\subsection{Interpr\'etation g\'eom\'etrique}
+
+\begin{intuition}[title=\textbf{Projection orthogonale}]
+Le vecteur $\hat{\bm{y}} = \bm{X}\hat{\bm{\beta}}$ est la \textbf{projection orthogonale}
+de $\bm{y}$ sur l'espace colonne de $\bm{X}$, not\'e $\text{Col}(\bm{X})$.
+La matrice de projection est $\bm{H} = \bm{X}(\bm{X}^\top \bm{X})^{-1}\bm{X}^\top$
+(<<~hat matrix~>>). Le vecteur des r\'esidus $\hat{\bm{\varepsilon}} = \bm{y} - \hat{\bm{y}}$
+est orthogonal \`a $\text{Col}(\bm{X})$.
+\end{intuition}
+
+\begin{proposition}[Propri\'et\'es de la hat matrix]
+\label{prop:hat-matrix}
+La matrice $\bm{H} = \bm{X}(\bm{X}^\top \bm{X})^{-1}\bm{X}^\top$ v\'erifie :
+\begin{enumerate}
+  \item $\bm{H}^2 = \bm{H}$ (idempotente),
+  \item $\bm{H}^\top = \bm{H}$ (sym\'etrique),
+  \item $\text{tr}(\bm{H}) = p + 1$.
+\end{enumerate}
+\end{proposition}
+
+% --- TikZ : droite de r\'egression et r\'esidus ---
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.1]
+  % axes
+  \draw[->] (0,0) -- (7,0) node[right]{$x$};
+  \draw[->] (0,0) -- (0,5) node[above]{$y$};
+  % droite de r\'egression
+  \draw[thick, blue!70!black] (0.3,0.8) -- (6.5,4.5)
+    node[right, font=\small]{$\hat{y} = \hat{\beta}_0 + \hat{\beta}_1 x$};
+  % points et r\'esidus
+  \foreach \x/\y/\yhat in {1/1.8/1.2, 2/1.5/1.8, 2.5/2.8/2.1,
+    3/2.2/2.4, 3.8/3.5/2.9, 4.5/2.8/3.3, 5/4.2/3.7, 5.8/3.8/4.0,
+    6.2/4.8/4.3}{
+    \fill[red!80!black] (\x, \y) circle (2pt);
+    \draw[red!50, dashed, thick] (\x, \y) -- (\x, \yhat);
+  }
+  % l\'egende r\'esidu
+  \draw[<->, red!60!black] (5.3, 3.7) -- (5.3, 4.2);
+  \node[right, red!60!black, font=\footnotesize] at (5.35, 3.95) {$\varepsilon_i$};
+\end{tikzpicture}
+\caption{Droite de r\'egression et r\'esidus (segments rouges).}
+\label{fig:regression-residus}
+\end{figure}
+
+% ============================================================
+\section{R\'egression polynomiale}
+\label{sec:reg-poly}
+
+\begin{definition}[Mod\`ele polynomial de degr\'e $d$]
+On pose $\phi(x) = (1, x, x^2, \ldots, x^d)^\top \in \R^{d+1}$ et :
+\[
+  y = \bm{\phi}(x)^\top \bm{\beta} + \varepsilon
+  = \beta_0 + \beta_1 x + \beta_2 x^2 + \cdots + \beta_d x^d + \varepsilon
+\]
+C'est un mod\`ele \textbf{lin\'eaire en les param\`etres} $\bm{\beta}$, m\^eme s'il est
+non-lin\'eaire en $x$.
+\end{definition}
+
+\begin{attention}[title=\textbf{Sur-apprentissage polynomial}]
+Un polyn\^ome de degr\'e $d = n - 1$ passe exactement par les $n$ points
+($R^2 = 1$ sur l'ensemble d'entra\^inement), mais g\'en\'eralise tr\`es mal.
+C'est un cas classique de \textbf{sur-apprentissage} (overfitting). Le choix de $d$
+est un probl\`eme de s\'election de mod\`ele (cf.\ chapitre~\ref{ch:regularisation}).
+\end{attention}
+
+\begin{remarque}
+En pratique, on construit la matrice de design de Vandermonde :
+\[
+  \bm{\Phi} = \begin{pmatrix}
+    1 & x_1 & x_1^2 & \cdots & x_1^d \\
+    1 & x_2 & x_2^2 & \cdots & x_2^d \\
+    \vdots & & & \ddots & \vdots \\
+    1 & x_n & x_n^2 & \cdots & x_n^d
+  \end{pmatrix} \in \R^{n \times (d+1)}
+\]
+et on applique les \'equations normales : $\hat{\bm{\beta}} = (\bm{\Phi}^\top \bm{\Phi})^{-1}\bm{\Phi}^\top \bm{y}$.
+\end{remarque}
+
+% ============================================================
+\section{Descente de gradient pour la r\'egression lin\'eaire}
+\label{sec:gradient-descent}
+
+\begin{algorithme}[title=\textbf{Descente de gradient (batch)}]
+\textbf{Entr\'ee :} donn\'ees $(\bm{X}, \bm{y})$, taux d'apprentissage $\eta > 0$,
+nombre d'it\'erations $T$.
+
+\textbf{Initialisation :} $\bm{\beta}^{(0)} = \bm{0}$.
+
+\textbf{Pour} $t = 0, 1, \ldots, T-1$ :
+\[
+  \bm{\beta}^{(t+1)} = \bm{\beta}^{(t)} - \eta \nabla_{\bm{\beta}} \mathcal{L}(\bm{\beta}^{(t)})
+  = \bm{\beta}^{(t)} + \frac{2\eta}{n} \bm{X}^\top (\bm{y} - \bm{X}\bm{\beta}^{(t)})
+\]
+
+\textbf{Sortie :} $\hat{\bm{\beta}} = \bm{\beta}^{(T)}$.
+\end{algorithme}
+
+\begin{proposition}[Convergence]
+Si $0 < \eta < \frac{2}{\lambda_{\max}(\bm{X}^\top \bm{X} / n)}$, la descente de gradient
+converge vers la solution des \'equations normales $\hat{\bm{\beta}}_{\text{OLS}}$.
+\end{proposition}
+
+\begin{bonnepratique}[title=\textbf{Normalisation des variables}]
+Avant d'appliquer la descente de gradient, il est essentiel de \textbf{centrer-r\'eduire}
+les variables ($z_j = \frac{x_j - \mu_j}{\sigma_j}$) pour que toutes les composantes du
+gradient aient des \'echelles comparables. Cela acc\'el\`ere la convergence.
+\end{bonnepratique}
+
+% ============================================================
+\section{Impl\'ementation Python}
+\label{sec:reg-python}
+
+\subsection{Impl\'ementation depuis z\'ero}
+
+\begin{codeblock}[title=\textbf{R\'egression lin\'eaire -- impl\'ementation manuelle}]
+\begin{minted}{python}
+import numpy as np
+
+class LinearRegressionScratch:
+    """Regression lineaire par equations normales."""
+
+    def fit(self, X, y):
+        # Ajout de la colonne de biais
+        n = X.shape[0]
+        X_b = np.c_[np.ones((n, 1)), X]
+        # Equations normales
+        self.beta_ = np.linalg.solve(
+            X_b.T @ X_b, X_b.T @ y
+        )
+        return self
+
+    def predict(self, X):
+        n = X.shape[0]
+        X_b = np.c_[np.ones((n, 1)), X]
+        return X_b @ self.beta_
+
+    def r_squared(self, X, y):
+        y_pred = self.predict(X)
+        ss_res = np.sum((y - y_pred) ** 2)
+        ss_tot = np.sum((y - np.mean(y)) ** 2)
+        return 1 - ss_res / ss_tot
+\end{minted}
+\end{codeblock}
+
+\subsection{Descente de gradient depuis z\'ero}
+
+\begin{codeblock}[title=\textbf{Descente de gradient pour la r\'egression lin\'eaire}]
+\begin{minted}{python}
+class LinearRegressionGD:
+    """Regression lineaire par descente de gradient."""
+
+    def __init__(self, lr=0.01, n_iter=1000):
+        self.lr = lr
+        self.n_iter = n_iter
+
+    def fit(self, X, y):
+        n, p = X.shape
+        X_b = np.c_[np.ones((n, 1)), X]
+        self.beta_ = np.zeros(p + 1)
+        self.losses_ = []
+
+        for _ in range(self.n_iter):
+            residuals = y - X_b @ self.beta_
+            gradient = -(2 / n) * X_b.T @ residuals
+            self.beta_ -= self.lr * gradient
+            self.losses_.append(np.mean(residuals ** 2))
+
+        return self
+
+    def predict(self, X):
+        X_b = np.c_[np.ones((X.shape[0], 1)), X]
+        return X_b @ self.beta_
+\end{minted}
+\end{codeblock}
+
+\subsection{Avec scikit-learn}
+
+\begin{codeblock}[title=\textbf{R\'egression lin\'eaire et polynomiale avec scikit-learn}]
+\begin{minted}{python}
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.pipeline import make_pipeline
+from sklearn.model_selection import cross_val_score
+from sklearn.metrics import mean_squared_error, r2_score
+import numpy as np
+
+# --- Donnees synthetiques ---
+np.random.seed(42)
+X = 2 * np.random.rand(100, 1)
+y = 4 + 3 * X[:, 0] + np.random.randn(100)
+
+# --- Regression lineaire simple ---
+model = LinearRegression()
+model.fit(X, y)
+print(f"beta_0 = {model.intercept_:.3f}")
+print(f"beta_1 = {model.coef_[0]:.3f}")
+print(f"R^2    = {model.score(X, y):.4f}")
+
+# --- Regression polynomiale (degre 3) ---
+poly_model = make_pipeline(
+    PolynomialFeatures(degree=3, include_bias=False),
+    LinearRegression()
+)
+poly_model.fit(X, y)
+
+# --- Validation croisee ---
+scores = cross_val_score(
+    poly_model, X, y, cv=5,
+    scoring='neg_mean_squared_error'
+)
+print(f"MSE (CV 5-folds) = {-scores.mean():.4f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+beta_0 = 4.114
+beta_1 = 2.840
+R^2    = 0.8765
+MSE (CV 5-folds) = 1.0432
+\end{minted}
+\end{codeoutput}
+
+% ============================================================
+\section{Propri\'et\'es statistiques des estimateurs OLS}
+\label{sec:proprietes-ols}
+
+\begin{theoreme}[Gauss--Markov]
+Sous les hypoth\`eses du mod\`ele lin\'eaire ($\E[\bm{\varepsilon}] = \bm{0}$,
+$\Cov(\bm{\varepsilon}) = \sigma^2 \bm{I}_n$), l'estimateur OLS
+$\hat{\bm{\beta}}$ est le \textbf{meilleur estimateur lin\'eaire sans biais} (BLUE) :
+pour tout estimateur lin\'eaire sans biais $\tilde{\bm{\beta}}$,
+\[
+  \Var(\bm{a}^\top \hat{\bm{\beta}}) \leq \Var(\bm{a}^\top \tilde{\bm{\beta}})
+  \quad \forall\, \bm{a} \in \R^{p+1}
+\]
+\end{theoreme}
+
+\begin{formules}[title=\textbf{Distribution des estimateurs}]
+Sous les hypoth\`eses gaussiennes :
+\[
+  \hat{\bm{\beta}} \sim \mathcal{N}\bigl(\bm{\beta},\; \sigma^2 (\bm{X}^\top \bm{X})^{-1}\bigr)
+\]
+L'estimateur sans biais de $\sigma^2$ est :
+\[
+  \hat{\sigma}^2 = \frac{1}{n - p - 1}\norm{\bm{y} - \bm{X}\hat{\bm{\beta}}}^2
+  = \frac{\text{RSS}}{n - p - 1}
+\]
+\end{formules}
+
+\begin{remarque}
+La d\'ecomposition biais-variance pour la r\'egression lin\'eaire donne, pour une
+nouvelle observation $\bm{x}_0$ :
+\[
+  \E\bigl[(\hat{y}_0 - y_0)^2\bigr]
+  = \underbrace{\Bias(\hat{y}_0)^2}_{= 0 \text{ si mod\`ele correct}}
+  + \Var(\hat{y}_0) + \sigma^2
+\]
+\end{remarque}
+
+% ============================================================
+\section{Exercices}
+\label{sec:reg-exercices}
+
+\begin{exercice}[Niveau 1 -- Calcul direct]
+On observe les donn\'ees suivantes :
+\begin{center}
+\begin{tabular}{c|ccccc}
+$x_i$ & 1 & 2 & 3 & 4 & 5 \\
+\hline
+$y_i$ & 2.1 & 3.9 & 6.2 & 7.8 & 10.1
+\end{tabular}
+\end{center}
+\begin{enumerate}
+  \item Calculer $\bar{x}$, $\bar{y}$, $\sum(x_i - \bar{x})(y_i - \bar{y})$
+        et $\sum(x_i - \bar{x})^2$.
+  \item En d\'eduire $\hat{\beta}_1$ et $\hat{\beta}_0$.
+  \item Calculer $R^2$ et interpr\'eter.
+  \item Pr\'edire $y$ pour $x = 6$.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Niveau 2 -- R\'egression multiple et diagnostic]
+On consid\`ere le jeu de donn\'ees \texttt{Boston Housing} (ou \'equivalent) avec $p = 5$
+variables s\'electionn\'ees.
+\begin{enumerate}
+  \item \'Ecrire la matrice de design $\bm{X}$ et calculer $\hat{\bm{\beta}}$ avec les
+        \'equations normales en Python (sans scikit-learn).
+  \item Comparer avec \texttt{LinearRegression} de scikit-learn.
+  \item Tracer les r\'esidus $\hat{\varepsilon}_i$ en fonction de $\hat{y}_i$.
+        Que v\'erifie-t-on avec ce graphique ?
+  \item R\'ealiser un Q-Q plot des r\'esidus. Commenter la normalit\'e.
+  \item Calculer le VIF (\emph{Variance Inflation Factor}) de chaque variable.
+        Identifier d'\'eventuelles colin\'earit\'es.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Niveau 3 -- Analyse th\'eorique et descente de gradient]
+\begin{enumerate}
+  \item D\'emontrer le th\'eor\`eme de Gauss--Markov.
+  \item Montrer que pour la r\'egression polynomiale de degr\'e $d$ sur $n$ points,
+        le nombre de param\`etres effectifs est $d + 1$ et que la matrice de Vandermonde
+        est mal conditionn\'ee pour $d$ grand. En d\'eduire l'int\'er\^et de la
+        r\'egularisation (lien avec le chapitre~\ref{ch:regularisation}).
+  \item Impl\'ementer la descente de gradient stochastique (SGD) et la descente de
+        gradient par mini-batchs. Comparer les courbes de convergence avec la descente
+        de gradient batch.
+  \item Montrer que la condition $\eta < 2/\lambda_{\max}$ est n\'ecessaire \`a la
+        convergence. \emph{Indication :} analyser le syst\`eme dans la base propre de
+        $\bm{X}^\top \bm{X}$.
+\end{enumerate}
+\end{exercice}

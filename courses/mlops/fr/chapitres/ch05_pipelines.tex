@@ -1,0 +1,694 @@
+% ============================================================
+\chapter{Pipelines de Donn\'ees et Feature Stores}
+\label{ch:pipelines}
+\index{pipelines de donn\'ees}
+% ============================================================
+
+\section{Qu'est-ce qu'un pipeline de donn\'ees~?}
+\label{sec:data-pipeline-def}
+
+Un \textbf{pipeline de donn\'ees}\index{pipeline de donn\'ees} est une
+s\'equence automatis\'ee d'\'etapes qui transforme des donn\'ees brutes en
+donn\'ees exploitables par un mod\`ele de machine learning. Dans un contexte
+MLOps, les pipelines assurent la \emph{reproductibilit\'e}, la
+\emph{tra\c{c}abilit\'e} et l'\emph{automatisation} du flux de donn\'ees.
+
+\begin{definition}[Pipeline de donn\'ees]
+Un pipeline de donn\'ees est un ensemble d'\'etapes de traitement
+orchestr\'ees, o\`u chaque \'etape consomme des entr\'ees, effectue une
+transformation, et produit des sorties. Les \'etapes sont
+\textbf{id\'empotentes} (ex\'ecuter deux fois donne le m\^eme r\'esultat)
+et \textbf{d\'eterministes} (m\^emes entr\'ees $\Rightarrow$ m\^emes
+sorties).
+\end{definition}
+
+\subsection{ETL vs ELT}
+\index{ETL}\index{ELT}
+
+Deux paradigmes classiques structurent les pipelines de donn\'ees~:
+
+\begin{center}
+\begin{tabular}{@{}lp{5.5cm}p{5.5cm}@{}}
+\toprule
+& \textbf{ETL} & \textbf{ELT} \\
+\midrule
+\textbf{Principe} & Extract $\to$ Transform $\to$ Load &
+  Extract $\to$ Load $\to$ Transform \\
+\textbf{Transformation} & Avant le chargement (en m\'emoire) &
+  Apr\`es le chargement (dans le data warehouse) \\
+\textbf{Outils} & Airflow, Prefect, Luigi &
+  dbt, Spark SQL, BigQuery \\
+\textbf{Cas d'usage} & Donn\'ees structur\'ees, volume mod\'er\'e &
+  Grands volumes, stockage bon march\'e \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{remarque}
+En MLOps, on utilise souvent un hybride~: ELT pour la pr\'eparation
+g\'en\'erale des donn\'ees, puis un pipeline ML sp\'ecifique (feature
+engineering, entra\^inement, \'evaluation) orchestr\'e s\'epar\'ement.
+\end{remarque}
+
+\section{Outils d'orchestration}
+\label{sec:orchestration-tools}
+\index{orchestration}
+
+\subsection{Apache Airflow}
+\index{Airflow}
+
+\textbf{Airflow} est l'orchestrateur le plus r\'epandu. Il utilise des
+\textbf{DAGs} (graphes orient\'es acycliques) d\'efinis en Python pour
+d\'ecrire les d\'ependances entre t\^aches.
+
+\begin{codeblock}[title=\textbf{Exemple de DAG Airflow}]
+\begin{minted}{python}
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from datetime import datetime
+
+def extract():
+    """Extract data from source."""
+    print("Extracting data...")
+
+def transform():
+    """Transform raw data."""
+    print("Transforming data...")
+
+def load():
+    """Load data to destination."""
+    print("Loading data...")
+
+with DAG(
+    dag_id="ml_data_pipeline",
+    start_date=datetime(2025, 1, 1),
+    schedule_interval="@daily",
+    catchup=False,
+) as dag:
+    t1 = PythonOperator(task_id="extract", python_callable=extract)
+    t2 = PythonOperator(task_id="transform", python_callable=transform)
+    t3 = PythonOperator(task_id="load", python_callable=load)
+
+    t1 >> t2 >> t3  # dependances
+\end{minted}
+\end{codeblock}
+
+\subsection{Prefect}
+\index{Prefect}
+
+\textbf{Prefect} adopte une approche plus pythonique avec des d\'ecorateurs
+\cli{@flow} et \cli{@task}, sans la complexit\'e de configuration d'Airflow.
+
+\subsection{Luigi}
+\index{Luigi}
+
+\textbf{Luigi} (par Spotify) est orient\'e cibles~: chaque t\^ache d\'efinit
+une sortie (\cli{output()}) et ses d\'ependances (\cli{requires()}). Le
+graphe est construit automatiquement.
+
+\section{\'Ecrire un pipeline avec Prefect}
+\label{sec:prefect-pipeline}
+
+\begin{codeblock}[title=\textbf{Pipeline ML complet avec Prefect}]
+\begin{minted}{python}
+from prefect import flow, task
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, f1_score
+import joblib
+from pathlib import Path
+
+
+@task(retries=2, retry_delay_seconds=10)
+def extract_data(path: str) -> pd.DataFrame:
+    """Load raw data from CSV."""
+    df = pd.read_csv(path)
+    print(f"Loaded {len(df)} rows from {path}")
+    return df
+
+
+@task
+def clean_data(df: pd.DataFrame) -> pd.DataFrame:
+    """Remove duplicates and handle missing values."""
+    df = df.drop_duplicates()
+    df = df.dropna(subset=["target"])
+    df = df.fillna(df.median(numeric_only=True))
+    print(f"After cleaning: {len(df)} rows")
+    return df
+
+
+@task
+def feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
+    """Create new features."""
+    numeric_cols = df.select_dtypes(include="number").columns
+    for col in numeric_cols:
+        if col != "target":
+            df[f"{col}_squared"] = df[col] ** 2
+            df[f"{col}_log"] = df[col].clip(lower=1e-6).apply(
+                lambda x: x ** 0.5
+            )
+    return df
+
+
+@task
+def split(df: pd.DataFrame, test_size: float = 0.2):
+    """Split data into train and test sets."""
+    X = df.drop("target", axis=1)
+    y = df["target"]
+    return train_test_split(X, y, test_size=test_size, random_state=42)
+
+
+@task
+def train_model(X_train, y_train, n_estimators: int = 100):
+    """Train a RandomForest classifier."""
+    model = RandomForestClassifier(
+        n_estimators=n_estimators, random_state=42, n_jobs=-1
+    )
+    model.fit(X_train, y_train)
+    return model
+
+
+@task
+def evaluate_model(model, X_test, y_test) -> dict:
+    """Evaluate model and return metrics."""
+    y_pred = model.predict(X_test)
+    metrics = {
+        "accuracy": accuracy_score(y_test, y_pred),
+        "f1_score": f1_score(y_test, y_pred, average="weighted"),
+    }
+    print(f"Metrics: {metrics}")
+    return metrics
+
+
+@task
+def save_model(model, path: str) -> None:
+    """Save trained model to disk."""
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model, path)
+    print(f"Model saved to {path}")
+
+
+@flow(name="ml-training-pipeline")
+def training_pipeline(
+    data_path: str = "data/dataset.csv",
+    model_path: str = "models/model.joblib",
+    n_estimators: int = 100,
+):
+    """End-to-end ML training pipeline."""
+    # Extract
+    raw_df = extract_data(data_path)
+
+    # Transform
+    clean_df = clean_data(raw_df)
+    feat_df = feature_engineering(clean_df)
+
+    # Split and train
+    X_train, X_test, y_train, y_test = split(feat_df)
+    model = train_model(X_train, y_train, n_estimators)
+
+    # Evaluate and save
+    metrics = evaluate_model(model, X_test, y_test)
+    save_model(model, model_path)
+
+    return metrics
+
+
+if __name__ == "__main__":
+    training_pipeline()
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Ex\'ecution et d\'eploiement Prefect}]
+\begin{minted}{bash}
+# Installer Prefect
+pip install prefect
+
+# Executer localement
+python pipeline.py
+
+# Demarrer le serveur Prefect (UI)
+prefect server start
+
+# Deployer le flow
+prefect deploy pipeline.py:training_pipeline \
+    --name "ml-training" \
+    --cron "0 6 * * *"  # tous les jours a 6h
+\end{minted}
+\end{codeblock}
+
+\section{DVC Pipelines~: orchestrer un pipeline ML}
+\label{sec:dvc-pipelines}
+\index{DVC!pipelines}
+
+\textbf{DVC}\index{DVC} (Data Version Control) permet de d\'efinir des
+pipelines ML dans un fichier \file{dvc.yaml}. Chaque \'etape sp\'ecifie
+ses d\'ependances et ses sorties, et DVC ne r\'e-ex\'ecute que les \'etapes
+dont les entr\'ees ont chang\'e.
+
+\begin{codeblock}[title=\textbf{dvc.yaml --- Pipeline ML}]
+\begin{minted}{yaml}
+stages:
+  prepare:
+    cmd: python src/prepare.py --input data/raw.csv
+         --output data/prepared.csv
+    deps:
+      - src/prepare.py
+      - data/raw.csv
+    outs:
+      - data/prepared.csv
+
+  featurize:
+    cmd: python src/featurize.py --input data/prepared.csv
+         --output data/features.csv
+    deps:
+      - src/featurize.py
+      - data/prepared.csv
+    outs:
+      - data/features.csv
+
+  train:
+    cmd: python src/train.py --input data/features.csv
+         --model models/model.pkl
+    deps:
+      - src/train.py
+      - data/features.csv
+    outs:
+      - models/model.pkl
+    params:
+      - train.n_estimators
+      - train.max_depth
+
+  evaluate:
+    cmd: python src/evaluate.py --model models/model.pkl
+         --data data/features.csv
+    deps:
+      - src/evaluate.py
+      - models/model.pkl
+      - data/features.csv
+    metrics:
+      - metrics.json:
+          cache: false
+    plots:
+      - plots/confusion_matrix.png
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Commandes DVC pipelines}]
+\begin{minted}{bash}
+# Executer le pipeline complet
+dvc repro
+
+# Visualiser le graphe du pipeline
+dvc dag
+
+# Voir les metriques
+dvc metrics show
+
+# Comparer avec une autre branche
+dvc metrics diff main
+\end{minted}
+\end{codeblock}
+
+\begin{bonnepratique}[title=\textbf{Quand utiliser DVC vs Prefect/Airflow}]
+\begin{itemize}
+  \item \textbf{DVC}~: pipelines ML li\'es au code (m\^eme d\'ep\^ot Git),
+    ex\'ecution locale ou CI/CD, versionnement des donn\'ees int\'egr\'e.
+  \item \textbf{Prefect/Airflow}~: orchestration de flux complexes,
+    ex\'ecution planifi\'ee, d\'ependances entre syst\`emes (API, bases de
+    donn\'ees), monitoring avanc\'e.
+\end{itemize}
+\end{bonnepratique}
+
+\section{Feature Stores}
+\label{sec:feature-stores}
+\index{feature store}
+
+\subsection{Pourquoi un feature store~?}
+
+Le \textbf{feature engineering}\index{feature engineering} est souvent la
+partie la plus co\^uteuse d'un projet ML. Sans feature store~:
+\begin{itemize}
+  \item Les features sont recalcul\'ees \`a chaque exp\'erience
+  \item Le code de feature engineering est dupliqu\'e entre \'equipes
+  \item Les features d'entra\^inement et de serving diff\`erent
+    (\emph{training-serving skew}\index{training-serving skew})
+  \item Pas de tra\c{c}abilit\'e sur l'origine des features
+\end{itemize}
+
+\begin{definition}[Feature Store]
+Un \textbf{feature store} est une plateforme centralis\'ee pour stocker,
+g\'erer, d\'ecouvrir et servir des features ML. Il garantit la
+\textbf{coh\'erence} entre l'entra\^inement (acc\`es \emph{batch}) et
+l'inf\'erence (acc\`es \emph{temps r\'eel}).
+\end{definition}
+
+\subsection{Architecture d'un feature store}
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, rounded corners, minimum width=2.8cm,
+    minimum height=1cm, align=center, font=\small},
+  store/.style={rectangle, draw, rounded corners, minimum width=3.5cm,
+    minimum height=2.5cm, align=center, font=\small, fill=blue!8},
+  arr/.style={-{Stealth[length=2.5mm]}, thick},
+  data/.style={cylinder, draw, shape border rotate=90, aspect=0.25,
+    minimum width=1.5cm, minimum height=1cm, font=\scriptsize, fill=gray!10}
+]
+  % Sources
+  \node[box, fill=green!10] (src1) {Base de\\donn\'ees};
+  \node[box, fill=green!10, below=0.6cm of src1] (src2) {Fichiers\\CSV/Parquet};
+  \node[box, fill=green!10, below=0.6cm of src2] (src3) {Flux\\temps r\'eel};
+
+  % Feature Store
+  \node[store, right=2.5cm of src2] (fs) {};
+  \node[above=0.05cm, font=\small\bfseries] at (fs.north) {Feature Store};
+  \node[data] at ([yshift=0.2cm]fs.center) {Offline};
+  \node[data] at ([yshift=-0.8cm]fs.center) {Online};
+
+  % Consumers
+  \node[box, fill=orange!10, right=2.5cm of fs, yshift=0.6cm] (train)
+    {Entra\^inement};
+  \node[box, fill=orange!10, right=2.5cm of fs, yshift=-0.6cm] (serve)
+    {Serving};
+
+  % Arrows
+  \draw[arr] (src1.east) -- (fs.west|-src1);
+  \draw[arr] (src2.east) -- (fs.west);
+  \draw[arr] (src3.east) -- (fs.west|-src3);
+  \draw[arr] (fs.east|-train) -- (train.west);
+  \draw[arr] (fs.east|-serve) -- (serve.west);
+
+  % Labels
+  \node[font=\scriptsize, above=0.1cm of src1, text=gray] {Sources};
+  \node[font=\scriptsize, above=0.1cm of train, text=gray] {Consommateurs};
+\end{tikzpicture}
+\end{center}
+
+\subsection{Feast~: un feature store open-source}
+\index{Feast}
+
+\textbf{Feast}\index{Feast} est le feature store open-source le plus
+populaire. Il g\`ere les d\'efinitions de features, le stockage offline
+(fichiers Parquet, BigQuery) et online (Redis, DynamoDB).
+
+\begin{codeblock}[title=\textbf{D\'efinition de features avec Feast}]
+\begin{minted}{python}
+# feature_repo/features.py
+from feast import Entity, FeatureView, Field, FileSource
+from feast.types import Float32, Int64
+from datetime import timedelta
+
+# Source de donnees
+customer_source = FileSource(
+    path="data/customer_features.parquet",
+    timestamp_field="event_timestamp",
+)
+
+# Entite
+customer = Entity(
+    name="customer_id",
+    join_keys=["customer_id"],
+)
+
+# Vue de features
+customer_features = FeatureView(
+    name="customer_features",
+    entities=[customer],
+    ttl=timedelta(days=1),
+    schema=[
+        Field(name="total_purchases", dtype=Int64),
+        Field(name="avg_order_value", dtype=Float32),
+        Field(name="days_since_last_order", dtype=Int64),
+        Field(name="purchase_frequency", dtype=Float32),
+    ],
+    source=customer_source,
+    online=True,
+)
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Utilisation de Feast}]
+\begin{minted}{python}
+from feast import FeatureStore
+import pandas as pd
+
+store = FeatureStore(repo_path="feature_repo/")
+
+# Recuperer des features pour l'entrainement (offline)
+entity_df = pd.DataFrame({
+    "customer_id": [1001, 1002, 1003],
+    "event_timestamp": pd.to_datetime(["2025-01-15"] * 3),
+})
+training_df = store.get_historical_features(
+    entity_df=entity_df,
+    features=[
+        "customer_features:total_purchases",
+        "customer_features:avg_order_value",
+        "customer_features:purchase_frequency",
+    ],
+).to_df()
+
+# Recuperer des features en temps reel (online)
+online_features = store.get_online_features(
+    features=[
+        "customer_features:total_purchases",
+        "customer_features:avg_order_value",
+    ],
+    entity_rows=[{"customer_id": 1001}],
+).to_dict()
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Commandes Feast}]
+\begin{minted}{bash}
+# Installer Feast
+pip install feast
+
+# Initialiser un projet
+feast init feature_repo
+cd feature_repo
+
+# Appliquer les definitions
+feast apply
+
+# Materialiser les features dans le store online
+feast materialize 2025-01-01T00:00:00 2025-12-31T23:59:59
+
+# Lister les feature views
+feast feature-views list
+\end{minted}
+\end{codeblock}
+
+\section{Bonnes pratiques de feature engineering}
+\label{sec:feature-engineering-bp}
+
+\begin{bonnepratique}[title=\textbf{R\`egles d'or du feature engineering}]
+\begin{enumerate}
+  \item \textbf{Centraliser les d\'efinitions}~: une seule source de
+    v\'erit\'e pour chaque feature (feature store ou module Python d\'edi\'e).
+  \item \textbf{Versionner les transformations}~: le code de feature
+    engineering est versionn\'e dans Git comme tout autre code.
+  \item \textbf{Tester les features}~: v\'erifier les distributions,
+    les valeurs manquantes, les bornes attendues.
+  \item \textbf{Documenter chaque feature}~: nom, description, unit\'e,
+    source, fr\'equence de mise \`a jour.
+  \item \textbf{\'Eviter le data leakage}~: ne jamais utiliser d'information
+    future lors du calcul des features.
+  \item \textbf{Garantir la coh\'erence train/serve}~: utiliser le
+    \textbf{m\^eme code} pour calculer les features en entra\^inement et
+    en inf\'erence.
+\end{enumerate}
+\end{bonnepratique}
+
+\begin{antipattern}[title=\textbf{Anti-patterns du feature engineering}]
+\begin{itemize}
+  \item Calculer des features directement dans le notebook sans les
+    centraliser
+  \item Utiliser des transformations diff\'erentes en entra\^inement et
+    en production (training-serving skew)
+  \item Ne pas surveiller la distribution des features en production
+    (feature drift)
+  \item Cr\'eer des centaines de features sans \'evaluer leur importance
+  \item Hardcoder des seuils de discr\'etisation sans les param\'etrer
+\end{itemize}
+\end{antipattern}
+
+\section{Architecture d'un pipeline de donn\'ees ML}
+\label{sec:pipeline-architecture}
+
+Le diagramme suivant montre l'architecture compl\`ete d'un pipeline de
+donn\'ees dans un syst\`eme MLOps~:
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, rounded corners, minimum width=2.2cm,
+    minimum height=0.9cm, align=center, font=\scriptsize},
+  arr/.style={-{Stealth[length=2mm]}, thick, steelblue},
+  phase/.style={font=\scriptsize\bfseries, text=gray}
+]
+  % Ingestion
+  \node[box, fill=blue!10] (ingest) {Ingestion\\(API, DB, fichiers)};
+  \node[phase, above=0.15cm of ingest] {1. Collecte};
+
+  % Validation
+  \node[box, fill=blue!15, right=1cm of ingest] (valid) {Validation\\(Great Expect.)};
+  \node[phase, above=0.15cm of valid] {2. Validation};
+
+  % Transformation
+  \node[box, fill=green!10, right=1cm of valid] (transform) {Transformation\\(nettoyage)};
+  \node[phase, above=0.15cm of transform] {3. Transform};
+
+  % Feature eng
+  \node[box, fill=green!15, right=1cm of transform] (feat) {Feature\\Engineering};
+  \node[phase, above=0.15cm of feat] {4. Features};
+
+  % Feature store
+  \node[box, fill=orange!10, right=1cm of feat] (store) {Feature\\Store};
+  \node[phase, above=0.15cm of store] {5. Stockage};
+
+  % Training
+  \node[box, fill=red!10, below=1.2cm of store] (train) {Entra\^inement};
+
+  % Serving
+  \node[box, fill=red!10, below=1.2cm of feat] (serve) {Serving};
+
+  % Arrows
+  \draw[arr] (ingest) -- (valid);
+  \draw[arr] (valid) -- (transform);
+  \draw[arr] (transform) -- (feat);
+  \draw[arr] (feat) -- (store);
+  \draw[arr] (store) -- (train);
+  \draw[arr] (store) -- (serve);
+
+  % Orchestrator
+  \node[box, fill=yellow!15, below=1.2cm of transform,
+    minimum width=8cm] (orch) {Orchestrateur (Airflow / Prefect / DVC)};
+  \draw[dashed, gray] (orch.north) -- (ingest.south);
+  \draw[dashed, gray] (orch.north) -- (valid.south);
+  \draw[dashed, gray] (orch.north) -- (transform.south);
+  \draw[dashed, gray] (orch.north) -- (feat.south);
+\end{tikzpicture}
+\end{center}
+
+\section{Comparaison des outils d'orchestration}
+\label{sec:orchestration-comparison}
+
+\begin{center}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Crit\`ere} & \textbf{Airflow} & \textbf{Prefect} &
+  \textbf{Dagster} & \textbf{Luigi} \\
+\midrule
+Facilit\'e d'installation & Difficile & Facile & Moyen & Facile \\
+Courbe d'apprentissage & Raide & Douce & Moyenne & Douce \\
+UI int\'egr\'ee & Oui & Oui & Oui & Basique \\
+Gestion des erreurs & Basique & Avanc\'ee & Avanc\'ee & Basique \\
+Scalabilit\'e & Tr\`es haute & Haute & Haute & Moyenne \\
+Cloud natif & Non & Oui & Non & Non \\
+Communaut\'e & Tr\`es large & Croissante & Croissante & Stable \\
+Cas d'usage ML & G\'en\'eraliste & ML-friendly & ML-friendly & ETL \\
+Typage des donn\'ees & Non & Oui & Oui & Non \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{attention}[title=\textbf{Choisir le bon outil}]
+\begin{itemize}
+  \item \textbf{Airflow}~: choix \'eprouv\'e pour les grandes organisations
+    avec une \'equipe d'infrastructure d\'edi\'ee.
+  \item \textbf{Prefect}~: id\'eal pour les \'equipes ML qui veulent
+    d\'emarrer rapidement sans infrastructure lourde.
+  \item \textbf{Dagster}~: excellent pour les pipelines de donn\'ees typ\'es
+    avec des assets mat\'erialis\'es.
+  \item \textbf{Luigi}~: adapt\'e aux pipelines simples et lin\'eaires.
+\end{itemize}
+\end{attention}
+
+\section{Mini-projet~: pipeline de donn\'ees pour le projet de cours}
+\label{sec:mini-project-ch5}
+
+\begin{miniprojet}[title=\textbf{Mini-projet 5~: Pipeline de donn\'ees complet}]
+Construisez un pipeline de donn\'ees pour le projet de cours~:
+\begin{enumerate}
+  \item \textbf{Ingestion}~: \'ecrivez une t\^ache Prefect qui t\'el\'echarge
+    un jeu de donn\'ees depuis une URL (par exemple, un dataset UCI ou Kaggle).
+  \item \textbf{Validation}~: ajoutez une \'etape qui v\'erifie le sch\'ema
+    des donn\'ees (colonnes attendues, types, pas de valeurs aberrantes).
+  \item \textbf{Transformation}~: nettoyez les donn\'ees (valeurs manquantes,
+    doublons, encodage des variables cat\'egorielles).
+  \item \textbf{Feature engineering}~: cr\'eez au moins 5 features
+    d\'eriv\'ees pertinentes pour votre probl\`eme.
+  \item \textbf{DVC pipeline}~: \'ecrivez un \file{dvc.yaml} qui reproduit
+    le m\^eme pipeline avec DVC.
+  \item \textbf{Bonus}~: configurez Feast pour stocker et servir vos features.
+\end{enumerate}
+Livrables~: code source, \file{dvc.yaml}, documentation des features.
+\end{miniprojet}
+
+\section{Exercices}
+\label{sec:exercises-ch5}
+
+\begin{exercice}[$\bigstar$ --- Pipeline Prefect simple]
+\'Ecrivez un pipeline Prefect \`a trois \'etapes (extract, transform, load)
+qui~:
+\begin{enumerate}
+  \item Charge un fichier CSV
+  \item Supprime les lignes avec des valeurs manquantes
+  \item Sauvegarde le r\'esultat en Parquet
+\end{enumerate}
+Testez le pipeline localement et v\'erifiez les logs dans le terminal.
+\end{exercice}
+
+\begin{exercice}[$\bigstar\bigstar$ --- Pipeline DVC multi-\'etapes]
+Cr\'eez un pipeline DVC complet pour un probl\`eme de classification~:
+\begin{enumerate}
+  \item D\'efinissez 4 \'etapes dans \file{dvc.yaml}~: prepare, featurize,
+    train, evaluate
+  \item Utilisez \file{params.yaml} pour les hyperparam\`etres
+  \item Ex\'ecutez \cli{dvc repro} et v\'erifiez que seules les \'etapes
+    modifi\'ees sont r\'e-ex\'ecut\'ees
+  \item Comparez les m\'etriques entre deux configurations avec
+    \cli{dvc metrics diff}
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[$\bigstar\bigstar\bigstar$ --- Feature store avec Feast]
+Mettez en place un feature store complet~:
+\begin{enumerate}
+  \item Cr\'eez un projet Feast avec au moins deux \texttt{FeatureView}
+  \item D\'efinissez des features pour deux entit\'es diff\'erentes (par
+    exemple, utilisateur et produit)
+  \item Mat\'erialisez les features dans le store online
+  \item \'Ecrivez un script d'entra\^inement qui r\'ecup\`ere les features
+    historiques via \cli{get\_historical\_features}
+  \item \'Ecrivez un script de serving qui r\'ecup\`ere les features en
+    temps r\'eel via \cli{get\_online\_features}
+  \item V\'erifiez que les features sont identiques entre entra\^inement
+    et serving (pas de training-serving skew)
+\end{enumerate}
+\end{exercice}
+
+\section{Aide-m\'emoire}
+
+\begin{cheatsheet}[title=\textbf{R\'esum\'e du chapitre 5}]
+\begin{tabular}{@{}p{3.5cm}p{9cm}@{}}
+\toprule
+\textbf{Concept} & \textbf{Point cl\'e} \\
+\midrule
+Pipeline de donn\'ees & S\'equence automatis\'ee~: ingestion $\to$
+  validation $\to$ transformation $\to$ features \\
+ETL vs ELT & ETL~: transformer avant le chargement~; ELT~: transformer
+  apr\`es \\
+Prefect & \cli{@flow}, \cli{@task}, retries, UI int\'egr\'ee \\
+DVC pipelines & \file{dvc.yaml}, \cli{dvc repro}, ne r\'e-ex\'ecute que
+  le n\'ecessaire \\
+Feature store & Centralise les features, garantit la coh\'erence
+  train/serve \\
+Feast & \cli{feast apply}, \cli{get\_historical\_features},
+  \cli{get\_online\_features} \\
+Training-serving skew & Diff\'erence entre features en entra\^inement et
+  en production \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}

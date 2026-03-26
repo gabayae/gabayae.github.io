@@ -1,0 +1,326 @@
+% ============================================================
+\chapter{Economic and Financial Models}
+\label{ch:economic}
+% ============================================================
+
+\section{Introduction}
+
+Economists have long envied physics for the precision of its models. In 1956, Robert Solow proposed an economic growth model of Newtonian elegance: capital accumulates, labour grows, and technology progresses, all governed by a differential equation whose steady state illuminates the wealth disparities between nations. This model earned him the Nobel Prize in 1987. But economics is also the domain of uncertainty: financial markets oscillate, option prices defy intuition. It is there that the Black--Scholes model, rooted in It\^o's stochastic calculus, revolutionized finance in 1973. This chapter weaves the link between deterministic and stochastic differential equations applied to economics and finance, from the Solow model to option pricing.
+
+% ------------------------------------------------------------
+\section{The Solow Growth Model}
+\label{sec:solow}
+% ------------------------------------------------------------
+
+\begin{definition}[Solow model]
+The Solow model describes long-run economic growth.  Let $K(t)$ be
+capital, $L(t)$ labour, and $Y(t)$ output.  The production function
+is Cobb--Douglas:
+\[
+  Y = AK^\alpha L^{1-\alpha}, \qquad 0<\alpha<1,
+\]
+where $A$ is total factor productivity (TFP).  Capital accumulates
+according to:
+\[
+  \dot{K} = sY - \delta K,
+\]
+where $s\in(0,1)$ is the savings rate and $\delta>0$ the depreciation
+rate.
+\end{definition}
+
+\subsection{Per-Capita Capital}
+
+Assume $L(t)=L_0 e^{nt}$ (population growth at rate $n$).  Setting
+$k=K/L$ (capital per worker) and $y=Y/L$:
+
+\begin{theorem}[Fundamental Solow equation]
+Capital per worker satisfies:
+\[
+  \dot{k} = sAk^\alpha - (n+\delta)k.
+\]
+\end{theorem}
+
+\begin{proof}
+$\dot{k} = \dot{K}/L - Kn/L = (sY-\delta K)/L - nk
+= sy - \delta k - nk = sAk^\alpha - (n+\delta)k$.
+\end{proof}
+
+\begin{proposition}[Solow equilibrium]
+The positive equilibrium $k^*$ satisfies $sAk^{*\alpha}=(n+\delta)k^*$:
+\[
+  k^* = \left(\frac{sA}{n+\delta}\right)^{1/(1-\alpha)}.
+\]
+This equilibrium is \textbf{globally stable} for $k>0$.
+\end{proposition}
+
+\begin{keyformulas}[title=\textbf{Solow equilibrium}]
+\[
+  k^* = \left(\frac{sA}{n+\delta}\right)^{1/(1-\alpha)}, \qquad
+  y^* = A\left(\frac{sA}{n+\delta}\right)^{\alpha/(1-\alpha)}.
+\]
+\end{keyformulas}
+
+\begin{codeblock}[title=\textbf{Solow model simulation}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+
+A, alpha = 1.0, 0.3
+s, delta, n = 0.2, 0.05, 0.02
+
+def solow(t, k):
+    return s * A * k**alpha - (n + delta) * k
+
+k_star = (s * A / (n + delta))**(1 / (1 - alpha))
+print(f"Equilibrium: k* = {k_star:.4f}")
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
+
+for k0 in [0.5, 1, 2, 5, 10, 15]:
+    sol = solve_ivp(solow, [0, 100], [k0],
+                    t_eval=np.linspace(0, 100, 500))
+    ax1.plot(sol.t, sol.y[0], label=f'$k_0={k0}$')
+
+ax1.axhline(k_star, color='gray', ls='--', label=f'$k^*={k_star:.2f}$')
+ax1.set_xlabel('$t$'); ax1.set_ylabel('$k(t)$')
+ax1.legend(fontsize=8); ax1.set_title('Convergence to $k^*$')
+
+k_vals = np.linspace(0, 15, 200)
+ax2.plot(k_vals, s * A * k_vals**alpha, 'b-', label='$sAk^\\alpha$')
+ax2.plot(k_vals, (n + delta) * k_vals, 'r-', label='$(n+\\delta)k$')
+ax2.plot(k_star, (n+delta)*k_star, 'ko', markersize=8)
+ax2.set_xlabel('$k$'); ax2.set_ylabel('Investment / Depreciation')
+ax2.legend(); ax2.set_title('Solow Diagram')
+plt.tight_layout(); plt.savefig('solow.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Supply-Demand Equilibrium}
+\label{sec:supply_demand}
+% ------------------------------------------------------------
+
+\begin{definition}[Price adjustment model]
+Let $D(p)$ be demand and $S(p)$ supply as functions of price $p$.
+The price adjusts proportionally to excess demand:
+\[
+  \dot{p} = \kappa\bigl(D(p) - S(p)\bigr), \qquad \kappa > 0.
+\]
+\end{definition}
+
+\begin{example}[Linear functions]
+With $D(p)=a-bp$ and $S(p)=c+dp$ ($a,b,c,d>0$):
+\[
+  \dot{p} = \kappa\bigl((a-c)-(b+d)p\bigr).
+\]
+The equilibrium $p^*=(a-c)/(b+d)$ is globally stable.
+\end{example}
+
+\subsection{Cobweb Model}
+
+\begin{definition}[Cobweb model]
+In discrete time, producers set supply based on past price:
+\[
+  S_t = S(p_{t-1}), \qquad p_t = D^{-1}(S_t).
+\]
+\end{definition}
+
+\begin{proposition}
+If $\abs{S'(p^*)/D'(p^*)} < 1$, the model converges to equilibrium.
+If $\abs{S'(p^*)/D'(p^*)} > 1$, oscillations diverge.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{The Black--Scholes Model}
+\label{sec:black_scholes}
+% ------------------------------------------------------------
+
+\begin{definition}[Geometric Brownian motion]
+The price of a financial asset $S(t)$ follows geometric Brownian
+motion:
+\[
+  dS = \mu S\,dt + \sigma S\,dW_t,
+\]
+where $\mu$ is the drift, $\sigma$ the volatility, and $W_t$ a
+standard Brownian motion.
+\end{definition}
+
+\begin{theorem}[Black--Scholes equation]
+The price $V(S,t)$ of a European option on an asset of price $S$
+satisfies the PDE:
+\[
+  \frac{\partial V}{\partial t}
+  + \frac{1}{2}\sigma^2 S^2\frac{\partial^2 V}{\partial S^2}
+  + rS\frac{\partial V}{\partial S} - rV = 0,
+\]
+where $r$ is the risk-free rate.
+\end{theorem}
+
+\begin{keyformulas}[title=\textbf{Black--Scholes formula for a European call}]
+\[
+  C(S,t) = S\,\Phi(d_1) - Ke^{-r(T-t)}\Phi(d_2),
+\]
+where $K$ is the strike price, $T$ the maturity, $\Phi$ the standard
+normal CDF, and
+\[
+  d_1 = \frac{\ln(S/K)+(r+\sigma^2/2)(T-t)}{\sigma\sqrt{T-t}},
+  \qquad d_2 = d_1 - \sigma\sqrt{T-t}.
+\]
+\end{keyformulas}
+
+\begin{codeblock}[title=\textbf{Black--Scholes formula in Python}]
+\begin{minted}{python}
+import numpy as np
+from scipy.stats import norm
+import matplotlib.pyplot as plt
+
+def black_scholes_call(S, K, T, r, sigma):
+    d1 = (np.log(S/K) + (r + sigma**2/2)*T) / (sigma*np.sqrt(T))
+    d2 = d1 - sigma * np.sqrt(T)
+    return S * norm.cdf(d1) - K * np.exp(-r*T) * norm.cdf(d2)
+
+def black_scholes_put(S, K, T, r, sigma):
+    d1 = (np.log(S/K) + (r + sigma**2/2)*T) / (sigma*np.sqrt(T))
+    d2 = d1 - sigma * np.sqrt(T)
+    return K * np.exp(-r*T) * norm.cdf(-d2) - S * norm.cdf(-d1)
+
+S0, K, T, r, sigma = 100, 100, 1.0, 0.05, 0.2
+print(f"Call = {black_scholes_call(S0, K, T, r, sigma):.4f}")
+print(f"Put  = {black_scholes_put(S0, K, T, r, sigma):.4f}")
+
+S_range = np.linspace(60, 140, 200)
+calls = [black_scholes_call(S, K, T, r, sigma) for S in S_range]
+
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.plot(S_range, calls, 'b-', lw=2, label='Call price')
+ax.plot(S_range, np.maximum(S_range - K, 0), 'r--', label='Payoff')
+ax.set_xlabel('$S$'); ax.set_ylabel('Call price')
+ax.legend(); ax.set_title('European Call (Black-Scholes)')
+plt.tight_layout(); plt.savefig('black_scholes.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Monte Carlo Simulation}
+\label{sec:monte_carlo}
+% ------------------------------------------------------------
+
+\begin{definition}[Monte Carlo pricing]
+Simulate $M$ price paths $S(T)$ and estimate the option price by
+the discounted average payoff:
+\[
+  \hat{C} = e^{-rT}\frac{1}{M}\sum_{i=1}^M \max(S_i(T)-K,\;0).
+\]
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Monte Carlo for European call}]
+\begin{minted}{python}
+import numpy as np
+
+S0, K, T, r, sigma = 100, 100, 1.0, 0.05, 0.2
+M = 100000
+np.random.seed(42)
+
+Z = np.random.standard_normal(M)
+S_T = S0 * np.exp((r - 0.5*sigma**2)*T + sigma*np.sqrt(T)*Z)
+payoffs = np.maximum(S_T - K, 0)
+C_mc = np.exp(-r*T) * np.mean(payoffs)
+se = np.exp(-r*T) * np.std(payoffs) / np.sqrt(M)
+
+print(f"MC price = {C_mc:.4f} +/- {1.96*se:.4f} (95% CI)")
+print(f"BS price = {black_scholes_call(S0, K, T, r, sigma):.4f}")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Markowitz Portfolio Optimisation}
+\label{sec:markowitz}
+% ------------------------------------------------------------
+
+\begin{definition}[Portfolio optimisation]
+For $n$ assets with expected returns $\boldsymbol{\mu}\in\R^n$ and
+covariance matrix $\Sigma$, the Markowitz optimal portfolio minimises
+variance for a target return $r_c$:
+\[
+  \min_{\mathbf{w}} \;\mathbf{w}^\top\Sigma\mathbf{w}
+  \quad\text{s.t.}\quad
+  \mathbf{w}^\top\boldsymbol{\mu}=r_c,\quad
+  \mathbf{w}^\top\mathbf{1}=1.
+\]
+\end{definition}
+
+\begin{proposition}[Efficient frontier]
+The set of optimal portfolios forms a parabola in the (risk, return)
+plane, called the \textbf{efficient frontier}.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Leontief Input-Output Model}
+% ------------------------------------------------------------
+
+\begin{definition}[Leontief model]
+Let $A=(a_{ij})$ be the matrix giving the amount of good $i$ needed
+to produce one unit of good $j$.  Production equilibrium satisfies:
+\[
+  \mathbf{x} = A\mathbf{x} + \mathbf{d}
+  \quad\Leftrightarrow\quad
+  \mathbf{x} = (I-A)^{-1}\mathbf{d},
+\]
+where $\mathbf{d}$ is final demand.
+\end{definition}
+
+\begin{proposition}
+If the spectral radius satisfies $\rho(A)<1$, then $(I-A)$ is
+invertible and $(I-A)^{-1}=\sum_{k=0}^\infty A^k\geq 0$.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Limitations of Financial Models}
+% ------------------------------------------------------------
+
+\begin{warning}[title=\textbf{Limitations of Black--Scholes}]
+\begin{itemize}
+  \item Volatility $\sigma$ is not constant (volatility smile).
+  \item Real returns have heavy tails (extreme events more frequent
+    than predicted by the normal distribution).
+  \item Markets are not always liquid and frictionless.
+  \item Financial crises reveal nonlinear correlations that Gaussian
+    models ignore.
+\end{itemize}
+\end{warning}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+For the Solow model with $A=1$, $\alpha=0.3$, $s=0.25$, $\delta=0.05$,
+$n=0.01$:
+\begin{enumerate}
+  \item Compute $k^*$ and $y^*$.
+  \item Study the effect of increasing the savings rate $s$.
+  \item Find the optimal savings rate (Phelps' golden rule).
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}
+Simulate the cobweb model with $D(p)=100-2p$ and $S(p)=-10+3p$.
+Determine whether oscillations converge or diverge.
+\end{exercise}
+
+\begin{exercise}
+Compute the ``Greeks'' of the European call (Delta, Gamma, Vega,
+Theta, Rho) both analytically and numerically.
+\end{exercise}
+
+\begin{exercise}
+Compare the Monte Carlo price of a European put with the
+Black--Scholes formula for different numbers of paths $M$.  Plot
+the error as a function of $M$ and verify $O(1/\sqrt{M})$ convergence.
+\end{exercise}
+
+\begin{exercise}
+For a portfolio of 3 assets with given returns and covariances,
+plot the Markowitz efficient frontier.
+\end{exercise}

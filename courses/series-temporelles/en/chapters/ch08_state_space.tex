@@ -1,0 +1,151 @@
+% ============================================================
+\chapter{State Space Models and the Kalman Filter}
+\label{ch:kalman}
+% ============================================================
+
+\section{Motivating Example}
+The ``true'' GDP of an economy is unobservable; one only observes noisy and revised estimates. A state space model separates the \textbf{latent state} from the \textbf{noisy observation}, and the Kalman filter provides the optimal estimate of the state.
+
+\section{Linear Gaussian State Space Model}\index{state space}
+
+\begin{definition}[State Space Model]
+\begin{align}
+\bm{x}_{t+1} &= F\bm{x}_t + G\bm{w}_t && \text{(state equation)} \label{eq:state}\\
+\bm{y}_t &= H\bm{x}_t + \bm{v}_t && \text{(observation equation)} \label{eq:obs}
+\end{align}
+where $\bm{x}_t\in\R^p$ is the (latent) state, $\bm{y}_t\in\R^m$ the observation, $\bm{w}_t\sim\mathcal{N}(0,Q)$ and $\bm{v}_t\sim\mathcal{N}(0,R)$ are independent.
+\end{definition}
+
+\begin{example}[Local Level]
+$x_{t+1}=x_t+w_t$, $y_t=x_t+v_t$. The state is the ``true value'' smoothed over time.
+\end{example}
+
+\begin{example}[ARMA as State Space]
+Any ARMA$(p,q)$ can be cast in state space form. For instance, the AR(1) $X_t=\phi X_{t-1}+\eps_t$ corresponds to $F=\phi$, $H=1$, $G=1$, $Q=\sigma^2$, $R=0$.
+\end{example}
+
+\section{The Kalman Filter}\index{Kalman filter}
+
+\begin{definition}[Kalman Filter]
+Notation: $\hat{\bm{x}}_{t|s}=\E[\bm{x}_t|\bm{y}_1,\ldots,\bm{y}_s]$ and $P_{t|s}=\Cov(\bm{x}_t-\hat{\bm{x}}_{t|s})$.
+
+\medskip
+\textbf{Prediction:}
+\begin{align}
+\hat{\bm{x}}_{t+1|t} &= F\hat{\bm{x}}_{t|t}, \\
+P_{t+1|t} &= FP_{t|t}F^\top + GQG^\top.
+\end{align}
+
+\textbf{Update:}
+\begin{align}
+K_t &= P_{t|t-1}H^\top(HP_{t|t-1}H^\top+R)^{-1} && \text{(Kalman gain)},\\
+\hat{\bm{x}}_{t|t} &= \hat{\bm{x}}_{t|t-1} + K_t(\bm{y}_t - H\hat{\bm{x}}_{t|t-1}), \\
+P_{t|t} &= (I-K_tH)P_{t|t-1}.
+\end{align}
+\end{definition}
+
+\begin{theorem}[Optimality of the Kalman Filter]
+In the linear Gaussian model, the Kalman filter yields the MMSE (minimum mean square error) estimator of $\bm{x}_t$ given $\bm{y}_1,\ldots,\bm{y}_t$. It is the \textbf{optimal} estimator among all estimators (not only linear ones).
+\end{theorem}
+
+\begin{proof}[Sketch]
+By induction. At each step, the conditional distribution $\bm{x}_t|\bm{y}_{1:t}$ is Gaussian (by closure of the Gaussian distribution under linear conditioning). The conditional expectation is the MMSE estimator for Gaussian distributions.
+\end{proof}
+
+\section{Kalman Smoother}\index{Kalman smoother}
+
+\begin{definition}[Rauch--Tung--Striebel Smoother]
+To compute $\hat{\bm{x}}_{t|n}$ (estimate of the past state using \emph{all} observations):
+\begin{align}
+J_t &= P_{t|t}F^\top P_{t+1|t}^{-1}, \\
+\hat{\bm{x}}_{t|n} &= \hat{\bm{x}}_{t|t} + J_t(\hat{\bm{x}}_{t+1|n}-\hat{\bm{x}}_{t+1|t}), \\
+P_{t|n} &= P_{t|t} + J_t(P_{t+1|n}-P_{t+1|t})J_t^\top.
+\end{align}
+One iterates backward from $t=n-1$ to $t=1$.
+\end{definition}
+
+\section{Likelihood via the Kalman Filter}
+
+\begin{theorem}[Innovation Decomposition]
+The log-likelihood decomposes as:
+\[
+\ln L = -\frac{nm}{2}\ln(2\pi) - \frac{1}{2}\sum_{t=1}^n\left[\ln|S_t| + \bm{e}_t^\top S_t^{-1}\bm{e}_t\right],
+\]
+where $\bm{e}_t = \bm{y}_t-H\hat{\bm{x}}_{t|t-1}$ is the \textbf{innovation} and $S_t = HP_{t|t-1}H^\top+R$.
+\end{theorem}
+
+\section{Implementation}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from statsmodels.tsa.statespace.structural import UnobservedComponents
+
+# Simuler un modèle local level
+np.random.seed(42)
+n = 200
+sigma_w, sigma_v = 0.5, 1.0
+x = np.zeros(n)
+y = np.zeros(n)
+for t in range(1, n):
+    x[t] = x[t-1] + sigma_w * np.random.normal()
+    y[t] = x[t] + sigma_v * np.random.normal()
+
+# Filtre de Kalman manuel
+F, H, Q, R = 1.0, 1.0, sigma_w**2, sigma_v**2
+x_filt = np.zeros(n)
+P_filt = np.zeros(n)
+P_filt[0] = 1.0
+for t in range(1, n):
+    # Prédiction
+    x_pred = F * x_filt[t-1]
+    P_pred = F * P_filt[t-1] * F + Q
+    # Mise à jour
+    S = H * P_pred * H + R
+    K = P_pred * H / S
+    x_filt[t] = x_pred + K * (y[t] - H * x_pred)
+    P_filt[t] = (1 - K * H) * P_pred
+
+fig, ax = plt.subplots(figsize=(12, 5))
+ax.plot(y, 'o', ms=2, alpha=0.5, label='Observations $y_t$')
+ax.plot(x, 'g-', lw=1.5, label='État vrai $x_t$')
+ax.plot(x_filt, 'r--', lw=1.5, label='Filtre de Kalman $\\hat{x}_{t|t}$')
+ax.legend()
+ax.set_title('Filtre de Kalman — Local Level Model')
+plt.savefig('ch08_kalman.pdf')
+plt.show()
+
+# Avec statsmodels
+model = UnobservedComponents(y, 'local level')
+results = model.fit(disp=False)
+print(results.summary())
+\end{minted}
+\end{codeblock}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+Write the AR(2) in state space form.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Prove that the Kalman gain $K_t$ minimizes $\tr(P_{t|t})$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Show that in the stationary local level model ($\sigma_w,\sigma_v$ constant), the Kalman gain converges to a constant $K_\infty$.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Project]
+Implement an extended Kalman filter (EKF) for a stochastic volatility model: $\ln\sigma_t^2 = \phi\ln\sigma_{t-1}^2+w_t$, $r_t=\sigma_t z_t$.
+\end{exercise}
+
+\begin{keyformulas}
+\begin{align*}
+\hat{\bm{x}}_{t+1|t} &= F\hat{\bm{x}}_{t|t}, \quad P_{t+1|t}=FP_{t|t}F^\top+GQG^\top \\
+K_t &= P_{t|t-1}H^\top(HP_{t|t-1}H^\top+R)^{-1} \\
+\hat{\bm{x}}_{t|t} &= \hat{\bm{x}}_{t|t-1}+K_t(\bm{y}_t-H\hat{\bm{x}}_{t|t-1}) \\
+\ln L &= -\tfrac{1}{2}\sum[\ln|S_t|+\bm{e}_t^\top S_t^{-1}\bm{e}_t]
+\end{align*}
+\end{keyformulas}

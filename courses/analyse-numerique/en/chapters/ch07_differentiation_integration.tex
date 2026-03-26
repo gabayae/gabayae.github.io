@@ -1,0 +1,442 @@
+%!TEX root = ../main.tex
+% Chapter 7 — Numerical Differentiation and Integration
+
+\chapter{Numerical Differentiation and Integration}
+\label{ch:differentiation-integration}
+
+
+\section{Introduction}
+
+When an analytical expression for a derivative or integral is unavailable---or the function is known only through data points---we resort to \emph{numerical} methods. This chapter covers finite difference formulas for derivatives and the classical quadrature rules for definite integrals.
+
+%==============================================================================
+\section{Numerical Differentiation}
+%==============================================================================
+
+\subsection{Finite difference formulas}
+
+\begin{definition}[Finite differences]
+\label{def:finite-differences}
+\index{finite differences}
+Given a function $f$ and a step size $h > 0$:
+\begin{itemize}
+    \item \textbf{Forward difference:} $\displaystyle f'(x) \approx \frac{f(x+h) - f(x)}{h}$
+    \item \textbf{Backward difference:} $\displaystyle f'(x) \approx \frac{f(x) - f(x-h)}{h}$
+    \item \textbf{Centered difference:} $\displaystyle f'(x) \approx \frac{f(x+h) - f(x-h)}{2h}$
+\end{itemize}
+\end{definition}
+
+\begin{theorem}[Truncation errors for finite differences]
+\label{thm:fd-errors}
+\index{truncation error!finite differences}
+If $f$ is sufficiently smooth:
+\begin{enumerate}
+    \item \textbf{Forward/backward difference:}
+    \[
+        \frac{f(x+h) - f(x)}{h} = f'(x) + \frac{h}{2}f''(\xi_1), \qquad \xi_1 \in (x, x+h).
+    \]
+    The error is $\BigO(h)$.
+
+    \item \textbf{Centered difference:}
+    \[
+        \frac{f(x+h) - f(x-h)}{2h} = f'(x) + \frac{h^2}{6}f'''(\xi_2), \qquad \xi_2 \in (x-h, x+h).
+    \]
+    The error is $\BigO(h^2)$.
+
+    \item \textbf{Second derivative (centered):}
+    \[
+        \frac{f(x+h) - 2f(x) + f(x-h)}{h^2} = f''(x) + \frac{h^2}{12}f^{(4)}(\xi_3), \qquad \xi_3 \in (x-h, x+h).
+    \]
+    The error is $\BigO(h^2)$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+We prove (2). Taylor-expand $f(x+h)$ and $f(x-h)$:
+\begin{align*}
+    f(x+h) &= f(x) + hf'(x) + \frac{h^2}{2}f''(x) + \frac{h^3}{6}f'''(x) + \BigO(h^4), \\
+    f(x-h) &= f(x) - hf'(x) + \frac{h^2}{2}f''(x) - \frac{h^3}{6}f'''(x) + \BigO(h^4).
+\end{align*}
+Subtracting:
+\[
+    f(x+h) - f(x-h) = 2hf'(x) + \frac{h^3}{3}f'''(x) + \BigO(h^5).
+\]
+Dividing by $2h$: $\frac{f(x+h)-f(x-h)}{2h} = f'(x) + \frac{h^2}{6}f'''(x) + \BigO(h^4)$. By the intermediate value theorem, $f'''(x) = f'''(\xi_2)$ for some $\xi_2$.
+\end{proof}
+
+\begin{warning}
+\textbf{Rounding vs.\ truncation error trade-off.} For machine epsilon $\eps$, the total error in the centered difference is approximately
+\[
+    E(h) \approx \frac{h^2}{6}|f'''(x)| + \frac{\eps\,|f(x)|}{h}.
+\]
+The optimal step size is $h^* \approx \eps^{1/3}$, giving error $\approx \eps^{2/3}$.
+\end{warning}
+
+\begin{example}
+\label{ex:fd-comparison}
+For $f(x) = \sin(x)$ at $x = 1$, the exact derivative is $\cos(1) \approx 0.5403023$. Errors:
+\begin{center}
+\begin{tabular}{ccc}
+    \toprule
+    $h$ & Forward $\BigO(h)$ & Centered $\BigO(h^2)$ \\
+    \midrule
+    $10^{-1}$ & $4.6 \times 10^{-2}$ & $1.4 \times 10^{-3}$ \\
+    $10^{-2}$ & $4.6 \times 10^{-3}$ & $1.4 \times 10^{-5}$ \\
+    $10^{-4}$ & $4.6 \times 10^{-5}$ & $1.4 \times 10^{-9}$ \\
+    $10^{-8}$ & $4.6 \times 10^{-9}$ & $6.1 \times 10^{-11}$ \\
+    $10^{-12}$& $5.3 \times 10^{-5}$ & $4.2 \times 10^{-5}$ \\
+    \bottomrule
+\end{tabular}
+\end{center}
+Note the loss of accuracy for very small $h$ due to round-off.
+\end{example}
+
+\subsection{Higher-order formulas}
+
+\begin{proposition}[Fourth-order approximation of $f'$]
+\label{prop:fd4}
+\[
+    f'(x) = \frac{-f(x+2h) + 8f(x+h) - 8f(x-h) + f(x-2h)}{12h} + \BigO(h^4).
+\]
+\end{proposition}
+
+%==============================================================================
+\section{Numerical Integration (Quadrature)}
+%==============================================================================
+
+\subsection{The trapezoidal rule}
+
+\begin{definition}[Simple trapezoidal rule]
+\label{def:trap-simple}
+\index{trapezoidal rule}
+\[
+    \int_a^b f(x)\,dx \approx T(f) = \frac{b-a}{2}\bigl[f(a) + f(b)\bigr].
+\]
+\end{definition}
+
+\begin{theorem}[Trapezoidal rule error]
+\label{thm:trap-error}
+If $f \in C^2([a,b])$,
+\[
+    \int_a^b f(x)\,dx - T(f) = -\frac{(b-a)^3}{12}\,f''(\xi), \qquad \xi \in (a,b).
+\]
+\end{theorem}
+
+\begin{proof}
+Let $I = [a,b]$ with $h = b-a$. The interpolation polynomial of degree 1 at $a$ and $b$ is
+\[
+    p_1(x) = f(a)\frac{b-x}{h} + f(b)\frac{x-a}{h}.
+\]
+The interpolation error is $f(x) - p_1(x) = \frac{f''(\eta(x))}{2}(x-a)(x-b)$ for some $\eta(x) \in (a,b)$. Integrating:
+\[
+    \int_a^b f(x)\,dx - \frac{h}{2}[f(a)+f(b)] = \int_a^b \frac{f''(\eta(x))}{2}(x-a)(x-b)\,dx.
+\]
+Since $(x-a)(x-b) \leq 0$ on $[a,b]$, by the mean value theorem for integrals:
+\[
+    = \frac{f''(\xi)}{2}\int_a^b (x-a)(x-b)\,dx = \frac{f''(\xi)}{2}\cdot\left(-\frac{h^3}{6}\right) = -\frac{h^3}{12}f''(\xi). \qedhere
+\]
+\end{proof}
+
+\begin{definition}[Composite trapezoidal rule]
+\label{def:trap-composite}
+\index{trapezoidal rule!composite}
+Dividing $[a,b]$ into $n$ equal sub-intervals of width $h = \frac{b-a}{n}$ with $x_k = a + kh$:
+\[
+    T_n(f) = \frac{h}{2}\left[f(x_0) + 2\sum_{k=1}^{n-1} f(x_k) + f(x_n)\right].
+\]
+\end{definition}
+
+\begin{theorem}[Composite trapezoidal error]
+\label{thm:trap-composite-error}
+If $f \in C^2([a,b])$,
+\[
+    \int_a^b f(x)\,dx - T_n(f) = -\frac{(b-a)h^2}{12}\,f''(\xi) = \BigO(h^2), \qquad \xi \in (a,b).
+\]
+\end{theorem}
+
+\subsection{Simpson's rule}
+
+\begin{definition}[Simple Simpson's rule]
+\label{def:simpson-simple}
+\index{Simpson's rule}
+\[
+    \int_a^b f(x)\,dx \approx S(f) = \frac{b-a}{6}\left[f(a) + 4f\!\left(\frac{a+b}{2}\right) + f(b)\right].
+\]
+\end{definition}
+
+\begin{theorem}[Simpson's rule error]
+\label{thm:simpson-error}
+If $f \in C^4([a,b])$,
+\[
+    \int_a^b f(x)\,dx - S(f) = -\frac{(b-a)^5}{2880}\,f^{(4)}(\xi), \qquad \xi \in (a,b).
+\]
+Simpson's rule is exact for polynomials of degree $\leq 3$ (one degree of superconvergence).
+\end{theorem}
+
+\begin{definition}[Composite Simpson's rule]
+\label{def:simpson-composite}
+\index{Simpson's rule!composite}
+With $n$ even, $h = \frac{b-a}{n}$, and $x_k = a + kh$:
+\[
+    S_n(f) = \frac{h}{3}\left[f(x_0) + 4\sum_{\substack{k=1 \\ k\text{ odd}}}^{n-1} f(x_k) + 2\sum_{\substack{k=2 \\ k\text{ even}}}^{n-2} f(x_k) + f(x_n)\right].
+\]
+\end{definition}
+
+\begin{theorem}[Composite Simpson error]
+\label{thm:simpson-composite-error}
+If $f \in C^4([a,b])$,
+\[
+    \int_a^b f(x)\,dx - S_n(f) = -\frac{(b-a)h^4}{180}\,f^{(4)}(\xi) = \BigO(h^4), \qquad \xi \in (a,b).
+\]
+\end{theorem}
+
+\begin{remark}
+Comparison of convergence orders:
+\begin{center}
+\begin{tabular}{lcc}
+    \toprule
+    \textbf{Rule} & \textbf{Degree of exactness} & \textbf{Order} \\
+    \midrule
+    Trapezoidal & 1 & $\BigO(h^2)$ \\
+    Simpson     & 3 & $\BigO(h^4)$ \\
+    \bottomrule
+\end{tabular}
+\end{center}
+\end{remark}
+
+%==============================================================================
+\section{Richardson Extrapolation}
+%==============================================================================
+
+\begin{definition}[Richardson extrapolation]
+\label{def:richardson}
+\index{Richardson extrapolation}
+If an approximation $A(h)$ satisfies $A(h) = A_0 + c_1 h^p + \BigO(h^{p+q})$, then
+\[
+    A^*(h) = \frac{2^p A(h/2) - A(h)}{2^p - 1}
+\]
+is a higher-order approximation: $A^*(h) = A_0 + \BigO(h^{p+q})$.
+\end{definition}
+
+\begin{example}[Romberg integration]
+\label{ex:romberg}
+\index{Romberg integration}
+Applying Richardson extrapolation to the composite trapezoidal rule (where the error has only even powers of $h$):
+\begin{itemize}
+    \item $T(h)$ and $T(h/2)$ combine to give Simpson's rule: $S = \frac{4T(h/2) - T(h)}{3}$;
+    \item Further extrapolation yields Boole's rule and higher-order formulas.
+\end{itemize}
+The Romberg table:
+\[
+\begin{array}{cccc}
+    T_{1,1} & & & \\
+    T_{2,1} & T_{2,2} & & \\
+    T_{3,1} & T_{3,2} & T_{3,3} & \\
+    T_{4,1} & T_{4,2} & T_{4,3} & T_{4,4}
+\end{array}
+\]
+where $T_{i,1} = T_{2^{i-1}}$ (composite trapezoidal with $2^{i-1}$ sub-intervals) and
+\[
+    T_{i,j} = \frac{4^{j-1}\,T_{i,j-1} - T_{i-1,j-1}}{4^{j-1} - 1}.
+\]
+\end{example}
+
+%==============================================================================
+\section{Convergence Study: $\int_0^1 e^{-x^2}\,dx$}
+%==============================================================================
+
+\begin{example}[Convergence table]
+\label{ex:convergence-integration}
+We compute $I = \int_0^1 e^{-x^2}\,dx \approx 0.746824132812427$ using the composite trapezoidal and Simpson rules with increasing $n$:
+
+\begin{center}
+\begin{tabular}{r|cc|cc}
+    \toprule
+    $n$ & $|I - T_n|$ & ratio & $|I - S_n|$ & ratio \\
+    \midrule
+    2   & $2.83 \times 10^{-2}$ & ---  & $5.12 \times 10^{-4}$ & --- \\
+    4   & $7.18 \times 10^{-3}$ & 3.94 & $3.27 \times 10^{-5}$ & 15.7 \\
+    8   & $1.80 \times 10^{-3}$ & 3.99 & $2.06 \times 10^{-6}$ & 15.9 \\
+    16  & $4.51 \times 10^{-4}$ & 4.00 & $1.29 \times 10^{-7}$ & 16.0 \\
+    32  & $1.13 \times 10^{-4}$ & 4.00 & $8.06 \times 10^{-9}$ & 16.0 \\
+    64  & $2.82 \times 10^{-5}$ & 4.00 & $5.04 \times 10^{-10}$& 16.0 \\
+    128 & $7.05 \times 10^{-6}$ & 4.00 & $3.15\times 10^{-11}$ & 16.0 \\
+    \bottomrule
+\end{tabular}
+\end{center}
+The ratio $|E_n|/|E_{2n}|$ confirms $\BigO(h^2)$ for trapezoidal (ratio $\to 4$) and $\BigO(h^4)$ for Simpson (ratio $\to 16$).
+\end{example}
+
+%==============================================================================
+\section{Implementations}
+%==============================================================================
+
+\begin{codeblock}[title=\textbf{Python --- Numerical integration}]
+\begin{minted}{python}
+import numpy as np
+
+def composite_trapezoidal(f, a, b, n):
+    """Composite trapezoidal rule with n sub-intervals."""
+    x = np.linspace(a, b, n + 1)
+    h = (b - a) / n
+    return h * (0.5*f(x[0]) + np.sum(f(x[1:-1])) + 0.5*f(x[-1]))
+
+def composite_simpson(f, a, b, n):
+    """Composite Simpson's rule (n must be even)."""
+    assert n % 2 == 0, "n must be even for Simpson's rule"
+    x = np.linspace(a, b, n + 1)
+    h = (b - a) / n
+    return (h/3) * (f(x[0]) + 4*np.sum(f(x[1::2]))
+                    + 2*np.sum(f(x[2:-1:2])) + f(x[-1]))
+
+def romberg(f, a, b, max_order=5):
+    """Romberg integration."""
+    T = np.zeros((max_order, max_order))
+    for i in range(max_order):
+        n = 2**i
+        T[i, 0] = composite_trapezoidal(f, a, b, n)
+        for j in range(1, i + 1):
+            T[i, j] = (4**j * T[i, j-1] - T[i-1, j-1]) / (4**j - 1)
+    return T
+
+# Convergence study
+f = lambda x: np.exp(-x**2)
+I_exact = 0.746824132812427
+
+print(f"{'n':>5} {'|I-T_n|':>14} {'ratio':>8} "
+      f"{'|I-S_n|':>14} {'ratio':>8}")
+print("-" * 55)
+
+err_T_prev, err_S_prev = None, None
+for k in range(1, 8):
+    n = 2**k
+    T = composite_trapezoidal(f, 0, 1, n)
+    S = composite_simpson(f, 0, 1, n)
+    err_T = abs(I_exact - T)
+    err_S = abs(I_exact - S)
+    ratio_T = err_T_prev / err_T if err_T_prev else float('nan')
+    ratio_S = err_S_prev / err_S if err_S_prev else float('nan')
+    print(f"{n:5d} {err_T:14.2e} {ratio_T:8.2f} "
+          f"{err_S:14.2e} {ratio_S:8.2f}")
+    err_T_prev, err_S_prev = err_T, err_S
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Julia --- Numerical integration}]
+\begin{minted}{julia}
+function composite_trapezoidal(f, a, b, n)
+    h = (b - a) / n
+    x = range(a, b, length=n+1)
+    return h * (f(x[1])/2 + sum(f.(x[2:end-1])) + f(x[end])/2)
+end
+
+function composite_simpson(f, a, b, n)
+    @assert iseven(n) "n must be even"
+    h = (b - a) / n
+    x = range(a, b, length=n+1)
+    return (h/3) * (f(x[1]) + 4*sum(f.(x[2:2:end-1]))
+                    + 2*sum(f.(x[3:2:end-2])) + f(x[end]))
+end
+
+# Convergence study
+f(x) = exp(-x^2)
+I_exact = 0.746824132812427
+
+println("  n     |I-T_n|      ratio    |I-S_n|      ratio")
+err_T_prev = err_S_prev = NaN
+for k in 1:7
+    n = 2^k
+    T = composite_trapezoidal(f, 0.0, 1.0, n)
+    S = composite_simpson(f, 0.0, 1.0, n)
+    err_T = abs(I_exact - T)
+    err_S = abs(I_exact - S)
+    ratio_T = isnan(err_T_prev) ? NaN : err_T_prev / err_T
+    ratio_S = isnan(err_S_prev) ? NaN : err_S_prev / err_S
+    @printf("%4d  %12.2e  %7.2f  %12.2e  %7.2f\n",
+            n, err_T, ratio_T, err_S, ratio_S)
+    err_T_prev, err_S_prev = err_T, err_S
+end
+\end{minted}
+\end{codeblock}
+
+%==============================================================================
+\section{Exercises}
+%==============================================================================
+
+\begin{exercise}[$\star$]
+\label{ex:ch7-fd-order}
+Use Taylor expansions to derive the truncation error of the forward difference formula and verify that it is $\BigO(h)$.
+\end{exercise}
+
+\begin{exercise}[$\star$]
+\label{ex:ch7-trap-exact}
+Show that the trapezoidal rule is exact for polynomials of degree $\leq 1$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+\label{ex:ch7-simpson-exact}
+Show that Simpson's rule is exact for polynomials of degree $\leq 3$ (not just $\leq 2$).
+\textit{Hint:} verify directly for $f(x) = x^3$ on $[a,b]$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+\label{ex:ch7-optimal-h}
+For the centered difference approximation of $f'(x)$:
+\begin{enumerate}
+    \item Express the total error (truncation + round-off) as a function of $h$.
+    \item Find the optimal $h^*$ that minimizes the total error.
+    \item Compute $h^*$ and the corresponding error for double precision ($\eps \approx 10^{-16}$).
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+\label{ex:ch7-romberg}
+Apply Romberg integration to $\int_0^1 \frac{4}{1+x^2}\,dx = \pi$.
+Build the Romberg table up to $T_{4,4}$ and compare with $\pi$.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+\label{ex:ch7-adaptive}
+Implement an adaptive Simpson rule:
+\begin{enumerate}
+    \item Compute $S_1 = S(a,b)$ and $S_2 = S(a,m) + S(m,b)$ where $m = (a+b)/2$.
+    \item If $|S_2 - S_1| < 15\,\varepsilon$ (with $\varepsilon$ a given tolerance), accept $S_2 + (S_2 - S_1)/15$.
+    \item Otherwise, recursively refine each half.
+\end{enumerate}
+Test on $\int_0^1 \sqrt{x}\,dx$ (which has a singularity in the derivative at $x=0$).
+\end{exercise}
+
+%==============================================================================
+\section*{Summary of Key Formulas}
+%==============================================================================
+
+\begin{keyformulas}
+\textbf{Finite differences:}
+\begin{align*}
+    f'(x) &\approx \frac{f(x+h)-f(x)}{h} & & \BigO(h) \\
+    f'(x) &\approx \frac{f(x+h)-f(x-h)}{2h} & & \BigO(h^2) \\
+    f''(x) &\approx \frac{f(x+h)-2f(x)+f(x-h)}{h^2} & & \BigO(h^2)
+\end{align*}
+
+\textbf{Optimal step (centered difference):} $h^* \approx \eps^{1/3}$, error $\approx \eps^{2/3}$.
+
+\textbf{Composite trapezoidal rule:}
+\[
+    T_n(f) = \frac{h}{2}\left[f(x_0) + 2\sum_{k=1}^{n-1}f(x_k) + f(x_n)\right], \qquad \text{error } = \BigO(h^2)
+\]
+
+\textbf{Composite Simpson's rule} ($n$ even):
+\[
+    S_n(f) = \frac{h}{3}\left[f(x_0) + 4\!\!\sum_{k\text{ odd}} f(x_k) + 2\!\!\sum_{k\text{ even}} f(x_k) + f(x_n)\right], \qquad \text{error } = \BigO(h^4)
+\]
+
+\textbf{Richardson extrapolation:}
+\[
+    A^*(h) = \frac{2^p A(h/2) - A(h)}{2^p - 1}
+\]
+
+\textbf{Romberg recurrence:}
+\[
+    T_{i,j} = \frac{4^{j-1}\,T_{i,j-1} - T_{i-1,j-1}}{4^{j-1}-1}
+\]
+\end{keyformulas}

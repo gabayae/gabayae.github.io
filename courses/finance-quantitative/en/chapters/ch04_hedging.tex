@@ -1,0 +1,299 @@
+% ============================================================
+\chapter{Delta Hedging and Risk Management}
+\label{ch:hedging}
+% ============================================================
+
+The Black-Scholes model does not merely give a price: it tells you how to \emph{hedge}. The central idea is that the risk of an option can be eliminated by continuously holding the right quantity of the underlying asset---the \emph{delta}. By adjusting this position at every instant, the portfolio becomes insensitive to market fluctuations. But perfect hedging is an ideal: in practice, one can only rebalance at discrete intervals, transaction costs accumulate, and volatility is never constant. Understanding these limitations is as important as understanding the theory.
+
+\section{Introduction}
+
+Hedging is the activity of reducing or eliminating risk associated with a
+derivatives position. This chapter develops the theory and practice of
+delta hedging, gamma hedging, and analyses the costs and limitations of
+dynamic hedging.
+
+\section{Delta Hedging}
+
+\subsection{Principle}
+
+\begin{definition}[Delta Hedging]
+\textbf{Delta hedging} consists of maintaining a portfolio
+$\Pi_t = V_t - \Delta_t S_t$
+locally insensitive to changes in $S$, where
+$\Delta_t = \frac{\partial V}{\partial S}(S_t, t)$.
+\end{definition}
+
+\begin{theorem}[Self-Financing Delta-Hedged Portfolio]
+Under the Black--Scholes framework with continuous trading, the delta-hedged
+portfolio is riskless and perfectly replicates the derivative. Its value
+satisfies:
+\[
+    d\Pi_t = r\Pi_t\,dt.
+\]
+\end{theorem}
+
+\begin{intuition}[title=\textbf{Discrete-Time Hedging}]
+In practice, rebalancing is discrete (every $\Delta t$ time units). The
+hedging error arises because $\Delta$ changes between rebalancings. Higher
+frequency improves the hedge but increases transaction costs.
+\end{intuition}
+
+\subsection{Discrete-Time Hedging Error}
+
+\begin{proposition}[Hedging Error]
+For a European call hedged with delta rebalancing at dates
+$t_0, t_1, \ldots, t_N$, the hedging error is:
+\[
+    \epsilon = \sum_{i=0}^{N-1} \frac{1}{2}\Gamma(S_{t_i}, t_i)
+    S_{t_i}^2\bigl[(\Delta S_{t_i})^2 - \sigma^2 S_{t_i}^2 \Delta t\bigr]
+    \cdot e^{r(T-t_{i+1})},
+\]
+where $\Delta S_{t_i} = S_{t_{i+1}} - S_{t_i}$.
+\end{proposition}
+
+The hedging error has zero expectation under $\mathbb{Q}$ but non-zero
+variance, proportional to $\Delta t$.
+
+\begin{codeblock}[title=\textbf{Discrete Delta-Hedging Simulation}]
+\begin{minted}{python}
+import numpy as np
+from scipy.stats import norm
+
+def bs_delta(S, K, T, r, sigma):
+    """Delta of a European call."""
+    if T < 1e-10:
+        return 1.0 if S > K else 0.0
+    d1 = (np.log(S/K) + (r + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
+    return norm.cdf(d1)
+
+def bs_price(S, K, T, r, sigma):
+    """Black-Scholes call price."""
+    if T < 1e-10:
+        return max(S - K, 0)
+    d1 = (np.log(S/K) + (r + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
+    d2 = d1 - sigma*np.sqrt(T)
+    return S*norm.cdf(d1) - K*np.exp(-r*T)*norm.cdf(d2)
+
+def simulate_delta_hedge(S0, K, T, r, sigma, N_rebal, M=10000):
+    """Simulate delta hedging and compute hedging errors."""
+    dt = T / N_rebal
+    errors = np.zeros(M)
+
+    for m in range(M):
+        S = S0
+        V0 = bs_price(S, K, T, r, sigma)
+        delta = bs_delta(S, K, T, r, sigma)
+        cash = V0 - delta * S
+
+        for i in range(N_rebal):
+            tau = T - (i+1)*dt
+            Z = np.random.standard_normal()
+            S_new = S * np.exp((r - 0.5*sigma**2)*dt
+                               + sigma*np.sqrt(dt)*Z)
+            cash *= np.exp(r * dt)
+            if tau > 1e-10:
+                delta_new = bs_delta(S_new, K, tau, r, sigma)
+            else:
+                delta_new = 1.0 if S_new > K else 0.0
+            cash -= (delta_new - delta) * S_new
+            delta = delta_new
+            S = S_new
+
+        portfolio = cash + delta * S
+        payoff = max(S - K, 0)
+        errors[m] = portfolio - payoff
+
+    return errors
+
+np.random.seed(42)
+for N in [10, 50, 252, 1000]:
+    errs = simulate_delta_hedge(100, 100, 1.0, 0.05, 0.20, N)
+    print(f"N={N:4d}: mean={np.mean(errs):.4f}, "
+          f"std={np.std(errs):.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{Gamma Hedging}
+
+\begin{definition}[Gamma Hedging]
+\textbf{Gamma hedging} makes the portfolio insensitive not only to small
+changes in $S$ (delta neutral) but also to larger changes (gamma neutral).
+A second instrument (typically another option) is used to neutralise gamma.
+\end{definition}
+
+\begin{proposition}[Constructing a Gamma-Neutral Portfolio]
+Let $V$ be the derivative to hedge and $O$ a hedging instrument with gamma
+$\Gamma_O$. The position in $O$ needed to neutralise gamma is:
+\[
+    w_O = -\frac{\Gamma_V}{\Gamma_O}.
+\]
+After this hedge, the position in the underlying is adjusted to restore
+delta neutrality:
+\[
+    \Delta_{\text{total}} = \Delta_V + w_O \Delta_O.
+\]
+\end{proposition}
+
+\begin{example}
+A trader is short a call ($\Delta = 0.55$, $\Gamma = 0.03$). They have
+access to a call with different maturity ($\Delta_O = 0.40$,
+$\Gamma_O = 0.05$).
+
+Gamma-neutral position: $w_O = -(-0.03)/0.05 = 0.60$.
+
+New delta: $-0.55 + 0.60 \times 0.40 = -0.31$.
+
+Buy $0.31$ units of the underlying to become delta neutral.
+\end{example}
+
+\section{Vega Hedging}
+
+\begin{definition}[Vega Hedging]
+\textbf{Vega hedging} aims to neutralise the portfolio's sensitivity to
+volatility. Since the underlying's vega is zero, options must be used.
+\end{definition}
+
+\begin{remark}
+In practice, vega hedging is more important than gamma hedging because
+implied volatility movements can generate substantial profit and loss (P\&L).
+\end{remark}
+
+\section{P\&L Decomposition}
+
+\begin{theorem}[P\&L Decomposition of a Delta-Hedged Portfolio]
+The instantaneous P\&L of a delta-hedged portfolio is:
+\[
+    d\text{P\&L} = \frac{1}{2}\Gamma S^2\bigl[(dS/S)^2 - \sigma^2\,dt\bigr]
+                 + \mathcal{V}\,d\sigma_{\text{impl}} + \cdots
+\]
+The first term is the \textbf{gamma P\&L} (profitable when realised
+volatility exceeds implied volatility), the second is the \textbf{vega P\&L}.
+\end{theorem}
+
+\begin{keyformulas}[title=\textbf{Taylor Approximation of P\&L}]
+For a general portfolio, the Taylor approximation gives:
+\[
+    \Delta\text{P\&L} \approx \Delta\cdot\delta S
+    + \frac{1}{2}\Gamma(\delta S)^2 + \Theta\,\delta t
+    + \mathcal{V}\,\delta\sigma + \rho\,\delta r.
+\]
+\end{keyformulas}
+
+\section{Transaction Costs and Optimal Hedging}
+
+\begin{theorem}[Optimal Rebalancing Frequency (Leland)]
+In the presence of proportional transaction costs $k\abs{\delta S}$,
+Leland (1985) shows that optimal hedging uses a modified volatility:
+\[
+    \hat{\sigma}^2 = \sigma^2\left(1 + \sqrt{\frac{2}{\pi}}
+    \frac{k}{\sigma\sqrt{\Delta t}}\right).
+\]
+\end{theorem}
+
+\begin{proposition}[Whalley--Wilmott Model]
+An alternative approach rebalances only when delta deviates sufficiently
+from its target. The optimal no-trade band is:
+\[
+    \Delta_{\text{target}} \pm \left(\frac{3k\,e^{-r\tau}\Gamma^2 S^2}
+    {2\lambda}\right)^{1/3},
+\]
+where $\lambda$ represents the trader's risk aversion.
+\end{proposition}
+
+\begin{codeblock}[title=\textbf{Hedging with Transaction Costs}]
+\begin{minted}{python}
+def hedge_with_costs(S0, K, T, r, sigma, N_rebal, k=0.001, M=5000):
+    """Delta hedging with proportional transaction costs."""
+    dt = T / N_rebal
+    total_costs = np.zeros(M)
+    hedge_errors = np.zeros(M)
+
+    for m in range(M):
+        S = S0
+        V0 = bs_price(S, K, T, r, sigma)
+        delta = bs_delta(S, K, T, r, sigma)
+        cash = V0 - delta * S
+        cost = k * abs(delta) * S
+
+        for i in range(N_rebal):
+            tau = T - (i+1)*dt
+            Z = np.random.standard_normal()
+            S_new = S * np.exp((r-0.5*sigma**2)*dt
+                               + sigma*np.sqrt(dt)*Z)
+            cash *= np.exp(r*dt)
+
+            delta_new = bs_delta(S_new, K, max(tau, 1e-10), r, sigma)
+            trade = delta_new - delta
+            cost += k * abs(trade) * S_new
+            cash -= trade * S_new
+            delta = delta_new
+            S = S_new
+
+        portfolio = cash + delta * S
+        payoff = max(S - K, 0)
+        hedge_errors[m] = portfolio - payoff
+        total_costs[m] = cost
+
+    print(f"Average cost: {np.mean(total_costs):.4f}")
+    print(f"Error std:    {np.std(hedge_errors):.4f}")
+    return hedge_errors, total_costs
+
+np.random.seed(42)
+hedge_with_costs(100, 100, 1.0, 0.05, 0.20, 252, k=0.001)
+\end{minted}
+\end{codeblock}
+
+\section{Hedging in Incomplete Markets}
+
+\begin{remark}
+When the market is incomplete (stochastic volatility, jumps), perfect
+hedging is impossible. Alternative approaches include:
+\begin{itemize}
+    \item \textbf{Minimum variance hedging}: minimise $\Var(\Pi_T - H)$
+          over admissible strategies.
+    \item \textbf{Super-replication}: find the minimal cost of a portfolio
+          that dominates the payoff.
+    \item \textbf{Quantile hedging}: control the probability of loss.
+\end{itemize}
+\end{remark}
+
+\section{Exercises}
+
+\begin{exercise}[Delta-Hedging Simulation]
+\begin{enumerate}
+    \item Simulate delta hedging of a European call for
+          $N = 10, 50, 252, 1000$ rebalancings.
+    \item Plot the histogram of hedging errors for each $N$.
+    \item Verify that the error variance decreases as $O(1/N)$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Gamma Hedging]
+\begin{enumerate}
+    \item Construct a delta-gamma neutral portfolio from a short ATM call,
+          a long OTM call, and the underlying.
+    \item Simulate the P\&L over one week and compare with the delta-only
+          hedged portfolio.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[P\&L Analysis]
+\begin{enumerate}
+    \item Decompose the daily P\&L of a delta-hedged portfolio into delta,
+          gamma, theta, and vega components.
+    \item Show that for a delta-neutral portfolio,
+          $\text{P\&L} \approx \frac{1}{2}\Gamma S^2(\sigma_r^2 - \sigma_i^2)\,dt$
+          where $\sigma_r$ is realised volatility and $\sigma_i$ is implied
+          volatility.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Transaction Costs]
+\begin{enumerate}
+    \item Implement Leland hedging with modified volatility.
+    \item Compare total cost and hedging error with the standard method
+          for different values of $k$.
+    \item Implement the Whalley--Wilmott no-trade band and analyse the
+          cost/risk trade-off.
+\end{enumerate}
+\end{exercise}

@@ -1,0 +1,256 @@
+% ============================================================
+\chapter{Simulation et Files d'Attente}
+\label{ch:simulation}
+% ============================================================
+
+\section{Introduction}
+
+La simulation est un outil essentiel de la recherche op\'erationnelle lorsque
+les mod\`eles analytiques sont trop complexes ou intractables. Ce chapitre
+couvre la simulation \`a \'ev\'enements discrets, la g\'en\'eration de
+variables al\'eatoires, l'estimation par Monte-Carlo et les techniques de
+r\'eduction de variance.
+
+\begin{intuition}
+Quand un syst\`eme est trop complexe pour \^etre analys\'e math\'ematiquement
+(files d'attente avec priorit\'es, r\'eseaux logistiques, etc.), on le
+\emph{simule}~: on g\'en\`ere des r\'ealisations al\'eatoires du syst\`eme et
+on observe les r\'esultats statistiquement. C'est comme r\'ealiser des milliers
+d'exp\'eriences virtuelles.
+\end{intuition}
+
+\section{Simulation \`a \'ev\'enements discrets}
+
+\begin{definition}[Simulation \`a \'ev\'enements discrets (DES)]
+\index{simulation \`a \'ev\'enements discrets}
+La \textbf{simulation \`a \'ev\'enements discrets} mod\'elise un syst\`eme par
+une s\'equence d'\'ev\'enements ponctuels (arriv\'ee d'un client, fin de
+service, panne, etc.) qui modifient l'\'etat du syst\`eme \`a des instants
+discrets.
+\end{definition}
+
+\begin{definition}[Composantes d'une simulation DES]
+\begin{itemize}
+  \item \textbf{\'Etat du syst\`eme}~: variables d\'ecrivant le syst\`eme \`a
+        un instant $t$ (nombre de clients, \'etat des serveurs, etc.).
+  \item \textbf{Horloge de simulation}~: temps courant $t$.
+  \item \textbf{\'Ech\'eancier} (FEL)~: liste des \'ev\'enements futurs,
+        tri\'ee par date.
+  \item \textbf{Compteurs statistiques}~: accumulateurs pour les mesures de
+        performance.
+\end{itemize}
+\end{definition}
+
+\begin{algorithme}[title=\textbf{Boucle principale de simulation DES}]
+\begin{enumerate}
+  \item Initialiser l'\'etat, l'horloge $t = 0$, et l'\'ech\'eancier.
+  \item Tant que la condition d'arr\^et n'est pas atteinte~:
+    \begin{enumerate}
+      \item Extraire le prochain \'ev\'enement $(t_e, \text{type})$ du FEL.
+      \item Avancer l'horloge~: $t \leftarrow t_e$.
+      \item Traiter l'\'ev\'enement (mise \`a jour de l'\'etat, planification
+            de nouveaux \'ev\'enements).
+      \item Mettre \`a jour les compteurs statistiques.
+    \end{enumerate}
+  \item Calculer et retourner les indicateurs de performance.
+\end{enumerate}
+\end{algorithme}
+
+\section{G\'en\'eration de variables al\'eatoires}
+
+\begin{theoreme}[M\'ethode de la transform\'ee inverse]
+\index{transform\'ee inverse}
+Si $U \sim \mathcal{U}(0,1)$ et $F$ est la fonction de r\'epartition d'une
+variable al\'eatoire continue $X$, alors~:
+\[
+  X = F^{-1}(U)
+\]
+a la loi de $X$.
+\end{theoreme}
+
+\begin{proof}
+Pour tout $x \in \R$~:
+$\PP(F^{-1}(U) \leq x) = \PP(U \leq F(x)) = F(x)$,
+car $U \sim \mathcal{U}(0,1)$ et $F$ est croissante.
+\end{proof}
+
+\begin{exemple}[Loi exponentielle]
+Pour $X \sim \mathrm{Exp}(\lambda)$, $F(x) = 1 - e^{-\lambda x}$, donc
+$F^{-1}(u) = -\frac{1}{\lambda} \ln(1-u)$. On g\'en\`ere~:
+\[
+  X = -\frac{1}{\lambda} \ln(U), \quad U \sim \mathcal{U}(0,1).
+\]
+(On utilise $\ln(U)$ au lieu de $\ln(1-U)$ car $U$ et $1-U$ ont m\^eme loi.)
+\end{exemple}
+
+\begin{formules}[title=\textbf{G\'en\'eration de lois classiques}]
+\begin{itemize}
+  \item \textbf{Exponentielle}$(\lambda)$~:
+        $X = -\frac{1}{\lambda} \ln(U)$.
+  \item \textbf{Bernoulli}$(p)$~: $X = \ind_{U \leq p}$.
+  \item \textbf{Poisson}$(\lambda)$~: comptage des $U_i$ jusqu'\`a ce que
+        $\prod U_i < e^{-\lambda}$.
+  \item \textbf{Normale} (Box-Muller)~:
+        $X = \sqrt{-2 \ln U_1} \cos(2\pi U_2)$.
+\end{itemize}
+\end{formules}
+
+\begin{theoreme}[M\'ethode d'acceptation-rejet]
+\index{acceptation-rejet}
+Soit $f$ la densit\'e cible et $g$ une densit\'e instrumentale telle que
+$f(x) \leq M g(x)$ pour tout $x$. Pour g\'en\'erer $X \sim f$~:
+\begin{enumerate}
+  \item G\'en\'erer $Y \sim g$ et $U \sim \mathcal{U}(0,1)$.
+  \item Si $U \leq \frac{f(Y)}{M g(Y)}$, accepter $X = Y$~; sinon, rejeter
+        et recommencer.
+\end{enumerate}
+Le taux d'acceptation est $1/M$.
+\end{theoreme}
+
+\section{Estimation par Monte-Carlo}
+
+\begin{definition}[Estimateur de Monte-Carlo]
+\index{estimation Monte-Carlo}
+Pour estimer $\theta = \E[h(X)]$, l'estimateur de Monte-Carlo est~:
+\[
+  \hat{\theta}_n = \frac{1}{n} \sum_{i=1}^n h(X_i),
+\]
+o\`u $X_1, \ldots, X_n$ sont i.i.d. de m\^eme loi que $X$.
+\end{definition}
+
+\begin{theoreme}[Propri\'et\'es de l'estimateur MC]
+\begin{enumerate}
+  \item \textbf{Sans biais}~: $\E[\hat{\theta}_n] = \theta$.
+  \item \textbf{Convergence}~: $\hat{\theta}_n \xrightarrow{\text{p.s.}} \theta$
+        (loi forte des grands nombres).
+  \item \textbf{TCL}~: $\sqrt{n}(\hat{\theta}_n - \theta)
+        \xrightarrow{\mathcal{L}} \mathcal{N}(0, \sigma^2)$
+        o\`u $\sigma^2 = \Var(h(X))$.
+  \item \textbf{Intervalle de confiance} \`a 95\%~:
+        $\hat{\theta}_n \pm 1.96 \cdot \hat{\sigma}/\sqrt{n}$.
+\end{enumerate}
+\end{theoreme}
+
+\begin{exemple}[Estimation de $\pi$]
+Pour estimer $\pi$, on g\'en\`ere des points $(X, Y)$ uniformes dans
+$[0,1]^2$ et on compte la proportion $\hat{p}$ v\'erifiant
+$X^2 + Y^2 \leq 1$. Alors $\hat{\pi} = 4\hat{p}$.
+\end{exemple}
+
+\section{Techniques de r\'eduction de variance}
+
+\begin{definition}[Variables antith\'etiques]
+\index{variables antith\'etiques}
+Au lieu d'utiliser $n$ \'echantillons ind\'ependants $U_1, \ldots, U_n$, on
+utilise les paires $(U_i, 1-U_i)$. Si $h$ est monotone, la covariance
+n\'egative entre $h(U)$ et $h(1-U)$ r\'eduit la variance de la moyenne.
+\end{definition}
+
+\begin{proposition}[R\'eduction par antith\'etiques]
+Si $h$ est monotone et $U \sim \mathcal{U}(0,1)$~:
+\[
+  \Var\left(\frac{h(U) + h(1-U)}{2}\right) \leq \frac{\Var(h(U))}{2}.
+\]
+\end{proposition}
+
+\begin{definition}[Variable de contr\^ole]
+\index{variable de contr\^ole}
+Soit $Y$ une variable auxiliaire dont on conna\^it $\E[Y] = \mu_Y$.
+L'estimateur avec variable de contr\^ole est~:
+\[
+  \hat{\theta}_c = \hat{\theta}_n - c(\bar{Y}_n - \mu_Y),
+\]
+avec $c^* = \Cov(h(X), Y) / \Var(Y)$ pour minimiser la variance.
+\end{definition}
+
+\begin{definition}[Echantillonnage pr\'ef\'erentiel]
+\index{\'echantillonnage pr\'ef\'erentiel}
+Pour estimer $\theta = \E_f[h(X)]$, on \'echantillonne selon une loi
+$g$ et on pond\`ere~:
+\[
+  \hat{\theta}_{\mathrm{IS}} = \frac{1}{n} \sum_{i=1}^n h(X_i)
+  \frac{f(X_i)}{g(X_i)}, \quad X_i \sim g.
+\]
+Le choix optimal est $g^*(x) \propto \abs{h(x)} f(x)$.
+\end{definition}
+
+\section{Applications en recherche op\'erationnelle}
+
+\begin{itemize}
+  \item \textbf{Files d'attente}~: simulation de syst\`emes M/M/1, M/G/k,
+        avec priorit\'es et ruptures.
+  \item \textbf{Gestion des stocks}~: politique $(s, S)$ avec demande
+        al\'eatoire.
+  \item \textbf{Logistique}~: simulation de cha\^ines d'approvisionnement.
+  \item \textbf{Finance}~: pricing d'options par Monte-Carlo.
+  \item \textbf{Fiabilit\'e}~: estimation de la probabilit\'e de d\'efaillance
+        de syst\`emes complexes.
+\end{itemize}
+
+\section{Impl\'ementation Python}
+
+\begin{codeblock}[title=\textbf{Simulation M/M/1 par \'ev\'enements discrets}]
+\begin{minted}{python}
+import numpy as np
+import heapq
+
+def simulate_mm1(lam, mu, n_clients):
+    """Simulation d'une file M/M/1."""
+    t = 0.0
+    queue = []  # échéancier (temps, type)
+    n_in_system = 0
+    total_wait = 0.0
+    arrivals = 0
+    # Premier événement
+    heapq.heappush(queue, (np.random.exponential(1/lam), 'A'))
+    while arrivals < n_clients:
+        event_time, event_type = heapq.heappop(queue)
+        t = event_time
+        if event_type == 'A':  # Arrivée
+            arrivals += 1
+            n_in_system += 1
+            if n_in_system == 1:
+                service = np.random.exponential(1/mu)
+                heapq.heappush(queue, (t + service, 'D'))
+            heapq.heappush(queue,
+                (t + np.random.exponential(1/lam), 'A'))
+        else:  # Départ
+            n_in_system -= 1
+            if n_in_system > 0:
+                service = np.random.exponential(1/mu)
+                heapq.heappush(queue, (t + service, 'D'))
+    return t / arrivals  # temps moyen entre arrivées
+\end{minted}
+\end{codeblock}
+
+\section{Exercices}
+
+\begin{exercice}[$\star$ -- Transform\'ee inverse]
+G\'en\'erer 1000 r\'ealisations d'une loi exponentielle de param\`etre
+$\lambda = 2$ par la m\'ethode de la transform\'ee inverse. Comparer
+l'histogramme \`a la densit\'e th\'eorique.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- Simulation M/M/1]
+Simuler une file M/M/1 avec $\lambda = 4$ et $\mu = 5$ pour 10\,000 clients.
+Estimer le temps moyen d'attente et comparer \`a la valeur th\'eorique
+$W = \frac{1}{\mu - \lambda}$.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- Estimation Monte-Carlo]
+Estimer $I = \int_0^1 e^{-x^2} dx$ par Monte-Carlo avec $n = 10^4$.
+Construire un intervalle de confiance \`a 95\%. Comparer avec la m\'ethode
+des antith\'etiques.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Variables de contr\^ole]
+On estime $\E[e^U]$ o\`u $U \sim \mathcal{U}(0,1)$. Utiliser $Y = U$ comme
+variable de contr\^ole. Calculer le coefficient optimal $c^*$ et la
+r\'eduction de variance th\'eorique.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Acceptation-rejet]
+G\'en\'erer des r\'ealisations d'une loi $\mathrm{Beta}(2,5)$ par la m\'ethode
+d'acceptation-rejet avec $g = \mathcal{U}(0,1)$. Calculer la constante $M$ et
+le taux d'acceptation. Comparer avec la transform\'ee inverse.
+\end{exercice}

@@ -1,0 +1,426 @@
+% ============================================================
+\chapter{Normalisation des Bases de Donn\'ees}
+\label{ch:normalisation}
+% ============================================================
+
+Pourquoi une base de donn\'ees bien con\c{c}ue ne contient-elle jamais de redondance~? La r\'eponse tient en un mot~: les \emph{anomalies}. Quand la m\^eme information est stock\'ee \`a plusieurs endroits, une mise \`a jour partielle cr\'ee des incoh\'erences~; une suppression peut d\'etruire des donn\'ees que l'on voulait conserver~; une insertion peut \^etre impossible sans inventer des valeurs fictives. Edgar Codd, d\`es 1972, a formalis\'e ces probl\`emes en introduisant les \emph{d\'ependances fonctionnelles} et les \emph{formes normales}. L'id\'ee est syst\'ematique~: d\'ecomposer les tables pour \'eliminer la redondance tout en pr\'eservant l'information (d\'ecomposition sans perte) et les contraintes (pr\'eservation des d\'ependances). La premi\`ere forme normale (1NF), la deuxi\`eme (2NF), la troisi\`eme (3NF), et la forme normale de Boyce--Codd (BCNF) forment une hi\'erarchie de plus en plus stricte. Comprendre cette hi\'erarchie, c'est comprendre l'art de concevoir des sch\'emas relationnels robustes.
+
+\section{Probl\`emes de conception et anomalies}
+
+Un sch\'ema mal con\c{c}u entra\^ine des \emph{anomalies}~:
+
+\begin{definition}[Anomalies de donn\'ees]
+\begin{itemize}
+    \item \textbf{Anomalie d'insertion}~: impossibilit\'e d'ins\'erer des donn\'ees
+          sans en ins\'erer d'autres non souhait\'ees.
+    \item \textbf{Anomalie de mise \`a jour}~: une modification doit \^etre
+          r\'ep\'et\'ee sur plusieurs lignes pour maintenir la coh\'erence.
+    \item \textbf{Anomalie de suppression}~: la suppression d'une information
+          entra\^ine la perte involontaire d'autres informations.
+\end{itemize}
+\end{definition}
+
+\begin{exemple}
+Consid\'erons la table non normalis\'ee suivante~:
+
+\begin{center}
+\begin{tabular}{llllll}
+\toprule
+\textbf{id\_et} & \textbf{nom} & \textbf{cours} & \textbf{prof} & \textbf{dept\_prof} & \textbf{note} \\
+\midrule
+1 & Bernard & BDD & Dupont & Info & 15.5 \\
+1 & Bernard & Algo & Martin & Maths & 13.0 \\
+2 & Petit & BDD & Dupont & Info & 12.0 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{itemize}
+    \item \textbf{Mise \`a jour}~: si Dupont change de d\'epartement, il faut modifier
+          \emph{toutes} les lignes o\`u il appara\^it.
+    \item \textbf{Insertion}~: on ne peut pas enregistrer un nouveau cours sans
+          inscrire un \'etudiant.
+    \item \textbf{Suppression}~: supprimer l'inscription de Petit \`a BDD fait
+          dispara\^itre l'information sur le cours BDD si c'est la derni\`ere ligne.
+\end{itemize}
+\end{exemple}
+
+\section{D\'ependances fonctionnelles}
+
+\begin{definition}[D\'ependance fonctionnelle]
+Soit $R$ une relation et $X, Y \subseteq \text{attr}(R)$. On dit que $Y$
+d\'epend fonctionnellement de $X$, not\'e $X \to Y$, si pour tout couple
+de tuples $t_1, t_2 \in R$~:
+\[
+t_1[X] = t_2[X] \implies t_1[Y] = t_2[Y]
+\]
+Autrement dit, la valeur de $X$ d\'etermine de mani\`ere unique la valeur de $Y$.
+\end{definition}
+
+\begin{exemple}
+Dans la table Universit\'e~:
+\begin{itemize}
+    \item $\text{id\_etudiant} \to \text{nom}, \text{prenom}, \text{filiere}$
+    \item $\text{id\_cours} \to \text{intitule}, \text{credits}, \text{id\_prof}$
+    \item $\text{id\_prof} \to \text{nom\_prof}, \text{departement}$
+    \item $(\text{id\_etudiant}, \text{id\_cours}) \to \text{note}$
+\end{itemize}
+\end{exemple}
+
+\begin{definition}[D\'ependance fonctionnelle triviale]
+$X \to Y$ est \emph{triviale} si $Y \subseteq X$.
+\end{definition}
+
+\begin{definition}[D\'ependance fonctionnelle partielle et transitive]
+\begin{itemize}
+    \item \textbf{Partielle}~: $X \to Y$ est partielle s'il existe $X' \subsetneq X$
+          tel que $X' \to Y$.
+    \item \textbf{Transitive}~: si $X \to Z$ et $Z \to Y$ (avec $Z$ non cl\'e),
+          alors $X \to Y$ est transitive.
+\end{itemize}
+\end{definition}
+
+\section{Axiomes d'Armstrong}
+
+\begin{theoreme}[Axiomes d'Armstrong]
+Les axiomes d'Armstrong sont \emph{corrects} (sound) et \emph{complets}~:
+\begin{enumerate}
+    \item \textbf{R\'eflexivit\'e}~: si $Y \subseteq X$, alors $X \to Y$.
+    \item \textbf{Augmentation}~: si $X \to Y$, alors $XZ \to YZ$.
+    \item \textbf{Transitivit\'e}~: si $X \to Y$ et $Y \to Z$, alors $X \to Z$.
+\end{enumerate}
+R\`egles d\'eriv\'ees~:
+\begin{itemize}
+    \item \textbf{Union}~: si $X \to Y$ et $X \to Z$, alors $X \to YZ$.
+    \item \textbf{D\'ecomposition}~: si $X \to YZ$, alors $X \to Y$ et $X \to Z$.
+    \item \textbf{Pseudo-transitivit\'e}~: si $X \to Y$ et $WY \to Z$, alors $WX \to Z$.
+\end{itemize}
+\end{theoreme}
+
+\section{Fermeture d'un ensemble d'attributs}
+
+\begin{definition}[Fermeture $X^+$]
+La \emph{fermeture} de $X$ par rapport \`a un ensemble de DF $F$, not\'ee $X^+_F$,
+est l'ensemble de tous les attributs $A$ tels que $X \to A$ peut \^etre
+d\'eduit de $F$ par les axiomes d'Armstrong.
+\end{definition}
+
+\begin{proposition}[Algorithme de fermeture]
+Pour calculer $X^+$~:
+\begin{enumerate}
+    \item Initialiser $X^+ = X$.
+    \item R\'ep\'eter~: pour chaque DF $Y \to Z$ dans $F$, si $Y \subseteq X^+$,
+          ajouter $Z$ \`a $X^+$.
+    \item S'arr\^eter quand $X^+$ ne change plus.
+\end{enumerate}
+\end{proposition}
+
+\begin{exemple}
+Soit $R(A, B, C, D, E)$ avec $F = \{A \to B, \; BC \to D, \; D \to E\}$.
+
+Calculons $\{A, C\}^+$~:
+\begin{enumerate}
+    \item $X^+ = \{A, C\}$
+    \item $A \to B$ et $A \in X^+$~: $X^+ = \{A, B, C\}$
+    \item $BC \to D$ et $\{B,C\} \subseteq X^+$~: $X^+ = \{A, B, C, D\}$
+    \item $D \to E$ et $D \in X^+$~: $X^+ = \{A, B, C, D, E\}$
+\end{enumerate}
+Comme $X^+$ contient tous les attributs, $\{A, C\}$ est une cl\'e candidate.
+\end{exemple}
+
+\section{Premi\`ere forme normale (1NF)}
+
+\begin{definition}[1NF]
+Une relation est en \emph{premi\`ere forme normale} (1NF) si tous ses attributs
+sont \emph{atomiques}~: chaque cellule contient une valeur unique et
+indivisible.
+\end{definition}
+
+\begin{exemple}
+Table NON 1NF~:
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+id & nom & telephones \\
+\midrule
+1 & Bernard & 0612345678, 0198765432 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Table 1NF (apr\`es d\'ecomposition)~:
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+id & nom \\
+\midrule
+1 & Bernard \\
+\bottomrule
+\end{tabular}
+\qquad
+\begin{tabular}{ll}
+\toprule
+id & telephone \\
+\midrule
+1 & 0612345678 \\
+1 & 0198765432 \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{exemple}
+
+\section{Deuxi\`eme forme normale (2NF)}
+
+\begin{definition}[2NF]
+Une relation est en \emph{deuxi\`eme forme normale} si elle est en 1NF et
+tout attribut non-cl\'e d\'epend \emph{totalement} de la cl\'e primaire
+(pas de d\'ependance fonctionnelle partielle).
+\end{definition}
+
+\begin{remarque}
+La 2NF n'est pertinente que pour les relations ayant une cl\'e compos\'ee.
+Si la cl\'e est un attribut unique, la relation en 1NF est automatiquement en 2NF.
+\end{remarque}
+
+\begin{exemple}
+Soit $R(\underline{\text{id\_et}}, \underline{\text{id\_cours}}, \text{nom\_et}, \text{note})$
+avec la cl\'e $(\text{id\_et}, \text{id\_cours})$.
+
+$\text{id\_et} \to \text{nom\_et}$ est une DF partielle (ne d\'epend que d'une partie
+de la cl\'e). La relation n'est pas en 2NF.
+
+D\'ecomposition~:
+\begin{itemize}
+    \item $R_1(\underline{\text{id\_et}}, \text{nom\_et})$
+    \item $R_2(\underline{\text{id\_et}}, \underline{\text{id\_cours}}, \text{note})$
+\end{itemize}
+\end{exemple}
+
+\section{Troisi\`eme forme normale (3NF)}
+
+\begin{definition}[3NF]
+Une relation est en \emph{troisi\`eme forme normale} si elle est en 2NF et
+aucun attribut non-cl\'e ne d\'epend transitivement de la cl\'e primaire.
+
+Formellement, pour toute DF non triviale $X \to A$~:
+\begin{itemize}
+    \item soit $X$ contient une cl\'e candidate (super-cl\'e),
+    \item soit $A$ est un attribut premier (appartient \`a une cl\'e candidate).
+\end{itemize}
+\end{definition}
+
+\begin{exemple}
+Soit $R(\underline{\text{id\_et}}, \text{filiere}, \text{responsable\_filiere})$.
+
+DF~: $\text{id\_et} \to \text{filiere}$ et $\text{filiere} \to \text{responsable\_filiere}$.
+
+La DF $\text{id\_et} \to \text{responsable\_filiere}$ est transitive. Pas en 3NF.
+
+D\'ecomposition~:
+\begin{itemize}
+    \item $R_1(\underline{\text{id\_et}}, \text{filiere})$
+    \item $R_2(\underline{\text{filiere}}, \text{responsable\_filiere})$
+\end{itemize}
+\end{exemple}
+
+\section{Forme normale de Boyce-Codd (BCNF)}
+
+\begin{definition}[BCNF]
+Une relation est en \emph{BCNF} si, pour toute d\'ependance fonctionnelle
+non triviale $X \to Y$, $X$ est une super-cl\'e.
+\end{definition}
+
+\begin{theoreme}[BCNF vs.\ 3NF]
+\begin{itemize}
+    \item BCNF $\Rightarrow$ 3NF $\Rightarrow$ 2NF $\Rightarrow$ 1NF.
+    \item BCNF est plus stricte que 3NF~: elle interdit m\^eme les d\'ependances
+          o\`u le d\'eterminant n'est pas une super-cl\'e, m\^eme si le d\'etermin\'e
+          est un attribut premier.
+    \item La d\'ecomposition en BCNF ne pr\'eserve pas toujours les DF.
+    \item La d\'ecomposition en 3NF pr\'eserve toujours les DF.
+\end{itemize}
+\end{theoreme}
+
+\begin{exemple}
+Soit $R(\underline{A}, \underline{B}, C)$ avec les DF~: $AB \to C$ et $C \to A$.
+
+$C \to A$~: $C$ n'est pas super-cl\'e (la cl\'e est $\{A, B\}$ ou $\{B, C\}$).
+Donc pas en BCNF.
+
+Mais $A$ est premier (fait partie de la cl\'e $\{A, B\}$). Donc en 3NF.
+\end{exemple}
+
+\section{D\'ecomposition sans perte}
+
+\begin{theoreme}[D\'ecomposition sans perte (Lossless Join)]
+Une d\'ecomposition de $R$ en $R_1$ et $R_2$ est \emph{sans perte} si et
+seulement si l'un des DF suivants est v\'erifi\'e~:
+\[
+R_1 \cap R_2 \to R_1 - R_2 \quad \text{ou} \quad R_1 \cap R_2 \to R_2 - R_1
+\]
+c'est-\`a-dire si l'intersection des sch\'emas d\'etermine au moins l'un des
+compl\'ements.
+\end{theoreme}
+
+\section{Algorithme de d\'ecomposition en BCNF}
+
+\begin{proposition}[Algorithme BCNF]
+\begin{enumerate}
+    \item V\'erifier si la relation est en BCNF.
+    \item Sinon, trouver une DF $X \to Y$ violant BCNF (o\`u $X$ n'est pas super-cl\'e).
+    \item D\'ecomposer en~:
+          \begin{itemize}
+              \item $R_1 = X \cup Y$ (avec cl\'e $X$)
+              \item $R_2 = R - Y \cup X$ (tous les attributs sauf $Y$, mais incluant $X$)
+          \end{itemize}
+    \item R\'ep\'eter sur $R_1$ et $R_2$ si n\'ecessaire.
+\end{enumerate}
+\end{proposition}
+
+\section{R\'esum\'e des formes normales}
+
+\begin{formules}[title=\textbf{Synth\`ese des formes normales}]
+\begin{center}
+\begin{tabular}{lp{10cm}}
+\toprule
+\textbf{FN} & \textbf{Condition} \\
+\midrule
+1NF & Tous les attributs sont atomiques \\
+2NF & 1NF + pas de DF partielle d'un attribut non-cl\'e par rapport \`a la cl\'e \\
+3NF & 2NF + pas de DF transitive d'un attribut non-cl\'e par rapport \`a la cl\'e \\
+BCNF & Pour toute DF $X \to Y$ non triviale, $X$ est une super-cl\'e \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{formules}
+
+\section{Synth\`ese 3NF (algorithme de Bernstein)}
+
+\begin{proposition}[Algorithme de synth\`ese 3NF]
+\begin{enumerate}
+    \item Calculer une couverture minimale $F_{\min}$ des DF.
+    \item Pour chaque DF $X \to Y$ dans $F_{\min}$, cr\'eer une relation $R_i(X, Y)$.
+    \item Si aucune relation ne contient une cl\'e candidate de $R$, ajouter
+          une relation avec une cl\'e candidate.
+    \item \'Eliminer les relations redondantes (incluses dans une autre).
+\end{enumerate}
+Cet algorithme garantit~:
+\begin{itemize}
+    \item D\'ecomposition sans perte.
+    \item Pr\'eservation des d\'ependances fonctionnelles.
+    \item R\'esultat en 3NF.
+\end{itemize}
+\end{proposition}
+
+\section{Exemple complet de normalisation}
+
+\begin{codeblock}[title=\textbf{Table non normalis\'ee}]
+\begin{minted}{sql}
+-- Table avec redondances
+CREATE TABLE Inscriptions_Denorm (
+    id_etudiant INTEGER,
+    nom_etudiant TEXT,
+    filiere TEXT,
+    responsable_filiere TEXT,
+    id_cours INTEGER,
+    intitule_cours TEXT,
+    id_prof INTEGER,
+    nom_prof TEXT,
+    note REAL
+);
+\end{minted}
+\end{codeblock}
+
+DF identifi\'ees~:
+\begin{itemize}
+    \item $\text{id\_et} \to \text{nom\_et}, \text{filiere}$
+    \item $\text{filiere} \to \text{responsable\_filiere}$
+    \item $\text{id\_cours} \to \text{intitule}, \text{id\_prof}$
+    \item $\text{id\_prof} \to \text{nom\_prof}$
+    \item $(\text{id\_et}, \text{id\_cours}) \to \text{note}$
+\end{itemize}
+
+\begin{codeblock}[title=\textbf{R\'esultat apr\`es normalisation en 3NF/BCNF}]
+\begin{minted}{sql}
+CREATE TABLE Etudiants (
+    id_etudiant INTEGER PRIMARY KEY,
+    nom TEXT NOT NULL,
+    filiere TEXT REFERENCES Filieres(filiere)
+);
+
+CREATE TABLE Filieres (
+    filiere TEXT PRIMARY KEY,
+    responsable TEXT NOT NULL
+);
+
+CREATE TABLE Professeurs (
+    id_prof INTEGER PRIMARY KEY,
+    nom TEXT NOT NULL
+);
+
+CREATE TABLE Cours (
+    id_cours INTEGER PRIMARY KEY,
+    intitule TEXT NOT NULL,
+    id_prof INTEGER REFERENCES Professeurs(id_prof)
+);
+
+CREATE TABLE Inscriptions (
+    id_etudiant INTEGER REFERENCES Etudiants(id_etudiant),
+    id_cours INTEGER REFERENCES Cours(id_cours),
+    note REAL,
+    PRIMARY KEY (id_etudiant, id_cours)
+);
+\end{minted}
+\end{codeblock}
+
+\section{D\'enormalisation contr\^ol\'ee}
+
+\begin{remarque}
+La normalisation parfaite n'est pas toujours le meilleur choix en pratique.
+La \emph{d\'enormalisation} consiste \`a r\'eintroduire volontairement de la
+redondance pour am\'eliorer les performances de lecture (\'eviter des jointures
+co\^uteuses).
+\end{remarque}
+
+\begin{bonnepratique}[title=\textbf{Quand d\'enormaliser ?}]
+\begin{itemize}
+    \item Quand les lectures sont beaucoup plus fr\'equentes que les \'ecritures.
+    \item Pour des tables de reporting ou d'entrep\^ot de donn\'ees.
+    \item Toujours documenter et justifier la d\'enormalisation.
+    \item Utiliser des triggers ou des vues mat\'erialis\'ees pour maintenir la coh\'erence.
+\end{itemize}
+\end{bonnepratique}
+
+\section*{Exercices}
+
+\begin{exercice}
+Soit $R(A, B, C, D, E)$ avec $F = \{A \to BC, \; C \to D, \; BD \to E\}$.
+\begin{enumerate}
+    \item Calculez $\{A\}^+$.
+    \item Identifiez les cl\'es candidates.
+    \item La relation est-elle en 2NF ? 3NF ? BCNF ? Justifiez.
+    \item D\'ecomposez en BCNF.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}
+Normalisez la relation suivante en 3NF en utilisant l'algorithme de synth\`ese~:
+$R(\text{NumCommande}, \text{DateCmd}, \text{NumClient}, \text{NomClient},
+\text{NumProduit}, \text{NomProduit}, \text{Quantite}, \text{PrixUnit})$
+
+DF~: $\text{NumCmd} \to \text{DateCmd}, \text{NumClient}$~;
+$\text{NumClient} \to \text{NomClient}$~;
+$\text{NumProduit} \to \text{NomProduit}, \text{PrixUnit}$~;
+$(\text{NumCmd}, \text{NumProduit}) \to \text{Quantite}$.
+\end{exercice}
+
+\begin{exercice}
+Donnez un exemple de relation qui est en 3NF mais pas en BCNF.
+D\'ecomposez-la en BCNF et v\'erifiez si les d\'ependances fonctionnelles
+sont pr\'eserv\'ees.
+\end{exercice}
+
+\begin{exercice}
+V\'erifiez que la d\'ecomposition de $R(A, B, C)$ avec $F = \{A \to B\}$ en
+$R_1(A, B)$ et $R_2(A, C)$ est sans perte. Utilisez le th\'eor\`eme de Heath.
+\end{exercice}

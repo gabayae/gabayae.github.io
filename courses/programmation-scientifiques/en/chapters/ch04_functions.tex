@@ -1,0 +1,366 @@
+% ch04_functions.tex -- Functions and Scope
+\chapter{Functions and Scope}
+\label{ch:fonctions}
+
+\begin{intuition}
+A function is like a \emph{machine} in a laboratory: you feed it
+\emph{inputs} (reagents), it performs a \emph{process} (chemical reaction) and
+produces an \emph{output} (product). Rather than rebuilding the machine for each
+experiment, you reuse it. This is the \textbf{DRY}\index{DRY} principle:
+``\emph{Don't Repeat Yourself}''.
+\end{intuition}
+
+% ============================================================
+\section{Why use functions?}
+\index{function}
+
+\begin{itemize}
+    \item \textbf{Reusability}: write a formula once and call it everywhere.
+    \item \textbf{Readability}: a program broken into functions is easier to understand.
+    \item \textbf{Debugging}: each function can be tested independently.
+    \item \textbf{Modularity}\index{modularity}: each function has a single responsibility.
+\end{itemize}
+
+% --- TikZ machine ---
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+    box/.style={rectangle, draw, fill=blue!10, rounded corners,
+        minimum width=3cm, minimum height=1.5cm, align=center, font=\bfseries},
+    io/.style={rectangle, draw, fill=orange!15, rounded corners,
+        minimum width=2cm, minimum height=0.8cm, align=center},
+    arr/.style={->, thick, >=stealth}
+]
+\node[io] (in) {Inputs\\(parameters)};
+\node[box, right=2cm of in] (fn) {Function\\(processing)};
+\node[io, right=2cm of fn] (out) {Output\\(\py{return})};
+\draw[arr] (in) -- (fn);
+\draw[arr] (fn) -- (out);
+\end{tikzpicture}
+\caption{A function viewed as a machine: inputs $\to$ processing $\to$ output.}
+\label{fig:fonction-machine}
+\end{figure}
+
+% ============================================================
+\section{Defining and calling a function}
+\index{def}\index{return}
+
+\begin{definition}[Function syntax]
+\begin{minted}{python}
+def function_name(parameter1, parameter2):
+    """Docstring: description of the function."""
+    # function body
+    return result
+\end{minted}
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+def energie_cinetique(masse, vitesse):
+    """Compute the kinetic energy E = 0.5 * m * v^2."""
+    return 0.5 * masse * vitesse**2
+
+# Call the function
+E = energie_cinetique(2.0, 3.0)
+print(f"E = {E} J")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+E = 9.0 J
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Docstrings}
+\index{docstring}
+
+A \emph{docstring} is a documentation string placed right after \py{def}.
+It is accessible via \py{help(function_name)}.
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+def force_gravitationnelle(m1, m2, r):
+    """
+    Compute the gravitational force between two masses.
+
+    Parameters
+    ----------
+    m1 : float -- mass 1 (kg)
+    m2 : float -- mass 2 (kg)
+    r  : float -- distance between centers (m)
+
+    Returns
+    -------
+    float -- force in Newtons
+    """
+    G = 6.674e-11  # gravitational constant
+    return G * m1 * m2 / r**2
+
+# Earth-Moon force
+F = force_gravitationnelle(5.972e24, 7.342e22, 3.844e8)
+print(f"Earth-Moon force: {F:.2e} N")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Earth-Moon force: 1.98e+20 N
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Default arguments and keyword arguments}
+\index{default argument}\index{keyword argument}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+def chute_libre(t, g=9.81, v0=0):
+    """Position of an object in free fall: y = v0*t + 0.5*g*t^2."""
+    return v0 * t + 0.5 * g * t**2
+
+# Using default values
+print(f"Earth: y = {chute_libre(2.0):.2f} m")
+
+# On the Moon (g = 1.62 m/s^2)
+print(f"Moon : y = {chute_libre(2.0, g=1.62):.2f} m")
+
+# With initial velocity
+print(f"With v0=5: y = {chute_libre(2.0, v0=5):.2f} m")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Earth: y = 19.62 m
+Moon : y = 3.24 m
+With v0=5: y = 29.62 m
+\end{verbatim}
+\end{codeoutput}
+
+\begin{bestpractice}
+Use keyword arguments to improve readability:
+\py{chute\_libre(t=2.0, g=1.62)} is clearer than \py{chute\_libre(2.0, 1.62)}.
+\end{bestpractice}
+
+% ============================================================
+\section{Functions with multiple return values}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import math
+
+def coordonnees_polaires(x, y):
+    """Convert Cartesian coordinates to polar coordinates."""
+    r = math.sqrt(x**2 + y**2)
+    theta = math.atan2(y, x)
+    return r, theta    # returns a tuple
+
+r, angle = coordonnees_polaires(3, 4)
+print(f"r = {r:.2f}, theta = {math.degrees(angle):.1f} deg")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+r = 5.00, theta = 53.1 deg
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Variable scope: local vs global}
+\index{scope}\index{local variable}\index{global variable}
+
+\begin{definition}[Scope]
+A variable defined \emph{inside} a function is \textbf{local}: it only exists
+during the execution of the function. A variable defined outside is
+\textbf{global}.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+x = 10          # global variable
+
+def ma_fonction():
+    x = 5       # local variable (different!)
+    print(f"Inside the function: x = {x}")
+
+ma_fonction()
+print(f"Outside: x = {x}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Inside the function: x = 5
+Outside: x = 10
+\end{verbatim}
+\end{codeoutput}
+
+\begin{warning}
+Avoid using \py{global} to modify global variables from within a
+function. \emph{Always} prefer passing values as parameters and using
+\py{return}.
+\end{warning}
+
+% ============================================================
+\section{Lambda functions}
+\index{lambda}
+
+\py{lambda} functions are short anonymous functions, useful for simple
+operations.
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Lambda function to convert Celsius to Kelvin
+celsius_to_kelvin = lambda T: T + 273.15
+
+temperatures_C = [-40, 0, 20, 37, 100]
+temperatures_K = [celsius_to_kelvin(T) for T in temperatures_C]
+
+for c, k in zip(temperatures_C, temperatures_K):
+    print(f"{c:>4} C = {k:>6.2f} K")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+ -40 C = 233.15 K
+   0 C = 273.15 K
+  20 C = 293.15 K
+  37 C = 310.15 K
+ 100 C = 373.15 K
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Common errors}
+
+\begin{errmark}
+\begin{enumerate}
+    \item \textbf{Forgetting \py{return}}: without \py{return}, a function returns
+    \py{None} by default. The computation is performed but the result is lost!
+    \begin{minted}{python}
+def aire_cercle(r):
+    a = 3.14159 * r**2
+    # Forgot return a!
+
+resultat = aire_cercle(5)
+print(resultat)  # Prints None
+    \end{minted}
+
+    \item \textbf{Mutable default argument}: using a list as a default
+    value is dangerous, because it is shared across all calls!
+    \begin{minted}{python}
+# ERROR: the list is shared
+def ajouter(element, liste=[]):
+    liste.append(element)
+    return liste
+
+print(ajouter(1))  # [1]
+print(ajouter(2))  # [1, 2] instead of [2]!
+
+# CORRECT: use None
+def ajouter(element, liste=None):
+    if liste is None:
+        liste = []
+    liste.append(element)
+    return liste
+    \end{minted}
+
+    \item \textbf{Confusing \py{print} and \py{return}}: \py{print} displays on screen
+    but does not return a value usable in an expression.
+\end{enumerate}
+\end{errmark}
+
+% ============================================================
+\section{Mini-project: Physics Formula Calculator}
+
+\begin{projet}
+Create a module containing the following functions:
+\begin{itemize}
+    \item \py{energie\_cinetique(m, v)}: $E_c = \frac{1}{2}mv^2$
+    \item \py{force\_gravitationnelle(m1, m2, r)}: $F = G\frac{m_1 m_2}{r^2}$
+    \item \py{periode\_pendule(L, g=9.81)}: $T = 2\pi\sqrt{L/g}$
+    \item \py{loi\_ohm(V=None, R=None, I=None)}: $V = RI$ (provide two quantities, compute the third)
+\end{itemize}
+Each function must have a complete docstring. Test them with known values.
+\end{projet}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import math
+
+def periode_pendule(L, g=9.81):
+    """Period of a simple pendulum: T = 2*pi*sqrt(L/g)."""
+    return 2 * math.pi * math.sqrt(L / g)
+
+def loi_ohm(V=None, R=None, I=None):
+    """Ohm's law: V = R * I. Provide two quantities."""
+    if V is None:
+        return R * I
+    elif R is None:
+        return V / I
+    elif I is None:
+        return V / R
+
+# Tests
+print(f"Pendulum L=1m: T = {periode_pendule(1.0):.3f} s")
+print(f"Ohm's law: V = {loi_ohm(R=100, I=0.5):.1f} V")
+print(f"Ohm's law: I = {loi_ohm(V=12, R=100):.3f} A")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Pendulum L=1m: T = 2.006 s
+Ohm's law: V = 50.0 V
+Ohm's law: I = 0.120 A
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Exercises}
+
+\begin{exercise}[$\star$ --- Temperature Conversion]
+Write two functions \py{celsius\_to\_fahrenheit(T)} and \py{fahrenheit\_to\_celsius(T)}.
+Test with boiling water (100\,\textdegree C = 212\,\textdegree F).
+\end{exercise}
+
+\begin{exercise}[$\star$ --- Factorial]
+Write a function \py{factorielle(n)} that computes $n!$ using a loop.
+Verify that \py{factorielle(10) == 3628800}.
+\end{exercise}
+
+\begin{exercise}[$\star\star$ --- Recursive Function]
+Rewrite the factorial in a \emph{recursive}\index{recursion} manner: a function that
+calls itself. What is the base case?
+\end{exercise}
+
+\begin{exercise}[$\star\star$ --- Descriptive Statistics]
+Write a function \py{statistiques(donnees)} that receives a list of numbers
+and returns the mean, the median, and the standard deviation (without using any library).
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ --- Newton's Method]
+Implement Newton's method\index{Newton's method} for finding the zeros
+of a function: $x_{n+1} = x_n - \frac{f(x_n)}{f'(x_n)}$.
+Your function should take as parameters \py{f}, \py{df} (derivative), \py{x0}
+(initial estimate), and \py{tol} (tolerance). Test with
+$f(x) = x^2 - 2$ to recover $\sqrt{2}$.
+\end{exercise}
+
+% ============================================================
+\begin{keyformulas}{Chapter Summary: Functions and Scope}
+\begin{itemize}
+    \item \textbf{Definition}: \py{def name(params):} ... \py{return result}
+    \item \textbf{Docstring}: documentation string in triple quotes
+    \item \textbf{Default arguments}: \py{def f(x, n=10):} --- n defaults to 10 if not specified
+    \item \textbf{Keyword arguments}: \py{f(x=3, n=20)} for clarity
+    \item \textbf{Multiple values}: \py{return a, b} returns a tuple
+    \item \textbf{Local scope}: variables inside a function are isolated
+    \item \textbf{Lambda}: \py{lambda x: x**2} for short functions
+    \item \textbf{DRY principle}: never copy-paste code, write a function
+\end{itemize}
+\end{keyformulas}

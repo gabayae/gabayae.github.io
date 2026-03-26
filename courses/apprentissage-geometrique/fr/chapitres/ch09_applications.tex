@@ -1,0 +1,261 @@
+% ============================================================
+\chapter{Applications}
+\label{ch:applications}
+% ============================================================
+
+L'apprentissage g\'eom\'etrique n'est pas un exercice th\'eorique~: il r\'esout des probl\`emes concrets que les m\'ethodes classiques ne pouvaient pas aborder. En chimie, les GNN pr\'edisent les propri\'et\'es mol\'eculaires avec une pr\'ecision qui rivalise avec la m\'ecanique quantique ab initio, mais mille fois plus vite. En physique des particules, ils reconstructent les trajectoires dans les d\'etecteurs du LHC au CERN. En biologie, AlphaFold (Jumper et al., 2021) utilise des transformeurs g\'eom\'etriques pour pr\'edire la structure 3D des prot\'eines, r\'esolvant un probl\`eme ouvert depuis cinquante ans. Dans les r\'eseaux sociaux, les GNN d\'etectent les communaut\'es et pr\'edisent les liens. Ce chapitre passe en revue ces applications, montrant comment les principes g\'eom\'etriques se traduisent en performances pratiques.
+
+\begin{intuition}
+L'apprentissage g\'eom\'etrique trouve des applications dans de
+nombreux domaines o\`u les donn\'ees poss\`edent une structure
+non euclidienne naturelle~: mol\'ecules (graphes), r\'eseaux sociaux
+(graphes), surfaces (vari\'et\'es), simulations physiques (maillages
+et particules). Ce chapitre pr\'esente les applications les plus
+marquantes.
+\end{intuition}
+
+% ============================================================
+\section{D\'ecouverte de m\'edicaments}
+\label{sec:drug_discovery}
+% ============================================================
+
+\begin{definition}[Repr\'esentation mol\'eculaire par graphe]
+\index{graphe mol\'eculaire}
+Une mol\'ecule est repr\'esent\'ee comme un graphe $G = (V, E)$ o\`u~:
+\begin{itemize}
+  \item Les n\oe uds $v \in V$ repr\'esentent les atomes, avec des
+        features $h_v$ (type atomique, charge, hybridation, etc.).
+  \item Les ar\^etes $e \in E$ repr\'esentent les liaisons chimiques,
+        avec des features $h_e$ (type de liaison, distance, etc.).
+\end{itemize}
+\end{definition}
+
+\begin{exemple}[Pr\'ediction de propri\'et\'es mol\'eculaires]
+\index{pr\'ediction mol\'eculaire}
+Le benchmark \textbf{MoleculeNet} (Wu et al.\ 2018) regroupe
+plusieurs t\^aches~:
+\begin{enumerate}
+  \item \textbf{ESOL}~: pr\'ediction de la solubilit\'e aqueuse
+        (r\'egression).
+  \item \textbf{BBBP}~: passage de la barri\`ere h\'emato-enc\'ephalique
+        (classification binaire).
+  \item \textbf{Tox21}~: toxicit\'e sur 12 cibles biologiques
+        (classification multi-t\^ache).
+\end{enumerate}
+Les GNN (SchNet, DimeNet, GemNet) obtiennent les meilleurs r\'esultats publi\'es sur ces benchmarks gr\^ace
+\`a leur capacit\'e \`a encoder la structure mol\'eculaire.
+\end{exemple}
+
+\begin{definition}[Message passing pour les mol\'ecules]
+Pour un graphe mol\'eculaire, le message passing de SchNet
+(Sch\"utt et al.\ 2017)\index{SchNet} int\`egre les distances
+interatomiques~:
+\[
+  m_{ij} = \phi_{\mathrm{msg}}(h_i, h_j, \norm{x_i - x_j})
+\]
+o\`u $x_i \in \R^3$ sont les positions atomiques. Le filtre continu
+sur la distance rend le mod\`ele invariant par rotation et translation.
+\end{definition}
+
+\begin{minted}{python}
+import torch
+from torch_geometric.nn import SchNet
+
+# SchNet pour la prediction d'energie moleculaire
+model = SchNet(
+    hidden_channels=128,
+    num_filters=128,
+    num_interactions=6,
+    num_gaussians=50,
+    cutoff=10.0,
+)
+
+# z: numeros atomiques, pos: positions 3D, batch: indices
+# energy = model(z, pos, batch)
+\end{minted}
+
+% ============================================================
+\section{Pr\'ediction de propri\'et\'es mol\'eculaires}
+\label{sec:molecular_properties}
+% ============================================================
+
+\begin{theoreme}[Universalit\'e des GNN \'equivariants pour les mol\'ecules]
+\index{universalit\'e mol\'eculaire}
+Un GNN $\mathrm{E}(3)$-\'equivariant avec des features
+tensoriel\-les de degr\'e suffisant peut approcher toute fonction
+continue \'equivariante sur les graphes mol\'eculaires avec
+positions atomiques.
+\end{theoreme}
+
+\begin{remarque}
+Les mod\`eles r\'ecents (DimeNet, SphereNet, PaiNN, MACE) utilisent
+non seulement les distances mais aussi les angles et les dih\`edres
+pour am\'eliorer l'expressivit\'e.
+\end{remarque}
+
+% ============================================================
+\section{Analyse de r\'eseaux sociaux}
+\label{sec:social_networks}
+% ============================================================
+
+\begin{definition}[T\^aches sur les r\'eseaux sociaux]
+\index{r\'eseau social}
+Sur un r\'eseau social mod\'elis\'e comme un graphe~:
+\begin{enumerate}
+  \item \textbf{Classification de n\oe uds}~: pr\'edire les
+        int\'er\^ets ou la communaut\'e d'un utilisateur.
+  \item \textbf{Pr\'ediction de liens}~: pr\'edire les futures
+        connexions entre utilisateurs.
+  \item \textbf{D\'etection de communaut\'es}~: clustering des
+        n\oe uds.
+\end{enumerate}
+\end{definition}
+
+\begin{exemple}[Classification de n\oe uds sur Cora]
+Le dataset \textbf{Cora}\index{Cora} contient 2\,708 articles
+scientifiques (n\oe uds) reli\'es par des citations (ar\^etes).
+Chaque article doit \^etre class\'e parmi 7 cat\'egories. Un GCN
+\`a 2 couches atteint $\sim 81\%$ de pr\'ecision avec seulement
+$20$ labels par classe.
+\end{exemple}
+
+\begin{proposition}[Over-smoothing]
+\index{over-smoothing}
+Pour un GCN avec $L$ couches, les embeddings des n\oe uds convergent
+vers un sous-espace de dimension au plus $1$ quand $L \to \infty$~:
+\[
+  \lim_{L \to \infty} h_v^{(L)} = c \cdot \sqrt{d_v} \quad
+  \text{pour tout } v \in V
+\]
+o\`u $d_v$ est le degr\'e du n\oe ud. C'est le ph\'enom\`ene
+d'\textbf{over-smoothing} qui limite la profondeur des GNN.
+\end{proposition}
+
+% ============================================================
+\section{Syst\`emes de recommandation}
+\label{sec:recommandation}
+% ============================================================
+
+\begin{definition}[Filtrage collaboratif sur graphe biparti]
+\index{syst\`eme de recommandation}
+Un syst\`eme de recommandation peut \^etre mod\'elis\'e comme un
+graphe biparti $G = (U \cup I, E)$ o\`u $U$ sont les utilisateurs,
+$I$ les items, et $(u, i) \in E$ si l'utilisateur $u$ a interagi
+avec l'item $i$.
+\end{definition}
+
+\begin{exemple}[PinSage --- Ying et al.\ 2018]
+\index{PinSage}
+\textbf{PinSage} est un GNN d\'eploy\'e par Pinterest sur un graphe
+de 3 milliards de n\oe uds et 18 milliards d'ar\^etes. Il utilise~:
+\begin{itemize}
+  \item \textbf{\'Echantillonnage de voisins}~: al\'eatoire
+        pond\'er\'e par importance (random walks).
+  \item \textbf{Agr\'egation locale}~: similaire \`a GraphSAGE.
+  \item \textbf{Mini-batch training}~: sur des sous-graphes
+        \'echantillonn\'es.
+\end{itemize}
+\end{exemple}
+
+% ============================================================
+\section{Simulation physique}
+\label{sec:physique}
+% ============================================================
+
+\begin{definition}[Simulateur appris par GNN]
+\index{simulation physique}
+Un simulateur appris mod\'elise un syst\`eme physique comme un
+graphe d'interactions~:
+\begin{itemize}
+  \item Les n\oe uds repr\'esentent les particules (position,
+        vitesse, type).
+  \item Les ar\^etes repr\'esentent les interactions (proches
+        voisins).
+\end{itemize}
+Le GNN pr\'edit l'acc\'el\'eration de chaque particule~:
+\[
+  \ddot{x}_i = f_\theta\!\left(h_i, \{h_j, x_j - x_i\}_{j \in \mathcal{N}(i)}\right).
+\]
+\end{definition}
+
+\begin{exemple}[GNS --- Sanchez-Gonzalez et al.\ 2020]
+\index{GNS}
+Le \textbf{Graph Network Simulator} (GNS) simule des fluides,
+mat\'eriaux granulaires et solides d\'eformables. Il g\'en\'eralise
+\`a des conditions initiales non vues et \`a des g\'eom\'etries
+de domaine diff\'erentes.
+\end{exemple}
+
+\begin{theoreme}[Conservation d'\'energie par construction]
+\index{Hamiltonian GNN}
+En param\'etrant un GNN comme un hamiltonien $H_\theta$ et en
+int\'egrant les \'equations de Hamilton~:
+\[
+  \dot{q}_i = \frac{\partial H_\theta}{\partial p_i}, \qquad
+  \dot{p}_i = -\frac{\partial H_\theta}{\partial q_i}
+\]
+on obtient un simulateur qui conserve l'\'energie par construction
+(Hamiltonian GNN).
+\end{theoreme}
+
+% ============================================================
+\section{Pr\'evision m\'et\'eorologique}
+\label{sec:meteo}
+% ============================================================
+
+\begin{exemple}[GraphCast --- Lam et al.\ 2023]
+\index{GraphCast}
+\textbf{GraphCast} (DeepMind) utilise un GNN sur un maillage
+icosa\'edrique de la Terre pour la pr\'evision m\'et\'eo \`a 10 jours.
+Il surpasse le mod\`ele num\'erique HRES de l'ECMWF sur $90\%$ des
+m\'etriques, avec un temps de calcul de \textbf{moins d'une minute}
+contre des heures pour les mod\`eles physiques.
+
+L'architecture utilise~:
+\begin{enumerate}
+  \item Un \textbf{encodeur} grille $\to$ maillage multi-r\'esolution.
+  \item Un \textbf{processeur} GNN sur le maillage (16 couches de
+        message passing).
+  \item Un \textbf{d\'ecodeur} maillage $\to$ grille.
+\end{enumerate}
+\end{exemple}
+
+\begin{remarque}
+Le succ\`es de GraphCast illustre le potentiel des GNN pour les
+probl\`emes d\'efinis sur des domaines non planaires (la sph\`ere
+terrestre).
+\end{remarque}
+
+% ============================================================
+\section{Exercices}
+% ============================================================
+
+\begin{exercice}
+Pour une mol\'ecule de benz\`ene ($C_6H_6$), construire le graphe
+mol\'eculaire (n\oe uds, ar\^etes, features). Combien de messages
+sont \'echang\'es en une it\'eration de message passing~?
+\end{exercice}
+
+\begin{exercice}
+Expliquer pourquoi l'invariance par permutation des n\oe uds
+est essentielle pour les graphes mol\'eculaires. Que se
+passerait-il si on num\'erotait les atomes diff\'eremment~?
+\end{exercice}
+
+\begin{exercice}[Over-smoothing]
+Pour un graphe complet $K_n$ avec un GCN sans biais ni
+non-lin\'earit\'e, montrer que les features convergent vers
+un vecteur constant apr\`es $L$ couches quand $L$ est grand.
+\end{exercice}
+
+\begin{exercice}[Impl\'ementation]
+Impl\'ementer un GNN pour la pr\'ediction de solubilit\'e sur
+le dataset ESOL avec PyTorch Geometric. Comparer GCN, GAT et
+SchNet.
+\end{exercice}
+
+\begin{exercice}[Simulation]
+Impl\'ementer un simple GNS pour simuler $N$ particules
+interagissant par un potentiel de Lennard-Jones. Comparer
+avec une int\'egration de Verlet classique.
+\end{exercice}

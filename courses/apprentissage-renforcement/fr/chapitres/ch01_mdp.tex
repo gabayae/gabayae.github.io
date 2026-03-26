@@ -1,0 +1,463 @@
+% =============================================================================
+\chapter{Processus de D\'ecision Markovien}
+\label{ch:mdp}
+% =============================================================================
+
+Imaginez un robot qui apprend \`a marcher. \`A chaque instant, il observe sa
+posture (l'\emph{\'etat}), choisit une force \`a appliquer \`a ses articulations
+(l'\emph{action}), et re\c{c}oit un signal --- est-il rest\'e debout ou
+est-il tomb\'e~? (la \emph{r\'ecompense}). Son objectif~: trouver une strat\'egie
+d'actions qui maximise les r\'ecompenses accumul\'ees au fil du temps. Ce
+sch\'ema --- \'etat, action, r\'ecompense, nouvel \'etat --- est universel~: il
+d\'ecrit aussi bien un joueur d'\'echecs, un v\'ehicule autonome qu'un
+algorithme de trading. La formalisation math\'ematique de ce sch\'ema porte un
+nom~: le \emph{processus de d\'ecision markovien} (MDP), formalis\'e par
+Richard Bellman dans les ann\'ees 1950.
+
+\begin{intuition}
+Un processus de d\'ecision markovien (MDP) est le mod\`ele math\'ematique central
+de l'apprentissage par renforcement. Il formalise la mani\`ere dont un agent
+interagit avec un environnement en prenant des d\'ecisions s\'equentielles pour
+maximiser une r\'ecompense cumul\'ee \`a long terme.
+\end{intuition}
+
+% -----------------------------------------------------------------------------
+\section{Introduction}
+% -----------------------------------------------------------------------------
+
+L'apprentissage par renforcement repose sur une id\'ee simple~: un agent apprend
+\`a agir en interagissant avec un environnement. \`A chaque pas de temps $t$,
+l'agent observe un \'etat $s_t \in \mathcal{S}$, choisit une action
+$a_t \in \mathcal{A}$, re\c{c}oit une r\'ecompense $r_{t+1} \in \R$ et
+transite vers un nouvel \'etat $s_{t+1}$. Le formalisme math\'ematique qui
+capture cette interaction est le \emph{processus de d\'ecision markovien}.
+
+% -----------------------------------------------------------------------------
+\section{D\'efinition formelle}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Processus de d\'ecision markovien]
+Un MDP est un quintuplet $\mathcal{M} = (\mathcal{S}, \mathcal{A}, P, R, \gamma)$ o\`u~:
+\begin{itemize}
+    \item $\mathcal{S}$ est un ensemble fini ou d\'enombrable d'\textbf{\'etats},
+    \item $\mathcal{A}$ est un ensemble fini ou d\'enombrable d'\textbf{actions},
+    \item $P : \mathcal{S} \times \mathcal{A} \times \mathcal{S} \to [0,1]$ est la
+    \textbf{fonction de transition}~: $P(s' \mid s, a) = \PP(S_{t+1} = s' \mid S_t = s, A_t = a)$,
+    \item $R : \mathcal{S} \times \mathcal{A} \times \mathcal{S} \to \R$ est la
+    \textbf{fonction de r\'ecompense}~: $R(s, a, s')$ est la r\'ecompense re\c{c}ue
+    lors de la transition de $s$ \`a $s'$ sous l'action $a$,
+    \item $\gamma \in [0, 1)$ est le \textbf{facteur d'actualisation}.
+\end{itemize}
+\end{definition}
+
+\begin{formules}[title=\textbf{Propri\'et\'e de Markov}]
+La propri\'et\'e de Markov stipule que l'\'etat futur ne d\'epend que de l'\'etat
+pr\'esent et de l'action courante~:
+\[
+    \PP(S_{t+1} = s' \mid S_0, A_0, S_1, A_1, \ldots, S_t, A_t)
+    = \PP(S_{t+1} = s' \mid S_t, A_t) = P(s' \mid S_t, A_t).
+\]
+\end{formules}
+
+% -----------------------------------------------------------------------------
+\section{Politique}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Politique]
+Une \textbf{politique} $\pi$ est une r\`egle de d\'ecision qui prescrit le comportement
+de l'agent.
+\begin{itemize}
+    \item \textbf{Politique d\'eterministe}~: $\pi : \mathcal{S} \to \mathcal{A}$,
+    o\`u $a = \pi(s)$.
+    \item \textbf{Politique stochastique}~: $\pi : \mathcal{S} \times \mathcal{A} \to [0,1]$,
+    o\`u $\pi(a \mid s) = \PP(A_t = a \mid S_t = s)$ avec
+    $\sum_{a \in \mathcal{A}} \pi(a \mid s) = 1$ pour tout $s$.
+\end{itemize}
+\end{definition}
+
+\begin{definition}[Politique stationnaire]
+Une politique $\pi$ est dite \textbf{stationnaire} si elle ne d\'epend pas du temps~:
+$\pi_t = \pi$ pour tout $t \geq 0$. Sauf mention contraire, toutes les politiques
+consid\'er\'ees dans ce cours sont stationnaires.
+\end{definition}
+
+% -----------------------------------------------------------------------------
+\section{Fonctions de valeur}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Retour actualis\'e]
+Le \textbf{retour actualis\'e} \`a partir du temps $t$ est~:
+\[
+    G_t = \sum_{k=0}^{\infty} \gamma^k R_{t+k+1}.
+\]
+Le facteur $\gamma < 1$ assure la convergence de cette somme lorsque les r\'ecompenses
+sont born\'ees.
+\end{definition}
+
+\begin{definition}[Fonction de valeur d'\'etat]
+La \textbf{fonction de valeur d'\'etat} sous la politique $\pi$ est~:
+\[
+    V^\pi(s) = \E_\pi \left[ G_t \mid S_t = s \right]
+    = \E_\pi \left[ \sum_{k=0}^{\infty} \gamma^k R_{t+k+1} \;\middle|\; S_t = s \right].
+\]
+\end{definition}
+
+\begin{definition}[Fonction de valeur d'action]
+La \textbf{fonction de valeur d'action} (ou fonction Q) sous la politique $\pi$ est~:
+\[
+    Q^\pi(s, a) = \E_\pi \left[ G_t \mid S_t = s, A_t = a \right].
+\]
+\end{definition}
+
+\begin{remarque}
+La relation entre $V^\pi$ et $Q^\pi$ est~:
+\[
+    V^\pi(s) = \sum_{a \in \mathcal{A}} \pi(a \mid s) \, Q^\pi(s, a).
+\]
+\end{remarque}
+
+% -----------------------------------------------------------------------------
+\section{\'Equations de Bellman}
+% -----------------------------------------------------------------------------
+
+\begin{theoreme}[\'Equation de Bellman pour $V^\pi$]
+Pour toute politique $\pi$ et tout \'etat $s \in \mathcal{S}$~:
+\[
+    V^\pi(s) = \sum_{a \in \mathcal{A}} \pi(a \mid s) \sum_{s' \in \mathcal{S}}
+    P(s' \mid s, a) \left[ R(s, a, s') + \gamma \, V^\pi(s') \right].
+\]
+\end{theoreme}
+
+\begin{proof}
+Par d\'efinition du retour actualis\'e et de la propri\'et\'e de Markov~:
+\begin{align*}
+    V^\pi(s) &= \E_\pi[G_t \mid S_t = s] \\
+    &= \E_\pi[R_{t+1} + \gamma G_{t+1} \mid S_t = s] \\
+    &= \sum_{a} \pi(a \mid s) \sum_{s'} P(s' \mid s, a)
+       \left[ R(s, a, s') + \gamma \, \E_\pi[G_{t+1} \mid S_{t+1} = s'] \right] \\
+    &= \sum_{a} \pi(a \mid s) \sum_{s'} P(s' \mid s, a)
+       \left[ R(s, a, s') + \gamma \, V^\pi(s') \right]. \qedhere
+\end{align*}
+\end{proof}
+
+\begin{theoreme}[\'Equation de Bellman pour $Q^\pi$]
+Pour toute politique $\pi$, tout \'etat $s$ et toute action $a$~:
+\[
+    Q^\pi(s, a) = \sum_{s' \in \mathcal{S}} P(s' \mid s, a)
+    \left[ R(s, a, s') + \gamma \sum_{a' \in \mathcal{A}} \pi(a' \mid s') \, Q^\pi(s', a') \right].
+\]
+\end{theoreme}
+
+\begin{proof}
+On d\'eveloppe de mani\`ere similaire~:
+\begin{align*}
+    Q^\pi(s, a) &= \E_\pi[R_{t+1} + \gamma G_{t+1} \mid S_t = s, A_t = a] \\
+    &= \sum_{s'} P(s' \mid s, a) \left[ R(s, a, s') +
+       \gamma \, \E_\pi[G_{t+1} \mid S_{t+1} = s'] \right] \\
+    &= \sum_{s'} P(s' \mid s, a) \left[ R(s, a, s') +
+       \gamma \sum_{a'} \pi(a' \mid s') Q^\pi(s', a') \right]. \qedhere
+\end{align*}
+\end{proof}
+
+\begin{formules}[title=\textbf{\'Equations de Bellman --- R\'esum\'e}]
+\begin{align}
+    V^\pi(s) &= \sum_a \pi(a|s) \sum_{s'} P(s'|s,a)[R(s,a,s') + \gamma V^\pi(s')]
+    \label{eq:bellman_v} \\
+    Q^\pi(s,a) &= \sum_{s'} P(s'|s,a)[R(s,a,s') + \gamma \sum_{a'} \pi(a'|s') Q^\pi(s',a')]
+    \label{eq:bellman_q}
+\end{align}
+\end{formules}
+
+% -----------------------------------------------------------------------------
+\section{Politique optimale et \'equations de Bellman d'optimalit\'e}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Politique optimale]
+Une politique $\pi^*$ est \textbf{optimale} si pour tout \'etat $s \in \mathcal{S}$~:
+\[
+    V^{\pi^*}(s) \geq V^\pi(s) \quad \text{pour toute politique } \pi.
+\]
+On note $V^*(s) = V^{\pi^*}(s)$ et $Q^*(s,a) = Q^{\pi^*}(s,a)$.
+\end{definition}
+
+\begin{theoreme}[\'Equations de Bellman d'optimalit\'e]
+Les fonctions de valeur optimales satisfont~:
+\begin{align}
+    V^*(s) &= \max_{a \in \mathcal{A}} \sum_{s'} P(s'|s,a)
+    \left[ R(s,a,s') + \gamma V^*(s') \right] \label{eq:bellman_opt_v} \\
+    Q^*(s,a) &= \sum_{s'} P(s'|s,a)
+    \left[ R(s,a,s') + \gamma \max_{a'} Q^*(s',a') \right] \label{eq:bellman_opt_q}
+\end{align}
+\end{theoreme}
+
+\begin{proof}
+Pour l'\'equation~\eqref{eq:bellman_opt_v}, on utilise le fait que la politique
+optimale choisit l'action maximisant la valeur~:
+\begin{align*}
+    V^*(s) &= \max_\pi V^\pi(s) \\
+    &= \max_a Q^*(s,a) \\
+    &= \max_a \sum_{s'} P(s'|s,a)[R(s,a,s') + \gamma V^*(s')].
+\end{align*}
+Pour l'\'equation~\eqref{eq:bellman_opt_q}, on injecte $V^*(s') = \max_{a'} Q^*(s',a')$
+dans l'\'equation de Bellman pour $Q^*$.
+\end{proof}
+
+\begin{theoreme}[Existence d'une politique optimale d\'eterministe]
+\label{thm:existence_opt}
+Pour tout MDP fini, il existe au moins une politique optimale d\'eterministe
+$\pi^* : \mathcal{S} \to \mathcal{A}$ d\'efinie par~:
+\[
+    \pi^*(s) = \argmax_{a \in \mathcal{A}} Q^*(s, a).
+\]
+\end{theoreme}
+
+% -----------------------------------------------------------------------------
+\section{Op\'erateur de Bellman et contraction}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Op\'erateur de Bellman]
+L'\textbf{op\'erateur de Bellman} $\mathcal{T}^\pi$ pour une politique $\pi$
+est d\'efini par~:
+\[
+    (\mathcal{T}^\pi V)(s) = \sum_a \pi(a|s) \sum_{s'} P(s'|s,a)
+    [R(s,a,s') + \gamma V(s')].
+\]
+L'\textbf{op\'erateur de Bellman d'optimalit\'e} est~:
+\[
+    (\mathcal{T}^* V)(s) = \max_a \sum_{s'} P(s'|s,a)
+    [R(s,a,s') + \gamma V(s')].
+\]
+\end{definition}
+
+\begin{theoreme}[Contraction de l'op\'erateur de Bellman]
+\label{thm:contraction}
+Les op\'erateurs $\mathcal{T}^\pi$ et $\mathcal{T}^*$ sont des contractions en
+norme infinie avec facteur $\gamma$~:
+\[
+    \norm{\mathcal{T}^\pi V - \mathcal{T}^\pi U}_\infty
+    \leq \gamma \norm{V - U}_\infty.
+\]
+Par le th\'eor\`eme du point fixe de Banach, chacun poss\`ede un unique point fixe~:
+$V^\pi$ pour $\mathcal{T}^\pi$ et $V^*$ pour $\mathcal{T}^*$.
+\end{theoreme}
+
+\begin{proof}
+Pour tout $s \in \mathcal{S}$~:
+\begin{align*}
+    \abs{(\mathcal{T}^* V)(s) - (\mathcal{T}^* U)(s)}
+    &= \abs{\max_a \sum_{s'} P(s'|s,a)[R + \gamma V(s')]
+       - \max_a \sum_{s'} P(s'|s,a)[R + \gamma U(s')]} \\
+    &\leq \max_a \sum_{s'} P(s'|s,a) \gamma \abs{V(s') - U(s')} \\
+    &\leq \gamma \norm{V - U}_\infty.
+\end{align*}
+Le passage de la deuxi\`eme \`a la troisi\`eme ligne utilise l'in\'egalit\'e
+$\abs{\max_a f(a) - \max_a g(a)} \leq \max_a \abs{f(a) - g(a)}$.
+\end{proof}
+
+% -----------------------------------------------------------------------------
+\section{Fonction avantage}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Fonction avantage]
+La \textbf{fonction avantage} sous la politique $\pi$ est~:
+\[
+    A^\pi(s, a) = Q^\pi(s, a) - V^\pi(s).
+\]
+Elle mesure l'avantage relatif de prendre l'action $a$ dans l'\'etat $s$
+par rapport au comportement moyen sous $\pi$.
+\end{definition}
+
+\begin{proposition}
+Pour toute politique $\pi$ et tout \'etat $s$~:
+\[
+    \sum_{a \in \mathcal{A}} \pi(a \mid s) \, A^\pi(s, a) = 0.
+\]
+\end{proposition}
+
+\begin{proof}
+$\sum_a \pi(a|s) A^\pi(s,a) = \sum_a \pi(a|s)[Q^\pi(s,a) - V^\pi(s)]
+= V^\pi(s) - V^\pi(s) = 0$.
+\end{proof}
+
+% -----------------------------------------------------------------------------
+\section{Exemples de MDP}
+% -----------------------------------------------------------------------------
+
+\begin{exemple}[Gridworld]
+Consid\'erons une grille $4 \times 4$ o\`u un agent se d\'eplace dans les quatre
+directions cardinales. L'\'etat terminal est la case $(4,4)$ avec r\'ecompense $+1$.
+Chaque d\'eplacement co\^ute $-0.01$. Les mouvements contre les murs laissent
+l'agent sur place. Ce probl\`eme se formalise comme un MDP avec~:
+\begin{itemize}
+    \item $\mathcal{S} = \{(i,j) : 1 \leq i,j \leq 4\}$, $|\mathcal{S}| = 16$,
+    \item $\mathcal{A} = \{\text{haut, bas, gauche, droite}\}$,
+    \item Transitions d\'eterministes (sauf aux bords),
+    \item $\gamma = 0.99$.
+\end{itemize}
+\end{exemple}
+
+\begin{exemple}[Bandit \`a $K$ bras]
+Un bandit \`a $K$ bras est un MDP d\'eg\'en\'er\'e avec $|\mathcal{S}| = 1$
+(un seul \'etat). L'agent choisit \`a chaque pas un bras $a \in \{1, \ldots, K\}$
+et re\c{c}oit une r\'ecompense al\'eatoire $R_a \sim \mathcal{D}_a$. Ce cas
+particulier permet d'\'etudier le dilemme exploration-exploitation de mani\`ere
+isol\'ee.
+\end{exemple}
+
+% -----------------------------------------------------------------------------
+\section{Impl\'ementation en Python}
+% -----------------------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{D\'efinition d'un MDP simple avec Gymnasium}]
+\begin{minted}{python}
+import numpy as np
+import gymnasium as gym
+from gymnasium import spaces
+
+class GridWorldEnv(gym.Env):
+    """Environnement Gridworld 4x4 personnalise."""
+    metadata = {"render_modes": ["human"]}
+
+    def __init__(self, size=4, gamma=0.99):
+        super().__init__()
+        self.size = size
+        self.gamma = gamma
+        self.observation_space = spaces.Discrete(size * size)
+        self.action_space = spaces.Discrete(4)  # haut, bas, gauche, droite
+        self.goal = (size - 1, size - 1)
+        self._action_to_dir = {
+            0: np.array([-1, 0]),  # haut
+            1: np.array([1, 0]),   # bas
+            2: np.array([0, -1]), # gauche
+            3: np.array([0, 1]),  # droite
+        }
+        self.reset()
+
+    def _pos_to_state(self, pos):
+        return pos[0] * self.size + pos[1]
+
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
+        self.agent_pos = np.array([0, 0])
+        return self._pos_to_state(self.agent_pos), {}
+
+    def step(self, action):
+        direction = self._action_to_dir[action]
+        new_pos = np.clip(self.agent_pos + direction, 0, self.size - 1)
+        self.agent_pos = new_pos
+
+        terminated = tuple(self.agent_pos) == self.goal
+        reward = 1.0 if terminated else -0.01
+        return self._pos_to_state(self.agent_pos), reward, terminated, False, {}
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Construction de la matrice de transition}]
+\begin{minted}{python}
+def build_transition_matrix(env):
+    """Construit P[s, a, s'] et R[s, a, s'] pour un MDP fini."""
+    nS = env.observation_space.n
+    nA = env.action_space.n
+    P = np.zeros((nS, nA, nS))
+    R = np.zeros((nS, nA, nS))
+
+    for s in range(nS):
+        for a in range(nA):
+            # Simuler la transition depuis l'etat s avec l'action a
+            env.agent_pos = np.array([s // env.size, s % env.size])
+            s_next, reward, _, _, _ = env.step(a)
+            P[s, a, s_next] = 1.0  # transition deterministe
+            R[s, a, s_next] = reward
+    return P, R
+
+env = GridWorldEnv(size=4)
+P, R = build_transition_matrix(env)
+print(f"Forme de P: {P.shape}")  # (16, 4, 16)
+print(f"Forme de R: {R.shape}")  # (16, 4, 16)
+\end{minted}
+\end{codeblock}
+
+% -----------------------------------------------------------------------------
+\section{R\'esolution alg\'ebrique directe}
+% -----------------------------------------------------------------------------
+
+\begin{proposition}[R\'esolution matricielle de l'\'equation de Bellman]
+Pour un MDP fini avec $|\mathcal{S}| = n$, l'\'equation de Bellman pour $V^\pi$
+peut s'\'ecrire sous forme matricielle~:
+\[
+    \mathbf{v}^\pi = \mathbf{r}^\pi + \gamma \, \mathbf{P}^\pi \mathbf{v}^\pi
+\]
+o\`u $\mathbf{P}^\pi_{s,s'} = \sum_a \pi(a|s) P(s'|s,a)$ et
+$\mathbf{r}^\pi_s = \sum_a \pi(a|s) \sum_{s'} P(s'|s,a) R(s,a,s')$.
+La solution est~:
+\[
+    \mathbf{v}^\pi = (I - \gamma \mathbf{P}^\pi)^{-1} \mathbf{r}^\pi.
+\]
+\end{proposition}
+
+\begin{attention}[title=\textbf{Complexit\'e de la r\'esolution directe}]
+L'inversion matricielle a une complexit\'e $O(n^3)$, ce qui la rend impraticable
+pour des MDP avec un grand nombre d'\'etats. C'est pourquoi on pr\'ef\`ere les
+m\'ethodes it\'eratives (Chapitre~\ref{ch:programmation_dynamique}).
+\end{attention}
+
+% -----------------------------------------------------------------------------
+\section{Extensions du mod\`ele MDP}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[POMDP]
+Un \textbf{processus de d\'ecision markovien partiellement observable} (POMDP)
+est un MDP augment\'e d'un ensemble d'observations $\mathcal{O}$ et d'une
+fonction d'observation $O : \mathcal{S} \times \mathcal{A} \to \Delta(\mathcal{O})$.
+L'agent n'observe pas directement l'\'etat $s_t$ mais une observation $o_t \sim O(\cdot | s_t, a_{t-1})$.
+\end{definition}
+
+\begin{definition}[MDP \`a horizon fini]
+Un MDP \`a \textbf{horizon fini} $H$ est un MDP o\`u l'interaction se termine
+apr\`es exactement $H$ pas de temps. Le retour est~:
+\[
+    G_t = \sum_{k=0}^{H-t-1} \gamma^k R_{t+k+1}.
+\]
+\end{definition}
+
+\begin{definition}[MDP continu]
+Lorsque $\mathcal{S} \subseteq \R^n$ et/ou $\mathcal{A} \subseteq \R^m$, on parle
+de MDP \`a espace d'\'etats ou d'actions continu. Les sommes sont remplac\'ees par
+des int\'egrales dans les \'equations de Bellman.
+\end{definition}
+
+% -----------------------------------------------------------------------------
+\section{Exercices}
+% -----------------------------------------------------------------------------
+
+\begin{exercice}[\'Equation de Bellman]
+Consid\'erons un MDP \`a 3 \'etats $\{s_1, s_2, s_3\}$ avec $\gamma = 0.9$ et
+la politique uniforme $\pi(a|s) = 1/2$ pour deux actions. Les transitions
+et r\'ecompenses sont~:
+\begin{itemize}
+    \item De $s_1$, action $a_1$~: vers $s_2$ avec $R=1$~; action $a_2$~: vers $s_3$ avec $R=0$.
+    \item De $s_2$, toute action~: vers $s_1$ avec $R=2$.
+    \item De $s_3$, toute action~: vers $s_3$ avec $R=0$ (\'etat absorbant).
+\end{itemize}
+\'Ecrivez le syst\`eme d'\'equations de Bellman pour $V^\pi$ et r\'esolvez-le.
+\end{exercice}
+
+\begin{exercice}[Op\'erateur de contraction]
+Montrez que si $\gamma = 0$, l'op\'erateur de Bellman d'optimalit\'e converge
+en une seule it\'eration. Quelle est l'interpr\'etation de $\gamma = 0$~?
+\end{exercice}
+
+\begin{exercice}[Impl\'ementation]
+Impl\'ementez un environnement \texttt{FrozenLake} personnalis\'e avec Gymnasium.
+Construisez la matrice de transition et calculez $V^\pi$ par r\'esolution
+matricielle pour la politique uniforme. V\'erifiez votre r\'esultat en comparant
+avec l'environnement \texttt{FrozenLake-v1} de Gymnasium.
+\end{exercice}
+
+\begin{exercice}[Fonction avantage]
+Montrez que pour une politique optimale d\'eterministe $\pi^*$~:
+\[
+    A^{\pi^*}(s, \pi^*(s)) = 0 \quad \text{et} \quad A^{\pi^*}(s, a) \leq 0
+    \quad \forall a \neq \pi^*(s).
+\]
+\end{exercice}

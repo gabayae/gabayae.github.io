@@ -1,0 +1,275 @@
+% ============================================================
+\chapter{Stochastic Models}
+\label{ch:stochastic}
+% ============================================================
+
+\begin{center}
+\textit{``Randomness is not disorder; it is a different kind of order.''}\\[4pt]
+--- Nassim Nicholas Taleb
+\end{center}
+
+\bigskip
+
+Until now, our models have been deterministic: knowing the initial state and the evolution laws, one could predict the future with certainty. But the real world is noisy. Financial markets fluctuate, genes mutate randomly, molecules jitter under thermal agitation, and even epidemics do not propagate deterministically. Modelling these phenomena requires integrating randomness into the equations. This chapter introduces stochastic models --- from random walks to It\^o stochastic differential equations --- and shows how randomness, far from being an obstacle to understanding, becomes an essential ingredient of modelling. We cover birth-death processes in biology, queueing theory, random walks, the Gillespie algorithm, and Monte Carlo simulation.
+
+% ------------------------------------------------------------
+\section{Birth-Death Processes}
+\label{sec:birth_death}
+% ------------------------------------------------------------
+
+\begin{definition}[Birth-Death Process]
+\index{birth-death process}
+A \textbf{birth-death process} is a continuous-time Markov chain
+$\{X(t)\}_{t \geq 0}$ taking values in $\N$ with transitions
+from state $n$:
+\begin{itemize}
+  \item $n \to n+1$ (birth) at rate $\lambda_n \geq 0$,
+  \item $n \to n-1$ (death) at rate $\mu_n \geq 0$, where $\mu_0 = 0$.
+\end{itemize}
+\end{definition}
+
+\begin{intuition}
+Think of a bacterial colony in a petri dish. Each bacterium divides
+(birth) or dies independently. The total count fluctuates randomly
+around a general trend. The birth-death process captures exactly
+this stochastic dynamics at the individual level.
+\end{intuition}
+
+\begin{proposition}[Kolmogorov Forward Equations]
+\label{prop:kolmogorov_bd}
+Let $p_n(t) = \PP(X(t) = n)$. The state probabilities satisfy:
+\[
+  \frac{dp_n}{dt} = \lambda_{n-1}\, p_{n-1}(t) + \mu_{n+1}\, p_{n+1}(t)
+    - (\lambda_n + \mu_n)\, p_n(t), \quad n \geq 1,
+\]
+with $\dfrac{dp_0}{dt} = \mu_1\, p_1(t) - \lambda_0\, p_0(t)$.
+\end{proposition}
+
+\begin{proof}
+Condition on the state at time $t$. In a small interval $[t, t+h]$:
+\[
+  p_n(t+h) = p_n(t)\bigl(1 - (\lambda_n + \mu_n)h\bigr)
+    + p_{n-1}(t)\,\lambda_{n-1}\,h + p_{n+1}(t)\,\mu_{n+1}\,h + o(h).
+\]
+Subtracting $p_n(t)$, dividing by $h$, and letting $h \to 0$ yields
+the stated equation.
+\end{proof}
+
+\begin{theorem}[Stationary Distribution]
+\label{thm:stat_bd}
+If $\sum_{n=1}^{\infty} \prod_{k=0}^{n-1} \frac{\lambda_k}{\mu_{k+1}}
+< \infty$, then a stationary distribution $\pi = (\pi_n)_{n \geq 0}$ exists:
+\[
+  \pi_n = \pi_0 \prod_{k=0}^{n-1} \frac{\lambda_k}{\mu_{k+1}},
+  \qquad \pi_0 = \left(1 + \sum_{n=1}^{\infty} \prod_{k=0}^{n-1}
+  \frac{\lambda_k}{\mu_{k+1}}\right)^{-1}.
+\]
+\end{theorem}
+
+\begin{example}
+Consider the Yule process\index{Yule process} with $\lambda_n = \lambda\,n$
+and $\mu_n = 0$ (pure birth). Starting from $X(0) = 1$, the expected
+population grows exponentially: $\E[X(t)] = e^{\lambda t}$.
+\end{example}
+
+% ------------------------------------------------------------
+\section{Queueing Theory}
+\label{sec:queueing}
+% ------------------------------------------------------------
+
+\begin{definition}[M/M/1 Queue]
+\index{M/M/1 queue}
+An \textbf{M/M/1 queue} is a birth-death process with constant arrival
+rate $\lambda_n = \lambda$ and constant service rate $\mu_n = \mu$ for
+$n \geq 1$. The letter ``M'' stands for ``Markovian'' (exponential
+inter-arrival and service times).
+\end{definition}
+
+\begin{theorem}[M/M/1 Equilibrium]
+\label{thm:mm1}
+Let $\rho = \lambda / \mu$ denote the traffic intensity\index{traffic intensity}.
+If $\rho < 1$, the M/M/1 queue has a geometric stationary distribution:
+\[
+  \pi_n = (1 - \rho)\,\rho^n, \quad n \geq 0.
+\]
+The expected number of customers is $L = \rho/(1-\rho)$, and the mean
+sojourn time is $W = 1/(\mu - \lambda)$.
+\end{theorem}
+
+\begin{proof}
+By Theorem~\ref{thm:stat_bd}, $\pi_n = \pi_0\,\rho^n$. Normalization
+$\sum_{n \geq 0} \pi_n = 1$ gives $\pi_0 = 1 - \rho$ when $\rho < 1$.
+The mean number follows from $L = (1-\rho)\sum_{n \geq 1} n\,\rho^n
+= \rho/(1-\rho)$. Little's law\index{Little's law} $L = \lambda W$ yields $W$.
+\end{proof}
+
+\begin{keyformulas}
+\textbf{Queueing Summary}
+\begin{align*}
+  \text{M/M/1:}\quad & L = \frac{\rho}{1-\rho}, \quad
+    W = \frac{1}{\mu - \lambda}, \quad
+    L_q = \frac{\rho^2}{1-\rho} \\[6pt]
+  \text{M/M/c:}\quad & \pi_0 = \left[\sum_{k=0}^{c-1}
+    \frac{(c\rho)^k}{k!} + \frac{(c\rho)^c}{c!\,(1-\rho)}\right]^{-1},
+    \quad \rho = \frac{\lambda}{c\mu} < 1
+\end{align*}
+\end{keyformulas}
+
+\begin{definition}[M/M/c Queue]
+\index{M/M/c queue}
+An \textbf{M/M/c queue} has $c$ identical servers in parallel.
+The effective service rate in state $n$ is $\mu_n = \min(n,c)\,\mu$.
+\end{definition}
+
+\begin{remark}
+The Erlang-C formula\index{Erlang-C formula} gives the probability of
+waiting in an M/M/c queue:
+$C(c, \lambda/\mu) = \frac{(c\rho)^c}{c!\,(1-\rho)}\,\pi_0$.
+It is widely used in call center dimensioning.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Random Walks}
+\label{sec:random_walks}
+% ------------------------------------------------------------
+
+\begin{definition}[Simple Random Walk]
+\index{random walk}
+A \textbf{simple random walk} on $\Z$ is a sequence $(S_n)_{n \geq 0}$
+with $S_0 = 0$ and $S_n = \sum_{k=1}^n X_k$, where the $(X_k)$ are i.i.d.
+with $\PP(X_k = +1) = p$ and $\PP(X_k = -1) = 1-p$.
+\end{definition}
+
+\begin{theorem}[Recurrence of Random Walks]
+\label{thm:polya}
+The simple random walk on $\Z$ is recurrent if and only if $p = 1/2$.
+More generally, the simple symmetric random walk on $\Z^d$ is recurrent
+if and only if $d \leq 2$ (P\'olya's theorem\index{P\'olya's theorem}).
+\end{theorem}
+
+\begin{proof}[Proof sketch for $d=1$]
+When $p = 1/2$, the return probability involves
+$\sum_{n \geq 1} \PP(S_{2n} = 0) = \sum_{n \geq 1} \binom{2n}{n} 2^{-2n}$.
+By Stirling's formula, $\binom{2n}{n} \sim 4^n/\sqrt{\pi n}$, so the
+series diverges, ensuring recurrence. For $p \neq 1/2$, $\E[X_k] \neq 0$
+and the law of large numbers implies $S_n \to \pm\infty$.
+\end{proof}
+
+\begin{example}
+The random walk models a particle suspended in a fluid (discrete Brownian
+motion\index{Brownian motion}) and the fortune of a gambler in a fair game.
+\end{example}
+
+% ------------------------------------------------------------
+\section{The Gillespie Algorithm}
+\label{sec:gillespie}
+% ------------------------------------------------------------
+
+\begin{definition}[Gillespie Algorithm (SSA)]
+\index{Gillespie algorithm}
+The \textbf{Stochastic Simulation Algorithm} (SSA) of Gillespie exactly
+simulates the trajectory of a stochastic chemical system. At each step:
+\begin{enumerate}
+  \item the time $\tau$ until the next reaction is drawn from
+    $\text{Exp}(a_0)$, where $a_0 = \sum_j a_j$,
+  \item reaction $j$ is selected with probability $a_j / a_0$,
+\end{enumerate}
+where $a_j$ is the \emph{propensity} of reaction $j$.
+\end{definition}
+
+\begin{attention}
+The Gillespie algorithm simulates \emph{every single} reaction event.
+For systems with large molecule counts, it becomes computationally
+prohibitive. Approximate methods such as $\tau$-leaping\index{tau-leaping@$\tau$-leaping}
+are preferred in such cases.
+\end{attention}
+
+\begin{example}
+Consider mRNA production-degradation: $\emptyset \xrightarrow{k_1}
+\text{mRNA} \xrightarrow{k_2} \emptyset$, with propensities $a_1 = k_1$
+and $a_2 = k_2\,n$. At stochastic equilibrium, $n$ follows a Poisson
+distribution with parameter $k_1/k_2$.
+\end{example}
+
+\begin{minted}{python}
+import numpy as np
+
+def gillespie_production_degradation(k1, k2, n0, t_max):
+    """Gillespie SSA for production-degradation."""
+    t, n = 0.0, n0
+    times, states = [t], [n]
+    while t < t_max:
+        a1 = k1           # production propensity
+        a2 = k2 * n       # degradation propensity
+        a0 = a1 + a2
+        if a0 == 0:
+            break
+        tau = np.random.exponential(1.0 / a0)
+        t += tau
+        if np.random.uniform() < a1 / a0:
+            n += 1         # production
+        else:
+            n -= 1         # degradation
+        times.append(t)
+        states.append(n)
+    return np.array(times), np.array(states)
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Monte Carlo Simulation}
+\label{sec:monte_carlo}
+% ------------------------------------------------------------
+
+\begin{definition}[Monte Carlo Method]
+\index{Monte Carlo}
+A \textbf{Monte Carlo method} uses random samples to estimate a
+deterministic quantity. To estimate $\theta = \E[g(X)]$, generate
+$X_1, \ldots, X_N$ i.i.d.\ from the distribution of $X$ and compute:
+\[
+  \hat{\theta}_N = \frac{1}{N} \sum_{i=1}^N g(X_i).
+\]
+\end{definition}
+
+\begin{theorem}[Monte Carlo Convergence]
+By the strong law of large numbers, $\hat{\theta}_N \to \theta$ a.s.
+Moreover, by the CLT, the estimation error is of order $O(1/\sqrt{N})$:
+\[
+  \sqrt{N}\,(\hat{\theta}_N - \theta) \xrightarrow{d}
+  \mathcal{N}(0, \Var(g(X))).
+\]
+\end{theorem}
+
+\begin{intuition}
+The $O(1/\sqrt{N})$ convergence rate is \emph{dimension-independent}.
+This is the major advantage of Monte Carlo over deterministic methods
+(quadrature), whose convergence degrades with dimension---the so-called
+``curse of dimensionality.''
+\end{intuition}
+
+\begin{proposition}[Antithetic Variates]
+\index{antithetic variates}
+If $g$ is monotone and $X \sim \mathcal{U}(0,1)$, the estimator
+\[
+  \hat{\theta}_N^{\text{anti}} = \frac{1}{N}\sum_{i=1}^{N/2}
+  \frac{g(U_i) + g(1-U_i)}{2}
+\]
+has variance less than or equal to that of the crude estimator.
+\end{proposition}
+
+\begin{exercise}
+Estimate $\int_0^1 e^x\,dx$ by Monte Carlo with $N = 10{,}000$ samples.
+Compare the accuracy with and without antithetic variates.
+\end{exercise}
+
+\begin{exercise}
+Simulate an M/M/1 queue with $\lambda = 3$ and $\mu = 5$ over a time
+horizon $T = 1000$. Estimate the average number of customers in the
+system and compare with the theoretical value $L = 3/2$.
+\end{exercise}
+
+\begin{exercise}
+Implement the Gillespie algorithm for the stochastic Lotka--Volterra
+model: $X \xrightarrow{\alpha} 2X$, $X + Y \xrightarrow{\beta} 2Y$,
+$Y \xrightarrow{\gamma} \emptyset$. Compare stochastic trajectories
+with the deterministic model.
+\end{exercise}

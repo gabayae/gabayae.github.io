@@ -1,0 +1,228 @@
+% ============================================================
+\chapter{Connections to TDA}
+\label{ch:tda}
+% ============================================================
+
+\begin{intuition}
+Topological Data Analysis (TDA)\index{TDA} and geometric deep
+learning share a common concern: exploiting the \textbf{structure}
+of data. TDA provides topological invariants (Betti numbers,
+persistent homology) that complement features learned by GNNs
+and improve their \textbf{expressiveness}.
+\end{intuition}
+
+% ============================================================
+\section{Review of persistent homology}
+\label{sec:persistent_homology_review}
+% ============================================================
+
+\begin{definition}[Persistent homology]
+\index{persistent homology}
+Given a filtration of simplicial complexes
+$K_0 \subseteq K_1 \subseteq \cdots \subseteq K_m$,
+\textbf{persistent homology} tracks the evolution of homology
+classes through the filtration. Each class is born at index $b$
+and dies at index $d > b$, yielding a point $(b, d)$ in the
+\textbf{persistence diagram}.
+\end{definition}
+
+\begin{remark}
+For a graph $G = (V, E)$, different filtrations can be constructed:
+\begin{itemize}
+  \item \textbf{By degree}: $f(v) = \mathrm{deg}(v)$ and
+        $f(e) = \max(f(u), f(v))$.
+  \item \textbf{By centrality}: $f(v) = \mathrm{betweenness}(v)$.
+  \item \textbf{By learned features}: $f(v) = g_\theta(h_v)$
+        where $g_\theta$ is a neural network.
+\end{itemize}
+\end{remark}
+
+% ============================================================
+\section{Topological features in GNNs}
+\label{sec:topo_features}
+% ============================================================
+
+\begin{definition}[Topological features for graphs]
+\index{topological features}
+\textbf{Topological features} of a graph are extracted from its
+persistence diagrams:
+\begin{itemize}
+  \item $H_0$: connected components and their stability.
+  \item $H_1$: cycles and their persistence.
+\end{itemize}
+These features are vectorized (landscapes, persistence images) and
+concatenated with GNN features.
+\end{definition}
+
+\begin{proposition}[Complementarity]
+Topological features capture global graph properties (cycles,
+cavities) that local message passing cannot detect in a bounded
+number of iterations: detecting a cycle of length $k$ requires
+at least $k/2$ message-passing layers.
+\end{proposition}
+
+\begin{minted}{python}
+import torch
+import numpy as np
+from gudhi import RipsComplex
+from gudhi.representations import PersistenceImage
+
+def topo_features(pos, max_edge=5.0, resolution=10):
+    """Compute topological features of a point cloud."""
+    rips = RipsComplex(points=pos, max_edge_length=max_edge)
+    st = rips.create_simplex_tree(max_dimension=2)
+    st.persistence()
+
+    # Diagrams by dimension
+    dgm_h0 = st.persistence_intervals_in_dimension(0)
+    dgm_h1 = st.persistence_intervals_in_dimension(1)
+
+    # Vectorization via persistence images
+    pi = PersistenceImage(
+        bandwidth=0.1, resolution=[resolution, resolution]
+    )
+    feats = []
+    for dgm in [dgm_h0, dgm_h1]:
+        if len(dgm) > 0:
+            dgm = dgm[np.isfinite(dgm[:, 1])]
+        if len(dgm) > 0:
+            feats.append(pi.fit_transform([dgm])[0])
+        else:
+            feats.append(np.zeros(resolution ** 2))
+    return np.concatenate(feats)
+\end{minted}
+
+% ============================================================
+\section{Topological message passing}
+\label{sec:topo_message_passing}
+% ============================================================
+
+\begin{definition}[Message passing on simplicial complexes]
+\index{simplicial message passing}
+\textbf{Simplicial message passing} (Bodnar et al.\ 2021)
+generalizes graph message passing to higher-dimensional simplicial
+complexes:
+\[
+  h_\sigma^{(t+1)} = \phi\!\left(h_\sigma^{(t)},\;
+  \bigoplus_{\tau \in \mathcal{B}(\sigma)}
+    \psi_{\mathcal{B}}(h_\tau^{(t)}),\;
+  \bigoplus_{\tau \in \mathcal{C}(\sigma)}
+    \psi_{\mathcal{C}}(h_\tau^{(t)})
+  \right)
+\]
+where $\mathcal{B}(\sigma)$ are the boundary faces and
+$\mathcal{C}(\sigma)$ are the coboundary cofaces of simplex $\sigma$.
+\end{definition}
+
+\begin{intuition}
+In a graph, messages flow along edges (1-simplices). In a simplicial
+complex, messages also flow along triangles (2-simplices) and
+higher-dimensional structures. This enables capturing
+\textbf{higher-order} relationships between nodes.
+\end{intuition}
+
+\begin{definition}[Message passing on cell complexes]
+\index{CW Network}
+\textbf{CW Networks} (Bodnar et al.\ 2021) extend message passing
+to cell complexes, which generalize simplicial complexes by allowing
+cells of arbitrary shape (not just simplices).
+\end{definition}
+
+% ============================================================
+\section{The Weisfeiler-Leman hierarchy and topology}
+\label{sec:wl_topology}
+% ============================================================
+
+\begin{definition}[Weisfeiler-Leman test]
+\index{Weisfeiler-Leman}
+The \textbf{Weisfeiler-Leman} (WL) test of level $k$ is a
+color refinement algorithm that characterizes graphs: two graphs
+not distinguished by $k$-WL are called \textbf{$k$-WL equivalent}.
+\end{definition}
+
+\begin{theorem}[GNN expressiveness --- Xu et al.\ 2019, Morris et al.\ 2019]
+\index{WL expressiveness}
+A message-passing GNN is \textbf{at most as powerful} as the
+$1$-WL test for distinguishing non-isomorphic graphs.
+\end{theorem}
+
+\begin{theorem}[Beyond WL via topology --- Bodnar et al.\ 2021]
+\index{simplicial complex}
+Message passing on simplicial complexes with topological features
+(persistent homology) can distinguish graphs that $k$-WL cannot
+distinguish, for any fixed $k$.
+\end{theorem}
+
+\begin{example}[Rook graphs]
+The Rook graphs $R_{3 \times 3}$ and $R_{4 \times 4}$ are not
+distinguished by $3$-WL. However, their $H_1$ persistence diagrams
+(with degree filtration) differ: $R_{4 \times 4}$ has more
+persistent cycles.
+\end{example}
+
+% ============================================================
+\section{Expressiveness and topology}
+\label{sec:expressiveness}
+% ============================================================
+
+\begin{proposition}[Topological enrichment]
+By adding persistent homology features to GNN node features, the
+resulting expressiveness is \textbf{strictly greater} than that of
+the GNN alone for graph classification.
+\end{proposition}
+
+\begin{definition}[Joint learned filtration]
+\index{learned filtration}
+In a \textbf{joint learned filtration}, filtration values are
+defined by the GNN itself:
+\[
+  f_\theta(v) = \mathrm{MLP}_\theta(h_v^{(L)})
+\]
+where $h_v^{(L)}$ is the final embedding of node $v$ after $L$
+message-passing layers. Persistence is computed on this filtration,
+and gradients backpropagate through the persistence computation
+(cf.\ differentiable persistence).
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{GNN + TDA pipeline}]
+\[
+  X \xrightarrow{\text{GNN}} H^{(L)}
+  \xrightarrow{f_\theta} \text{Filtration}
+  \xrightarrow{\text{PH}} \mathrm{Dgm}
+  \xrightarrow{\text{PersLay}} z_{\mathrm{topo}}
+  \xrightarrow{\oplus} \text{Prediction}
+\]
+\end{keyformulas}
+
+% ============================================================
+\section{Exercises}
+% ============================================================
+
+\begin{exercise}
+For the Petersen graph, compute the $H_0$ and $H_1$ persistence
+diagrams with the degree filtration. All nodes have the same degree:
+what can you conclude?
+\end{exercise}
+
+\begin{exercise}
+Show that two isomorphic graphs have the same persistence diagrams
+for any filtration defined from structural graph properties.
+\end{exercise}
+
+\begin{exercise}[Simplicial message passing]
+Write the message-passing equations for a triangle $(v_1, v_2, v_3)$
+in a simplicial complex. What messages does the edge $(v_1, v_2)$
+receive?
+\end{exercise}
+
+\begin{exercise}
+Give an example of two non-isomorphic graphs with the same
+persistence diagrams for the degree filtration. Propose a filtration
+that distinguishes them.
+\end{exercise}
+
+\begin{exercise}[Project]
+Implement a GNN enriched with topological features on the ZINC
+benchmark and compare with a baseline GCN. Measure the improvement
+in MAE.
+\end{exercise}

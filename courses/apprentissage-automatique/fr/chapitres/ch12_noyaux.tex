@@ -1,0 +1,655 @@
+% ============================================================
+\chapter{M\'ethodes \`a Noyaux}
+\label{ch:noyaux}
+\index{m\'ethodes \`a noyaux}
+% ============================================================
+
+\noindent\textit{Ce chapitre pr\'esente les m\'ethodes \`a noyaux~: l'astuce
+du noyau (\emph{kernel trick}), le th\'eor\`eme de Mercer, les noyaux
+classiques, la r\'egression Ridge \`a noyau, l'ACP \`a noyau, le
+$k$-means \`a noyau, les espaces de Hilbert \`a noyau reproduisant (RKHS)
+et le th\'eor\`eme du repr\'esentant. Nous concluons par les liens avec
+les processus gaussiens.}\medskip
+
+% ============================================================
+\section{Applications de features et astuce du noyau}
+\label{sec:kernel-trick}
+\index{kernel trick}\index{astuce du noyau}
+
+\subsection{Motivation~: s\'eparabilit\'e en grande dimension}
+
+\begin{exemple}[XOR non lin\'eairement s\'eparable]
+Consid\'erons les points $\{(\pm 1, \pm 1)\}$ dans $\R^2$ avec \'etiquettes
+$y = x_1 \cdot x_2$. Aucun hyperplan dans $\R^2$ ne peut les s\'eparer,
+mais en ajoutant la feature $\phi_3(\bm{x}) = x_1 x_2$, les donn\'ees
+deviennent lin\'eairement s\'eparables dans $\R^3$.
+\end{exemple}
+
+\begin{definition}[Application de features]
+\label{def:feature-map}
+Une \textbf{application de features}\index{application de features}
+(ou \emph{feature map}) est une fonction
+$\phi : \mathcal{X} \to \mathcal{F}$ qui envoie les donn\'ees d'un
+espace d'entr\'ee $\mathcal{X}$ vers un espace de features $\mathcal{F}$
+(possiblement de dimension infinie).
+\end{definition}
+
+\subsection{D\'erivation formelle de l'astuce du noyau}
+
+De nombreux algorithmes (SVM, Ridge, PCA, $k$-means) ne d\'ependent des
+donn\'ees qu'\`a travers des \textbf{produits scalaires}
+$\inner{\bm{x}_i}{\bm{x}_j}$. Si l'on travaille dans l'espace des
+features, on remplace ces produits par
+$\inner{\phi(\bm{x}_i)}{\phi(\bm{x}_j)}_{\mathcal{F}}$, ce qui peut
+\^etre co\^uteux si $\dim(\mathcal{F})$ est grand.
+
+\begin{definition}[Fonction noyau]
+\label{def:kernel}
+Une \textbf{fonction noyau}\index{noyau} est une fonction
+$\kappa : \mathcal{X} \times \mathcal{X} \to \R$ telle qu'il existe un
+espace de Hilbert $\mathcal{F}$ et une application
+$\phi : \mathcal{X} \to \mathcal{F}$ v\'erifiant~:
+\begin{equation}
+  \kappa(\bm{x}, \bm{x}') = \inner{\phi(\bm{x})}{\phi(\bm{x}')}_{\mathcal{F}}
+  \label{eq:kernel-def}
+\end{equation}
+\end{definition}
+
+\begin{formules}[title=\textbf{L'astuce du noyau}]
+Au lieu de~:
+\begin{enumerate}
+  \item calculer explicitement $\phi(\bm{x}_i)$ pour tout $i$,
+  \item former les produits scalaires $\inner{\phi(\bm{x}_i)}{\phi(\bm{x}_j)}$,
+\end{enumerate}
+on \'evalue directement $\kappa(\bm{x}_i, \bm{x}_j)$, ce qui \'evite de
+travailler dans l'espace $\mathcal{F}$ (qui peut \^etre de dimension infinie).
+
+\textbf{Matrice de Gram~:} $\bm{K} \in \R^{n \times n}$ avec
+$K_{ij} = \kappa(\bm{x}_i, \bm{x}_j)$.
+\end{formules}
+
+\begin{exemple}[Noyau polynomial --- feature map explicite]
+Pour $\bm{x}, \bm{x}' \in \R^2$ et $\kappa(\bm{x}, \bm{x}') =
+(\bm{x}^\top \bm{x}')^2$~:
+\begin{align}
+  (\bm{x}^\top \bm{x}')^2 &= (x_1 x_1' + x_2 x_2')^2 \\
+  &= x_1^2 {x_1'}^2 + 2 x_1 x_2 x_1' x_2' + x_2^2 {x_2'}^2 \\
+  &= \inner{\phi(\bm{x})}{\phi(\bm{x}')}
+\end{align}
+o\`u $\phi(\bm{x}) = (x_1^2, \sqrt{2}\, x_1 x_2, x_2^2)^\top \in \R^3$.
+Le noyau calcule le produit scalaire dans $\R^3$ sans construire $\phi$
+explicitement.
+\end{exemple}
+
+\subsection{Diagramme~: projection dans l'espace des features}
+
+\begin{center}
+\begin{tikzpicture}[
+  point/.style={circle, fill, inner sep=1.8pt},
+  pospt/.style={point, fill=blue!70},
+  negpt/.style={point, fill=red!70}
+]
+  % Espace d'entree R^2
+  \node[font=\bfseries] at (2, 4.2) {Espace d'entr\'ee $\R^2$};
+  \draw[->] (0,0) -- (4.2,0) node[right] {\small $x_1$};
+  \draw[->] (0,0) -- (0,4) node[above] {\small $x_2$};
+
+  % Points non lineairement separables (cercle interieur vs exterieur)
+  \node[pospt] at (1.0, 1.0) {};
+  \node[pospt] at (1.2, 1.5) {};
+  \node[pospt] at (1.5, 1.2) {};
+  \node[pospt] at (1.8, 1.6) {};
+  \node[pospt] at (1.4, 1.8) {};
+
+  \node[negpt] at (0.3, 0.5) {};
+  \node[negpt] at (3.5, 3.2) {};
+  \node[negpt] at (0.5, 3.0) {};
+  \node[negpt] at (3.2, 0.4) {};
+  \node[negpt] at (3.0, 3.5) {};
+  \node[negpt] at (0.4, 3.5) {};
+
+  % Fleche phi
+  \draw[-{Stealth}, very thick, purple!70!black] (4.8, 2.0) --
+    node[above, font=\small] {$\phi$} (7.2, 2.0);
+
+  % Espace des features F
+  \begin{scope}[shift={(8,0)}]
+    \node[font=\bfseries] at (2.5, 4.2)
+      {Espace des features $\mathcal{F}$};
+    \draw[->] (0,0) -- (5,0) node[right] {\small $\phi_1$};
+    \draw[->] (0,0) -- (0,4) node[above] {\small $\phi_2$};
+
+    % Points lineairement separables
+    \node[pospt] at (1.5, 3.0) {};
+    \node[pospt] at (1.8, 2.8) {};
+    \node[pospt] at (2.0, 3.2) {};
+    \node[pospt] at (2.2, 2.6) {};
+    \node[pospt] at (1.7, 3.4) {};
+
+    \node[negpt] at (3.5, 0.8) {};
+    \node[negpt] at (4.0, 1.2) {};
+    \node[negpt] at (3.8, 0.5) {};
+    \node[negpt] at (4.2, 1.5) {};
+    \node[negpt] at (3.2, 1.0) {};
+    \node[negpt] at (4.5, 0.7) {};
+
+    % Hyperplan separateur
+    \draw[thick, green!60!black, dashed] (0.5, 1.0) -- (4.5, 3.8);
+    \node[font=\scriptsize, green!50!black] at (4.0, 3.5)
+      {S\'eparable~!};
+  \end{scope}
+\end{tikzpicture}
+\end{center}
+
+% ============================================================
+\section{Th\'eor\`eme de Mercer et noyaux classiques}
+\label{sec:mercer}
+\index{th\'eor\`eme de Mercer}
+
+\begin{theoreme}[Mercer]
+\label{thm:mercer}
+Soit $\kappa : \mathcal{X} \times \mathcal{X} \to \R$ une fonction continue
+et sym\'etrique sur un compact $\mathcal{X} \subset \R^d$.
+$\kappa$ est un \textbf{noyau d\'efini positif} si et seulement si,
+pour tout \'echantillon fini $\{x_1, \ldots, x_n\} \subset \mathcal{X}$,
+la matrice de Gram $\bm{K}$ avec $K_{ij} = \kappa(x_i, x_j)$ est
+semi-d\'efinie positive~:
+\begin{equation}
+  \forall \bm{c} \in \R^n, \quad
+  \sum_{i=1}^n \sum_{j=1}^n c_i c_j\, \kappa(x_i, x_j) \geq 0
+\end{equation}
+De plus, $\kappa$ admet une d\'ecomposition~:
+\begin{equation}
+  \kappa(\bm{x}, \bm{x}') = \sum_{k=1}^{\infty} \lambda_k\,
+  \psi_k(\bm{x})\, \psi_k(\bm{x}')
+  \label{eq:mercer-decomp}
+\end{equation}
+o\`u $\lambda_k \geq 0$ sont les valeurs propres et $\{\psi_k\}$ les
+fonctions propres de l'op\'erateur int\'egral associ\'e \`a $\kappa$.
+\end{theoreme}
+
+\begin{remarque}
+La d\'ecomposition de Mercer g\'en\'eralise la d\'ecomposition spectrale
+des matrices sym\'etriques d\'efinies positives au cadre fonctionnel.
+Elle justifie l'existence de $\phi$ dans~\eqref{eq:kernel-def}~:
+on peut poser $\phi(\bm{x}) = (\sqrt{\lambda_1}\,\psi_1(\bm{x}),
+\sqrt{\lambda_2}\,\psi_2(\bm{x}), \ldots)$.
+\end{remarque}
+
+\subsection{Noyaux classiques}
+
+\begin{formules}[title=\textbf{Noyaux couramment utilis\'es}]
+\begin{center}
+\renewcommand{\arraystretch}{1.6}
+\begin{tabular}{lll}
+\toprule
+\textbf{Noyau} & \textbf{Expression} & \textbf{Param\`etres} \\
+\midrule
+Lin\'eaire &
+  $\kappa(\bm{x}, \bm{x}') = \bm{x}^\top \bm{x}'$ &
+  --- \\
+Polynomial &
+  $\kappa(\bm{x}, \bm{x}') = (\bm{x}^\top \bm{x}' + c)^p$ &
+  $c \geq 0$, $p \in \mathbb{N}^*$ \\
+RBF (Gaussien) &
+  $\kappa(\bm{x}, \bm{x}') = \exp\!\left(-\dfrac{\norm{\bm{x} - \bm{x}'}^2}{2\sigma^2}\right)$ &
+  $\sigma > 0$ \\
+Laplacien &
+  $\kappa(\bm{x}, \bm{x}') = \exp\!\left(-\dfrac{\norm{\bm{x} - \bm{x}'}_1}{\sigma}\right)$ &
+  $\sigma > 0$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{formules}
+
+\begin{proposition}[Dimension de l'espace des features du noyau RBF]
+\label{prop:rbf-infinite}
+Le noyau RBF correspond \`a un espace de features $\mathcal{F}$ de
+\textbf{dimension infinie}. En effet, par le d\'eveloppement en s\'erie
+de Taylor de l'exponentielle~:
+\begin{equation}
+  \exp\!\left(-\frac{\norm{\bm{x} - \bm{x}'}^2}{2\sigma^2}\right)
+  = e^{-\frac{\norm{\bm{x}}^2}{2\sigma^2}}\,
+    e^{-\frac{\norm{\bm{x}'}^2}{2\sigma^2}}\,
+    \sum_{k=0}^{\infty} \frac{(\bm{x}^\top \bm{x}')^k}
+    {k!\, \sigma^{2k}}
+\end{equation}
+Chaque terme $(\bm{x}^\top \bm{x}')^k$ engendre un espace de dimension
+$\binom{d + k - 1}{k}$, et la somme infinie produit un espace de
+dimension infinie.
+\end{proposition}
+
+\begin{attention}[title=\textbf{Choix du noyau}]
+\begin{itemize}
+  \item Le \textbf{noyau lin\'eaire} est adapt\'e lorsque $d \gg n$
+    (texte, g\'enomique).
+  \item Le \textbf{noyau RBF} est un bon choix par d\'efaut~; le
+    param\`etre $\sigma$ (ou $\gamma = 1/(2\sigma^2)$) contr\^ole la
+    <<~port\'ee~>> du noyau.
+  \item Le \textbf{noyau polynomial} capture les interactions entre
+    features jusqu'\`a l'ordre $p$.
+\end{itemize}
+\end{attention}
+
+% ============================================================
+\section{R\'egression Ridge \`a noyau}
+\label{sec:kernel-ridge}
+\index{r\'egression Ridge!noyau}
+
+\begin{definition}[Kernel Ridge Regression]
+\label{def:krr}
+La \textbf{r\'egression Ridge \`a noyau} r\'esout~:
+\begin{equation}
+  \min_{f \in \mathcal{H}_\kappa} \frac{1}{n}
+  \sum_{i=1}^n (y_i - f(\bm{x}_i))^2 + \lambda \norm{f}^2_{\mathcal{H}_\kappa}
+  \label{eq:krr-functional}
+\end{equation}
+Par le th\'eor\`eme du repr\'esentant (voir \S\ref{sec:representer}),
+la solution s'\'ecrit $f^*(\bm{x}) = \sum_{i=1}^n \alpha_i\,
+\kappa(\bm{x}_i, \bm{x})$ avec~:
+\begin{equation}
+  \bm{\alpha}^* = (\bm{K} + \lambda n\, \bm{I})^{-1} \bm{y}
+  \label{eq:krr-alpha}
+\end{equation}
+o\`u $\bm{K}$ est la matrice de Gram, $K_{ij} = \kappa(\bm{x}_i, \bm{x}_j)$.
+\end{definition}
+
+\begin{remarque}
+Le co\^ut de calcul est $O(n^3)$ pour l'inversion matricielle et $O(n^2 d)$
+pour le calcul de $\bm{K}$. Pour $n$ grand, des approximations comme
+Nystr\"om ou les features al\'eatoires de Rahimi-Recht sont utilis\'ees.
+\end{remarque}
+
+% ============================================================
+\section{ACP \`a noyau (Kernel PCA)}
+\label{sec:kernel-pca}
+\index{ACP!noyau}\index{kernel PCA}
+
+\begin{definition}[Kernel PCA]
+L'\textbf{ACP \`a noyau} effectue une analyse en composantes principales
+dans l'espace des features $\mathcal{F}$. Les composantes principales
+sont les vecteurs propres de la matrice de covariance dans $\mathcal{F}$~:
+\begin{equation}
+  \bm{C}_\phi = \frac{1}{n} \sum_{i=1}^n \phi(\bm{x}_i)\,
+  \phi(\bm{x}_i)^\top
+\end{equation}
+\end{definition}
+
+\begin{proposition}[Calcul via la matrice de Gram]
+Les projections sur les composantes principales dans $\mathcal{F}$ se
+calculent \`a partir de la d\'ecomposition spectrale de la matrice de
+Gram centr\'ee $\tilde{\bm{K}}$~:
+\begin{equation}
+  \tilde{\bm{K}} = \bm{K} - \bm{1}_n \bm{K} - \bm{K} \bm{1}_n
+  + \bm{1}_n \bm{K} \bm{1}_n
+\end{equation}
+o\`u $\bm{1}_n = \frac{1}{n}\bm{1}\bm{1}^\top$. Si $\tilde{\bm{K}}
+\bm{v}_k = n \mu_k \bm{v}_k$, la projection du point $\bm{x}$ sur
+la $k$-i\`eme composante est~:
+\begin{equation}
+  z_k(\bm{x}) = \sum_{i=1}^n (v_k)_i\,
+  \kappa(\bm{x}_i, \bm{x})
+\end{equation}
+(apr\`es centrage dans $\mathcal{F}$).
+\end{proposition}
+
+% ============================================================
+\section{$k$-means \`a noyau}
+\label{sec:kernel-kmeans}
+\index{k-means!noyau}
+
+\begin{definition}[Kernel $k$-means]
+Le \textbf{$k$-means \`a noyau} minimise~:
+\begin{equation}
+  J = \sum_{c=1}^C \sum_{i \in \mathcal{C}_c}
+  \norm{\phi(\bm{x}_i) - \bm{\mu}_c^{\phi}}^2_{\mathcal{F}}
+\end{equation}
+o\`u $\bm{\mu}_c^{\phi} = \frac{1}{|\mathcal{C}_c|}
+\sum_{j \in \mathcal{C}_c} \phi(\bm{x}_j)$ est le centro\"ide du
+cluster $c$ dans $\mathcal{F}$.
+\end{definition}
+
+\begin{formules}[title=\textbf{Calcul des distances dans $\mathcal{F}$}]
+La distance au carr\'e entre $\phi(\bm{x}_i)$ et $\bm{\mu}_c^{\phi}$
+s'exprime uniquement en termes de noyaux~:
+\begin{equation}
+  \norm{\phi(\bm{x}_i) - \bm{\mu}_c^{\phi}}^2 =
+  \kappa(\bm{x}_i, \bm{x}_i) -
+  \frac{2}{|\mathcal{C}_c|} \sum_{j \in \mathcal{C}_c}
+  \kappa(\bm{x}_i, \bm{x}_j) +
+  \frac{1}{|\mathcal{C}_c|^2} \sum_{j, l \in \mathcal{C}_c}
+  \kappa(\bm{x}_j, \bm{x}_l)
+\end{equation}
+L'algorithme it\`ere affectation et mise \`a jour comme le $k$-means
+classique, mais dans $\mathcal{F}$.
+\end{formules}
+
+% ============================================================
+\section{Espaces de Hilbert \`a noyau reproduisant (RKHS)}
+\label{sec:rkhs}
+\index{RKHS}\index{espace de Hilbert \`a noyau reproduisant}
+
+\subsection{D\'efinition et intuition}
+
+\begin{definition}[RKHS]
+\label{def:rkhs}
+Un \textbf{espace de Hilbert \`a noyau reproduisant} $\mathcal{H}_\kappa$
+associ\'e \`a un noyau d\'efini positif $\kappa$ est un espace de Hilbert
+de fonctions $f : \mathcal{X} \to \R$ satisfaisant~:
+\begin{enumerate}
+  \item \textbf{Feature map canonique~:} pour tout $\bm{x} \in \mathcal{X}$,
+    la fonction $\kappa(\bm{x}, \cdot) \in \mathcal{H}_\kappa$.
+  \item \textbf{Propri\'et\'e de reproduction~:} pour tout
+    $f \in \mathcal{H}_\kappa$ et tout $\bm{x} \in \mathcal{X}$~:
+    \begin{equation}
+      f(\bm{x}) = \inner{f}{\kappa(\bm{x}, \cdot)}_{\mathcal{H}_\kappa}
+      \label{eq:reproducing}
+    \end{equation}
+\end{enumerate}
+En particulier,
+$\kappa(\bm{x}, \bm{x}') = \inner{\kappa(\bm{x}, \cdot)}{\kappa(\bm{x}', \cdot)}_{\mathcal{H}_\kappa}$.
+\end{definition}
+
+\begin{intuition}[title=\textbf{Interpr\'etation du RKHS}]
+\begin{itemize}
+  \item Le RKHS est l'espace de \emph{toutes les fonctions} que l'on peut
+    construire comme combinaisons lin\'eaires (et limites) de
+    $\kappa(\bm{x}, \cdot)$, appel\'ees <<~features canoniques~>>.
+  \item La norme $\norm{f}_{\mathcal{H}_\kappa}$ mesure la \textbf{r\'egularit\'e}
+    de $f$~: les fonctions \`a petite norme sont <<~lisses~>> au sens du
+    noyau.
+  \item \'Evaluer $f$ en un point $\bm{x}$ revient \`a projeter $f$ sur
+    $\kappa(\bm{x}, \cdot)$~: c'est la propri\'et\'e de reproduction.
+\end{itemize}
+\end{intuition}
+
+\subsection{Construction formelle}
+
+\begin{proposition}[Construction du RKHS]
+\label{prop:rkhs-construction}
+Le RKHS $\mathcal{H}_\kappa$ est la compl\'etion de l'espace
+pr\'e-hilbertien~:
+\begin{equation}
+  \mathcal{H}_0 = \left\{f = \sum_{i=1}^m \alpha_i\,
+  \kappa(\bm{x}_i, \cdot) : m \in \mathbb{N},\;
+  \alpha_i \in \R,\; \bm{x}_i \in \mathcal{X}\right\}
+\end{equation}
+muni du produit scalaire~:
+\begin{equation}
+  \left\langle \sum_{i} \alpha_i\, \kappa(\bm{x}_i, \cdot),\;
+  \sum_{j} \beta_j\, \kappa(\bm{x}_j', \cdot)
+  \right\rangle_{\mathcal{H}_\kappa}
+  = \sum_{i,j} \alpha_i \beta_j\, \kappa(\bm{x}_i, \bm{x}_j')
+\end{equation}
+\end{proposition}
+
+% ============================================================
+\section{Th\'eor\`eme du repr\'esentant}
+\label{sec:representer}
+\index{th\'eor\`eme du repr\'esentant}
+
+\begin{theoreme}[Th\'eor\`eme du repr\'esentant --- Kimeldorf \& Wahba, 1971]
+\label{thm:representer}
+Soit $\Omega : \R_+ \to \R$ une fonction croissante et
+$L : (\mathcal{X} \times \R \times \R)^n \to \R \cup \{+\infty\}$ une
+fonction de perte quelconque. Le probl\`eme d'optimisation~:
+\begin{equation}
+  \min_{f \in \mathcal{H}_\kappa} L\!\left((\bm{x}_1, y_1, f(\bm{x}_1)),
+  \ldots, (\bm{x}_n, y_n, f(\bm{x}_n))\right)
+  + \Omega(\norm{f}^2_{\mathcal{H}_\kappa})
+  \label{eq:representer-problem}
+\end{equation}
+admet un minimiseur de la forme~:
+\begin{equation}
+  f^*(\bm{x}) = \sum_{i=1}^n \alpha_i\, \kappa(\bm{x}_i, \bm{x})
+  \label{eq:representer-solution}
+\end{equation}
+pour certains coefficients $\alpha_1, \ldots, \alpha_n \in \R$.
+\end{theoreme}
+
+\begin{proof}[Esquisse de preuve]
+D\'ecomposons $f \in \mathcal{H}_\kappa$ en une partie dans le
+sous-espace engendr\'e par $\{\kappa(\bm{x}_i, \cdot)\}_{i=1}^n$
+et son compl\'ement orthogonal~:
+\begin{equation}
+  f = \underbrace{\sum_{i=1}^n \alpha_i\, \kappa(\bm{x}_i, \cdot)}_{f_{\parallel}}
+  + \underbrace{f_\perp}_{f_\perp \perp \text{span}\{\kappa(\bm{x}_i,\cdot)\}}
+\end{equation}
+Par la propri\'et\'e de reproduction,
+$f(\bm{x}_j) = f_{\parallel}(\bm{x}_j) + \inner{f_\perp}{\kappa(\bm{x}_j, \cdot)} = f_{\parallel}(\bm{x}_j)$,
+donc $f_\perp$ n'affecte pas le terme de perte $L$. Par ailleurs~:
+\begin{equation}
+  \norm{f}^2_{\mathcal{H}_\kappa} = \norm{f_{\parallel}}^2 +
+  \norm{f_\perp}^2 \geq \norm{f_{\parallel}}^2
+\end{equation}
+Puisque $\Omega$ est croissante, ajouter $f_\perp \neq 0$ augmente la
+p\'enalit\'e sans diminuer la perte. Donc le minimiseur v\'erifie
+$f_\perp = 0$.
+\end{proof}
+
+\begin{intuition}[title=\textbf{Port\'ee du th\'eor\`eme du repr\'esentant}]
+Ce th\'eor\`eme est fondamental car il transforme un probl\`eme
+d'optimisation en \textbf{dimension infinie} (minimiser sur
+$\mathcal{H}_\kappa$) en un probl\`eme en \textbf{dimension finie}
+(trouver $\bm{\alpha} \in \R^n$). C'est ce qui rend les m\'ethodes
+\`a noyaux calculatoirement r\'ealisables.
+\end{intuition}
+
+% ============================================================
+\section{Connexions avec les processus gaussiens}
+\label{sec:gp-connection}
+\index{processus gaussiens}
+
+\begin{definition}[Processus gaussien]
+Un \textbf{processus gaussien} (GP) est une collection de variables
+al\'eatoires dont toute sous-collection finie suit une distribution
+gaussienne multivari\'ee. Un GP est enti\`erement d\'efini par sa
+fonction moyenne $\mu(\bm{x}) = \E[f(\bm{x})]$ et sa fonction de
+covariance $\kappa(\bm{x}, \bm{x}') = \Cov[f(\bm{x}), f(\bm{x}')]$.
+\end{definition}
+
+\begin{proposition}[Lien GP / Kernel Ridge Regression]
+\label{prop:gp-krr}
+La moyenne a posteriori du GP avec prior $f \sim \mathcal{GP}(0, \kappa)$
+et vraisemblance gaussienne $y_i | f \sim \mathcal{N}(f(\bm{x}_i),
+\sigma^2)$ co\"incide avec la solution de la r\'egression Ridge \`a
+noyau~:
+\begin{equation}
+  \E[f(\bm{x}) | \bm{y}] = \bm{k}(\bm{x})^\top
+  (\bm{K} + \sigma^2 \bm{I})^{-1} \bm{y}
+  \label{eq:gp-posterior-mean}
+\end{equation}
+o\`u $k(\bm{x})_i = \kappa(\bm{x}_i, \bm{x})$ et $\lambda = \sigma^2 / n$
+dans~\eqref{eq:krr-alpha}.
+\end{proposition}
+
+\begin{remarque}
+Le GP fournit en plus une \textbf{incertitude pr\'edictive}~:
+\begin{equation}
+  \Var[f(\bm{x}) | \bm{y}] = \kappa(\bm{x}, \bm{x}) -
+  \bm{k}(\bm{x})^\top (\bm{K} + \sigma^2 \bm{I})^{-1} \bm{k}(\bm{x})
+\end{equation}
+C'est un avantage majeur des GP par rapport \`a la Kernel Ridge
+Regression~: on obtient non seulement une pr\'ediction ponctuelle,
+mais aussi une barre d'erreur.
+\end{remarque}
+
+% ============================================================
+\section{Impl\'ementation~: m\'ethodes \`a noyaux avec scikit-learn}
+\label{sec:implementation-kernels}
+
+\begin{codeblock}[title=\textbf{SVM \`a noyau, Kernel Ridge et Kernel PCA}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import make_moons, make_circles
+from sklearn.svm import SVC
+from sklearn.kernel_ridge import KernelRidge
+from sklearn.decomposition import KernelPCA
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import GridSearchCV
+from sklearn.pipeline import Pipeline
+
+# --- Donnees non lineairement separables ---
+X, y = make_moons(n_samples=300, noise=0.2, random_state=42)
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# --- SVM avec differents noyaux ---
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+kernels = ['linear', 'poly', 'rbf']
+for ax, kernel in zip(axes, kernels):
+    svm = SVC(kernel=kernel, degree=3, gamma='scale', C=1.0)
+    svm.fit(X_scaled, y)
+    # Grille de decision
+    xx, yy = np.meshgrid(
+        np.linspace(X_scaled[:,0].min()-0.5,
+                    X_scaled[:,0].max()+0.5, 200),
+        np.linspace(X_scaled[:,1].min()-0.5,
+                    X_scaled[:,1].max()+0.5, 200)
+    )
+    Z = svm.predict(np.c_[xx.ravel(), yy.ravel()])
+    Z = Z.reshape(xx.shape)
+    ax.contourf(xx, yy, Z, alpha=0.3, cmap='coolwarm')
+    ax.scatter(X_scaled[:,0], X_scaled[:,1], c=y,
+               cmap='coolwarm', edgecolors='k', s=20)
+    acc = svm.score(X_scaled, y)
+    ax.set_title(f"{kernel} (acc={acc:.2f})")
+plt.tight_layout()
+plt.savefig("svm_kernels.pdf")
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Kernel PCA~: r\'eduction non lin\'eaire}]
+\begin{minted}{python}
+# --- Kernel PCA sur donnees circulaires ---
+X_circ, y_circ = make_circles(n_samples=400, factor=0.3,
+                               noise=0.1, random_state=42)
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+
+# PCA lineaire
+from sklearn.decomposition import PCA
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X_circ)
+axes[0].scatter(X_pca[:,0], X_pca[:,1], c=y_circ,
+                cmap='coolwarm', s=15)
+axes[0].set_title("PCA lineaire")
+
+# Kernel PCA avec noyau RBF
+kpca_rbf = KernelPCA(n_components=2, kernel='rbf', gamma=5)
+X_kpca_rbf = kpca_rbf.fit_transform(X_circ)
+axes[1].scatter(X_kpca_rbf[:,0], X_kpca_rbf[:,1],
+                c=y_circ, cmap='coolwarm', s=15)
+axes[1].set_title("Kernel PCA (RBF, $\\gamma=5$)")
+
+# Kernel PCA avec noyau polynomial
+kpca_poly = KernelPCA(n_components=2, kernel='poly',
+                       degree=3, gamma=1)
+X_kpca_poly = kpca_poly.fit_transform(X_circ)
+axes[2].scatter(X_kpca_poly[:,0], X_kpca_poly[:,1],
+                c=y_circ, cmap='coolwarm', s=15)
+axes[2].set_title("Kernel PCA (poly, $p=3$)")
+
+plt.tight_layout()
+plt.savefig("kernel_pca.pdf")
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Kernel Ridge Regression}]
+\begin{minted}{python}
+# --- Kernel Ridge Regression sur donnees 1D ---
+np.random.seed(42)
+X_train = np.sort(np.random.uniform(-3, 3, 50))[:, None]
+y_train = np.sin(X_train).ravel() + 0.3 * np.random.randn(50)
+X_plot = np.linspace(-3.5, 3.5, 300)[:, None]
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+gammas = [0.5, 2.0, 10.0]
+
+for ax, gamma in zip(axes, gammas):
+    krr = KernelRidge(kernel='rbf', alpha=0.1, gamma=gamma)
+    krr.fit(X_train, y_train)
+    y_pred = krr.predict(X_plot)
+
+    ax.scatter(X_train, y_train, c='steelblue', s=20,
+               label="Donnees")
+    ax.plot(X_plot, np.sin(X_plot), 'g--', label="$\\sin(x)$")
+    ax.plot(X_plot, y_pred, 'r-', lw=2,
+            label=f"KRR ($\\gamma={gamma}$)")
+    ax.set_title(f"$\\gamma = {gamma}$")
+    ax.legend(fontsize=8)
+    ax.set_ylim(-2, 2)
+
+plt.tight_layout()
+plt.savefig("kernel_ridge.pdf")
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+[Figures sauvegardees: svm_kernels.pdf, kernel_pca.pdf,
+ kernel_ridge.pdf]
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Exercices}
+\label{sec:exercises-ch12}
+
+\begin{exercice}[Feature maps explicites --- niveau 1]
+\begin{enumerate}
+  \item Pour le noyau polynomial $\kappa(\bm{x}, \bm{x}') =
+    (1 + \bm{x}^\top \bm{x}')^2$ avec $\bm{x} \in \R^2$, d\'eterminer
+    explicitement la feature map $\phi : \R^2 \to \R^p$.
+    Quelle est la valeur de $p$~?
+  \item V\'erifier que $\kappa(\bm{x}, \bm{x}') =
+    \inner{\phi(\bm{x})}{\phi(\bm{x}')}$ sur l'exemple num\'erique
+    $\bm{x} = (1, 2)^\top$, $\bm{x}' = (3, -1)^\top$.
+  \item La fonction $\kappa(\bm{x}, \bm{x}') = (\bm{x}^\top \bm{x}')^2
+    - 1$ est-elle un noyau valide~? Justifier.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Th\'eor\`eme du repr\'esentant et Kernel Ridge --- niveau 2]
+\begin{enumerate}
+  \item Montrer que le probl\`eme de r\'egression Ridge \`a noyau
+    \eqref{eq:krr-functional}, par application du th\'eor\`eme du
+    repr\'esentant, se r\'eduit \`a~:
+    \begin{equation*}
+      \min_{\bm{\alpha} \in \R^n} \frac{1}{n}
+      \norm{\bm{y} - \bm{K}\bm{\alpha}}^2 +
+      \lambda\, \bm{\alpha}^\top \bm{K} \bm{\alpha}
+    \end{equation*}
+  \item En d\'erivant par rapport \`a $\bm{\alpha}$ et en annulant le
+    gradient, retrouver la solution~\eqref{eq:krr-alpha}.
+  \item Impl\'ementer la Kernel Ridge Regression \`a partir de z\'ero
+    (sans \texttt{KernelRidge}) avec un noyau RBF. Comparer vos
+    pr\'edictions avec celles de scikit-learn.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Kernel PCA et processus gaussiens --- niveau 3]
+\begin{enumerate}
+  \item G\'en\'erer un jeu de donn\'ees en forme de spirale
+    ($n = 500$ points, 2 classes). Appliquer la Kernel PCA avec
+    diff\'erents noyaux et valeurs de $\gamma$.
+    Visualiser les r\'esultats et identifier la meilleure combinaison.
+  \item Impl\'ementer le $k$-means \`a noyau \`a partir de z\'ero en
+    utilisant uniquement la matrice de Gram. Comparer avec
+    \texttt{SpectralClustering} de scikit-learn.
+  \item Utiliser \texttt{GaussianProcessRegressor} de scikit-learn pour
+    r\'egresser $y = \sin(x) + \varepsilon$ avec un noyau RBF.
+    Tracer la moyenne a posteriori et l'intervalle de confiance \`a
+    $\pm 2\sigma$. V\'erifier num\'eriquement que la moyenne a
+    posteriori co\"incide avec la pr\'ediction de
+    \texttt{KernelRidge} (avec $\alpha = \sigma^2_{\text{bruit}}$).
+  \item (\textbf{Th\'eorique}) Montrer que la somme de deux noyaux
+    d\'efinis positifs est un noyau d\'efini positif. Le produit de
+    deux noyaux d\'efinis positifs est-il aussi un noyau d\'efini
+    positif~? Prouver ou donner un contre-exemple.
+\end{enumerate}
+\end{exercice}

@@ -1,0 +1,243 @@
+% ============================================================
+\chapter{Applications}
+\label{ch:applications}
+% ============================================================
+
+\begin{intuition}
+TDA has found applications across numerous scientific domains.
+Its strength lies in its ability to extract \textbf{qualitative}
+information (number of holes, connected components, cavities)
+from quantitative data, in a manner that is \textbf{robust to noise}
+and \textbf{invariant under deformation}.
+\end{intuition}
+
+% ============================================================
+\section{Shape analysis}
+\label{sec:shapes}
+% ============================================================
+
+\begin{definition}[Topological shape descriptor]
+\index{shape analysis}
+Let $\mathcal{S} \subset \R^3$ be a triangulated surface. Several
+filtrations can be constructed:
+\begin{enumerate}
+  \item \textbf{Geodesic filtration}: $f(x) = d_{\mathcal{S}}(x, x_0)$
+        for a base point $x_0$.
+  \item \textbf{Curvature filtration}: $f(x) = \kappa(x)$ where
+        $\kappa$ is the Gaussian curvature.
+  \item \textbf{Heat kernel signature}: $f(x) = h_t(x, x)$, the
+        diagonal of the heat kernel at time $t$.
+\end{enumerate}
+The persistence diagram of each filtration yields a topological
+descriptor of the shape.
+\end{definition}
+
+\begin{example}[3D shape classification]
+Consider a database of 3D models (SHREC, ModelNet). For each object:
+\begin{enumerate}
+  \item Compute the geodesic distance filtration from several base
+        points.
+  \item Obtain a set of persistence diagrams in dimensions $0$
+        and $1$.
+  \item Vectorize (persistence images) and classify (SVM).
+\end{enumerate}
+This approach is naturally invariant under isometry.
+\end{example}
+
+\begin{proposition}[Invariance]
+Topological descriptors from geodesic filtrations are invariant under
+isometry of the surface. Those from curvature filtrations are
+invariant under rigid motions.
+\end{proposition}
+
+% ============================================================
+\section{Protein structure}
+\label{sec:proteins}
+% ============================================================
+
+\begin{definition}[Topological representation of a protein]
+\index{protein}
+A protein is modeled as a point cloud in $\R^3$ (the positions of
+the $C_\alpha$ atoms along the backbone). The Rips--Vietoris
+filtration on this point cloud captures:
+\begin{itemize}
+  \item $H_0$: chain connectivity.
+  \item $H_1$: loops and secondary structures ($\alpha$-helices,
+        $\beta$-sheets).
+  \item $H_2$: cavities and pockets.
+\end{itemize}
+\end{definition}
+
+\begin{example}[Binding pocket detection]
+Protein binding pockets (sites where ligands bind) correspond to
+topological cavities ($H_2$). Persistent generators in $H_2$
+identify these pockets: a point $(b, d)$ with large persistence
+$d - b$ signals a \textbf{stable} cavity across scales.
+\end{example}
+
+\begin{minted}{python}
+import numpy as np
+from gudhi import RipsComplex
+
+# C-alpha positions (extracted from a PDB file)
+coords = np.loadtxt("protein_ca.xyz")
+
+# Rips complex
+rips = RipsComplex(points=coords, max_edge_length=12.0)
+simplex_tree = rips.create_simplex_tree(max_dimension=3)
+dgm = simplex_tree.persistence()
+
+# Filter H2 (cavities)
+h2 = [(b, d) for dim, (b, d) in dgm if dim == 2 and d - b > 1.0]
+print(f"Number of significant pockets: {len(h2)}")
+\end{minted}
+
+% ============================================================
+\section{Time series analysis}
+\label{sec:time_series}
+% ============================================================
+
+\begin{definition}[Takens embedding]
+\index{Takens embedding}
+Let $(x_t)_{t=0}^{T}$ be a time series. The \textbf{Takens
+embedding}\index{Takens} with dimension $d$ and delay $\tau$ is:
+\[
+  \mathbf{x}_t = (x_t, x_{t+\tau}, x_{t+2\tau}, \ldots,
+  x_{t+(d-1)\tau}) \in \R^d.
+\]
+\end{definition}
+
+\begin{theorem}[Takens, 1981]
+If the time series comes from a dynamical system on a manifold
+$\mathcal{M}$ of dimension $m$, then for $d > 2m$ generically,
+the Takens embedding is an embedding of $\mathcal{M}$ into $\R^d$.
+\end{theorem}
+
+\begin{intuition}
+The idea is to reconstruct the phase space of the dynamical system
+from a single scalar observation. Then, TDA on the reconstructed
+point cloud detects the topology of the attractor: a limit cycle
+gives $\beta_1 = 1$, a torus gives $\beta_1 = 2, \beta_2 = 1$, etc.
+\end{intuition}
+
+\begin{example}[Periodicity detection]
+For a periodic series $x_t = \sin(2\pi t / T)$, the Takens embedding
+with $d = 2$ traces an ellipse in $\R^2$. The $H_1$ diagram contains
+a highly persistent point, confirming periodicity.
+\end{example}
+
+\begin{minted}{python}
+import numpy as np
+from gtda.time_series import SingleTakensEmbedding
+
+# Periodic time series
+t = np.linspace(0, 10 * np.pi, 1000)
+x = np.sin(t) + 0.1 * np.random.randn(len(t))
+
+# Takens embedding
+embedder = SingleTakensEmbedding(
+    time_delay=10, dimension=3, parameters_type="fixed"
+)
+X_embedded = embedder.fit_transform(x)
+\end{minted}
+
+% ============================================================
+\section{Image analysis}
+\label{sec:images}
+% ============================================================
+
+\begin{definition}[Sublevel set filtration for images]
+\index{sublevel set filtration}
+Let $I : \{0, \ldots, W\} \times \{0, \ldots, H\} \to \R$ be a
+grayscale image. The \textbf{sublevel set filtration} is:
+\[
+  I^{-1}(-\infty, t] = \{(i,j) : I(i,j) \leq t\}.
+\]
+The persistence of this filtration captures dark connected
+components ($H_0$) and bright regions surrounded by dark
+ones ($H_1$).
+\end{definition}
+
+\begin{example}[Topological segmentation]
+In medical imaging, tumors appear as regions of different intensity.
+Persistent components in $H_0$ of the sublevel set filtration
+identify these regions robustly, without arbitrary thresholding.
+\end{example}
+
+% ============================================================
+\section{Sensor networks}
+\label{sec:sensors}
+% ============================================================
+
+\begin{definition}[Topological coverage]
+\index{sensor network}
+A network of $n$ sensors with range $r$ covers a domain
+$\Omega \subset \R^2$. The \v{C}ech complex at radius $r$
+built on sensor positions allows detection of \textbf{coverage
+holes}: $\beta_1 > 0$ signals a hole in the coverage.
+\end{definition}
+
+\begin{theorem}[De Silva--Ghrist, 2007]
+\index{De Silva--Ghrist}
+If the Rips complex $\mathrm{Rips}_{2r}$ of the sensor positions
+has trivial reduced homology and the sensors have detection range
+$r_s \geq 2r$, then the domain is covered.
+\end{theorem}
+
+\begin{remark}
+The advantage of this approach is that it does not require exact
+sensor positions (only distances), and it works without coordinates.
+\end{remark}
+
+% ============================================================
+\section{Materials science}
+\label{sec:materials}
+% ============================================================
+
+\begin{example}[Porous materials analysis]
+\index{porous materials}
+Porous materials (zeolites, aerogels) are characterized by their
+pore structure. TDA on the atomic representation captures:
+\begin{itemize}
+  \item $H_0$: grains and aggregates.
+  \item $H_1$: channels and tunnels.
+  \item $H_2$: enclosed cavities.
+\end{itemize}
+The persistence of these features correlates with macroscopic
+properties (permeability, specific surface area).
+\end{example}
+
+\begin{example}[Amorphous metallic glasses]
+Nakamura et al.\ (2015) used persistence to distinguish metallic
+glasses from liquids: the $H_1$ and $H_2$ diagrams show persistent
+structures in the glass that are absent in the liquid, without
+requiring an order parameter.
+\end{example}
+
+% ============================================================
+\section{Exercises}
+% ============================================================
+
+\begin{exercise}
+Compute the $H_0$ and $H_1$ persistence diagrams of a time series
+$x_t = \sin(t) + 0.5 \sin(3t)$ after Takens embedding with $d = 3$.
+Interpret the results.
+\end{exercise}
+
+\begin{exercise}
+For a $100 \times 100$ binary image containing three disks and one
+annulus, predict the persistence diagram of the sublevel set
+filtration, then verify with \texttt{gudhi}.
+\end{exercise}
+
+\begin{exercise}[Sensor network]
+Randomly generate $50$ sensors in the unit square. Use $H_1$
+persistence to detect coverage holes as a function of the
+radius $r$. Plot the number of holes as a function of $r$.
+\end{exercise}
+
+\begin{exercise}[Project]
+Apply TDA to a real-world dataset of your choice (e.g., EEG signals,
+financial data, satellite images). Present the chosen filtration,
+the obtained diagrams, and their interpretation.
+\end{exercise}

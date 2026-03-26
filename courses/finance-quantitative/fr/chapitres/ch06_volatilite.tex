@@ -1,0 +1,313 @@
+% ============================================================
+\chapter{Mod\`eles \`a Volatilit\'e Stochastique}
+\label{ch:volatilite}
+% ============================================================
+
+Le mod\`ele de Black-Scholes suppose que la volatilit\'e est constante. Mais les march\'es racontent une autre histoire~: lorsqu'on calcule la volatilit\'e implicite \`a partir des prix d'options observ\'es, elle varie avec le strike et la maturit\'e, dessinant le c\'el\`ebre \og smile de volatilit\'e \fg. Ce ph\'enom\`ene, devenu flagrant apr\`es le krach de 1987, a motiv\'e une nouvelle g\'en\'eration de mod\`eles o\`u la volatilit\'e elle-m\^eme est un processus stochastique. Le mod\`ele de Heston (1993), le mod\`ele SABR (Hagan et al., 2002), et les mod\`eles \`a volatilit\'e locale de Dupire (1994) tentent chacun de capturer cette dynamique.
+
+\section{Motivation~: le smile de volatilit\'e}
+
+Le mod\`ele de Black--Scholes suppose une volatilit\'e constante $\sigma$.
+Or, en pratique, la volatilit\'e implicite $\sigma_{\text{impl}}(K,T)$
+d\'epend du strike $K$ et de la maturit\'e $T$, formant une \textbf{surface
+de volatilit\'e} pr\'esentant un \textit{smile} ou \textit{skew} caract\'eristique.
+
+\begin{definition}[Smile de volatilit\'e]
+Le \textbf{smile de volatilit\'e} est la courbe
+$K \mapsto \sigma_{\text{impl}}(K, T)$ pour une maturit\'e fix\'ee.
+Sur les march\'es actions, on observe g\'en\'eralement un \textit{skew}
+n\'egatif~: la volatilit\'e implicite est plus \'elev\'ee pour les puts
+OTM (strikes bas) que pour les calls OTM (strikes hauts).
+\end{definition}
+
+\begin{remarque}
+Le smile est incompatible avec le mod\`ele de Black--Scholes et motive
+l'introduction de mod\`eles \`a volatilit\'e stochastique ou \`a sauts.
+\end{remarque}
+
+\section{Volatilit\'e locale (Dupire)}
+
+\begin{theoreme}[\'Equation de Dupire (1994)]
+Si les prix d'options europ\'eennes $C(K,T)$ sont connus pour tout $(K,T)$,
+la \textbf{volatilit\'e locale} $\sigma_{\text{loc}}(K,T)$ est d\'efinie
+par~:
+\[
+    \sigma_{\text{loc}}^2(K,T) = \frac{\partial_T C + rK\partial_K C}
+    {\frac{1}{2}K^2\partial_{KK}C}.
+\]
+Le sous-jacent satisfait alors~:
+$dS_t = rS_t\,dt + \sigma_{\text{loc}}(S_t, t)S_t\,dW_t^\mathbb{Q}$.
+\end{theoreme}
+
+\begin{attention}[title=\textbf{Limites de la volatilit\'e locale}]
+Le mod\`ele de Dupire reproduit exactement la surface de volatilit\'e
+aujourd'hui, mais ses pr\'edictions de dynamique future du smile sont
+souvent irr\'ealistes (le smile s'aplatit trop vite). Les mod\`eles
+\`a volatilit\'e stochastique offrent une meilleure dynamique.
+\end{attention}
+
+\section{Mod\`ele de Heston}
+
+\begin{definition}[Mod\`ele de Heston (1993)]
+Le \textbf{mod\`ele de Heston} d\'ecrit le sous-jacent et sa variance
+par le syst\`eme~:
+\begin{align}
+    dS_t &= rS_t\,dt + \sqrt{v_t}\,S_t\,dW_t^1, \\
+    dv_t &= \kappa(\bar{v} - v_t)\,dt + \xi\sqrt{v_t}\,dW_t^2,
+\end{align}
+avec $d\langle W^1, W^2\rangle_t = \rho\,dt$ et les param\`etres~:
+\begin{itemize}
+    \item $v_0 > 0$~: variance initiale,
+    \item $\kappa > 0$~: vitesse de retour \`a la moyenne,
+    \item $\bar{v} > 0$~: variance de long terme,
+    \item $\xi > 0$~: volatilit\'e de la variance (\textit{vol of vol}),
+    \item $\rho \in [-1,1]$~: corr\'elation ($\rho < 0$ pour le skew).
+\end{itemize}
+\end{definition}
+
+\begin{theoreme}[Condition de Feller]
+La variance $v_t$ reste strictement positive si et seulement si
+la \textbf{condition de Feller} est satisfaite~:
+\[
+    2\kappa\bar{v} \geq \xi^2.
+\]
+\end{theoreme}
+
+\subsection{Pricing par fonction caract\'eristique}
+
+\begin{theoreme}[Formule semi-analytique de Heston]
+Le prix d'un call europ\'een dans le mod\`ele de Heston est~:
+\[
+    C = S_0 P_1 - Ke^{-rT}P_2,
+\]
+o\`u les probabilit\'es $P_j$ sont obtenues par inversion de Fourier~:
+\[
+    P_j = \frac{1}{2} + \frac{1}{\pi}\int_0^\infty
+    \text{Re}\!\left[\frac{e^{-iu\ln K}\varphi_j(u)}{iu}\right]du,
+\]
+et $\varphi_j(u)$ est la fonction caract\'eristique du log-prix sous
+les mesures associ\'ees.
+\end{theoreme}
+
+\begin{codeblock}[title=\textbf{Pricing Heston par transform\'ee de Fourier}]
+\begin{minted}{python}
+import numpy as np
+from scipy.integrate import quad
+
+def heston_char_func(u, T, r, v0, kappa, vbar, xi, rho):
+    """Fonction caracteristique du log-prix sous Heston."""
+    d = np.sqrt((rho*xi*1j*u - kappa)**2 + xi**2*(1j*u + u**2))
+    g = (kappa - rho*xi*1j*u - d) / (kappa - rho*xi*1j*u + d)
+
+    C = r*1j*u*T + (kappa*vbar/xi**2) * (
+        (kappa - rho*xi*1j*u - d)*T
+        - 2*np.log((1 - g*np.exp(-d*T))/(1 - g))
+    )
+    D = ((kappa - rho*xi*1j*u - d)/xi**2) * (
+        (1 - np.exp(-d*T))/(1 - g*np.exp(-d*T))
+    )
+    return np.exp(C + D*v0)
+
+def heston_call(S0, K, T, r, v0, kappa, vbar, xi, rho):
+    """Prix d'un call europeen dans le modele de Heston."""
+    ln_K = np.log(K)
+    ln_S = np.log(S0)
+
+    def integrand(u):
+        phi = heston_char_func(u - 0.5j, T, r, v0,
+                               kappa, vbar, xi, rho)
+        return np.real(np.exp(-1j*u*ln_K) * phi / (u**2 + 0.25))
+
+    integral, _ = quad(integrand, 0, 200, limit=200)
+    return S0 - np.sqrt(S0*K)*np.exp(-r*T)/np.pi * integral
+
+# Parametres Heston
+S0, K, T, r = 100, 100, 1.0, 0.05
+v0, kappa, vbar, xi, rho = 0.04, 2.0, 0.04, 0.3, -0.7
+
+price = heston_call(S0, K, T, r, v0, kappa, vbar, xi, rho)
+print(f"Prix Heston: {price:.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{Mod\`ele SABR}
+
+\begin{definition}[Mod\`ele SABR]
+Le mod\`ele \textbf{SABR} (Stochastic Alpha Beta Rho, Hagan et al., 2002)
+est d\'efini par~:
+\begin{align}
+    dF_t &= \alpha_t F_t^\beta\,dW_t^1, \\
+    d\alpha_t &= \nu\alpha_t\,dW_t^2,
+\end{align}
+avec $d\langle W^1, W^2\rangle_t = \rho\,dt$, $F_0 = f$ (taux forward),
+$\alpha_0 = \alpha$, et $\beta \in [0,1]$.
+\end{definition}
+
+\begin{theoreme}[Approximation de Hagan pour la volatilit\'e implicite]
+La volatilit\'e implicite Black dans le mod\`ele SABR est approxim\'ee par~:
+\[
+    \sigma_B(K, f) \approx \frac{\alpha}{(fK)^{(1-\beta)/2}
+    \left[1 + \frac{(1-\beta)^2}{24}\ln^2\!\frac{f}{K} + \cdots\right]}
+    \cdot \frac{z}{x(z)} \cdot \left[1 + \left(\frac{(1-\beta)^2}{24}
+    \frac{\alpha^2}{(fK)^{1-\beta}} + \frac{1}{4}\frac{\rho\beta\nu\alpha}
+    {(fK)^{(1-\beta)/2}} + \frac{2-3\rho^2}{24}\nu^2\right)T\right],
+\]
+o\`u $z = \frac{\nu}{\alpha}(fK)^{(1-\beta)/2}\ln\frac{f}{K}$ et
+$x(z) = \ln\!\frac{\sqrt{1 - 2\rho z + z^2} + z - \rho}{1 - \rho}$.
+\end{theoreme}
+
+\begin{codeblock}[title=\textbf{Volatilit\'e implicite SABR}]
+\begin{minted}{python}
+import numpy as np
+
+def sabr_vol(K, f, T, alpha, beta, rho, nu):
+    """Approximation de Hagan pour la vol implicite SABR."""
+    if abs(f - K) < 1e-10:
+        # ATM
+        fk = f**(1 - beta)
+        vol = (alpha / fk) * (
+            1 + ((1-beta)**2/24 * alpha**2/fk**2
+                 + 0.25*rho*beta*nu*alpha/fk
+                 + (2-3*rho**2)/24 * nu**2) * T
+        )
+        return vol
+
+    fk_mid = (f * K)**((1 - beta)/2)
+    ln_fk = np.log(f / K)
+    z = nu / alpha * fk_mid * ln_fk
+    x_z = np.log((np.sqrt(1 - 2*rho*z + z**2) + z - rho)
+                 / (1 - rho))
+
+    prefix = alpha / (fk_mid * (1 + (1-beta)**2/24 * ln_fk**2
+                                + (1-beta)**4/1920 * ln_fk**4))
+    correction = 1 + ((1-beta)**2/24 * alpha**2 / (f*K)**(1-beta)
+                      + 0.25*rho*beta*nu*alpha / fk_mid
+                      + (2-3*rho**2)/24 * nu**2) * T
+
+    return prefix * z / x_z * correction
+
+# Exemple: smile SABR
+f, T = 0.03, 5.0
+alpha, beta, rho, nu = 0.02, 0.5, -0.3, 0.4
+strikes = np.linspace(0.01, 0.06, 50)
+vols = [sabr_vol(K, f, T, alpha, beta, rho, nu) for K in strikes]
+\end{minted}
+\end{codeblock}
+
+\section{Calibration}
+
+\begin{definition}[Probl\`eme de calibration]
+La \textbf{calibration} consiste \`a d\'eterminer les param\`etres du
+mod\`ele $\theta^*$ minimisant l'\'ecart avec les prix (ou volatilit\'es
+implicites) de march\'e~:
+\[
+    \theta^* = \arg\min_\theta \sum_{i=1}^{N}
+    w_i \bigl(\sigma_{\text{mod}}(K_i, T_i; \theta)
+    - \sigma_{\text{mkt}}(K_i, T_i)\bigr)^2.
+\]
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Calibration du mod\`ele de Heston}]
+\begin{minted}{python}
+from scipy.optimize import minimize
+from scipy.stats import norm
+
+def calibrate_heston(market_data, S0, r):
+    """Calibration de Heston sur des vol implicites de marche.
+
+    market_data: list of (K, T, sigma_mkt)
+    """
+    def objective(params):
+        v0, kappa, vbar, xi, rho = params
+        if v0<0 or kappa<0 or vbar<0 or xi<0 or abs(rho)>1:
+            return 1e10
+        total = 0
+        for K, T, sigma_mkt in market_data:
+            try:
+                C_mod = heston_call(S0, K, T, r, v0, kappa,
+                                    vbar, xi, rho)
+                # Vol implicite du prix modele
+                sigma_mod = implied_vol_from_price(
+                    C_mod, S0, K, T, r)
+                total += (sigma_mod - sigma_mkt)**2
+            except:
+                total += 1e6
+        return total
+
+    x0 = [0.04, 1.5, 0.04, 0.3, -0.5]
+    bounds = [(0.001,1), (0.01,10), (0.001,1),
+              (0.01,2), (-0.99,0.99)]
+    result = minimize(objective, x0, method='L-BFGS-B',
+                      bounds=bounds)
+    return result.x
+\end{minted}
+\end{codeblock}
+
+\section{Volatilit\'e locale vs stochastique}
+
+\begin{center}
+\begin{tabular}{lcc}
+    \toprule
+    \textbf{Propri\'et\'e} & \textbf{Locale (Dupire)}
+    & \textbf{Stochastique (Heston)} \\
+    \midrule
+    Calibration exacte & Oui & Approch\'ee \\
+    Dynamique du smile & Irr\'ealiste & R\'ealiste \\
+    Nombre de facteurs & 1 & 2 \\
+    March\'e & Complet & Incomplet \\
+    Grecques & Simples & Complexes \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+\section{Mod\`eles \`a volatilit\'e locale stochastique (SLV)}
+
+\begin{definition}[Mod\`ele SLV]
+Les mod\`eles \textbf{SLV} combinent volatilit\'e locale et stochastique~:
+\[
+    dS_t = rS_t\,dt + L(S_t, t)\sqrt{v_t}\,S_t\,dW_t^1,
+\]
+o\`u $L(S,t)$ est la fonction de \textit{leverage} calibr\'ee pour
+reproduire exactement la surface de volatilit\'e, tandis que la dynamique
+de $v_t$ contr\^ole le comportement futur du smile.
+\end{definition}
+
+\section{Exercices}
+
+\begin{exercice}[Surface de volatilit\'e]
+\begin{enumerate}
+    \item G\'en\'erer les prix d'options dans le mod\`ele de Heston pour
+          $K/S_0 \in \{0.8, 0.9, 1.0, 1.1, 1.2\}$ et $T \in \{0.25, 0.5, 1, 2\}$.
+    \item Calculer la volatilit\'e implicite Black--Scholes pour chaque prix.
+    \item Tracer le smile pour chaque maturit\'e et commenter l'impact de $\rho$.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Condition de Feller]
+\begin{enumerate}
+    \item Pour $\kappa = 2$, $\bar{v} = 0.04$, d\'eterminer la valeur
+          maximale de $\xi$ satisfaisant Feller.
+    \item Simuler des trajectoires de $v_t$ avec et sans Feller et observer
+          le comportement pr\`es de z\'ero.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Calibration SABR]
+\begin{enumerate}
+    \item Calibrer le mod\`ele SABR sur des donn\'ees de swaptions
+          (volatilit\'es implicites pour diff\'erents strikes).
+    \item Analyser la stabilit\'e des param\`etres $(\alpha, \rho, \nu)$
+          en fonction de la maturit\'e.
+    \item Comparer avec la calibration Heston sur les m\^emes donn\'ees.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Monte Carlo pour Heston]
+\begin{enumerate}
+    \item Impl\'ementer le sch\'ema d'Euler tronqu\'e pour le mod\`ele
+          de Heston~: $v_{t+\Delta t} = \max(v_t + \kappa(\bar{v} - v_t)\Delta t
+          + \xi\sqrt{v_t^+}\Delta W^2, 0)$.
+    \item Comparer avec la m\'ethode de la fonction caract\'eristique.
+    \item \'Etudier l'impact du param\`etre $\rho$ sur le skew du smile.
+\end{enumerate}
+\end{exercice}

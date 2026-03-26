@@ -1,0 +1,1122 @@
+% ch3-linear-systems.tex — Chapter 3: Systems of Linear Equations and Gaussian Elimination
+% Systems of linear equations, row reduction, echelon forms, rank,
+% Rouché–Capelli theorem, structure of solutions, applications.
+
+\chapter{Systems of Linear Equations and Gaussian Elimination}%
+\label{ch:linear-systems}
+
+% ============================================================
+% Motivating introduction
+% ============================================================
+
+Systems of linear equations are among the oldest and most ubiquitous
+objects in mathematics. They appear whenever several quantities are
+linked by proportional relationships: currents in an electrical
+network must satisfy Kirchhoff's laws, prices in a multi-market
+economic equilibrium are determined by supply-and-demand balances,
+forces on a bridge truss must cancel for the structure to remain
+in static equilibrium. Even the modern theory of machine learning
+ultimately reduces the training of linear models to the solution of
+(often very large) linear systems.
+
+The algorithmic heart of the subject is \emph{Gaussian elimination}%
+\index{Gaussian elimination}, a systematic procedure that transforms
+any system into an equivalent one whose solutions can be read off by
+back-substitution. Despite its simplicity, the algorithm is
+remarkably powerful: it simultaneously tells us whether a system has
+solutions, how many free parameters the solution set carries, and
+provides an explicit parametric description.
+
+In this chapter we formalise systems of linear equations, introduce
+the matrix language~$Ax=b$, develop row reduction to (reduced) echelon
+form, define the rank of a matrix, and prove the
+Rouch\'{e}--Capelli theorem that characterises consistency. We then
+establish the fundamental structure theorem: the general solution of a
+consistent system is a translate of the solution space of the
+associated homogeneous system. Throughout, we provide geometric
+interpretations and worked examples.
+
+\medskip
+Throughout this chapter, $\K$ denotes a field (typically $\R$ or $\C$),
+and we freely use results from ef{ch:vector-spaces} and
+ef{ch:linear-maps}.
+
+
+% ============================================================
+\section{Systems of linear equations}\label{sec:linear-systems}
+% ============================================================
+
+\begin{definition}{System of linear equations}{def:linear-system}
+\index{system of linear equations}\index{linear system}
+A \emph{system of $m$ linear equations in $n$ unknowns} over a
+field~$\K$ is a collection of equations
+\[
+  \left\{
+  \begin{aligned}
+    a_{11}\,x_1 + a_{12}\,x_2 + \cdots + a_{1n}\,x_n &= b_1,\\
+    a_{21}\,x_1 + a_{22}\,x_2 + \cdots + a_{2n}\,x_n &= b_2,\\
+    &\;\;\vdots \\
+    a_{m1}\,x_1 + a_{m2}\,x_2 + \cdots + a_{mn}\,x_n &= b_m,
+  \end{aligned}
+  \right.
+\]
+where $a_{ij}\in\K$ are the \emph{coefficients}\index{coefficient}
+and $b_i\in\K$ are the \emph{right-hand sides} (or \emph{constant
+terms}). A vector $(s_1,\dots,s_n)\in\K^n$ is a \emph{solution} if
+substituting $x_j = s_j$ satisfies every equation simultaneously. The
+\emph{solution set}\index{solution set} is
+\[
+  \cS \deff \setcond{x\in\K^n}{Ax = b}.
+\]
+\end{definition}
+
+\subsection{Matrix form}\label{subsec:matrix-form}
+\index{matrix form of a linear system}
+
+The system above can be written compactly as a single matrix equation
+\begin{equation}\label{eq:Axb}
+  Ax = b,
+\end{equation}
+where
+\[
+  A = \begin{pmatrix}
+    a_{11} & a_{12} & \cdots & a_{1n}\\
+    a_{21} & a_{22} & \cdots & a_{2n}\\
+    \vdots & \vdots & \ddots & \vdots\\
+    a_{m1} & a_{m2} & \cdots & a_{mn}
+  \end{pmatrix}
+  \in \Mat_{m,n}(\K),
+  \qquad
+  x = \begin{pmatrix} x_1\\ x_2\\ \vdots\\ x_n \end{pmatrix}
+  \in \K^n,
+  \qquad
+  b = \begin{pmatrix} b_1\\ b_2\\ \vdots\\ b_m \end{pmatrix}
+  \in \K^m.
+\]
+The matrix $A$ is called the \emph{coefficient matrix}%
+\index{coefficient matrix}. The \emph{augmented matrix}%
+\index{augmented matrix} is the $m\times(n+1)$ matrix
+\begin{equation}\label{eq:augmented}
+  (A \mid b) \deff
+  \left(\begin{array}{cccc|c}
+    a_{11} & a_{12} & \cdots & a_{1n} & b_1\\
+    a_{21} & a_{22} & \cdots & a_{2n} & b_2\\
+    \vdots & \vdots & \ddots & \vdots & \vdots\\
+    a_{m1} & a_{m2} & \cdots & a_{mn} & b_m
+  \end{array}\right).
+\end{equation}
+
+\begin{remark}{Column picture}{rem:column-picture}
+\index{column picture}
+The equation $Ax = b$ can also be read as asking whether $b$ lies in
+the column space of~$A$: writing $A = (\vec{a}_1 \mid \vec{a}_2 \mid
+\cdots \mid \vec{a}_n)$, the system is consistent if and only if
+\[
+  b = x_1\,\vec{a}_1 + x_2\,\vec{a}_2 + \cdots + x_n\,\vec{a}_n
+\]
+for some scalars $x_j\in\K$; that is, $b\in\im(A)$ where we view $A$
+as a linear map $\K^n\to\K^m$.
+\end{remark}
+
+
+% ============================================================
+\section{Homogeneous and non-homogeneous systems}%
+\label{sec:homogeneous}
+% ============================================================
+
+\begin{definition}{Homogeneous system}{def:homogeneous}
+\index{homogeneous system}\index{non-homogeneous system}
+The system $Ax = b$ is called \emph{homogeneous} if $b = \vzero$, and
+\emph{non-homogeneous} (or \emph{inhomogeneous}) otherwise.
+Given a (possibly non-homogeneous) system $Ax = b$, the system
+$Ax = \vzero$ is called its \emph{associated homogeneous system}.
+\end{definition}
+
+\begin{proposition}{The solution set of a homogeneous system is a subspace}%
+{prop:homog-subspace}
+\index{kernel!of a matrix}
+Let $A\in\Mat_{m,n}(\K)$. The solution set of $Ax=\vzero$ is a
+vector subspace of~$\K^n$. It coincides with $\Ker(A)$, the kernel
+of the linear map $x\mapsto Ax$.
+\end{proposition}
+
+\begin{proof}
+The zero vector satisfies $A\vzero = \vzero$, so $\cS_0\neq\emptyset$.
+If $u,v\in\cS_0$ and $\lambda\in\K$, then
+$A(\lambda u + v) = \lambda Au + Av = \lambda\vzero + \vzero = \vzero$,
+so $\lambda u + v\in\cS_0$.
+By the subspace criterion (ef{ch:vector-spaces}), $\cS_0$ is a
+subspace of~$\K^n$. By definition,
+$\cS_0 = \setcond{x\in\K^n}{Ax = \vzero} = \Ker(A)$.
+\end{proof}
+
+\begin{proposition}{Affine structure of the solution set}%
+{prop:affine-structure}
+\index{affine subspace}
+Let $Ax = b$ be a consistent system (i.e.\ $\cS\neq\emptyset$), and
+let $x_0\in\cS$ be any particular solution. Then
+\begin{equation}\label{eq:affine-sol}
+  \cS = x_0 + \Ker(A) \deff \setcond{x_0 + h}{h \in \Ker(A)}.
+\end{equation}
+In particular, $\cS$ is an \emph{affine subspace}\index{affine subspace}
+of~$\K^n$ of dimension $\dim\Ker(A)$.
+\end{proposition}
+
+\begin{proof}
+($\supseteq$) If $h\in\Ker(A)$, then $A(x_0+h) = Ax_0 + Ah = b +
+\vzero = b$, so $x_0+h\in\cS$.
+
+($\subseteq$) If $x\in\cS$, set $h\deff x - x_0$. Then
+$Ah = Ax - Ax_0 = b - b = \vzero$, so $h\in\Ker(A)$ and
+$x = x_0 + h$.
+\end{proof}
+
+
+% ============================================================
+\section{Elementary row operations}\label{sec:row-operations}
+% ============================================================
+
+\begin{definition}{Elementary row operations}{def:ero}
+\index{elementary row operations}\index{row operations}
+The following three operations on the rows of a matrix are called
+\emph{elementary row operations} (EROs):
+\begin{enumerate}[label=(E\arabic*)]
+  \item\label{ero:swap}
+    \textbf{Row interchange:} Swap rows $i$ and~$j$
+    \quad ($R_i \leftrightarrow R_j$).
+  \item\label{ero:scale}
+    \textbf{Row scaling:} Multiply row $i$ by a non-zero scalar
+    $\lambda\in\K^*$ \quad ($R_i \leftarrow \lambda\,R_i$).
+  \item\label{ero:add}
+    \textbf{Row replacement:} Add $\lambda$ times row $j$ to row $i$
+    \quad ($R_i \leftarrow R_i + \lambda\,R_j$), where $i\neq j$.
+\end{enumerate}
+\end{definition}
+
+\begin{proposition}{EROs preserve the solution set}{prop:ero-preserve}
+If the augmented matrix $(A'\mid b')$ is obtained from $(A\mid b)$ by
+an elementary row operation, then the systems $Ax=b$ and $A'x=b'$
+have the same solution set.
+\end{proposition}
+
+\begin{proof}
+Each ERO is reversible: \ref{ero:swap} is its own inverse;
+\ref{ero:scale} is reversed by scaling by $\lambda^{-1}$;
+\ref{ero:add} is reversed by subtracting $\lambda$ times row~$j$.
+Hence any solution of one system is a solution of the other.
+More precisely, each ERO amounts to left-multiplication by an
+invertible \emph{elementary matrix}\index{elementary matrix}
+$E\in\GL_m(\K)$. Since $Ax = b$ if and only if $E(Ax) = Eb$, i.e.\
+$(EA)x = Eb$, the solution set is unchanged.
+\end{proof}
+
+\begin{definition}{Row equivalence}{def:row-equiv}
+\index{row equivalence}
+Two matrices are \emph{row equivalent} if one can be obtained from
+the other by a finite sequence of elementary row operations. We write
+$A \sim A'$.
+\end{definition}
+
+
+% ============================================================
+\section{Echelon forms}\label{sec:echelon}
+% ============================================================
+
+\begin{definition}{Row echelon form}{def:ref}
+\index{row echelon form}\index{echelon form}
+A matrix is in \emph{row echelon form} (REF) if:
+\begin{enumerate}[label=(\roman*)]
+  \item All zero rows are at the bottom.
+  \item The first non-zero entry in each non-zero row (called the
+    \emph{pivot}\index{pivot}) is strictly to the right of the pivot
+    in the row above.
+\end{enumerate}
+\end{definition}
+
+\begin{definition}{Reduced row echelon form}{def:rref}
+\index{reduced row echelon form}\index{RREF}
+A matrix is in \emph{reduced row echelon form} (RREF) if it is in REF
+and, additionally:
+\begin{enumerate}[label=(\roman*),resume]
+  \item Every pivot is equal to~$1$.
+  \item Each pivot is the only non-zero entry in its column.
+\end{enumerate}
+\end{definition}
+
+\begin{example}{Echelon forms}{ex:echelon-shapes}
+The following matrix is in row echelon form (pivots are boxed):
+\[
+  \begin{pmatrix}
+    \boxed{2} & 3 & -1 & 7\\
+    0 & \boxed{5} & 4 & 2\\
+    0 & 0 & 0 & \boxed{1}\\
+    0 & 0 & 0 & 0
+  \end{pmatrix}.
+\]
+Its reduced row echelon form is
+\[
+  \begin{pmatrix}
+    \boxed{1} & 0 & * & 0\\
+    0 & \boxed{1} & * & 0\\
+    0 & 0 & 0 & \boxed{1}\\
+    0 & 0 & 0 & 0
+  \end{pmatrix},
+\]
+where the $*$ entries are determined by the original entries.
+\end{example}
+
+\begin{theorem}{Existence and uniqueness of RREF}{thm:rref-unique}
+\index{RREF!uniqueness}
+Every matrix $A\in\Mat_{m,n}(\K)$ is row equivalent to a unique
+matrix in reduced row echelon form.
+\end{theorem}
+
+\begin{proof}
+\emph{Existence} follows from the Gaussian elimination algorithm
+described in ef{sec:gauss-elim}, which produces a REF, followed
+by Gauss--Jordan elimination (ef{sec:gauss-jordan}), which
+produces the RREF.
+
+\emph{Uniqueness.}
+Suppose $R$ and $R'$ are two RREFs row equivalent to~$A$. Then
+$R$ and $R'$ are row equivalent to each other, so they define the
+same system of homogeneous equations $Rx=\vzero$ and $R'x=\vzero$
+(by ef{prop:prop:ero-preserve}). In particular, their solution sets
+coincide: $\Ker(R) = \Ker(R')$.
+
+We show $R = R'$ column by column. Let $j$ be any column index.
+If $j$ is a pivot column of~$R$, say with pivot in row~$i$, then
+the $i$-th equation of $Rx = \vzero$ reads $x_j = -\sum_{k}
+r_{ik}\,x_k$ where the sum is over the non-pivot (free) variables.
+Since $\Ker(R) = \Ker(R')$, column~$j$ must also be a pivot column
+of~$R'$ in the same row, and the coefficients must agree. Similarly
+for non-pivot columns. Hence $R = R'$.
+\end{proof}
+
+
+% ============================================================
+\section{Gaussian elimination}\label{sec:gauss-elim}
+% ============================================================
+
+\index{Gaussian elimination!algorithm}
+Gaussian elimination transforms a matrix into row echelon form using
+elementary row operations. The algorithm proceeds as follows.
+
+\medskip
+\noindent\textbf{Algorithm} (Gaussian elimination).
+\begin{enumerate}[label=\textbf{Step \arabic*.}]
+  \item Start with column $j=1$ and row $i=1$.
+  \item \emph{Pivot selection.} In column $j$, find a non-zero entry
+    in rows $i, i+1, \dots, m$. If none exists, increment $j$ and
+    repeat. If $j > n$, stop.
+  \item \emph{Swap.} If the non-zero entry is in row $k\neq i$,
+    swap $R_i \leftrightarrow R_k$.
+  \item \emph{Elimination.} For each row $\ell = i+1, \dots, m$,
+    perform $R_\ell \leftarrow R_\ell -
+    \frac{a_{\ell j}}{a_{ij}}\,R_i$ to create zeros below the pivot.
+  \item Increment $i$ and $j$; go to Step~2.
+\end{enumerate}
+
+\begin{example}{Gaussian elimination: a $3\times 4$ system}%
+{ex:gauss-3x4}
+Solve the system
+\[
+  \left\{
+  \begin{aligned}
+    x_1 + 2x_2 - x_3 + 3x_4 &= 5,\\
+    2x_1 + 5x_2 + x_3 + 2x_4 &= 8,\\
+    x_1 + 3x_2 + 2x_3 - x_4 &= 1.
+  \end{aligned}
+  \right.
+\]
+The augmented matrix and its row reduction:
+\begin{align*}
+  &\left(\begin{array}{cccc|c}
+    1 & 2 & -1 & 3 & 5\\
+    2 & 5 & 1 & 2 & 8\\
+    1 & 3 & 2 & -1 & 1
+  \end{array}\right)
+  \xrightarrow[\substack{R_3 \leftarrow R_3 - R_1}]{R_2 \leftarrow R_2 - 2R_1}
+  \left(\begin{array}{cccc|c}
+    1 & 2 & -1 & 3 & 5\\
+    0 & 1 & 3 & -4 & -2\\
+    0 & 1 & 3 & -4 & -4
+  \end{array}\right)\\[6pt]
+  &\xrightarrow{R_3 \leftarrow R_3 - R_2}
+  \left(\begin{array}{cccc|c}
+    1 & 2 & -1 & 3 & 5\\
+    0 & 1 & 3 & -4 & -2\\
+    0 & 0 & 0 & 0 & -2
+  \end{array}\right).
+\end{align*}
+The last row reads $0 = -2$, a contradiction. Hence the system is
+\textbf{inconsistent}\index{inconsistent system}: $\cS = \emptyset$.
+\end{example}
+
+\begin{example}{A consistent system with free variables}%
+{ex:gauss-free}
+Solve the system
+\[
+  \left\{
+  \begin{aligned}
+    x_1 + 2x_2 + x_3 &= 4,\\
+    2x_1 + 5x_2 + 4x_3 &= 11,\\
+    x_1 + 3x_2 + 3x_3 &= 7.
+  \end{aligned}
+  \right.
+\]
+Row reduction of the augmented matrix:
+\begin{align*}
+  &\left(\begin{array}{ccc|c}
+    1 & 2 & 1 & 4\\
+    2 & 5 & 4 & 11\\
+    1 & 3 & 3 & 7
+  \end{array}\right)
+  \xrightarrow[\substack{R_3 \leftarrow R_3 - R_1}]{R_2 \leftarrow R_2 - 2R_1}
+  \left(\begin{array}{ccc|c}
+    1 & 2 & 1 & 4\\
+    0 & 1 & 2 & 3\\
+    0 & 1 & 2 & 3
+  \end{array}\right)
+  \xrightarrow{R_3 \leftarrow R_3 - R_2}
+  \left(\begin{array}{ccc|c}
+    1 & 2 & 1 & 4\\
+    0 & 1 & 2 & 3\\
+    0 & 0 & 0 & 0
+  \end{array}\right).
+\end{align*}
+The pivot columns are $1$ and $2$; the variable $x_3$ is free
+\index{free variable}. Back-substitution gives:
+\[
+  x_2 = 3 - 2x_3, \qquad x_1 = 4 - 2x_2 - x_3 = -2 + 3x_3.
+\]
+Setting $x_3 = t \in \K$, the solution set is
+\[
+  \cS = \set{\begin{pmatrix} -2+3t\\ 3-2t\\ t \end{pmatrix}
+  : t\in\K}
+  = \begin{pmatrix} -2\\3\\0 \end{pmatrix}
+  + t\begin{pmatrix} 3\\-2\\1 \end{pmatrix},
+  \quad t\in\K.
+\]
+This is a line in $\K^3$: a particular solution plus the kernel
+$\Ker(A) = \Span\!\left(\begin{pmatrix}3\\-2\\1\end{pmatrix}\right)$.
+\end{example}
+
+
+% ============================================================
+\section{Gauss--Jordan elimination}\label{sec:gauss-jordan}
+% ============================================================
+
+\index{Gauss--Jordan elimination}
+After reaching row echelon form, \emph{Gauss--Jordan elimination}
+continues with back-elimination to reach the reduced row echelon form.
+
+\medskip
+\noindent\textbf{Algorithm} (Gauss--Jordan: from REF to RREF).
+\begin{enumerate}[label=\textbf{Step \arabic*.}]
+  \item Starting from the \emph{bottom-most} pivot, scale its row so
+    the pivot becomes~$1$.
+  \item Use this pivot to eliminate all entries \emph{above} it in the
+    same column.
+  \item Move to the next pivot above and repeat.
+\end{enumerate}
+
+\begin{example}{Gauss--Jordan continuation}{ex:gauss-jordan}
+Continuing from ef{ex:ex:gauss-free}, we had the REF
+\[
+  \left(\begin{array}{ccc|c}
+    1 & 2 & 1 & 4\\
+    0 & 1 & 2 & 3\\
+    0 & 0 & 0 & 0
+  \end{array}\right).
+\]
+The pivots are already~$1$. Eliminate above the second pivot:
+\[
+  \xrightarrow{R_1 \leftarrow R_1 - 2R_2}
+  \left(\begin{array}{ccc|c}
+    1 & 0 & -3 & -2\\
+    0 & 1 & 2 & 3\\
+    0 & 0 & 0 & 0
+  \end{array}\right).
+\]
+This is the RREF. The solution can be read off directly:
+$x_1 = -2 + 3x_3$, $x_2 = 3 - 2x_3$, confirming the result of
+ef{ex:ex:gauss-free}.
+\end{example}
+
+
+% ============================================================
+\section{Rank of a matrix}\label{sec:matrix-rank}
+% ============================================================
+
+\begin{definition}{Rank via echelon form}{def:rank-echelon}
+\index{rank!of a matrix}
+The \emph{rank} of a matrix $A\in\Mat_{m,n}(\K)$, denoted
+$\rank(A)$, is the number of pivots in any row echelon form of~$A$.
+\end{definition}
+
+\begin{proposition}{Rank is well-defined}{prop:rank-well-defined}
+The rank does not depend on which row echelon form is chosen: it
+equals the number of pivots in the unique RREF of~$A$.
+\end{proposition}
+
+\begin{proof}
+By ef{thm:thm:rref-unique}, the RREF is unique. Since the number of
+pivots in any REF equals the number of pivots in the RREF (the
+Gauss--Jordan steps do not create or destroy pivots), the rank is
+well-defined.
+\end{proof}
+
+\begin{proposition}{Rank equals column rank equals row rank}%
+{prop:rank-equiv}
+\index{rank!column rank}\index{rank!row rank}
+For any matrix $A\in\Mat_{m,n}(\K)$, the following are equal:
+\begin{enumerate}[label=(\roman*)]
+  \item The number of pivots in an echelon form of~$A$.
+  \item $\dim(\im A)$, i.e.\ the dimension of the column space
+    of~$A$.
+  \item The dimension of the row space of~$A$.
+\end{enumerate}
+In particular, $\rank(A) = \rank(\transpose{A})$.
+\end{proposition}
+
+\begin{proof}
+(i)$=$\,(ii): The pivot columns of~$A$ form a basis for the column
+space $\im(A)$ (the corresponding columns of the
+\emph{original}~$A$, selected via the pivot positions of the RREF,
+are linearly independent and Span~$\im(A)$). Thus
+$\dim(\im A)$ equals the number of pivots.
+
+(i)$=$\,(iii): Row operations do not change the row space (each new
+row is a linear combination of the old rows, and the operation is
+reversible). The non-zero rows of a REF are linearly independent
+(by the staircase structure), so they form a basis for the row space.
+Their count equals the number of pivots.
+\end{proof}
+
+\begin{remark}{Rank and the rank--nullity theorem}{rem:rank-nullity-systems}
+\index{rank--nullity theorem}
+The rank--nullity theorem (ef{ch:linear-maps}) applied to the
+linear map $x\mapsto Ax$ gives
+\begin{equation}\label{eq:rank-nullity}
+  \rank(A) + \dim\Ker(A) = n,
+\end{equation}
+where $n$ is the number of columns (i.e.\ unknowns). Thus the number
+of free variables in the general solution equals $n - \rank(A)$.
+\end{remark}
+
+
+% ============================================================
+\section{The Rouch\'{e}--Capelli theorem}\label{sec:rouche-capelli}
+% ============================================================
+
+The central consistency criterion is the following classical result.
+
+\begin{theorem}{Rouch\'{e}--Capelli theorem}%
+{thm:rouche-capelli}
+\index{Rouche-Capelli theorem@Rouch\'{e}--Capelli theorem}
+\index{consistency criterion}
+The system $Ax = b$ is consistent (i.e.\ has at least one solution)
+if and only if
+\begin{equation}\label{eq:rouche-capelli}
+  \rank(A) = \rank(A\mid b).
+\end{equation}
+When this condition holds, the dimension of the solution set is
+$n - \rank(A)$, where $n$ is the number of unknowns. In particular:
+\begin{itemize}
+  \item If $\rank(A) = n$, the solution is unique.
+  \item If $\rank(A) < n$, there are infinitely many solutions
+    (assuming $\K$ is infinite), parametrised by $n - \rank(A)$ free
+    variables.
+\end{itemize}
+\end{theorem}
+
+\begin{proof}
+Write $r = \rank(A)$ and $r' = \rank(A\mid b)$. Since every column
+of~$A$ is also a column of $(A\mid b)$, we always have $r \leq r'
+\leq r+1$.
+
+\emph{($\Rightarrow$)}
+Suppose $\cS\neq\emptyset$, say $x_0\in\cS$. Then $b = Ax_0$ is a
+linear combination of the columns of~$A$, so $b$ lies in the column
+space of~$A$. Adding the column~$b$ to~$A$ does not increase the
+dimension of the column space:
+$\rank(A\mid b) = \dim\Span(\text{columns of } A, b) =
+\dim\Span(\text{columns of } A) = \rank(A)$.
+Hence $r' = r$.
+
+\emph{($\Leftarrow$)}
+Suppose $\rank(A) = \rank(A\mid b)$. Then the column spaces satisfy
+$\im(A\mid b) = \im(A)$, which means $b$ is a linear combination of
+the columns of~$A$. That is, there exists $x_0\in\K^n$ with
+$Ax_0 = b$, so the system is consistent.
+
+The dimension statement follows from ef{prop:prop:affine-structure} and
+ef{eq:rank-nullity}: $\dim\cS = \dim\Ker(A) = n - \rank(A)$.
+\end{proof}
+
+\begin{corollary}{Homogeneous systems always have non-trivial solutions
+when $n > m$}{cor:homog-nontrivial}
+\index{homogeneous system!non-trivial solution}
+If $A\in\Mat_{m,n}(\K)$ with $n > m$ (more unknowns than equations),
+then $Ax = \vzero$ has a non-trivial solution.
+\end{corollary}
+
+\begin{proof}
+We have $\rank(A) \leq m < n$, so $\dim\Ker(A) = n - \rank(A) \geq 1$.
+\end{proof}
+
+
+% ============================================================
+\section{Structure of the solution set}\label{sec:solution-structure}
+% ============================================================
+
+We now state and prove the complete structure theorem, synthesising
+the results of the preceding sections.
+
+\begin{theorem}{Structure of the general solution}{thm:solution-structure}
+\index{general solution}\index{solution set!structure}
+Let $A\in\Mat_{m,n}(\K)$ and $b\in\K^m$, and suppose $Ax=b$ is
+consistent. Let $x_p\in\K^n$ be any particular solution. Then:
+\begin{enumerate}[label=(\roman*)]
+  \item $\Ker(A) = \setcond{x\in\K^n}{Ax = \vzero}$ is a vector
+    subspace of $\K^n$ of dimension $n - \rank(A)$.
+  \item The general solution of $Ax = b$ is
+    \begin{equation}\label{eq:gen-sol}
+      \cS = \setcond{x_p + h}{h\in\Ker(A)} = x_p + \Ker(A).
+    \end{equation}
+  \item If $\set{h_1, \dots, h_k}$ is a basis of $\Ker(A)$ (where
+    $k = n - \rank(A)$), then every solution can be written uniquely as
+    \begin{equation}\label{eq:parametric-sol}
+      x = x_p + t_1 h_1 + t_2 h_2 + \cdots + t_k h_k,
+      \qquad t_1, \dots, t_k \in \K.
+    \end{equation}
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(i) follows from ef{prop:prop:homog-subspace} and
+ef{eq:rank-nullity}.
+
+(ii) is exactly ef{prop:prop:affine-structure}.
+
+(iii) Since $\set{h_1,\dots,h_k}$ is a basis of $\Ker(A)$, every
+$h\in\Ker(A)$ can be written uniquely as $h = t_1 h_1 + \cdots +
+t_k h_k$. Combined with~(ii), every $x\in\cS$ has the unique
+representation $x = x_p + t_1 h_1 + \cdots + t_k h_k$.
+The uniqueness of the $t_i$ follows from the linear independence of
+the $h_i$: if $x_p + \sum t_i h_i = x_p + \sum t_i' h_i$, then
+$\sum (t_i - t_i') h_i = \vzero$, forcing $t_i = t_i'$ for all~$i$.
+\end{proof}
+
+
+% ============================================================
+\section{Parametric representation of solutions}%
+\label{sec:parametric}
+% ============================================================
+
+\index{parametric form}
+When solving a system $Ax = b$ by Gaussian elimination, the RREF
+identifies which variables are \emph{pivot variables}\index{pivot variable}
+(corresponding to pivot columns) and which are \emph{free variables}%
+\index{free variable} (corresponding to non-pivot columns). A
+parametric representation is obtained by:
+\begin{enumerate}
+  \item Expressing each pivot variable in terms of the free variables.
+  \item Assigning arbitrary parameters $t_1, t_2, \dots$ to the free
+    variables.
+  \item Writing the general solution as a vector.
+\end{enumerate}
+
+\begin{example}{Parametric form with two free variables}%
+{ex:parametric-two-free}
+Consider the system with RREF
+\[
+  \left(\begin{array}{ccccc|c}
+    1 & 3 & 0 & -2 & 0 & 4\\
+    0 & 0 & 1 & 5 & 0 & -1\\
+    0 & 0 & 0 & 0 & 1 & 2\\
+    0 & 0 & 0 & 0 & 0 & 0
+  \end{array}\right).
+\]
+Pivot variables: $x_1, x_3, x_5$.\quad Free variables: $x_2 = s$,
+$x_4 = t$. Reading off:
+\[
+  x_1 = 4 - 3s + 2t, \quad x_3 = -1 - 5t, \quad x_5 = 2.
+\]
+The parametric form is
+\[
+  \begin{pmatrix} x_1\\ x_2\\ x_3\\ x_4\\ x_5 \end{pmatrix}
+  =
+  \underbrace{\begin{pmatrix} 4\\ 0\\ -1\\ 0\\ 2 \end{pmatrix}}_{x_p}
+  + s\underbrace{\begin{pmatrix} -3\\ 1\\ 0\\ 0\\ 0 \end{pmatrix}}_{h_1}
+  + t\underbrace{\begin{pmatrix} 2\\ 0\\ -5\\ 1\\ 0 \end{pmatrix}}_{h_2},
+  \qquad s,t\in\K.
+\]
+Here $\rank(A) = 3$, $n = 5$, and $\dim\Ker(A) = 5 - 3 = 2$.
+\end{example}
+
+
+% ============================================================
+\section{Geometric interpretation}\label{sec:geometric-interp}
+% ============================================================
+
+\index{geometric interpretation!of linear systems}
+
+\subsection{Two equations in two unknowns}
+
+A single linear equation $a_1 x_1 + a_2 x_2 = b$ in two unknowns
+describes a \emph{line} in~$\R^2$. A system of two such equations
+corresponds to two lines, and the solution set is their intersection.
+
+\begin{center}
+\begin{tikzpicture}[>=Stealth, scale=1.0]
+  % Unique solution
+  \begin{scope}[shift={(0,0)}]
+    \draw[->] (-0.5,0) -- (3.5,0) node[right] {$x_1$};
+    \draw[->] (0,-0.5) -- (0,3) node[above] {$x_2$};
+    \draw[thick, blue!70!black, domain=-0.3:3.2] plot (\x, {2.5 - 0.7*\x});
+    \draw[thick, red!70!black, domain=-0.3:3.2] plot (\x, {0.3 + 0.6*\x});
+    \fill[black] (1.692, 1.315) circle (2pt);
+    \node[below] at (1.75, -0.8) {\small Unique solution};
+    \node[below] at (1.75, -1.2) {\small $\rank(A) = 2$};
+  \end{scope}
+  % No solution
+  \begin{scope}[shift={(5.5,0)}]
+    \draw[->] (-0.5,0) -- (3.5,0) node[right] {$x_1$};
+    \draw[->] (0,-0.5) -- (0,3) node[above] {$x_2$};
+    \draw[thick, blue!70!black, domain=-0.3:3.2] plot (\x, {2.5 - 0.7*\x});
+    \draw[thick, red!70!black, domain=-0.3:3.2] plot (\x, {1.2 - 0.7*\x});
+    \node[below] at (1.75, -0.8) {\small No solution};
+    \node[below] at (1.75, -1.2) {\small (parallel lines)};
+  \end{scope}
+  % Infinitely many
+  \begin{scope}[shift={(11,0)}]
+    \draw[->] (-0.5,0) -- (3.5,0) node[right] {$x_1$};
+    \draw[->] (0,-0.5) -- (0,3) node[above] {$x_2$};
+    \draw[thick, blue!70!black, domain=-0.3:3.2] plot (\x, {2.5 - 0.7*\x});
+    \draw[thick, red!70!black, dashed, domain=-0.3:3.2]
+      plot (\x, {2.5 - 0.7*\x});
+    \node[below] at (1.75, -0.8) {\small Infinitely many};
+    \node[below] at (1.75, -1.2) {\small (coincident lines)};
+  \end{scope}
+\end{tikzpicture}
+\captionof{figure}{Three possibilities for a $2\times 2$ linear
+  system over $\R$.}
+\label{fig:2x2-systems}
+\end{center}
+
+\subsection{Three equations in three unknowns}
+
+Each equation $a_1 x_1 + a_2 x_2 + a_3 x_3 = b$ describes a
+\emph{plane}\index{plane} in~$\R^3$. A system of three such equations
+asks for the common intersection of three planes. The possibilities
+are richer than in $\R^2$.
+
+\begin{center}
+\begin{tikzpicture}[>=Stealth, scale=0.95]
+  % --- Unique point ---
+  \begin{scope}[shift={(0,0)}]
+    % Three planes meeting at a point (schematic)
+    \fill[blue!15, opacity=0.7] (-1.2,-0.8) -- (1.5,-0.5)
+      -- (1.8,1.3) -- (-0.9,1.0) -- cycle;
+    \fill[red!15, opacity=0.6] (-0.5,-1.0) -- (1.8,-0.3)
+      -- (1.2,1.5) -- (-1.1,0.8) -- cycle;
+    \fill[green!15, opacity=0.5] (-1.0,-0.4) -- (1.0,-1.0)
+      -- (1.6,0.9) -- (-0.4,1.5) -- cycle;
+    \fill[black] (0.5,0.3) circle (2.5pt);
+    \node[below] at (0.4,-1.3) {\small Unique point};
+  \end{scope}
+  % --- Line ---
+  \begin{scope}[shift={(4.5,0)}]
+    \fill[blue!15, opacity=0.7] (-1.2,-1.0) -- (1.5,-0.8)
+      -- (1.8,1.0) -- (-0.9,0.8) -- cycle;
+    \fill[red!15, opacity=0.6] (-1.0,-0.8) -- (1.8,-0.3)
+      -- (1.3,1.2) -- (-1.5,0.7) -- cycle;
+    \fill[green!15, opacity=0.5] (-0.8,-1.0) -- (1.6,-0.5)
+      -- (1.0,1.3) -- (-1.4,0.8) -- cycle;
+    \draw[thick, black] (-0.6,-0.6) -- (1.2,0.9);
+    \node[below] at (0.4,-1.3) {\small Line};
+  \end{scope}
+  % --- Plane ---
+  \begin{scope}[shift={(9,0)}]
+    \fill[blue!20, opacity=0.8] (-1.4,-1.0) -- (1.8,-0.8)
+      -- (1.6,1.2) -- (-1.6,1.0) -- cycle;
+    \node at (0.1,0.1) {\small (3 coincident)};
+    \node[below] at (0.2,-1.3) {\small Plane};
+  \end{scope}
+  % --- Empty ---
+  \begin{scope}[shift={(13.5,0)}]
+    \fill[blue!15, opacity=0.6] (-1.2,-0.2) -- (1.5,0.0)
+      -- (1.5,0.8) -- (-1.2,0.6) -- cycle;
+    \fill[red!15, opacity=0.6] (-1.2,-0.7) -- (1.5,-0.5)
+      -- (1.5,0.3) -- (-1.2,0.1) -- cycle;
+    \fill[green!15, opacity=0.5] (-1.2,0.4) -- (1.5,0.6)
+      -- (1.5,1.4) -- (-1.2,1.2) -- cycle;
+    \node[below] at (0.2,-1.3) {\small No solution};
+    \node[below] at (0.2,-1.7) {\small (parallel planes)};
+  \end{scope}
+\end{tikzpicture}
+\captionof{figure}{Selected configurations for three planes
+  in~$\R^3$: unique intersection point, intersection along a line,
+  three coincident planes, and three parallel planes.}
+\label{fig:3x3-systems}
+\end{center}
+
+
+% ============================================================
+\section{Applications}\label{sec:applications-systems}
+% ============================================================
+
+\subsection{Network flows}\label{subsec:network-flows}
+\index{network flow}
+
+Consider a network of one-way streets or pipelines with known flow
+rates entering and leaving the network. At each junction
+(node)\index{node}, conservation of flow requires that the total
+flow in equals the total flow out. This yields one linear equation per
+node.
+
+\begin{example}{Traffic flow}{ex:traffic-flow}
+Consider the network with four intersections where external flows are
+given and the internal flows $x_1, x_2, x_3, x_4$ are unknown:
+
+\begin{center}
+\begin{tikzpicture}[>=Stealth, node distance=2.5cm,
+  every node/.style={circle, draw, minimum size=8mm, inner sep=1pt}]
+  \node (A) at (0,2) {$A$};
+  \node (B) at (3,2) {$B$};
+  \node (C) at (3,0) {$C$};
+  \node (D) at (0,0) {$D$};
+  % Internal edges
+  \draw[->, thick] (A) -- node[above] {$x_1$} (B);
+  \draw[->, thick] (B) -- node[right] {$x_2$} (C);
+  \draw[->, thick] (C) -- node[below] {$x_3$} (D);
+  \draw[->, thick] (D) -- node[left]  {$x_4$} (A);
+  % External flows
+  \draw[->, thick, blue!70!black] (-1.5,2) -- (A)
+    node[midway, above, draw=none, fill=none] {$100$};
+  \draw[->, thick, blue!70!black] (B) -- (4.5,2)
+    node[midway, above, draw=none, fill=none] {$80$};
+  \draw[->, thick, blue!70!black] (4.5,0) -- (C)
+    node[midway, above, draw=none, fill=none] {$50$};
+  \draw[->, thick, blue!70!black] (D) -- (-1.5,0)
+    node[midway, above, draw=none, fill=none] {$70$};
+\end{tikzpicture}
+\end{center}
+
+Flow conservation at each node:
+\[
+  \begin{aligned}
+    A&: & 100 + x_4 &= x_1, \\
+    B&: & x_1 &= 80 + x_2, \\
+    C&: & x_2 + 50 &= x_3, \\
+    D&: & x_3 &= 70 + x_4.
+  \end{aligned}
+  \qquad\Longleftrightarrow\qquad
+  \begin{aligned}
+    x_1 - x_4 &= 100,\\
+    x_1 - x_2 &= 80,\\
+    x_2 - x_3 &= -50,\\
+    x_3 - x_4 &= 70.
+  \end{aligned}
+\]
+Row reduction shows $\rank(A) = 3$ and $n=4$, giving one free
+variable. Setting $x_4 = t$:
+\[
+  x_1 = 100+t, \quad x_2 = 20+t, \quad x_3 = 70+t, \quad x_4 = t.
+\]
+Physical constraints ($x_i \geq 0$) require $t \geq 0$.
+\end{example}
+
+
+\subsection{Electrical circuits}\label{subsec:circuits}
+\index{Kirchhoff's laws}\index{electrical circuit}
+
+In an electrical circuit, Kirchhoff's current law (KCL) states that
+the algebraic sum of currents at any node is zero, and Kirchhoff's
+voltage law (KVL) states that the algebraic sum of voltage drops
+around any closed loop is zero. Combined with Ohm's law
+($V = IR$)\index{Ohm's law}, these yield a linear system for the
+unknown currents.
+
+\begin{example}{A simple resistive circuit}{ex:circuit}
+Consider a circuit with two loops sharing a branch. Let $I_1$, $I_2$,
+$I_3$ be the branch currents and $R_1 = 2\,\Omega$,
+$R_2 = 4\,\Omega$, $R_3 = 6\,\Omega$ the resistances, with a
+voltage source $V = 12$\,V. Applying KCL and KVL:
+\[
+  \left\{
+  \begin{aligned}
+    I_1 - I_2 - I_3 &= 0 && (\text{KCL at node}),\\
+    2I_1 + 6I_3 &= 12 && (\text{KVL, loop 1}),\\
+    4I_2 - 6I_3 &= 0 && (\text{KVL, loop 2}).
+  \end{aligned}
+  \right.
+\]
+Solving by Gaussian elimination gives
+$I_1 = \frac{36}{11}$\,A,\;
+$I_2 = \frac{18}{11}$\,A,\;
+$I_3 = \frac{18}{11} \cdot \frac{2}{3} = \frac{12}{11}$\,A.
+\end{example}
+
+
+\subsection{Preview: least squares}\label{subsec:least-squares-preview}
+\index{least squares!preview}
+
+When a system $Ax = b$ is \emph{overdetermined} (more equations than
+unknowns, typically inconsistent), one seeks the vector $\hat{x}$
+that minimises $\norm{Ax - b}^2$. A fundamental result (to be proved
+in the chapter on inner product spaces) states that $\hat{x}$
+satisfies the \emph{normal equations}\index{normal equations}
+\begin{equation}\label{eq:normal-equations}
+  \transpose{A}A\,\hat{x} = \transpose{A}b.
+\end{equation}
+This is a (consistent) square linear system, solvable by Gaussian
+elimination. Least squares is the mathematical foundation of linear
+regression, signal processing, and data fitting.
+
+
+% ============================================================
+\section{Exercises}\label{sec:exercises-systems}
+% ============================================================
+
+% --- Exercise 1 ---
+\begin{exercise}{Row reduction practice \basic}{exo:row-reduce-1}
+Reduce the following matrix to RREF and find $\rank(A)$:
+\[
+  A = \begin{pmatrix}
+    1 & 2 & -1 & 0\\
+    2 & 4 & 1 & 3\\
+    3 & 6 & 2 & 5
+  \end{pmatrix}.
+\]
+\end{exercise}
+
+% --- Exercise 2 ---
+\begin{exercise}{Solving a $3\times 3$ system \basic}{exo:solve-3x3}
+Solve the system
+\[
+  \left\{
+  \begin{aligned}
+    x + y + z &= 6,\\
+    2x + 3y + z &= 14,\\
+    x + 2y - z &= 2.
+  \end{aligned}
+  \right.
+\]
+\end{exercise}
+
+% --- Exercise 3 ---
+\begin{exercise}{Homogeneous system \basic}{exo:homog-system}
+Find the general solution of $Ax = \vzero$ where
+\[
+  A = \begin{pmatrix}
+    1 & 2 & 3\\
+    2 & 4 & 6\\
+    1 & 2 & 3
+  \end{pmatrix}.
+\]
+What is $\dim\Ker(A)$?
+\end{exercise}
+
+% --- Exercise 4 ---
+\begin{exercise}{Consistency conditions \basic}{exo:consistency}
+For which values of $a\in\R$ is the system
+\[
+  \left\{
+  \begin{aligned}
+    x + y &= 1,\\
+    2x + 2y &= a,
+  \end{aligned}
+  \right.
+\]
+consistent? When consistent, describe the solution set geometrically.
+\end{exercise}
+
+% --- Exercise 5 ---
+\begin{exercise}{Parametric solutions \intermediate}{exo:parametric-sol}
+Solve the system and express the solution in parametric vector form:
+\[
+  \left\{
+  \begin{aligned}
+    x_1 + 3x_2 - 2x_3 + x_4 &= 4,\\
+    2x_1 + 6x_2 - 3x_3 + 5x_4 &= 11,\\
+    x_1 + 3x_2 + x_4 &= 5.
+  \end{aligned}
+  \right.
+\]
+Identify the particular solution and a basis for the kernel.
+\end{exercise}
+
+% --- Exercise 6 ---
+\begin{exercise}{Rank and the Rouch\'{e}--Capelli theorem
+\intermediate}{exo:rouche-capelli-app}
+Let
+\[
+  A = \begin{pmatrix}
+    1 & 2 & 1\\
+    2 & 4 & 3\\
+    3 & 6 & 4
+  \end{pmatrix},
+  \qquad
+  b = \begin{pmatrix} 1\\3\\4 \end{pmatrix}.
+\]
+Compute $\rank(A)$ and $\rank(A\mid b)$. Is $Ax = b$ consistent?
+If so, find the solution set.
+\end{exercise}
+
+% --- Exercise 7 ---
+\begin{exercise}{Family of systems \intermediate}{exo:family-systems}
+For which values of $\lambda\in\R$ does the system
+\[
+  \left\{
+  \begin{aligned}
+    x + y + \lambda z &= 1,\\
+    x + \lambda y + z &= 1,\\
+    \lambda x + y + z &= 1,
+  \end{aligned}
+  \right.
+\]
+have (a) a unique solution, (b) infinitely many solutions,
+(c) no solution?
+\end{exercise}
+
+% --- Exercise 8 ---
+\begin{exercise}{Network flow \intermediate}{exo:network-flow}
+In a road network with five nodes, the flow conservation equations
+yield the system
+\[
+  \left\{
+  \begin{aligned}
+    x_1 + x_2 &= 200,\\
+    x_2 + x_3 &= 150,\\
+    x_3 + x_4 &= 180,\\
+    x_4 + x_5 &= 120.
+  \end{aligned}
+  \right.
+\]
+Find the general solution. If all flows must be non-negative,
+determine the feasible range for~$x_1$.
+\end{exercise}
+
+% --- Exercise 9 ---
+\begin{exercise}{Computing a kernel basis \intermediate}{exo:kernel-basis}
+Find a basis for $\Ker(A)$ where
+\[
+  A = \begin{pmatrix}
+    1 & 0 & -2 & 1 & 3\\
+    0 & 1 & 3 & -1 & 0\\
+    2 & 1 & -1 & 1 & 6\\
+    1 & 1 & 1 & 0 & 3
+  \end{pmatrix}.
+\]
+Verify that $\rank(A) + \dim\Ker(A) = 5$.
+\end{exercise}
+
+% --- Exercise 10 ---
+\begin{exercise}{Rank inequalities \challenging}{exo:rank-ineq}
+Let $A\in\Mat_{m,n}(\K)$ and $B\in\Mat_{n,p}(\K)$. Prove:
+\begin{enumerate}[label=(\alph*)]
+  \item $\rank(AB) \leq \min(\rank(A), \rank(B))$.
+  \item \emph{Sylvester's rank inequality:}\index{Sylvester's rank inequality}
+    $\rank(AB) \geq \rank(A) + \rank(B) - n$.
+\end{enumerate}
+\textit{Hint for (b):} use the rank--nullity theorem and show
+$\Ker(B) \subseteq \Ker(AB)$.
+\end{exercise}
+
+% --- Exercise 11 ---
+\begin{exercise}{Normal equations \challenging}{exo:normal-eq}
+Consider the inconsistent system (three equations, two unknowns):
+\[
+  \begin{pmatrix} 1 & 1\\ 1 & 2\\ 1 & 3 \end{pmatrix}
+  \begin{pmatrix} x_1\\ x_2 \end{pmatrix}
+  = \begin{pmatrix} 1\\ 2\\ 4 \end{pmatrix}.
+\]
+\begin{enumerate}[label=(\alph*)]
+  \item Form the normal equations $\transpose{A}A\,\hat{x} =
+    \transpose{A}b$.
+  \item Solve for $\hat{x}$ by Gaussian elimination.
+  \item Interpret $\hat{x}$ as the coefficients of the best-fit
+    line $y = x_1 + x_2 t$ through the data points
+    $(1,1)$, $(2,2)$, $(3,4)$.
+\end{enumerate}
+\end{exercise}
+
+% --- Exercise 12 ---
+\begin{exercise}{Intersection of subspaces via systems
+\challenging}{exo:intersect-subspaces}
+Let $U = \Span\!\left(\begin{pmatrix}1\\1\\0\\1\end{pmatrix},
+\begin{pmatrix}0\\1\\1\\0\end{pmatrix}\right)$ and
+$W = \Span\!\left(\begin{pmatrix}1\\0\\1\\1\end{pmatrix},
+\begin{pmatrix}1\\1\\1\\0\end{pmatrix}\right)$ be subspaces
+of~$\R^4$.
+\begin{enumerate}[label=(\alph*)]
+  \item Set up a linear system whose solutions describe $U\cap W$.
+  \item Solve the system and find a basis for $U\cap W$.
+  \item Verify the Grassmann formula:
+    $\dim(U+W) = \dim U + \dim W - \dim(U\cap W)$.
+\end{enumerate}
+\end{exercise}
+
+% --- Exercise 13 ---
+\begin{exercise}{Proving row equivalence preserves solution sets
+\intermediate}{exo:ero-proof}
+Give a detailed proof that each elementary row operation on the
+augmented matrix $(A\mid b)$ preserves the solution set of $Ax = b$.
+Explicitly construct the inverse operation in each case.
+\end{exercise}
+
+% --- Exercise 14 ---
+\begin{exercise}{RREF uniqueness \challenging}{exo:rref-unique-detail}
+Provide a complete proof that two row-equivalent matrices in reduced
+row echelon form must be identical.
+\textit{Hint:} proceed by induction on the number of columns, using
+the fact that the two matrices have identical null spaces.
+\end{exercise}
+
+
+% ============================================================
+\section{Chapter summary}\label{sec:summary-ch3}
+% ============================================================
+
+\begin{itemize}
+  \item A \textbf{system of linear equations}\index{system of linear equations}
+    $Ax = b$ involves a coefficient matrix $A\in\Mat_{m,n}(\K)$, an
+    unknown vector $x\in\K^n$, and a right-hand side $b\in\K^m$.
+
+  \item \textbf{Elementary row operations}\index{elementary row operations}
+    (row swap, row scaling, row replacement) transform a system into a
+    row-equivalent one with the same solution set.
+
+  \item \textbf{Gaussian elimination}\index{Gaussian elimination}
+    reduces $A$ to \textbf{row echelon form}\index{row echelon form}
+    (REF); \textbf{Gauss--Jordan elimination}%
+    \index{Gauss--Jordan elimination} continues to the unique
+    \textbf{reduced row echelon form}\index{reduced row echelon form}
+    (RREF).
+
+  \item The \textbf{rank}\index{rank} $\rank(A)$ is the number of
+    pivots, equal to the dimension of both the column space and the
+    row space.
+
+  \item \textbf{Rouch\'{e}--Capelli theorem}%
+    \index{Rouche-Capelli theorem@Rouch\'{e}--Capelli theorem}:
+    $Ax = b$ is consistent $\iff$ $\rank(A) = \rank(A\mid b)$.
+
+  \item The \textbf{general solution}\index{general solution} of a
+    consistent system is
+    $\cS = x_p + \Ker(A)$,
+    an affine subspace of dimension $n - \rank(A)$.
+
+  \item \textbf{Rank--nullity:}\index{rank--nullity theorem}
+    $\rank(A) + \dim\Ker(A) = n$ (number of columns).
+
+  \item Geometrically, a linear equation in $\R^2$ defines a line, in
+    $\R^3$ a plane; the solution set of a system is the intersection
+    of these geometric objects.
+
+  \item Applications include network flows, electrical circuits
+    (Kirchhoff's laws), and least squares (normal equations).
+\end{itemize}

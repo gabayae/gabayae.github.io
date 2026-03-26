@@ -1,0 +1,188 @@
+% ============================================================
+\chapter{Identification, Estimation et Diagnostic}
+\label{ch:identification}
+% ============================================================
+
+\section{Exemple motivant}
+Face \`a une s\'erie temporelle r\'eelle, comment choisir les ordres $p$ et $q$ d'un ARMA$(p,q)$, estimer les param\`etres et v\'erifier que le mod\`ele est ad\'equat ? C'est la \textbf{m\'ethodologie de Box--Jenkins}\index{Box--Jenkins}.
+
+\section{La m\'ethodologie de Box--Jenkins}
+
+\begin{methode}
+\begin{enumerate}
+\item \textbf{Identification} : examiner l'ACF et la PACF pour proposer des ordres $(p,q)$.
+\item \textbf{Estimation} : estimer $(\phi_1,\ldots,\phi_p,\theta_1,\ldots,\theta_q,\sigma^2)$ par maximum de vraisemblance ou moindres carr\'es conditionnels.
+\item \textbf{Diagnostic} : v\'erifier que les r\'esidus sont un bruit blanc.
+\item \textbf{Pr\'evision} : utiliser le mod\`ele valid\'e pour pr\'evoir.
+\end{enumerate}
+\end{methode}
+
+\section{Identification}\index{identification}
+
+\subsection{Examen de l'ACF et de la PACF}
+
+R\`egles pratiques (r\'ecapitul\'ees au chapitre~\ref{ch:arma}) :
+\begin{itemize}
+\item ACF tronque \`a $q$ $\Rightarrow$ MA$(q)$.
+\item PACF tronque \`a $p$ $\Rightarrow$ AR$(p)$.
+\item Les deux d\'ecroissent $\Rightarrow$ ARMA$(p,q)$.
+\end{itemize}
+
+\subsection{Crit\`eres d'information}\index{AIC}\index{BIC}
+
+\begin{definition}[AIC et BIC]
+\begin{align}
+\AIC(p,q) &= -2\ln L(\hat{\bm\theta}) + 2(p+q+1), \\
+\BIC(p,q) &= -2\ln L(\hat{\bm\theta}) + (p+q+1)\ln n.
+\end{align}
+On choisit le mod\`ele qui \textbf{minimise} le crit\`ere. Le BIC p\'enalise davantage la complexit\'e.
+\end{definition}
+
+\begin{theoreme}[Propri\'et\'es asymptotiques]
+\begin{itemize}
+\item L'AIC est asymptotiquement \'equivalent \`a la validation crois\'ee leave-one-out.
+\item Le BIC est \textbf{consistant} : il s\'electionne le vrai mod\`ele avec probabilit\'e $\to 1$.
+\item L'AIC tend \`a sur-param\'etrer.
+\end{itemize}
+\end{theoreme}
+
+\section{Estimation}\index{estimation}
+
+\subsection{Maximum de vraisemblance}\index{maximum de vraisemblance}
+
+\begin{definition}
+Pour un ARMA$(p,q)$ gaussien, la log-vraisemblance exacte est :
+\[
+\ln L(\bm\theta) = -\frac{n}{2}\ln(2\pi) - \frac{1}{2}\sum_{t=1}^n\ln v_t - \frac{1}{2}\sum_{t=1}^n\frac{e_t^2}{v_t},
+\]
+o\`u $e_t = X_t - \hat{X}_{t|t-1}$ est l'erreur de pr\'evision un pas en avant et $v_t=\Var(e_t)$, calcul\'es r\'ecursivement (algorithme des innovations ou filtre de Kalman).
+\end{definition}
+
+\begin{theoreme}[Propri\'et\'es de l'EMV]
+Sous des conditions de r\'egularit\'e, l'EMV $\hat{\bm\theta}_n$ est :
+\begin{itemize}
+\item Consistant : $\hat{\bm\theta}_n\pto\bm\theta_0$.
+\item Asymptotiquement normal : $\sqrt{n}(\hat{\bm\theta}_n-\bm\theta_0)\dto\mathcal{N}(0,I(\bm\theta_0)^{-1})$.
+\item Asymptotiquement efficace.
+\end{itemize}
+\end{theoreme}
+
+\subsection{Moindres carr\'es conditionnels}
+
+\begin{definition}
+En conditionnant sur les premi\`eres observations, on minimise :
+\[
+S(\bm\theta) = \sum_{t=p+1}^n\left(X_t - \phi_1 X_{t-1}-\cdots - \phi_p X_{t-p} - \theta_1\hat{\eps}_{t-1}-\cdots-\theta_q\hat{\eps}_{t-q}\right)^2.
+\]
+\end{definition}
+
+\section{Diagnostic}\index{diagnostic}
+
+\subsection{Analyse des r\'esidus}
+
+\begin{definition}
+Les r\'esidus du mod\`ele sont $\hat{\eps}_t = X_t - \hat{X}_{t|t-1}$. Si le mod\`ele est correct, les $\hat{\eps}_t$ doivent se comporter comme un bruit blanc.
+\end{definition}
+
+V\'erifications :
+\begin{enumerate}
+\item \textbf{ACF des r\'esidus} : aucune autocorr\'elation significative.
+\item \textbf{Test de Ljung--Box}\index{test!Ljung--Box} :
+\[
+Q(m) = n(n+2)\sum_{h=1}^m\frac{\hat{\rho}_{\hat\eps}(h)^2}{n-h} \stackrel{H_0}{\sim}\chi^2(m-p-q).
+\]
+\item \textbf{Normalit\'e} : QQ-plot, test de Jarque--Bera\index{test!Jarque--Bera}.
+\item \textbf{H\'et\'erosc\'edasticit\'e} : effet ARCH (cf.\ chapitre~\ref{ch:garch}).
+\end{enumerate}
+
+\begin{theoreme}[Ljung--Box]
+Sous $H_0$ (r\'esidus = bruit blanc), $Q(m)\sim\chi^2(m-p-q)$ asymptotiquement. On rejette $H_0$ si $Q(m)>\chi^2_{1-\alpha}(m-p-q)$.
+\end{theoreme}
+
+\section{Impl\'ementation}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.stats.diagnostic import acorr_ljungbox
+from statsmodels.graphics.tsaplots import plot_acf
+
+# Simuler un ARMA(1,1) connu
+np.random.seed(42)
+from statsmodels.tsa.arima_process import ArmaProcess
+true_ar = np.array([1, -0.7])
+true_ma = np.array([1, 0.3])
+process = ArmaProcess(true_ar, true_ma)
+data = process.generate_sample(nsample=500)
+
+# Étape 1 : Identification (ACF/PACF déjà examinée)
+
+# Étape 2 : Estimation par MLE
+model = ARIMA(data, order=(1, 0, 1))
+results = model.fit()
+print(results.summary())
+print(f"\nphi_1 = {results.arparams[0]:.4f} (vrai: 0.7)")
+print(f"theta_1 = {results.maparams[0]:.4f} (vrai: 0.3)")
+
+# Étape 3 : Diagnostic
+residuals = results.resid
+
+fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+axes[0,0].plot(residuals, lw=0.5)
+axes[0,0].set_title('Résidus')
+plot_acf(residuals, lags=25, ax=axes[0,1], title='ACF des résidus')
+axes[1,0].hist(residuals, bins=30, density=True, alpha=0.7)
+axes[1,0].set_title('Distribution des résidus')
+from scipy import stats
+stats.probplot(residuals, dist='norm', plot=axes[1,1])
+axes[1,1].set_title('QQ-plot')
+plt.tight_layout()
+plt.savefig('ch04_diagnostic.pdf')
+plt.show()
+
+# Test de Ljung-Box
+lb_test = acorr_ljungbox(residuals, lags=20, return_df=True)
+print(lb_test)
+
+# Sélection par AIC/BIC
+results_table = []
+for p in range(4):
+    for q in range(4):
+        try:
+            m = ARIMA(data, order=(p, 0, q)).fit()
+            results_table.append({'p': p, 'q': q,
+                                  'AIC': m.aic, 'BIC': m.bic})
+        except:
+            pass
+df = pd.DataFrame(results_table).sort_values('BIC')
+print(df.head(5))
+\end{minted}
+\end{codeblock}
+
+\section{Exercices}
+
+\begin{exercice}[$\star$]
+Simuler un AR(2) et appliquer la m\'ethodologie compl\`ete : identification, estimation, diagnostic.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Montrer que le test de Ljung--Box avec $m$ d\'ecalages suit asymptotiquement une $\chi^2(m-p-q)$ sous $H_0$.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Comparer AIC et BIC sur 1000 simulations d'un AR(1). Lequel s\'electionne le bon ordre le plus souvent ? Le BIC sur-p\'enalise-t-il en petit \'echantillon ?
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Projet]
+Appliquer la m\'ethodologie Box--Jenkins compl\`ete \`a la s\'erie du taux de ch\^omage mensuel fran\c{c}ais. Pr\'esenter chaque \'etape avec justification.
+\end{exercice}
+
+\begin{formules}
+\begin{align*}
+\AIC &= -2\ln L + 2k, \quad \BIC = -2\ln L + k\ln n \\
+Q(m) &= n(n+2)\sum_{h=1}^m\frac{\hat\rho_{\hat\eps}(h)^2}{n-h}\sim\chi^2(m-p-q)
+\end{align*}
+\end{formules}

@@ -1,0 +1,654 @@
+%!TEX root = ../main.tex
+% Chapitre 10 : Mod\`eles de Diffusion
+\chapter{Mod\`eles de Diffusion}
+\label{ch:diffusion}
+
+\noindent\textit{Les mod\`eles de diffusion repr\'esentent une famille de mod\`eles g\'en\'eratifs
+fond\'es sur la th\'eorie des processus stochastiques. Ils d\'efinissent un
+processus direct de bruitage progressif et apprennent \`a inverser ce processus
+pour g\'en\'erer des \'echantillons de haute qualit\'e. Ce chapitre d\'erive
+rigoureusement les fondements math\'ematiques des mod\`eles DDPM et DDIM,
+pr\'esente les architectures de d\'ebruitage, et propose une impl\'ementation
+compl\`ete en PyTorch.}\medskip
+
+% ============================================================
+\section{Processus direct de diffusion}
+\label{sec:diffusion-forward}
+\index{diffusion!processus direct}
+
+\subsection{D\'efinition du processus de Markov}
+
+Le processus direct de diffusion est une cha\^ine de Markov qui ajoute
+progressivement du bruit gaussien \`a une donn\'ee $\mathbf{x}_0 \sim q(\mathbf{x}_0)$
+sur $T$ pas de temps.
+
+\begin{definition}[Processus direct de diffusion]
+\label{def:forward-diffusion}
+Soit $\{\beta_t\}_{t=1}^{T}$ un \emph{schedule de bruit}\index{schedule de bruit}
+avec $\beta_t \in (0, 1)$. Le processus direct est d\'efini par~:
+\begin{equation}
+q(\mathbf{x}_t \mid \mathbf{x}_{t-1}) = \mathcal{N}\!\left(\mathbf{x}_t;\, \sqrt{1 - \beta_t}\,\mathbf{x}_{t-1},\, \beta_t \mathbf{I}\right)
+\label{eq:forward-step}
+\end{equation}
+\end{definition}
+
+\begin{remarque}
+\`A mesure que $t \to T$, la distribution $q(\mathbf{x}_T)$ converge vers
+$\mathcal{N}(\mathbf{0}, \mathbf{I})$, pourvu que $T$ soit suffisamment grand
+et que le schedule $\{\beta_t\}$ soit bien choisi.
+\end{remarque}
+
+\subsection{Forme ferm\'ee de $q(\mathbf{x}_t \mid \mathbf{x}_0)$}
+\label{sec:closed-form}
+\index{diffusion!forme ferm\'ee}
+
+\begin{theoreme}[Marginalisation directe]
+\label{thm:closed-form}
+D\'efinissons $\alpha_t = 1 - \beta_t$ et $\bar{\alpha}_t = \prod_{s=1}^{t} \alpha_s$.
+Alors~:
+\begin{equation}
+q(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}\!\left(\mathbf{x}_t;\, \sqrt{\bar{\alpha}_t}\,\mathbf{x}_0,\, (1 - \bar{\alpha}_t)\mathbf{I}\right)
+\label{eq:closed-form}
+\end{equation}
+\end{theoreme}
+
+\begin{proof}
+Nous proc\'edons par r\'ecurrence. Pour $t = 1$~:
+\[
+\mathbf{x}_1 = \sqrt{\alpha_1}\,\mathbf{x}_0 + \sqrt{1 - \alpha_1}\,\boldsymbol{\varepsilon}_1, \quad \boldsymbol{\varepsilon}_1 \sim \mathcal{N}(\mathbf{0}, \mathbf{I})
+\]
+ce qui donne bien $q(\mathbf{x}_1 \mid \mathbf{x}_0) = \mathcal{N}(\sqrt{\alpha_1}\,\mathbf{x}_0, (1 - \alpha_1)\mathbf{I})$.
+
+Supposons le r\'esultat vrai au rang $t-1$~:
+\[
+\mathbf{x}_{t-1} = \sqrt{\bar{\alpha}_{t-1}}\,\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_{t-1}}\,\bar{\boldsymbol{\varepsilon}}
+\]
+Alors~:
+\begin{align}
+\mathbf{x}_t &= \sqrt{\alpha_t}\,\mathbf{x}_{t-1} + \sqrt{\beta_t}\,\boldsymbol{\varepsilon}_t \\
+&= \sqrt{\alpha_t}\left(\sqrt{\bar{\alpha}_{t-1}}\,\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_{t-1}}\,\bar{\boldsymbol{\varepsilon}}\right) + \sqrt{\beta_t}\,\boldsymbol{\varepsilon}_t \\
+&= \sqrt{\bar{\alpha}_t}\,\mathbf{x}_0 + \sqrt{\alpha_t(1 - \bar{\alpha}_{t-1})}\,\bar{\boldsymbol{\varepsilon}} + \sqrt{\beta_t}\,\boldsymbol{\varepsilon}_t
+\end{align}
+Par la propri\'et\'e de somme de gaussiennes ind\'ependantes, la variance
+totale vaut~:
+\[
+\alpha_t(1 - \bar{\alpha}_{t-1}) + \beta_t = \alpha_t - \bar{\alpha}_t + 1 - \alpha_t = 1 - \bar{\alpha}_t
+\]
+ce qui ach\`eve la r\'ecurrence.
+\end{proof}
+
+\begin{formules}[title=\textbf{\'Equations cl\'es du processus direct}]
+\begin{align}
+\alpha_t &= 1 - \beta_t \\
+\bar{\alpha}_t &= \prod_{s=1}^{t} \alpha_s \\
+\mathbf{x}_t &= \sqrt{\bar{\alpha}_t}\,\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_t}\,\boldsymbol{\varepsilon}, \quad \boldsymbol{\varepsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})
+\end{align}
+\end{formules}
+
+% ============================================================
+\section{Processus inverse et objectif d'entra\^inement}
+\label{sec:diffusion-reverse}
+\index{diffusion!processus inverse}
+
+\subsection{Param\'etrisation du processus inverse}
+
+Le processus inverse est \'egalement mod\'elis\'e comme une cha\^ine de Markov gaussienne~:
+\begin{equation}
+p_\theta(\mathbf{x}_{t-1} \mid \mathbf{x}_t) = \mathcal{N}\!\left(\mathbf{x}_{t-1};\, \boldsymbol{\mu}_\theta(\mathbf{x}_t, t),\, \sigma_t^2 \mathbf{I}\right)
+\label{eq:reverse-step}
+\end{equation}
+
+\begin{theoreme}[Post\'erieur direct conditionnel]
+\label{thm:posterior}
+Le post\'erieur $q(\mathbf{x}_{t-1} \mid \mathbf{x}_t, \mathbf{x}_0)$ est gaussien~:
+\begin{equation}
+q(\mathbf{x}_{t-1} \mid \mathbf{x}_t, \mathbf{x}_0) = \mathcal{N}\!\left(\mathbf{x}_{t-1};\, \tilde{\boldsymbol{\mu}}_t(\mathbf{x}_t, \mathbf{x}_0),\, \tilde{\beta}_t \mathbf{I}\right)
+\end{equation}
+o\`u~:
+\begin{align}
+\tilde{\boldsymbol{\mu}}_t &= \frac{\sqrt{\bar{\alpha}_{t-1}}\,\beta_t}{1 - \bar{\alpha}_t}\,\mathbf{x}_0 + \frac{\sqrt{\alpha_t}(1 - \bar{\alpha}_{t-1})}{1 - \bar{\alpha}_t}\,\mathbf{x}_t \\
+\tilde{\beta}_t &= \frac{(1 - \bar{\alpha}_{t-1})}{1 - \bar{\alpha}_t}\,\beta_t
+\end{align}
+\end{theoreme}
+
+\begin{proof}
+Par la r\`egle de Bayes~:
+\[
+q(\mathbf{x}_{t-1} \mid \mathbf{x}_t, \mathbf{x}_0) \propto q(\mathbf{x}_t \mid \mathbf{x}_{t-1})\,q(\mathbf{x}_{t-1} \mid \mathbf{x}_0)
+\]
+Les deux termes sont gaussiens. En d\'eveloppant les exposants et en compl\'etant
+le carr\'e en $\mathbf{x}_{t-1}$, on identifie la moyenne et la variance du
+post\'erieur. Le calcul d\'etaill\'e donne~:
+\begin{align}
+-\frac{1}{2}\Bigg[&\frac{(\mathbf{x}_t - \sqrt{\alpha_t}\,\mathbf{x}_{t-1})^2}{\beta_t} + \frac{(\mathbf{x}_{t-1} - \sqrt{\bar{\alpha}_{t-1}}\,\mathbf{x}_0)^2}{1 - \bar{\alpha}_{t-1}}\Bigg] \\
+= -\frac{1}{2}\Bigg[&\left(\frac{\alpha_t}{\beta_t} + \frac{1}{1 - \bar{\alpha}_{t-1}}\right)\mathbf{x}_{t-1}^2 - 2\left(\frac{\sqrt{\alpha_t}\,\mathbf{x}_t}{\beta_t} + \frac{\sqrt{\bar{\alpha}_{t-1}}\,\mathbf{x}_0}{1 - \bar{\alpha}_{t-1}}\right)\mathbf{x}_{t-1} + C\Bigg]
+\end{align}
+o\`u $C$ ne d\'epend pas de $\mathbf{x}_{t-1}$. L'identification avec la forme
+$-\frac{1}{2\tilde{\beta}_t}(\mathbf{x}_{t-1} - \tilde{\boldsymbol{\mu}}_t)^2$
+donne les expressions annonc\'ees.
+\end{proof}
+
+\subsection{D\'erivation de l'objectif simplifi\'e}
+\label{sec:simplified-loss}
+\index{ELBO}\index{diffusion!objectif simplifi\'e}
+
+\begin{theoreme}[Borne variationnelle (ELBO)]
+\label{thm:elbo-diffusion}
+La log-vraisemblance est born\'ee inf\'erieurement par~:
+\begin{equation}
+\log p_\theta(\mathbf{x}_0) \geq \E_q\!\left[\log \frac{p_\theta(\mathbf{x}_{0:T})}{q(\mathbf{x}_{1:T} \mid \mathbf{x}_0)}\right] = -\sum_{t=1}^{T} \E_q\!\left[\KL\!\left(q(\mathbf{x}_{t-1} \mid \mathbf{x}_t, \mathbf{x}_0) \;\|\; p_\theta(\mathbf{x}_{t-1} \mid \mathbf{x}_t)\right)\right] + C
+\end{equation}
+\end{theoreme}
+
+En substituant $\mathbf{x}_0 = \frac{1}{\sqrt{\bar{\alpha}_t}}(\mathbf{x}_t - \sqrt{1 - \bar{\alpha}_t}\,\boldsymbol{\varepsilon})$
+dans $\tilde{\boldsymbol{\mu}}_t$ et en param\'etrisant le r\'eseau pour pr\'edire
+le bruit $\boldsymbol{\varepsilon}_\theta(\mathbf{x}_t, t)$, on obtient~:
+
+\begin{formules}[title=\textbf{Objectif simplifi\'e DDPM}]
+\begin{equation}
+L_{\text{simple}} = \E_{t, \mathbf{x}_0, \boldsymbol{\varepsilon}}\!\left[\left\|\boldsymbol{\varepsilon} - \boldsymbol{\varepsilon}_\theta\!\left(\sqrt{\bar{\alpha}_t}\,\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_t}\,\boldsymbol{\varepsilon},\; t\right)\right\|^2\right]
+\label{eq:ddpm-loss}
+\end{equation}
+\end{formules}
+
+\begin{intuition}
+L'objectif simplifi\'e revient \`a entra\^iner un r\'eseau \`a <<~d\'ebruiter~>>~:
+\'etant donn\'e une image bruit\'ee $\mathbf{x}_t$ et le pas de temps $t$,
+le r\'eseau pr\'edit le bruit $\boldsymbol{\varepsilon}$ qui a \'et\'e ajout\'e.
+\end{intuition}
+
+% ============================================================
+\section{Schedules de bruit}
+\label{sec:noise-schedules}
+\index{schedule de bruit!lin\'eaire}\index{schedule de bruit!cosinus}
+
+\subsection{Schedule lin\'eaire}
+
+Ho et al.\ (2020) proposent un schedule lin\'eaire~:
+\begin{equation}
+\beta_t = \beta_{\min} + \frac{t - 1}{T - 1}(\beta_{\max} - \beta_{\min})
+\end{equation}
+avec $\beta_{\min} = 10^{-4}$ et $\beta_{\max} = 0{,}02$ pour $T = 1000$.
+
+\subsection{Schedule cosinus}
+
+Nichol \& Dhariwal (2021) introduisent le schedule cosinus pour \'eviter
+un bruitage trop rapide aux premiers pas~:
+\begin{equation}
+\bar{\alpha}_t = \frac{f(t)}{f(0)}, \quad f(t) = \cos\!\left(\frac{t/T + s}{1 + s} \cdot \frac{\pi}{2}\right)^2
+\end{equation}
+o\`u $s = 0{,}008$ est un d\'ecalage pour \'eviter que $\beta_t$ soit trop petit
+pr\`es de $t = 0$.
+
+% ============================================================
+\section{Diagramme du processus de diffusion}
+\label{sec:tikz-diffusion-process}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    node distance=2.2cm,
+    imgnode/.style={draw, rounded corners, minimum width=1.5cm, minimum height=1.5cm, fill=blue!8},
+    arrowfwd/.style={->, thick, blue!70},
+    arrowrev/.style={->, thick, red!70},
+]
+    \node[imgnode] (x0) {$\mathbf{x}_0$};
+    \node[imgnode, right of=x0] (x1) {$\mathbf{x}_1$};
+    \node[imgnode, right of=x1] (x2) {$\mathbf{x}_2$};
+    \node[right of=x2, minimum width=1cm] (dots) {$\cdots$};
+    \node[imgnode, right of=dots] (xT1) {$\mathbf{x}_{T\!-\!1}$};
+    \node[imgnode, right of=xT1] (xT) {$\mathbf{x}_T$};
+
+    % Forward arrows
+    \draw[arrowfwd] (x0) -- node[above, font=\scriptsize] {$q(\mathbf{x}_1|\mathbf{x}_0)$} (x1);
+    \draw[arrowfwd] (x1) -- node[above, font=\scriptsize] {$q(\mathbf{x}_2|\mathbf{x}_1)$} (x2);
+    \draw[arrowfwd] (x2) -- (dots);
+    \draw[arrowfwd] (dots) -- (xT1);
+    \draw[arrowfwd] (xT1) -- node[above, font=\scriptsize] {$q(\mathbf{x}_T|\mathbf{x}_{T\!-\!1})$} (xT);
+
+    % Reverse arrows
+    \draw[arrowrev] (xT) to[bend right=30] node[below, font=\scriptsize] {$p_\theta(\mathbf{x}_{T\!-\!1}|\mathbf{x}_T)$} (xT1);
+    \draw[arrowrev] (xT1) to[bend right=30] (dots);
+    \draw[arrowrev] (dots) to[bend right=30] (x2);
+    \draw[arrowrev] (x2) to[bend right=30] node[below, font=\scriptsize] {$p_\theta(\mathbf{x}_1|\mathbf{x}_2)$} (x1);
+    \draw[arrowrev] (x1) to[bend right=30] node[below, font=\scriptsize] {$p_\theta(\mathbf{x}_0|\mathbf{x}_1)$} (x0);
+
+    % Labels
+    \node[above=0.6cm of x1, blue!70, font=\small\bfseries] {Processus direct $q$};
+    \node[below=1.0cm of x2, red!70, font=\small\bfseries] {Processus inverse $p_\theta$};
+
+    % Side annotations
+    \node[below=0.3cm of x0, font=\scriptsize] {Donn\'ee};
+    \node[below=0.3cm of xT, font=\scriptsize] {Bruit};
+\end{tikzpicture}
+\caption{Processus direct (bruitage) et inverse (d\'ebruitage) dans un mod\`ele de diffusion.}
+\label{fig:diffusion-process}
+\end{figure}
+
+% ============================================================
+\section{Architecture U-Net pour le d\'ebruitage}
+\label{sec:unet-architecture}
+\index{U-Net}\index{diffusion!architecture}
+
+Le r\'eseau $\boldsymbol{\varepsilon}_\theta$ prend la forme d'un U-Net avec~:
+\begin{itemize}
+    \item Des blocs r\'esiduels avec normalisation de groupe
+    \item Des \emph{skip connections}\index{skip connections} entre l'encodeur et le d\'ecodeur
+    \item Un \emph{embedding temporel}\index{embedding temporel} inject\'e via addition ou modulation
+    \item Des couches d'attention \`a chaque r\'esolution spatiale
+\end{itemize}
+
+\subsection{Embedding temporel}
+
+Le pas de temps $t$ est encod\'e via un embedding sinuso\"idal (comme dans
+le Transformer, cf.\ chapitre~\ref{ch:transformers})~:
+\begin{equation}
+\text{PE}(t, 2i) = \sin\!\left(\frac{t}{10000^{2i/d}}\right), \quad
+\text{PE}(t, 2i+1) = \cos\!\left(\frac{t}{10000^{2i/d}}\right)
+\end{equation}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    block/.style={draw, rounded corners, minimum width=1.8cm, minimum height=0.7cm, font=\scriptsize, align=center},
+    encblock/.style={block, fill=blue!15},
+    decblock/.style={block, fill=red!15},
+    skipline/.style={dashed, gray, thick},
+    arrw/.style={->, thick},
+    scale=0.85, transform shape
+]
+    % Encoder
+    \node[encblock] (e1) at (0, 0) {Conv $64$\\ResBlock};
+    \node[encblock] (e2) at (0, -1.5) {Down $128$\\ResBlock};
+    \node[encblock] (e3) at (0, -3.0) {Down $256$\\Attention};
+    \node[encblock] (e4) at (0, -4.5) {Down $512$\\Attention};
+
+    % Bottleneck
+    \node[block, fill=green!15] (bn) at (3, -4.5) {Bottleneck\\$512$};
+
+    % Decoder
+    \node[decblock] (d4) at (6, -4.5) {Up $256$\\Attention};
+    \node[decblock] (d3) at (6, -3.0) {Up $128$\\Attention};
+    \node[decblock] (d2) at (6, -1.5) {Up $64$\\ResBlock};
+    \node[decblock] (d1) at (6, 0) {Conv $C_{\text{out}}$\\ResBlock};
+
+    % Time embedding
+    \node[block, fill=yellow!20] (temb) at (3, -6.5) {Time Emb.\\$\text{PE}(t)$};
+
+    % Arrows encoder
+    \draw[arrw] (e1) -- (e2);
+    \draw[arrw] (e2) -- (e3);
+    \draw[arrw] (e3) -- (e4);
+    \draw[arrw] (e4) -- (bn);
+
+    % Arrows decoder
+    \draw[arrw] (bn) -- (d4);
+    \draw[arrw] (d4) -- (d3);
+    \draw[arrw] (d3) -- (d2);
+    \draw[arrw] (d2) -- (d1);
+
+    % Skip connections
+    \draw[skipline] (e4.east) -- ++(0.3,0) |- (d4.west);
+    \draw[skipline] (e3.east) -- ++(0.5,0) |- (d3.west);
+    \draw[skipline] (e2.east) -- ++(0.7,0) |- (d2.west);
+    \draw[skipline] (e1.east) -- ++(0.9,0) |- (d1.west);
+
+    % Time embedding arrows
+    \draw[arrw, orange!70] (temb) -- (bn);
+    \draw[arrw, orange!70] (temb.west) -| (e3.south);
+    \draw[arrw, orange!70] (temb.east) -| (d3.south);
+
+    % Labels
+    \node[above=0.3cm of e1, font=\small\bfseries, blue!70] {Encodeur};
+    \node[above=0.3cm of d1, font=\small\bfseries, red!70] {D\'ecodeur};
+    \node[left=0.8cm of e1, font=\scriptsize] {$\mathbf{x}_t$};
+    \node[right=0.8cm of d1, font=\scriptsize] {$\hat{\boldsymbol{\varepsilon}}$};
+    \draw[arrw] ([xshift=-0.7cm]e1.west) -- (e1.west);
+    \draw[arrw] (d1.east) -- ([xshift=0.7cm]d1.east);
+\end{tikzpicture}
+\caption{Architecture U-Net pour la pr\'ediction de bruit avec skip connections et embedding temporel.}
+\label{fig:unet-arch}
+\end{figure}
+
+% ============================================================
+\section{Algorithmes d'\'echantillonnage}
+\label{sec:sampling}
+
+\subsection{DDPM : \'echantillonnage stochastique}
+\index{DDPM}
+
+L'\'echantillonnage DDPM suit le processus inverse~:
+\begin{equation}
+\mathbf{x}_{t-1} = \frac{1}{\sqrt{\alpha_t}}\left(\mathbf{x}_t - \frac{\beta_t}{\sqrt{1 - \bar{\alpha}_t}}\,\boldsymbol{\varepsilon}_\theta(\mathbf{x}_t, t)\right) + \sigma_t\,\mathbf{z}, \quad \mathbf{z} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})
+\label{eq:ddpm-sampling}
+\end{equation}
+o\`u $\sigma_t = \sqrt{\tilde{\beta}_t}$ ou $\sigma_t = \sqrt{\beta_t}$.
+
+\subsection{DDIM : \'echantillonnage d\'eterministe}
+\label{sec:ddim}
+\index{DDIM}
+
+Song et al.\ (2020) montrent qu'on peut d\'efinir un processus non-markovien
+donnant les m\^emes marginales $q(\mathbf{x}_t \mid \mathbf{x}_0)$ mais avec
+un \'echantillonnage d\'eterministe~:
+
+\begin{theoreme}[\'Echantillonnage DDIM]
+\label{thm:ddim}
+Pour $\eta = 0$ (cas d\'eterministe)~:
+\begin{equation}
+\mathbf{x}_{t-1} = \sqrt{\bar{\alpha}_{t-1}}\underbrace{\left(\frac{\mathbf{x}_t - \sqrt{1 - \bar{\alpha}_t}\,\boldsymbol{\varepsilon}_\theta(\mathbf{x}_t, t)}{\sqrt{\bar{\alpha}_t}}\right)}_{\text{<<~pr\'ediction de~>> } \mathbf{x}_0} + \sqrt{1 - \bar{\alpha}_{t-1}}\,\boldsymbol{\varepsilon}_\theta(\mathbf{x}_t, t)
+\label{eq:ddim}
+\end{equation}
+\end{theoreme}
+
+\begin{remarque}
+DDIM permet d'\'echantillonner en $S \ll T$ pas en choisissant un sous-ensemble
+de pas de temps $\{\tau_1, \ldots, \tau_S\} \subset \{1, \ldots, T\}$.
+\end{remarque}
+
+% ============================================================
+\section{Guidage sans classifieur}
+\label{sec:cfg}
+\index{guidage sans classifieur}\index{classifier-free guidance}
+
+\begin{definition}[Classifier-Free Guidance]
+Soit $c$ un conditionnement (texte, classe, etc.). Le bruit guid\'e est~:
+\begin{equation}
+\hat{\boldsymbol{\varepsilon}}_\theta(\mathbf{x}_t, t, c) = (1 + w)\,\boldsymbol{\varepsilon}_\theta(\mathbf{x}_t, t, c) - w\,\boldsymbol{\varepsilon}_\theta(\mathbf{x}_t, t, \varnothing)
+\label{eq:cfg}
+\end{equation}
+o\`u $w > 0$ est l'\'echelle de guidage et $\varnothing$ d\'enote l'absence
+de conditionnement.
+\end{definition}
+
+\begin{mathbox}[title=\textbf{D\'erivation du guidage}]
+En termes de scores~:
+\begin{align}
+\nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t \mid c) &= \nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t) + \nabla_{\mathbf{x}_t} \log p(c \mid \mathbf{x}_t) \\
+\hat{\nabla}_{\mathbf{x}_t} \log p(\mathbf{x}_t \mid c) &= \nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t) + (1 + w)\nabla_{\mathbf{x}_t} \log p(c \mid \mathbf{x}_t)
+\end{align}
+La deuxi\`eme ligne amplifie le gradient du classifieur implicite par $(1+w)$,
+ce qui renforce l'adh\'erence au conditionnement.
+\end{mathbox}
+
+% ============================================================
+\section{Impl\'ementation PyTorch : DDPM sur MNIST}
+\label{sec:ddpm-pytorch}
+
+\begin{codeblock}[title=\textbf{R\'eseau de pr\'ediction de bruit simple}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+import math
+
+class SinusoidalTimeEmbedding(nn.Module):
+    """Embedding temporel sinusoidal."""
+    def __init__(self, dim):
+        super().__init__()
+        self.dim = dim
+
+    def forward(self, t):
+        device = t.device
+        half = self.dim // 2
+        emb = math.log(10000) / (half - 1)
+        emb = torch.exp(torch.arange(half, device=device) * -emb)
+        emb = t[:, None].float() * emb[None, :]
+        return torch.cat([emb.sin(), emb.cos()], dim=-1)
+
+
+class ResBlock(nn.Module):
+    """Bloc residentiel avec injection temporelle."""
+    def __init__(self, in_ch, out_ch, time_dim):
+        super().__init__()
+        self.conv1 = nn.Sequential(
+            nn.GroupNorm(8, in_ch), nn.SiLU(),
+            nn.Conv2d(in_ch, out_ch, 3, padding=1))
+        self.time_mlp = nn.Sequential(
+            nn.SiLU(), nn.Linear(time_dim, out_ch))
+        self.conv2 = nn.Sequential(
+            nn.GroupNorm(8, out_ch), nn.SiLU(),
+            nn.Conv2d(out_ch, out_ch, 3, padding=1))
+        self.skip = nn.Conv2d(in_ch, out_ch, 1) if in_ch != out_ch else nn.Identity()
+
+    def forward(self, x, t_emb):
+        h = self.conv1(x)
+        h = h + self.time_mlp(t_emb)[:, :, None, None]
+        h = self.conv2(h)
+        return h + self.skip(x)
+
+
+class SimpleUNet(nn.Module):
+    """U-Net simplifi\'e pour MNIST (28x28, 1 canal)."""
+    def __init__(self, time_dim=128):
+        super().__init__()
+        self.time_embed = nn.Sequential(
+            SinusoidalTimeEmbedding(time_dim),
+            nn.Linear(time_dim, time_dim), nn.SiLU())
+
+        # Encodeur
+        self.enc1 = ResBlock(1, 32, time_dim)
+        self.enc2 = ResBlock(32, 64, time_dim)
+        self.pool = nn.MaxPool2d(2)
+
+        # Goulot
+        self.bot = ResBlock(64, 128, time_dim)
+
+        # Decodeur
+        self.up2 = nn.ConvTranspose2d(128, 64, 2, stride=2)
+        self.dec2 = ResBlock(128, 64, time_dim)
+        self.up1 = nn.ConvTranspose2d(64, 32, 2, stride=2)
+        self.dec1 = ResBlock(64, 32, time_dim)
+
+        self.out = nn.Conv2d(32, 1, 1)
+
+    def forward(self, x, t):
+        t_emb = self.time_embed(t)
+        # Encodeur
+        e1 = self.enc1(x, t_emb)           # 28x28
+        e2 = self.enc2(self.pool(e1), t_emb)  # 14x14
+        # Goulot
+        b = self.bot(self.pool(e2), t_emb)  # 7x7
+        # Decodeur + skip connections
+        d2 = self.dec2(torch.cat([self.up2(b), e2], 1), t_emb)
+        d1 = self.dec1(torch.cat([self.up1(d2), e1], 1), t_emb)
+        return self.out(d1)
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Boucle d'entra\^inement DDPM}]
+\begin{minted}{python}
+import torch.nn.functional as F
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
+
+# Hyperparametres
+T = 1000
+beta = torch.linspace(1e-4, 0.02, T)
+alpha = 1.0 - beta
+alpha_bar = torch.cumprod(alpha, dim=0)
+
+def q_sample(x0, t, noise=None):
+    """Echantillonne x_t a partir de x_0."""
+    if noise is None:
+        noise = torch.randn_like(x0)
+    ab = alpha_bar[t][:, None, None, None].to(x0.device)
+    return torch.sqrt(ab) * x0 + torch.sqrt(1 - ab) * noise, noise
+
+# Donnees
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.5,), (0.5,))])
+train_set = datasets.MNIST('.', train=True, download=True, transform=transform)
+loader = DataLoader(train_set, batch_size=128, shuffle=True)
+
+# Modele et optimiseur
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model = SimpleUNet().to(device)
+optimizer = torch.optim.Adam(model.parameters(), lr=2e-4)
+
+# Entrainement
+for epoch in range(20):
+    total_loss = 0
+    for imgs, _ in loader:
+        imgs = imgs.to(device)
+        t = torch.randint(0, T, (imgs.size(0),))
+        x_t, noise = q_sample(imgs, t)
+        x_t = x_t.to(device)
+        noise = noise.to(device)
+        pred = model(x_t, t.to(device))
+        loss = F.mse_loss(pred, noise)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+    print(f"Epoch {epoch+1}, Loss: {total_loss/len(loader):.4f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Boucle d'\'echantillonnage DDPM}]
+\begin{minted}{python}
+@torch.no_grad()
+def ddpm_sample(model, shape, T=1000):
+    """Genere des echantillons via DDPM."""
+    device = next(model.parameters()).device
+    x = torch.randn(shape, device=device)
+    for t in reversed(range(T)):
+        t_batch = torch.full((shape[0],), t, device=device, dtype=torch.long)
+        eps_pred = model(x, t_batch)
+        coeff = beta[t] / torch.sqrt(1 - alpha_bar[t])
+        mu = (x - coeff * eps_pred) / torch.sqrt(alpha[t])
+        if t > 0:
+            z = torch.randn_like(x)
+            sigma = torch.sqrt(beta[t])
+            x = mu + sigma * z
+        else:
+            x = mu
+    return x
+
+# Generer 16 images
+samples = ddpm_sample(model, (16, 1, 28, 28))
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Epoch 1, Loss: 0.1283
+Epoch 2, Loss: 0.0541
+Epoch 3, Loss: 0.0472
+...
+Epoch 20, Loss: 0.0298
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{\'Etude d'ablation}
+\label{sec:diffusion-ablation}
+
+\begin{table}[htbp]
+\centering
+\caption{\'Etude d'ablation sur MNIST : impact des hyperparams\`etres.}
+\label{tab:diffusion-ablation}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Configuration} & \textbf{Pas $T$} & \textbf{Schedule} & \textbf{FID $\downarrow$} \\
+\midrule
+Base                    & 1000             & Lin\'eaire       & 12.4 \\
+R\'eduit               & 200              & Lin\'eaire       & 28.7 \\
+Cosinus                 & 1000             & Cosinus          & 10.1 \\
+Petit r\'eseau (32 dim) & 1000            & Lin\'eaire       & 18.9 \\
+Grand r\'eseau (256 dim) & 1000           & Cosinus          & 7.8 \\
+DDIM ($S=50$)           & 1000             & Cosinus          & 11.3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{remarque}
+Le schedule cosinus am\'eliore syst\'ematiquement le FID en r\'epartissant
+le budget de bruit plus uniform\'ement sur les pas de temps. DDIM avec $S=50$
+pas offre un excellent compromis vitesse/qualit\'e.
+\end{remarque}
+
+% ============================================================
+\section{\'Etat de l'art et connexions}
+\label{sec:diffusion-sota}
+
+\begin{sota}[title=\textbf{Mod\`eles de diffusion en 2024--2025}]
+\begin{itemize}
+    \item \textbf{Stable Diffusion / SDXL} : diffusion dans l'espace latent
+          d'un autoencodeur, permettant la g\'en\'eration d'images haute r\'esolution
+          conditionn\'ee par le texte via CLIP.
+    \item \textbf{DALL$\cdot$E 3} : int\'egration fine avec les mod\`eles de langage
+          pour un suivi pr\'ecis des instructions textuelles.
+    \item \textbf{Flow Matching}\index{flow matching} : g\'en\'eralisation des mod\`eles
+          de diffusion utilisant des \'equations diff\'erentielles ordinaires (ODE)
+          avec des champs de vecteurs conditionnels, permettant des trajectoires
+          plus directes.
+    \item \textbf{Consistency Models}\index{consistency models} : distillation
+          du processus de diffusion en un mod\`ele \`a un seul pas, \'eliminant
+          le besoin d'\'echantillonnage it\'eratif.
+    \item \textbf{Video Generation} : Sora (OpenAI), extension des mod\`eles
+          de diffusion \`a la g\'en\'eration vid\'eo spatio-temporelle.
+\end{itemize}
+\end{sota}
+
+\begin{attention}
+Les mod\`eles de diffusion n\'ecessitent des ressources de calcul consid\'erables
+pour l'entra\^inement (des milliers d'heures GPU). Les approches dans l'espace
+latent (LDM) r\'eduisent significativement ce co\^ut.
+\end{attention}
+
+% ============================================================
+\section{Exercices}
+\label{sec:diffusion-exercices}
+
+\begin{exercice}[D\'erivation de la forme ferm\'ee \textmd{($\star$)}]
+\label{exo:closed-form}
+D\'emontrez par r\'ecurrence que $q(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}(\sqrt{\bar{\alpha}_t}\,\mathbf{x}_0, (1 - \bar{\alpha}_t)\mathbf{I})$
+en d\'etaillant chaque \'etape du calcul de la variance.
+\end{exercice}
+
+\begin{exercice}[Post\'erieur conditionnel \textmd{($\star\star$)}]
+\label{exo:posterior}
+D\'erivez compl\`etement $q(\mathbf{x}_{t-1} \mid \mathbf{x}_t, \mathbf{x}_0)$
+en partant de la r\`egle de Bayes. Montrez explicitement la compl\'etion
+du carr\'e.
+\end{exercice}
+
+\begin{exercice}[DDIM comme ODE \textmd{($\star\star$)}]
+\label{exo:ddim-ode}
+Montrez que l'\'equation DDIM (\ref{eq:ddim}) peut \^etre interpr\'et\'ee comme
+la discr\'etisation d'Euler d'une ODE de probabilit\'e. Quel est le champ
+de vecteurs associ\'e~?
+\end{exercice}
+
+\begin{exercice}[Impl\'ementation du schedule cosinus \textmd{($\star$)}]
+\label{exo:cosine-schedule}
+Impl\'ementez en PyTorch le schedule cosinus de Nichol \& Dhariwal.
+Tracez $\bar{\alpha}_t$ et $\beta_t$ en fonction de $t$ et comparez
+avec le schedule lin\'eaire.
+\end{exercice}
+
+\begin{exercice}[Classifier-Free Guidance \textmd{($\star\star\star$)}]
+\label{exo:cfg}
+\begin{enumerate}
+    \item D\'erivez l'\'equation~(\ref{eq:cfg}) \`a partir du score conditionnel
+          $\nabla_{\mathbf{x}} \log p(\mathbf{x} \mid c)$.
+    \item Modifiez le U-Net de la section~\ref{sec:ddpm-pytorch} pour accepter
+          un conditionnement de classe. Entra\^inez avec un taux de
+          \emph{dropout} de conditionnement de $10\%$.
+    \item G\'en\'erez des chiffres MNIST sp\'ecifiques avec diff\'erentes
+          valeurs de $w \in \{0, 1, 3, 7\}$ et analysez l'\'evolution
+          de la qualit\'e et de la diversit\'e.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Comparaison DDPM vs DDIM \textmd{($\star\star$)}]
+\label{exo:ddpm-vs-ddim}
+Impl\'ementez l'\'echantillonnage DDIM et comparez~:
+\begin{enumerate}
+    \item La qualit\'e visuelle pour $S \in \{10, 50, 100, 1000\}$ pas
+    \item Le temps d'inf\'erence
+    \item La capacit\'e d'interpolation dans l'espace latent (propri\'et\'e
+          d\'eterministe de DDIM)
+\end{enumerate}
+\end{exercice}

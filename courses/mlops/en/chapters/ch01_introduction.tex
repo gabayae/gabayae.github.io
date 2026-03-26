@@ -1,0 +1,450 @@
+% ============================================================
+\chapter{Introduction to MLOps --- From Notebook to Production}
+\label{ch:introduction}
+\index{MLOps!introduction}
+% ============================================================
+
+\section{What is MLOps?}
+\label{sec:mlops-definition}
+
+\textbf{MLOps}\index{MLOps} refers to the set of practices, tools, and
+cultural principles aimed at deploying and maintaining machine learning
+models in production reliably and efficiently. The term is a portmanteau
+of \emph{Machine Learning} and \emph{Operations}, by analogy with
+\emph{DevOps}\index{DevOps} from software engineering.
+
+\begin{definition}[MLOps]
+MLOps is the discipline that applies DevOps principles (continuous
+integration, continuous deployment, monitoring, automation) to the lifecycle
+of machine learning models, adding specificities related to data,
+experiments, and model drift.
+\end{definition}
+
+\subsection{DevOps vs MLOps}
+
+Traditional DevOps manages code. MLOps manages code \textbf{and} data
+\textbf{and} models---three artifacts whose interaction creates additional
+complexity.
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, rounded corners, minimum width=3cm,
+    minimum height=1.5cm, align=center, font=\small},
+  arr/.style={-{Stealth[length=2.5mm]}, thick}
+]
+  \node[box, fill=blue!10] (devops) {\textbf{DevOps}\\Code};
+  \node[box, fill=green!10, right=3cm of devops] (mlops) {\textbf{MLOps}\\Code + Data\\+ Models};
+
+  \node[above=1.5cm of devops, font=\small\bfseries] (shared) {Shared Practices};
+  \node[below=0.3cm of shared, font=\scriptsize, align=center] {CI/CD, containerization,\\monitoring, IaC};
+
+  \draw[arr, steelblue] (shared.south) -- (devops.north);
+  \draw[arr, steelblue] (shared.south) -- (mlops.north);
+
+  \node[below=0.8cm of mlops, font=\scriptsize, align=center, text=deepred] {+ Data versioning\\+ Experiment tracking\\+ Drift detection\\+ Feature engineering};
+\end{tikzpicture}
+\end{center}
+
+\begin{remark}
+The fundamental difference is that the behaviour of an ML system depends
+not only on the code but also on the data. The same code trained on
+different data produces a different model. This requires versioning data
+just like code.
+\end{remark}
+
+\section{MLOps Maturity Levels}
+\label{sec:maturity-levels}
+\index{MLOps!maturity levels}
+
+Google proposed three maturity levels for ML systems in production:
+
+\begin{center}
+\begin{tabular}{@{}llp{7cm}@{}}
+\toprule
+\textbf{Level} & \textbf{Name} & \textbf{Description} \\
+\midrule
+0 & Manual & Entirely manual process. Notebooks, no pipeline. Complete
+  separation between data scientists and ops. \\
+1 & ML Pipeline & Automated training pipeline. Continuous model deployment.
+  Basic monitoring. \\
+2 & CI/CD Pipeline & CI/CD pipeline for ML code. Automated training
+  triggered by data. Automatic retraining on drift. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}
+\begin{tikzpicture}[
+  level/.style={rectangle, draw, rounded corners, minimum width=10cm,
+    minimum height=1.2cm, align=center, font=\small},
+  arr/.style={-{Stealth[length=2.5mm]}, thick, steelblue}
+]
+  \node[level, fill=red!10] (l0) {\textbf{Level 0: Manual}\\
+    Notebooks $\to$ export model $\to$ manual deployment};
+  \node[level, fill=yellow!10, above=0.5cm of l0] (l1) {\textbf{Level 1: ML Pipeline}\\
+    Automated pipeline $\to$ continuous deployment $\to$ monitoring};
+  \node[level, fill=green!10, above=0.5cm of l1] (l2) {\textbf{Level 2: CI/CD + ML}\\
+    Code + data CI/CD $\to$ auto retraining $\to$ A/B testing};
+
+  \draw[arr] (l0) -- (l1);
+  \draw[arr] (l1) -- (l2);
+\end{tikzpicture}
+\end{center}
+
+\section{The ML Lifecycle}
+\label{sec:ml-lifecycle}
+\index{ML lifecycle}
+
+An ML project in production goes through several phases that form a cycle
+(not a linear sequence):
+
+\begin{enumerate}
+  \item \textbf{Problem definition}: what is the business objective? What
+    is the success criterion?
+  \item \textbf{Data collection and preparation}: acquisition, cleaning,
+    labelling, feature engineering.
+  \item \textbf{Experimentation}: model selection, hyperparameter
+    optimization, evaluation.
+  \item \textbf{Pipeline development}: transforming the notebook into
+    modular, tested, versioned code.
+  \item \textbf{Deployment}: putting the model into production (API,
+    batch, edge).
+  \item \textbf{Monitoring}: tracking performance, detecting drift, alerts.
+  \item \textbf{Retraining}: updating the model when data or performance
+    evolve.
+\end{enumerate}
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance=1.8cm,
+  phase/.style={circle, draw, minimum size=1.6cm, align=center,
+    font=\scriptsize\bfseries, inner sep=1pt},
+  arr/.style={-{Stealth[length=2mm]}, thick, steelblue}
+]
+  \node[phase, fill=blue!15] (prob) {Problem};
+  \node[phase, fill=blue!10, right=1.5cm of prob] (data) {Data};
+  \node[phase, fill=green!10, below right=1cm and 1cm of data] (exp) {Experim.};
+  \node[phase, fill=green!15, below=1.5cm of exp] (pipe) {Pipeline};
+  \node[phase, fill=orange!10, below left=1cm and 1cm of pipe] (deploy) {Deploy};
+  \node[phase, fill=red!10, left=1.5cm of deploy] (monitor) {Monitor};
+  \node[phase, fill=red!15, above left=1cm and 1cm of monitor] (retrain) {Retrain};
+
+  \draw[arr] (prob) -- (data);
+  \draw[arr] (data) -- (exp);
+  \draw[arr] (exp) -- (pipe);
+  \draw[arr] (pipe) -- (deploy);
+  \draw[arr] (deploy) -- (monitor);
+  \draw[arr] (monitor) -- (retrain);
+  \draw[arr] (retrain) -- (data);
+\end{tikzpicture}
+\end{center}
+
+\section{Technical Debt in ML}
+\label{sec:technical-debt}
+\index{technical debt}
+
+Sculley et al.~\cite{sculley2015} identified that ML code represents only a
+small fraction of a production ML system. The rest is infrastructure:
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, minimum height=0.8cm, align=center,
+    font=\scriptsize}
+]
+  \node[box, fill=black!80, text=white, minimum width=2cm] (ml) {ML Code};
+  \node[box, fill=yellow!20, minimum width=3.5cm, above=0.1cm of ml] (config) {Configuration};
+  \node[box, fill=yellow!20, minimum width=3.5cm, below=0.1cm of ml] (data) {Data Collection};
+  \node[box, fill=yellow!20, minimum width=1.5cm, left=0.1cm of ml] (feat) {Feature\\Engineering};
+  \node[box, fill=yellow!20, minimum width=1.5cm, right=0.1cm of ml] (serve) {Serving\\Infrastructure};
+  \node[box, fill=orange!20, minimum width=6.5cm, above=0.1cm of config] (monitor) {Monitoring \quad Process Tools \quad Resource Management};
+  \node[box, fill=orange!20, minimum width=6.5cm, below=0.1cm of data] (valid) {Data Verification \quad Analysis \quad Testing};
+\end{tikzpicture}
+\end{center}
+
+\begin{warning}[title=\textbf{The notebook trap}]
+Jupyter notebooks are excellent for exploration but poor for production.
+Common problems:
+\begin{itemize}
+  \item Non-linear execution (cells run out of order)
+  \item Hidden state (global variables that persist)
+  \item No unit tests
+  \item Difficult to version (large JSON files)
+  \item No modularity (functions and classes not reusable)
+\end{itemize}
+\end{warning}
+
+\section{MLOps System Architecture}
+\label{sec:mlops-architecture}
+
+A mature MLOps system includes the following components:
+
+\begin{toolbox}[title=\textbf{MLOps system components}]
+\begin{description}
+  \item[Code management] Git, GitHub/GitLab
+  \item[Data management] DVC, Delta Lake, LakeFS
+  \item[Environment management] Conda, pip, venv, Poetry
+  \item[Experiment tracking] MLflow, Weights \& Biases, Neptune
+  \item[Training pipeline] Airflow, Prefect, Kubeflow Pipelines
+  \item[Feature store] Feast, Tecton, Hopsworks
+  \item[Containerization] Docker, Kubernetes
+  \item[Serving] FastAPI, TorchServe, TensorFlow Serving, Triton
+  \item[CI/CD] GitHub Actions, GitLab CI, Jenkins
+  \item[Monitoring] Prometheus, Grafana, Evidently, WhyLabs
+\end{description}
+\end{toolbox}
+
+\section{Tutorial: From Notebook to Modular Script}
+\label{sec:notebook-to-script}
+
+\subsection{The starting notebook}
+
+Consider a typical classification notebook:
+
+\begin{codeblock}[title=\textbf{Typical notebook (anti-pattern)}]
+\begin{minted}{python}
+# Cell 1
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+# Cell 2
+df = pd.read_csv("data.csv")
+X = df.drop("target", axis=1)
+y = df["target"]
+
+# Cell 3
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# Cell 4
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+print(f"Accuracy: {accuracy_score(y_test, model.predict(X_test)):.4f}")
+\end{minted}
+\end{codeblock}
+
+\subsection{The modular script}
+
+\begin{bestpractice}[title=\textbf{Recommended project structure}]
+\begin{minted}{text}
+my_ml_project/
+  src/
+    __init__.py
+    data.py          # Loading and preprocessing
+    model.py         # Model definition
+    train.py         # Training loop
+    evaluate.py      # Evaluation metrics
+  tests/
+    test_data.py
+    test_model.py
+  configs/
+    config.yaml      # Hyperparameters
+  requirements.txt
+  Makefile
+  README.md
+\end{minted}
+\end{bestpractice}
+
+\begin{codeblock}[title=\textbf{src/data.py --- Data module}]
+\begin{minted}{python}
+"""Data loading and preprocessing module."""
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
+
+def load_data(path: str) -> pd.DataFrame:
+    """Load dataset from CSV file."""
+    df = pd.read_csv(path)
+    return df
+
+
+def split_data(
+    df: pd.DataFrame,
+    target_col: str = "target",
+    test_size: float = 0.2,
+    random_state: int = 42,
+) -> tuple:
+    """Split data into train and test sets."""
+    X = df.drop(target_col, axis=1)
+    y = df[target_col]
+    return train_test_split(
+        X, y, test_size=test_size, random_state=random_state
+    )
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{src/train.py --- Training script}]
+\begin{minted}{python}
+"""Training script with configuration."""
+import argparse
+import yaml
+import joblib
+from data import load_data, split_data
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+
+
+def train(config: dict) -> None:
+    """Train model with given configuration."""
+    df = load_data(config["data"]["path"])
+    X_train, X_test, y_train, y_test = split_data(
+        df,
+        target_col=config["data"]["target_col"],
+        test_size=config["data"]["test_size"],
+    )
+
+    model = RandomForestClassifier(**config["model"])
+    model.fit(X_train, y_train)
+
+    y_pred = model.predict(X_test)
+    acc = accuracy_score(y_test, y_pred)
+    print(f"Accuracy: {acc:.4f}")
+
+    joblib.dump(model, config["output"]["model_path"])
+    print(f"Model saved to {config['output']['model_path']}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="configs/config.yaml")
+    args = parser.parse_args()
+
+    with open(args.config) as f:
+        config = yaml.safe_load(f)
+
+    train(config)
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{configs/config.yaml}]
+\begin{minted}{yaml}
+data:
+  path: "data/dataset.csv"
+  target_col: "target"
+  test_size: 0.2
+
+model:
+  n_estimators: 100
+  max_depth: 10
+  random_state: 42
+
+output:
+  model_path: "models/rf_model.joblib"
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Makefile}]
+\begin{minted}{makefile}
+.PHONY: install train test clean
+
+install:
+	pip install -r requirements.txt
+
+train:
+	python src/train.py --config configs/config.yaml
+
+test:
+	pytest tests/ -v
+
+clean:
+	rm -rf models/*.joblib __pycache__ .pytest_cache
+\end{minted}
+\end{codeblock}
+
+\section{Best Practices and Anti-patterns}
+
+\begin{bestpractice}[title=\textbf{Fundamental principles}]
+\begin{enumerate}
+  \item \textbf{Separation of concerns}: data, model, training, evaluation
+    in separate modules.
+  \item \textbf{Externalized configuration}: hyperparameters in YAML files,
+    not hardcoded.
+  \item \textbf{Reproducibility by default}: fix random seeds, version data
+    and code.
+  \item \textbf{Automated tests}: test data loading, tensor shapes,
+    convergence on a small sample.
+  \item \textbf{Automation}: Makefile or scripts for all repetitive
+    operations.
+\end{enumerate}
+\end{bestpractice}
+
+\begin{antipattern}[title=\textbf{Absolutely avoid}]
+\begin{itemize}
+  \item Hardcoding absolute paths: \cli{/home/alice/data/train.csv}
+  \item Committing large datasets to Git
+  \item Committing secrets (API keys, passwords)
+  \item Working exclusively in notebooks without modular code
+  \item Ignoring tests because ``it's ML''
+  \item Deploying a model without monitoring
+\end{itemize}
+\end{antipattern}
+
+\section{Mini-project: Structuring an ML Project}
+\label{sec:mini-project-ch1}
+
+\begin{miniproject}[title=\textbf{Mini-project 1: From notebook to structured project}]
+\begin{enumerate}
+  \item Create the recommended directory structure.
+  \item Transform the classification notebook above into separate Python
+    modules.
+  \item Write a \file{config.yaml} file for hyperparameters.
+  \item Create a \file{Makefile} with targets \cli{install}, \cli{train},
+    \cli{test}, \cli{clean}.
+  \item Write at least two unit tests (one for data loading, one for model
+    output shape).
+  \item Verify that \cli{make train} works end-to-end.
+\end{enumerate}
+\end{miniproject}
+
+\section{Exercises}
+\label{sec:exercises-ch1}
+
+\begin{exercise}[$\bigstar$ --- Project structure]
+Create an ML project skeleton for a regression problem with the recommended
+structure. Include a \file{README.md} describing the project and a
+\file{.gitignore} adapted for ML (ignore \file{data/}, \file{models/},
+\file{*.pyc}, \file{.ipynb\_checkpoints/}).
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar$ --- Notebook refactoring]
+Take an existing Jupyter notebook (your own or a Kaggle notebook) and
+transform it into a structured project:
+\begin{enumerate}
+  \item Identify reusable functions
+  \item Create the corresponding Python modules
+  \item Externalize the configuration
+  \item Write tests for critical functions
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar\bigstar$ --- Complete project]
+Build a complete ML project for text classification (e.g., sentiment
+analysis on the IMDb dataset):
+\begin{enumerate}
+  \item Complete modular structure
+  \item YAML configuration
+  \item Unit tests with \pkg{pytest}
+  \item Training script with command-line arguments
+  \item Automatic metric reporting (precision, recall, F1)
+  \item Complete \file{Makefile}
+\end{enumerate}
+\end{exercise}
+
+\section{Cheatsheet}
+
+\begin{cheatsheet}[title=\textbf{Chapter 1 Summary}]
+\begin{tabular}{@{}p{4cm}p{8.5cm}@{}}
+\toprule
+\textbf{Concept} & \textbf{Key Point} \\
+\midrule
+MLOps & DevOps + data + models \\
+Maturity levels & 0 (manual) $\to$ 1 (pipeline) $\to$ 2 (CI/CD) \\
+Technical debt & ML code is a small fraction of the system \\
+Notebook anti-pattern & Hidden state, no tests, no modularity \\
+Project structure & \file{src/}, \file{tests/}, \file{configs/}, Makefile \\
+External config & YAML for hyperparameters \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}

@@ -1,0 +1,276 @@
+% ============================================================
+\chapter{Applications}
+\label{ch:applications}
+% ============================================================
+
+\begin{intuition}[title=\textbf{Id\'ee centrale}]
+La statistique bay\'esienne est omnipr\'esente dans les applications modernes~:
+essais cliniques, tests A/B, optimisation automatique d'hyperparam\`etres,
+r\'eseaux de neurones bay\'esiens, et de nombreux domaines scientifiques.
+Ce chapitre illustre la puissance du paradigme bay\'esien sur des probl\`emes
+concrets.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Essais cliniques bay\'esiens}
+% ------------------------------------------------------------
+
+\begin{definition}[Essai clinique adaptatif bay\'esien]
+\index{essai clinique bay\'esien}
+Un \textbf{essai clinique adaptatif bay\'esien} est un essai o\`u la
+conception (taille d'\'echantillon, allocation des patients, crit\`eres
+d'arr\^et) est modifi\'ee en cours d'\'etude en fonction de la loi a
+posteriori des param\`etres d'efficacit\'e.
+\end{definition}
+
+\begin{exemple}
+Soit $\theta_T$ la probabilit\'e de r\'eponse au traitement et $\theta_C$
+celle du contr\^ole. On mod\'elise~:
+\[
+  \theta_T \sim \mathrm{Beta}(1, 1), \quad
+  \theta_C \sim \mathrm{Beta}(1, 1).
+\]
+Apr\`es observation de $s_T$ succ\`es sur $n_T$ patients trait\'es et $s_C$
+sur $n_C$ contr\^oles~:
+\[
+  \theta_T \mid \text{data} \sim \mathrm{Beta}(1 + s_T,\, 1 + n_T - s_T).
+\]
+On arr\^ete l'essai pour efficacit\'e si $\PP(\theta_T > \theta_C \mid \text{data}) > 0{,}99$,
+ou pour futilit\'e si $\PP(\theta_T > \theta_C + \delta \mid \text{data}) < 0{,}05$.
+\end{exemple}
+
+\begin{remarque}
+Les essais bay\'esiens adaptatifs sont approuv\'es par la FDA depuis les
+ann\'ees 2010. Ils r\'eduisent la taille d'\'echantillon n\'ecessaire de
+20 \`a 40\,\% en moyenne par rapport aux plans fixes.
+\end{remarque}
+
+\begin{minted}{python}
+import numpy as np
+from scipy.stats import beta
+
+def prob_superiority(s_T, n_T, s_C, n_C, n_samples=100000):
+    """P(theta_T > theta_C | data) par Monte Carlo."""
+    theta_T = beta.rvs(1 + s_T, 1 + n_T - s_T, size=n_samples)
+    theta_C = beta.rvs(1 + s_C, 1 + n_C - s_C, size=n_samples)
+    return np.mean(theta_T > theta_C)
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Tests A/B bay\'esiens}
+% ------------------------------------------------------------
+
+\begin{definition}[Test A/B bay\'esien]
+\index{test A/B}
+Un \textbf{test A/B bay\'esien} compare deux variantes (A et B) d'un
+produit en maintenant une distribution a posteriori sur le taux de
+conversion de chacune. La d\'ecision est prise lorsque la probabilit\'e
+qu'une variante est meilleure d\'epasse un seuil fix\'e.
+\end{definition}
+
+\begin{proposition}[Perte attendue]
+\index{perte attendue}
+La \textbf{perte attendue} en choisissant B est~:
+\[
+  \mathcal{L}_B = \E\!\bigl[\max(\theta_A - \theta_B, 0) \mid \text{data}\bigr].
+\]
+On choisit B si $\mathcal{L}_B < \epsilon$ (seuil de perte acceptable).
+Ce crit\`ere contr\^ole directement le co\^ut d'une mauvaise d\'ecision.
+\end{proposition}
+
+\begin{attention}
+Contrairement au test fr\'equentiste (p-value), le test A/B bay\'esien
+permet de \og peek \fg (regarder les donn\'ees pendant la collecte)
+sans inflation du taux d'erreur, car la loi a posteriori est
+coh\'erente \`a tout instant.
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Optimisation bay\'esienne}
+% ------------------------------------------------------------
+
+\begin{definition}[Optimisation bay\'esienne]
+\index{optimisation bay\'esienne}
+L'\textbf{optimisation bay\'esienne} cherche le minimum global d'une
+fonction co\^uteuse $f : \mathcal{X} \to \R$ en construisant un mod\`ele
+probabiliste (g\'en\'eralement un GP) de $f$ et en s\'electionnant les
+points d'\'evaluation via une \textbf{fonction d'acquisition}.
+\end{definition}
+
+\begin{theoreme}[Posterior du GP comme surrogate]
+Soit $f \sim \mathcal{GP}(0, k)$ et $\mathcal{D}_n = \{(x_i, y_i)\}_{i=1}^n$
+avec $y_i = f(x_i) + \epsilon_i$. La pr\'ediction en $x$ est~:
+\begin{align}
+  \mu_n(x) &= \mathbf{k}(x)^\top (\mathbf{K} + \sigma^2 \mathbf{I})^{-1}\mathbf{y}, \\
+  \sigma_n^2(x) &= k(x,x) - \mathbf{k}(x)^\top (\mathbf{K} + \sigma^2 \mathbf{I})^{-1}\mathbf{k}(x).
+\end{align}
+\end{theoreme}
+
+\begin{definition}[Fonctions d'acquisition]
+Les fonctions d'acquisition classiques sont~:
+\begin{itemize}
+  \item \textbf{Expected Improvement (EI)}~:
+    $\mathrm{EI}(x) = \E\!\bigl[\max(f_{\min} - f(x), 0)\bigr]$.
+  \item \textbf{Upper Confidence Bound (UCB)}~:
+    $\mathrm{UCB}(x) = \mu_n(x) - \kappa\,\sigma_n(x)$ (pour la minimisation).
+  \item \textbf{Probability of Improvement (PI)}~:
+    $\mathrm{PI}(x) = \Phi\!\left(\frac{f_{\min} - \mu_n(x)}{\sigma_n(x)}\right)$.
+\end{itemize}
+\end{definition}
+
+\begin{exemple}
+Optimisation des hyperparam\`etres d'un r\'eseau de neurones~:
+\begin{minted}{python}
+from skopt import gp_minimize
+
+def objective(params):
+    lr, dropout = params
+    model = build_model(lr=lr, dropout=dropout)
+    return -model.fit_and_evaluate(X_train, y_train, X_val, y_val)
+
+result = gp_minimize(
+    objective,
+    dimensions=[(1e-5, 1e-1, "log-uniform"),  # learning rate
+                (0.0, 0.5)],                    # dropout
+    n_calls=50,
+    random_state=42
+)
+\end{minted}
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{R\'eseaux de neurones bay\'esiens}
+% ------------------------------------------------------------
+
+\begin{definition}[R\'eseau de neurones bay\'esien (BNN)]
+\index{r\'eseau de neurones bay\'esien}
+Un \textbf{BNN} place une loi a priori $p(\mathbf{w})$ sur les poids
+$\mathbf{w}$ du r\'eseau et calcule la loi a posteriori
+$p(\mathbf{w} \mid \mathcal{D})$. La pr\'ediction est~:
+\[
+  p(y_* \mid x_*, \mathcal{D}) = \int p(y_* \mid x_*, \mathbf{w})\,
+  p(\mathbf{w} \mid \mathcal{D})\,d\mathbf{w}.
+\]
+\end{definition}
+
+\begin{remarque}
+L'int\'egrale ci-dessus est intraitable pour les r\'eseaux profonds.
+Trois approches pratiques~:
+\begin{enumerate}
+  \item \textbf{MC Dropout}~: utiliser le dropout \`a l'inf\'erence comme
+        approximation variationnelle (Gal et Ghahramani, 2016).
+  \item \textbf{Bayes by Backprop}~: inf\'erence variationnelle avec
+        r\'eparametrisation sur chaque poids.
+  \item \textbf{Ensembles profonds}~: entra\^iner $M$ r\'eseaux et moyenner
+        (approximation fr\'equentiste de l'incertitude).
+\end{enumerate}
+\end{remarque}
+
+\begin{proposition}[Incertitude \'epist\'emique vs.\ al\'eatoire]
+La variance pr\'edictive du BNN se d\'ecompose en~:
+\[
+  \underbrace{\Var_{p(\mathbf{w} \mid \mathcal{D})}\!\bigl[\E[y_* \mid x_*, \mathbf{w}]\bigr]}_{\text{\'epist\'emique}}
+  + \underbrace{\E_{p(\mathbf{w} \mid \mathcal{D})}\!\bigl[\Var[y_* \mid x_*, \mathbf{w}]\bigr]}_{\text{al\'eatoire}}.
+\]
+L'incertitude \'epist\'emique diminue avec les donn\'ees, l'al\'eatoire non.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Applications en astronomie}
+% ------------------------------------------------------------
+
+\begin{exemple}
+En cosmologie, l'estimation des param\`etres du mod\`ele $\Lambda$CDM
+(constante de Hubble $H_0$, densit\'e de mati\`ere $\Omega_m$, etc.)
+repose sur l'inf\'erence bay\'esienne appliqu\'ee aux donn\'ees du fond
+diffus cosmologique (CMB). Le logiciel \texttt{CosmoMC} utilise MCMC
+pour explorer la loi a posteriori en dimension $\sim 30$.
+\end{exemple}
+
+\begin{exemple}
+La d\'etection d'exoplan\`etes par la m\'ethode des vitesses radiales
+mod\'elise le signal comme~:
+\[
+  v(t) = \sum_{j=1}^{K} K_j \sin(2\pi t / P_j + \phi_j) + \epsilon(t),
+\]
+o\`u le nombre de plan\`etes $K$ est inconnu. La comparaison de mod\`eles
+bay\'esienne (facteur de Bayes) permet de d\'eterminer $K$.
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Applications en \'ecologie}
+% ------------------------------------------------------------
+
+\begin{exemple}
+Les mod\`eles \textbf{capture-recapture} bay\'esiens estiment la taille
+$N$ d'une population animale. Avec un prior $N \sim \mathrm{Poisson}(\lambda)$
+et des donn\'ees de recapture, on obtient un posterior sur $N$ qui quantifie
+naturellement l'incertitude, essentielle pour la gestion de la conservation.
+\end{exemple}
+
+\begin{definition}[Mod\`ele hi\'erarchique en \'ecologie]
+\index{mod\`ele hi\'erarchique}
+Les \textbf{mod\`eles hi\'erarchiques bay\'esiens} sont standard en \'ecologie
+pour mod\'eliser~:
+\begin{itemize}
+  \item la variabilit\'e entre sites (effets al\'eatoires spatiaux),
+  \item l'imperfection de la d\'etection (mod\`eles d'occupation),
+  \item les dynamiques temporelles (mod\`eles espace-\'etat).
+\end{itemize}
+Les param\`etres de chaque site $j$ partagent un hyperprior commun~:
+$\theta_j \sim p(\theta_j \mid \psi)$, $\psi \sim p(\psi)$.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Formules cl\'es}
+% ------------------------------------------------------------
+
+\begin{formules}
+\begin{align}
+  \text{EI :} \quad & \mathrm{EI}(x) = (f_{\min} - \mu_n(x))\,\Phi(z) + \sigma_n(x)\,\phi(z),
+    \quad z = \frac{f_{\min} - \mu_n(x)}{\sigma_n(x)} \\
+  \text{BNN pr\'ediction :} \quad & p(y_* \mid x_*) \approx
+    \frac{1}{M}\sum_{m=1}^M p(y_* \mid x_*, \mathbf{w}^{(m)}),
+    \quad \mathbf{w}^{(m)} \sim p(\mathbf{w} \mid \mathcal{D}) \\
+  \text{Perte A/B :} \quad & \mathcal{L}_B = \E[\max(\theta_A - \theta_B, 0) \mid \text{data}]
+\end{align}
+\end{formules}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}
+Impl\'ementer un test A/B bay\'esien avec prior Beta(1,1) pour comparer
+les taux de clic de deux pages web. Simuler des donn\'ees et tracer
+l'\'evolution de $\PP(\theta_A > \theta_B \mid \text{data})$ au fil des
+observations.
+\end{exercice}
+
+\begin{exercice}
+R\'ealiser une optimisation bay\'esienne pour trouver le minimum de la
+fonction de Branin $f(x_1, x_2)$ en utilisant un GP avec noyau Mat\'ern.
+Comparer avec une recherche al\'eatoire en termes de nombre d'\'evaluations.
+\end{exercice}
+
+\begin{exercice}
+Impl\'ementer MC Dropout sur un r\'eseau de neurones \`a deux couches cach\'ees
+pour un probl\`eme de r\'egression. Tracer la pr\'ediction moyenne et
+l'intervalle de confiance \`a 95\,\%. Observer le comportement de
+l'incertitude loin des donn\'ees d'entra\^inement.
+\end{exercice}
+
+\begin{exercice}
+Concevoir un essai clinique adaptatif bay\'esien avec les r\`egles suivantes~:
+arr\^et pour efficacit\'e si $\PP(\theta_T - \theta_C > 0.05 \mid \text{data}) > 0.95$,
+arr\^et pour futilit\'e si $\PP(\theta_T > \theta_C \mid \text{data}) < 0.2$.
+Simuler 1000 essais sous $H_0$ et sous $H_1$ et estimer les caract\'eristiques
+op\'eratoires (puissance, taux d'erreur de type I, taille d'\'echantillon moyenne).
+\end{exercice}
+
+\begin{exercice}
+Dans un probl\`eme de d\'etection d'exoplan\`etes, on compare les mod\`eles
+$M_0$ (bruit pur) et $M_1$ (une plan\`ete). Calculer le facteur de Bayes
+$\mathrm{BF}_{10}$ par int\'egration de Monte Carlo sur des donn\'ees simul\'ees.
+Discuter l'\'echelle de Jeffreys pour l'interpr\'etation.
+\end{exercice}

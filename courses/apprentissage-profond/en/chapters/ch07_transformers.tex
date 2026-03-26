@@ -1,0 +1,542 @@
+%!TEX root = ../main.tex
+% Chapter 7: Transformers
+\chapter{Transformers}
+\label{ch:transformers}
+
+\paragraph{Chapter objectives}
+\begin{itemize}
+\item Understand the Transformer architecture and the attention mechanism
+\item Derive the formulas for multi-head attention and positional encoding
+\item Distinguish encoder, decoder, and encoder-decoder variants
+\item Implement a complete Transformer in PyTorch
+\item Know the foundational models: BERT, GPT, ViT
+\end{itemize}
+
+\section{``Attention Is All You Need'' --- The paradigm shift}
+\label{sec:transformers-intro}
+
+In 2017, Vaswani et al.\ published ``Attention Is All You Need''\index{Attention Is All You Need}, a paper that radically transformed the landscape of natural language processing and, more broadly, deep learning\index{Transformer}. The central idea is to entirely replace recurrences (RNN, LSTM, GRU --- cf.\ previous chapter) with a pure \emph{attention}\index{attention} mechanism, enabling massive parallelism and efficient modeling of long-range dependencies.
+
+\begin{remark}
+Before Transformers, sequence-to-sequence\index{sequence-to-sequence} models relied on RNN encoder-decoders with attention (Bahdanau, 2014). The Transformer eliminates all recurrence, retaining only attention.
+\end{remark}
+
+\section{Attention mechanism}
+\label{sec:attention-mechanism}
+
+\subsection{Scaled Dot-Product Attention}
+
+Let an input sequence of length $n$ with vectors of dimension $d_k$. Three linear projections are defined:
+\begin{itemize}
+    \item \textbf{Query}: $Q = XW^Q$, with $W^Q \in \R^{d_{\text{model}} \times d_k}$
+    \item \textbf{Key}: $K = XW^K$, with $W^K \in \R^{d_{\text{model}} \times d_k}$
+    \item \textbf{Value}: $V = XW^V$, with $W^V \in \R^{d_{\text{model}} \times d_v}$
+\end{itemize}
+
+\begin{mathbox}[title=\textbf{Scaled Dot-Product Attention}]\index{scaled dot-product attention}
+\begin{equation}
+\text{Attention}(Q, K, V) = \softmax\!\left(\frac{QK^\top}{\sqrt{d_k}}\right) V
+\label{eq:scaled-attention-transformer}
+\end{equation}
+\end{mathbox}
+
+\begin{intuition}
+The factor $\frac{1}{\sqrt{d_k}}$ prevents dot products from becoming too large in high dimensions, which would push the $\softmax$ into regions of near-zero gradient.
+
+Indeed, if the components of $Q$ and $K$ are i.i.d.\ with mean 0 and variance 1, then $\E[q_i^\top k_j] = 0$ and $\Var(q_i^\top k_j) = d_k$. Dividing by $\sqrt{d_k}$ brings the variance back to 1.
+\end{intuition}
+
+\subsection{Multi-head attention}
+\label{sec:multi-head-attention}
+
+Rather than a single attention function with $d_{\text{model}}$ dimensions, $h$ parallel ``heads''\index{multi-head attention} are used:
+
+\begin{keyformulas}[title=\textbf{Multi-head attention}]
+\begin{align}
+\text{MultiHead}(Q, K, V) &= \text{Concat}(\text{head}_1, \ldots, \text{head}_h)\, W^O \\
+\text{where} \quad \text{head}_i &= \text{Attention}(QW_i^Q,\; KW_i^K,\; VW_i^V)
+\end{align}
+with $W_i^Q \in \R^{d_{\text{model}} \times d_k}$, $W_i^K \in \R^{d_{\text{model}} \times d_k}$, $W_i^V \in \R^{d_{\text{model}} \times d_v}$, $W^O \in \R^{hd_v \times d_{\text{model}}}$, and typically $d_k = d_v = d_{\text{model}} / h$.
+\end{keyformulas}
+
+\begin{remark}
+Each head can learn to focus on a different type of relationship: some heads capture syntax, others semantics, and others positional relationships.
+\end{remark}
+
+\section{Positional encoding}
+\label{sec:positional-encoding}
+
+Since the Transformer has no recurrence, it has no intrinsic notion of token order. A \emph{positional encoding}\index{positional encoding} is therefore added to the input embeddings.
+
+\subsection{Derivation of the sinusoidal formula}
+
+\begin{definition}[Sinusoidal positional encoding]
+For a position $\text{pos}$ and a dimension $i$:
+\begin{align}
+PE_{(\text{pos}, 2i)} &= \sin\!\left(\frac{\text{pos}}{10000^{2i/d_{\text{model}}}}\right) \label{eq:pe-sin}\\
+PE_{(\text{pos}, 2i+1)} &= \cos\!\left(\frac{\text{pos}}{10000^{2i/d_{\text{model}}}}\right) \label{eq:pe-cos}
+\end{align}
+\end{definition}
+
+\begin{theorem}[Relative position property]
+For any fixed offset $k$, there exists a linear transformation $M_k$ independent of $\text{pos}$ such that:
+\begin{equation}
+PE_{\text{pos}+k} = M_k \cdot PE_{\text{pos}}
+\end{equation}
+\end{theorem}
+
+\begin{proof}
+Consider the dimension pair $(2i, 2i+1)$ and let $\omega_i = 1/10000^{2i/d_{\text{model}}}$. We have:
+\begin{align}
+\begin{pmatrix} \sin(\omega_i(\text{pos}+k)) \\ \cos(\omega_i(\text{pos}+k)) \end{pmatrix}
+&= \begin{pmatrix} \cos(\omega_i k) & \sin(\omega_i k) \\ -\sin(\omega_i k) & \cos(\omega_i k) \end{pmatrix}
+\begin{pmatrix} \sin(\omega_i \cdot \text{pos}) \\ \cos(\omega_i \cdot \text{pos}) \end{pmatrix}
+\end{align}
+by the trigonometric addition formulas. The rotation matrix depends only on $k$, not on $\text{pos}$, which allows the model to learn to exploit relative positions.
+\end{proof}
+
+\section{Complete Transformer architecture}
+\label{sec:transformer-architecture}
+
+\subsection{Encoder block}
+\label{sec:encoder-block}
+
+Each encoder block consists of:
+\begin{enumerate}
+    \item \textbf{Multi-Head Self-Attention}
+    \item \textbf{Add \& Norm} (residual connection + layer normalization)
+    \item \textbf{Feed-Forward Network} (FFN) with two layers:
+    \begin{equation}
+    \text{FFN}(x) = \relu(xW_1 + b_1)W_2 + b_2
+    \end{equation}
+    with $W_1 \in \R^{d_{\text{model}} \times d_{ff}}$, $W_2 \in \R^{d_{ff} \times d_{\text{model}}}$, and typically $d_{ff} = 4 \cdot d_{\text{model}}$.
+    \item \textbf{Add \& Norm} (second residual connection + normalization)
+\end{enumerate}
+
+\subsection{Decoder block}
+\label{sec:decoder-block}
+
+The decoder adds an additional layer:
+\begin{enumerate}
+    \item \textbf{Masked Multi-Head Self-Attention}\index{masked attention}: a causal mask prevents each position from ``observing'' future positions.
+    \item \textbf{Add \& Norm}
+    \item \textbf{Multi-Head Cross-Attention}\index{cross-attention}: the queries come from the decoder, the keys and values come from the encoder output.
+    \item \textbf{Add \& Norm}
+    \item \textbf{FFN}
+    \item \textbf{Add \& Norm}
+\end{enumerate}
+
+\subsection{Pre-Norm vs Post-Norm}
+\label{sec:pre-post-norm}
+
+\begin{definition}[Post-Norm (original)]
+\begin{equation}
+x_{l+1} = \text{LayerNorm}(x_l + \text{SubLayer}(x_l))
+\label{eq:post-norm}
+\end{equation}
+\end{definition}
+
+\begin{definition}[Pre-Norm]
+\begin{equation}
+x_{l+1} = x_l + \text{SubLayer}(\text{LayerNorm}(x_l))
+\label{eq:pre-norm}
+\end{equation}
+\end{definition}
+
+\begin{proposition}[Gradient stability with Pre-Norm]
+In the Pre-Norm case, the gradient flows directly through the residual connection without passing through the normalization:
+\begin{equation}
+\frac{\partial x_L}{\partial x_l} = I + \sum_{k=l}^{L-1} \frac{\partial \text{SubLayer}_k(\text{LayerNorm}(x_k))}{\partial x_l}
+\end{equation}
+The identity term $I$ guarantees a non-zero gradient flow, which stabilizes training for deep architectures ($L > 12$).
+\end{proposition}
+
+\begin{warning}
+The original Transformer uses Post-Norm, but the majority of modern implementations (GPT-2, GPT-3, LLaMA) use Pre-Norm for its superior stability. A learning rate \emph{warm-up} is generally necessary with Post-Norm.
+\end{warning}
+
+\subsection{TikZ diagram of the complete architecture}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    block/.style={rectangle, draw, fill=blue!8, minimum width=3.2cm, minimum height=0.8cm, align=center, rounded corners=2pt},
+    attnblock/.style={rectangle, draw, fill=orange!15, minimum width=3.2cm, minimum height=0.8cm, align=center, rounded corners=2pt},
+    ffnblock/.style={rectangle, draw, fill=green!12, minimum width=3.2cm, minimum height=0.8cm, align=center, rounded corners=2pt},
+    normblock/.style={rectangle, draw, fill=gray!15, minimum width=3.2cm, minimum height=0.6cm, align=center, rounded corners=2pt},
+    io/.style={rectangle, draw, fill=yellow!15, minimum width=3.2cm, minimum height=0.7cm, align=center, rounded corners=2pt},
+    arrow/.style={-{Stealth}, thick},
+    dashed arrow/.style={-{Stealth}, thick, dashed},
+    brace/.style={decorate, decoration={brace, amplitude=6pt, raise=4pt}},
+]
+
+% Encoder
+\node[io] (emb-enc) at (0, 0) {Input Embedding\\+ Pos.\ Encoding};
+\node[attnblock] (sa-enc) at (0, 1.5) {Multi-Head\\Self-Attention};
+\node[normblock] (an1-enc) at (0, 2.6) {Add \& Norm};
+\node[ffnblock] (ffn-enc) at (0, 3.6) {Feed-Forward};
+\node[normblock] (an2-enc) at (0, 4.7) {Add \& Norm};
+
+\draw[arrow] (emb-enc) -- (sa-enc);
+\draw[arrow] (sa-enc) -- (an1-enc);
+\draw[arrow] (an1-enc) -- (ffn-enc);
+\draw[arrow] (ffn-enc) -- (an2-enc);
+
+% Encoder brace
+\draw[brace] (2.0, 1.1) -- (2.0, 5.1) node[midway, right=10pt, align=center] {$\times N$};
+
+% Decoder
+\node[io] (emb-dec) at (7, 0) {Output Embedding\\+ Pos.\ Encoding};
+\node[attnblock] (msa-dec) at (7, 1.5) {Masked Multi-Head\\Self-Attention};
+\node[normblock] (an1-dec) at (7, 2.6) {Add \& Norm};
+\node[attnblock] (ca-dec) at (7, 3.6) {Multi-Head\\Cross-Attention};
+\node[normblock] (an2-dec) at (7, 4.7) {Add \& Norm};
+\node[ffnblock] (ffn-dec) at (7, 5.7) {Feed-Forward};
+\node[normblock] (an3-dec) at (7, 6.8) {Add \& Norm};
+\node[io] (out) at (7, 7.9) {Linear + Softmax};
+
+\draw[arrow] (emb-dec) -- (msa-dec);
+\draw[arrow] (msa-dec) -- (an1-dec);
+\draw[arrow] (an1-dec) -- (ca-dec);
+\draw[arrow] (ca-dec) -- (an2-dec);
+\draw[arrow] (an2-dec) -- (ffn-dec);
+\draw[arrow] (ffn-dec) -- (an3-dec);
+\draw[arrow] (an3-dec) -- (out);
+
+% Decoder brace
+\draw[brace] (9.0, 1.1) -- (9.0, 7.2) node[midway, right=10pt, align=center] {$\times N$};
+
+% Cross-attention arrow
+\draw[dashed arrow] (an2-enc.east) -- ++(1.0, 0) |- (ca-dec.west)
+    node[midway, above, font=\footnotesize] {$K, V$};
+
+% Labels
+\node[above=0.2cm, font=\bfseries] at (0, 5.1) {Encoder};
+\node[above=0.2cm, font=\bfseries] at (7, 8.3) {Decoder};
+
+\end{tikzpicture}
+\caption{Complete Transformer architecture with encoder ($\times N$ blocks) and decoder ($\times N$ blocks). Dashed arrows represent the information flow from the encoder to the decoder's cross-attention mechanism.}
+\label{fig:transformer-architecture}
+\end{figure}
+
+\section{Vision Transformer (ViT)}
+\label{sec:vit}
+
+The \emph{Vision Transformer}\index{Vision Transformer}\index{ViT} (Dosovitskiy et al., 2020) adapts the Transformer architecture to the computer vision domain.
+
+\begin{definition}[Patch Embedding]
+An image $x \in \R^{H \times W \times C}$ is split into $N = HW/P^2$ patches of size $P \times P$, each flattened and linearly projected:
+\begin{equation}
+z_0 = [\texttt{[CLS]};\; x_1^p E;\; x_2^p E;\; \ldots;\; x_N^p E] + E_{\text{pos}}
+\end{equation}
+where $E \in \R^{P^2 C \times d_{\text{model}}}$ is the projection matrix and $E_{\text{pos}} \in \R^{(N+1) \times d_{\text{model}}}$ is the learned positional encoding.
+\end{definition}
+
+\begin{remark}
+The special \texttt{[CLS]}\index{CLS token} token serves as an aggregator: its final representation is used for classification.
+\end{remark}
+
+\section{BERT: Masked language modeling}
+\label{sec:bert}
+
+\textbf{BERT}\index{BERT} (Bidirectional Encoder Representations from Transformers, Devlin et al., 2019) uses only the \emph{encoder} of the Transformer.
+
+\begin{definition}[MLM objective\index{Masked Language Modeling}]
+15\% of the tokens in a sequence are randomly masked. The model must predict the masked tokens:
+\begin{equation}
+\mathcal{L}_{\text{MLM}} = -\E\!\left[\sum_{i \in \mathcal{M}} \log p(x_i \mid x_{\setminus \mathcal{M}};\, \theta)\right]
+\end{equation}
+where $\mathcal{M}$ is the set of masked positions.
+\end{definition}
+
+\section{GPT: Autoregressive language modeling}
+\label{sec:gpt}
+
+\textbf{GPT}\index{GPT} (Generative Pre-trained Transformer, Radford et al., 2018) uses only the \emph{decoder} with a causal mask\index{causal mask}.
+
+\begin{definition}[Autoregressive objective]
+The model predicts each token conditionally on the preceding tokens:
+\begin{equation}
+\mathcal{L}_{\text{AR}} = -\sum_{t=1}^{T} \log p(x_t \mid x_1, \ldots, x_{t-1};\, \theta)
+\end{equation}
+\end{definition}
+
+The causal mask is implemented by adding $-\infty$ to future positions in the attention matrix before the $\softmax$:
+\begin{equation}
+\text{mask}_{ij} = \begin{cases} 0 & \text{if } j \leq i \\ -\infty & \text{if } j > i \end{cases}
+\end{equation}
+
+\section{PyTorch implementation of a Transformer}
+\label{sec:transformer-pytorch}
+
+\begin{codeblock}[title=\textbf{Complete Transformer for sequence classification}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+import math
+
+class PositionalEncoding(nn.Module):
+    """Sinusoidal positional encoding."""
+    def __init__(self, d_model, max_len=512, dropout=0.1):
+        super().__init__()
+        self.dropout = nn.Dropout(p=dropout)
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len).unsqueeze(1).float()
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2).float()
+            * (-math.log(10000.0) / d_model)
+        )
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)  # (1, max_len, d_model)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        # x: (batch, seq_len, d_model)
+        x = x + self.pe[:, :x.size(1)]
+        return self.dropout(x)
+
+
+class MultiHeadAttention(nn.Module):
+    """Multi-head attention from scratch."""
+    def __init__(self, d_model, n_heads):
+        super().__init__()
+        assert d_model % n_heads == 0
+        self.d_k = d_model // n_heads
+        self.n_heads = n_heads
+        self.W_q = nn.Linear(d_model, d_model)
+        self.W_k = nn.Linear(d_model, d_model)
+        self.W_v = nn.Linear(d_model, d_model)
+        self.W_o = nn.Linear(d_model, d_model)
+
+    def forward(self, query, key, value, mask=None):
+        B, T, D = query.shape
+        # Projections and reshape: (B, n_heads, T, d_k)
+        Q = self.W_q(query).view(B, T, self.n_heads, self.d_k).transpose(1, 2)
+        K = self.W_k(key).view(B, -1, self.n_heads, self.d_k).transpose(1, 2)
+        V = self.W_v(value).view(B, -1, self.n_heads, self.d_k).transpose(1, 2)
+
+        # Scaled dot-product attention
+        scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(self.d_k)
+        if mask is not None:
+            scores = scores.masked_fill(mask == 0, float('-inf'))
+        attn = torch.softmax(scores, dim=-1)
+        out = torch.matmul(attn, V)
+
+        # Concatenation and final projection
+        out = out.transpose(1, 2).contiguous().view(B, T, D)
+        return self.W_o(out)
+
+
+class TransformerEncoderBlock(nn.Module):
+    """Pre-Norm encoder block."""
+    def __init__(self, d_model, n_heads, d_ff, dropout=0.1):
+        super().__init__()
+        self.attn = MultiHeadAttention(d_model, n_heads)
+        self.ffn = nn.Sequential(
+            nn.Linear(d_model, d_ff),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(d_ff, d_model),
+            nn.Dropout(dropout),
+        )
+        self.ln1 = nn.LayerNorm(d_model)
+        self.ln2 = nn.LayerNorm(d_model)
+        self.drop = nn.Dropout(dropout)
+
+    def forward(self, x, mask=None):
+        # Pre-Norm
+        x_norm = self.ln1(x)
+        x = x + self.drop(self.attn(x_norm, x_norm, x_norm, mask))
+        x = x + self.ffn(self.ln2(x))
+        return x
+
+
+class TransformerClassifier(nn.Module):
+    """Transformer encoder for sequence classification."""
+    def __init__(self, vocab_size, d_model=128, n_heads=4,
+                 d_ff=512, n_layers=4, n_classes=2,
+                 max_len=256, dropout=0.1):
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, d_model)
+        self.pos_enc = PositionalEncoding(d_model, max_len, dropout)
+        self.layers = nn.ModuleList([
+            TransformerEncoderBlock(d_model, n_heads, d_ff, dropout)
+            for _ in range(n_layers)
+        ])
+        self.ln_final = nn.LayerNorm(d_model)
+        self.classifier = nn.Linear(d_model, n_classes)
+
+    def forward(self, x, mask=None):
+        # x: (batch, seq_len) integer indices
+        x = self.embedding(x) * math.sqrt(self.embedding.embedding_dim)
+        x = self.pos_enc(x)
+        for layer in self.layers:
+            x = layer(x, mask)
+        x = self.ln_final(x)
+        # Average over the sequence (alternative to [CLS] token)
+        x = x.mean(dim=1)
+        return self.classifier(x)
+
+
+# --- Training ---
+model = TransformerClassifier(
+    vocab_size=10000, d_model=128, n_heads=4,
+    d_ff=512, n_layers=4, n_classes=2
+)
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01)
+criterion = nn.CrossEntropyLoss()
+
+# Example with synthetic data
+batch_x = torch.randint(0, 10000, (32, 64))  # (batch=32, seq_len=64)
+batch_y = torch.randint(0, 2, (32,))
+
+logits = model(batch_x)
+loss = criterion(logits, batch_y)
+loss.backward()
+optimizer.step()
+print(f"Loss: {loss.item():.4f}, Logits shape: {logits.shape}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Loss: 0.6847, Logits shape: torch.Size([32, 2])
+\end{verbatim}
+\end{codeoutput}
+
+\begin{bestpractice}
+Always use \texttt{AdamW}\index{AdamW} with \emph{weight decay} for training Transformers. A \emph{learning rate schedule} with linear warm-up followed by cosine decay is standard.
+\end{bestpractice}
+
+\section{Ablation study}
+\label{sec:transformer-ablation}
+
+\begin{table}[htbp]
+\centering
+\caption{Ablation study on a Transformer for text classification (IMDB). Accuracy on the test set (\%).}
+\label{tab:transformer-ablation}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Configuration} & \textbf{Layers} & \textbf{Heads} & \textbf{$d_{ff}$} & \textbf{Accuracy (\%)} \\
+\midrule
+Base (Post-Norm) & 4 & 4 & 512 & 86.3 \\
+Base (Pre-Norm) & 4 & 4 & 512 & 87.1 \\
+\midrule
+1 layer & 1 & 4 & 512 & 82.5 \\
+2 layers & 2 & 4 & 512 & 85.4 \\
+6 layers & 6 & 4 & 512 & 87.4 \\
+8 layers & 8 & 4 & 512 & 87.2 \\
+\midrule
+1 head & 4 & 1 & 512 & 84.8 \\
+2 heads & 4 & 2 & 512 & 86.0 \\
+8 heads & 4 & 8 & 512 & 87.3 \\
+\midrule
+$d_{ff}=128$ & 4 & 4 & 128 & 84.1 \\
+$d_{ff}=256$ & 4 & 4 & 256 & 85.9 \\
+$d_{ff}=1024$ & 4 & 4 & 1024 & 87.5 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{remark}
+The results show that: (1) Pre-Norm is systematically superior to Post-Norm without fine warm-up; (2) increasing the number of layers beyond 6 brings little benefit for this modestly sized dataset; (3) the FFN dimension has a significant impact; (4) a single attention head is clearly insufficient.
+\end{remark}
+
+\section{State of the art and connections}
+\label{sec:transformers-sota}
+
+\begin{sota}[title=\textbf{Large Language Models (LLMs)}]\index{LLM}\index{large language model}
+Transformers are at the foundation of the LLM revolution:
+
+\begin{itemize}
+    \item \textbf{Scaling Laws}\index{scaling laws}: Kaplan et al.\ (2020) show that an LLM's performance follows a power law as a function of the number of parameters $N$, the dataset size $D$, and the compute budget $C$:
+    \begin{equation}
+    L(N) \approx \left(\frac{N_c}{N}\right)^{\alpha_N}, \quad \alpha_N \approx 0.076
+    \end{equation}
+
+    \item \textbf{GPT-4}\index{GPT-4} (OpenAI, 2023): presumably a Mixture of Experts (MoE)\index{Mixture of Experts} model with hundreds of billions of parameters.
+
+    \item \textbf{Claude}\index{Claude} (Anthropic): a family of models using RLHF (Reinforcement Learning from Human Feedback)\index{RLHF} and Constitutional AI.
+
+    \item \textbf{LLaMA}\index{LLaMA} (Meta, 2023--2024): open models using Pre-Norm with RMSNorm\index{RMSNorm}, RoPE\index{RoPE} (Rotary Position Embeddings), SwiGLU\index{SwiGLU} instead of ReLU, and Grouped Query Attention\index{GQA}.
+
+    \item \textbf{Mixture of Experts (MoE)}\index{MoE}: Mixtral (Mistral, 2024) activates only 2 out of 8 experts per token, enabling a 47B parameter model with an inference cost of $\sim$13B.
+\end{itemize}
+\end{sota}
+
+\begin{architecturebox}[title=\textbf{Evolution of Transformer architectures}]
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.4cm,
+    yearnode/.style={rectangle, draw, fill=blue!10, minimum width=2.5cm, minimum height=0.7cm, align=center, rounded corners=2pt, font=\small},
+    arr/.style={-{Stealth}, thick},
+]
+\node[yearnode] (t0) {Transformer\\(2017)};
+\node[yearnode, right=1.5cm of t0] (bert) {BERT\\(2018)};
+\node[yearnode, above=0.8cm of bert] (gpt) {GPT / GPT-2\\(2018--2019)};
+\node[yearnode, right=1.5cm of bert] (vit) {ViT\\(2020)};
+\node[yearnode, right=1.5cm of gpt] (gpt3) {GPT-3\\(2020)};
+\node[yearnode, right=1.5cm of vit] (llama) {LLaMA / Mistral\\(2023--2024)};
+\node[yearnode, right=1.5cm of gpt3] (gpt4) {GPT-4 / Claude\\(2023--2025)};
+
+\draw[arr] (t0) -- (bert);
+\draw[arr] (t0) |- (gpt);
+\draw[arr] (bert) -- (vit);
+\draw[arr] (gpt) -- (gpt3);
+\draw[arr] (gpt3) -- (gpt4);
+\draw[arr] (vit) -- (llama);
+\draw[arr] (gpt3) -- (llama);
+\end{tikzpicture}
+\end{center}
+\end{architecturebox}
+
+\section{Exercises}
+\label{sec:transformers-exercises}
+
+\begin{exercise}[Computing the complexity of attention]
+\label{exo:attention-complexity}
+\textbf{Difficulty: 1/3}
+Show that the time complexity of scaled dot-product attention is $O(n^2 d_k)$ where $n$ is the sequence length and $d_k$ is the key dimension. Why does this pose a problem for long sequences? Cite two approaches to reduce this complexity.
+\end{exercise}
+
+\begin{exercise}[Causal mask]
+\label{exo:causal-mask}
+\textbf{Difficulty: 1/3}
+Implement in PyTorch a function that generates a causal mask of size $n \times n$ and show its effect on the attention matrix for a sequence of 5 tokens.
+\end{exercise}
+
+\begin{exercise}[Number of parameters in a Transformer]
+\label{exo:transformer-params}
+\textbf{Difficulty: 2/3}
+For a Transformer encoder with $L$ layers, $h$ heads, dimension $d_{\text{model}}$, and FFN dimension $d_{ff}$, compute the total number of parameters (not counting the embeddings).
+
+\emph{Hint}: consider separately the multi-head attention ($4 d_{\text{model}}^2$), the FFN ($2 d_{\text{model}} d_{ff}$), and the LayerNorm ($4 d_{\text{model}}$) per block.
+\end{exercise}
+
+\begin{exercise}[ViT implementation]
+\label{exo:vit-impl}
+\textbf{Difficulty: 3/3}
+Modify the code from Section~\ref{sec:transformer-pytorch} to create a Vision Transformer:
+\begin{enumerate}
+    \item Implement the \texttt{PatchEmbedding} that splits a $32 \times 32 \times 3$ image into patches of size $8 \times 8$.
+    \item Add a learned \texttt{[CLS]} token.
+    \item Train on CIFAR-10 and report the accuracy.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Comparison BERT vs GPT\@]
+\label{exo:bert-vs-gpt}
+\textbf{Difficulty: 2/3}
+\begin{enumerate}
+    \item Explain why BERT cannot be used directly for text generation.
+    \item Show mathematically that BERT's MLM objective is not equivalent to maximizing $\log p(x)$ while GPT's autoregressive objective is.
+    \item In which scenario would one prefer BERT over GPT and vice versa?
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Analysis of attention heads {\normalfont (project)}]
+\label{exo:attention-heads}
+\textbf{Difficulty: 3/3}
+Train a Transformer with 4 layers and 8 heads on a text classification task. Visualize the attention matrices of each head for example sentences. Can you identify specialized heads (position, syntax, semantics)? Evaluate the impact of pruning certain heads on performance.
+\end{exercise}

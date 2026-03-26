@@ -1,0 +1,273 @@
+% ============================================================
+\chapter{Interest Rate Models}
+\label{ch:interest_rates}
+% ============================================================
+
+Until now, we have treated the interest rate as a constant. But anyone who has observed bond markets knows that rates are anything but constant: they form a \emph{curve} --- the term structure --- that evolves stochastically over time. Modelling this evolution is one of the richest challenges in quantitative finance. Oldrich Vasicek, in 1977, proposed the first stochastic short-rate model with mean reversion, drawing inspiration from the Ornstein--Uhlenbeck process. John Cox, Jonathan Ingersoll, and Stephen Ross (1985) corrected Vasicek's flaw --- the possibility of negative rates --- by introducing a volatility proportional to $\sqrt{r}$. Then David Heath, Robert Jarrow, and Andrew Morton (1992) reversed the perspective entirely: instead of modelling the short rate, they modelled the entire forward curve directly. Each approach serves different needs, and understanding them is understanding how markets price time and uncertainty.
+
+\section{Term Structure of Interest Rates}
+
+\begin{definition}[Zero-Coupon Bond and Yield Curve]
+A \textbf{zero-coupon bond} with maturity $T$ is a contract paying 1 unit
+at time $T$. Its price at time $t$ is denoted $P(t,T)$. The
+\textbf{continuously compounded zero rate} is:
+\[
+    R(t,T) = -\frac{\ln P(t,T)}{T - t}.
+\]
+The curve $T \mapsto R(t,T)$ is the \textbf{term structure} of interest
+rates at time $t$.
+\end{definition}
+
+\begin{definition}[Instantaneous Forward Rate]
+The \textbf{instantaneous forward rate} is:
+\[
+    f(t,T) = -\frac{\partial \ln P(t,T)}{\partial T},
+\]
+so that $P(t,T) = \exp\!\left(-\int_t^T f(t,u)\,du\right)$.
+\end{definition}
+
+\begin{definition}[Short Rate]
+The \textbf{short rate} (or instantaneous rate) is:
+$r_t = f(t,t) = \lim_{T \to t^+} R(t,T)$.
+\end{definition}
+
+\section{Short-Rate Models}
+
+\subsection{Vasicek Model (1977)}
+
+\begin{definition}[Vasicek Model]
+The short rate follows an Ornstein--Uhlenbeck process:
+\[
+    dr_t = a(b - r_t)\,dt + \sigma\,dW_t,
+\]
+with $a > 0$ (mean-reversion speed), $b$ (long-term rate),
+$\sigma > 0$ (volatility).
+\end{definition}
+
+\begin{theorem}[Zero-Coupon Price --- Vasicek]
+\label{thm:vasicek_zc}
+The zero-coupon bond price has the affine form:
+\[
+    P(t,T) = A(t,T)\exp\!\bigl(-B(t,T)\,r_t\bigr),
+\]
+where, with $\tau = T - t$:
+\begin{align}
+    B(\tau) &= \frac{1 - e^{-a\tau}}{a}, \\
+    A(\tau) &= \exp\!\left[\left(b - \frac{\sigma^2}{2a^2}\right)
+    \bigl(B(\tau) - \tau\bigr) - \frac{\sigma^2}{4a}B(\tau)^2\right].
+\end{align}
+\end{theorem}
+
+\begin{remark}
+The Vasicek model allows negative interest rates, which was considered a
+defect until the 2010s but proved realistic in the European negative rate
+environment.
+\end{remark}
+
+\subsection{Cox--Ingersoll--Ross Model (CIR, 1985)}
+
+\begin{definition}[CIR Model]
+\[
+    dr_t = a(b - r_t)\,dt + \sigma\sqrt{r_t}\,dW_t.
+\]
+The $\sqrt{r_t}$ term in the diffusion ensures $r_t \geq 0$ under the
+Feller condition $2ab \geq \sigma^2$.
+\end{definition}
+
+\begin{theorem}[Zero-Coupon Price --- CIR]
+The price is affine in $r_t$:
+$P(t,T) = A(\tau)\exp(-B(\tau)r_t)$ with:
+\begin{align}
+    B(\tau) &= \frac{2(e^{\gamma\tau} - 1)}
+    {(\gamma + a)(e^{\gamma\tau} - 1) + 2\gamma}, \\
+    A(\tau) &= \left[\frac{2\gamma e^{(a+\gamma)\tau/2}}
+    {(\gamma+a)(e^{\gamma\tau}-1) + 2\gamma}\right]^{2ab/\sigma^2},
+\end{align}
+where $\gamma = \sqrt{a^2 + 2\sigma^2}$.
+\end{theorem}
+
+\subsection{Hull--White Model (1990)}
+
+\begin{definition}[Hull--White Model]
+An extension of Vasicek with time-dependent parameters:
+\[
+    dr_t = \bigl[\theta(t) - a\,r_t\bigr]\,dt + \sigma\,dW_t,
+\]
+where $\theta(t)$ is chosen to calibrate the initial yield curve exactly:
+\[
+    \theta(t) = \frac{\partial f^M(0,t)}{\partial t} + a\,f^M(0,t)
+    + \frac{\sigma^2}{2a}(1 - e^{-2at}),
+\]
+with $f^M(0,t)$ the market forward rate.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Vasicek and CIR Models}]
+\begin{minted}{python}
+import numpy as np
+
+def vasicek_bond(r, t, T, a, b, sigma):
+    """Vasicek zero-coupon price."""
+    tau = T - t
+    B = (1 - np.exp(-a * tau)) / a
+    A = np.exp((b - sigma**2/(2*a**2)) * (B - tau)
+               - sigma**2/(4*a) * B**2)
+    return A * np.exp(-B * r)
+
+def cir_bond(r, t, T, a, b, sigma):
+    """CIR zero-coupon price."""
+    tau = T - t
+    gamma = np.sqrt(a**2 + 2*sigma**2)
+    eg = np.exp(gamma * tau)
+    denom = (gamma + a)*(eg - 1) + 2*gamma
+    B = 2*(eg - 1) / denom
+    A = (2*gamma * np.exp((a + gamma)*tau/2) / denom)**(2*a*b/sigma**2)
+    return A * np.exp(-B * r)
+
+# Yield curve
+r0 = 0.03
+maturities = np.linspace(0.25, 30, 100)
+P_vas = [vasicek_bond(r0, 0, T, 0.5, 0.04, 0.01) for T in maturities]
+P_cir = [cir_bond(r0, 0, T, 0.5, 0.04, 0.06) for T in maturities]
+R_vas = -np.log(P_vas) / maturities
+R_cir = -np.log(P_cir) / maturities
+
+print(f"Vasicek R(10y): {R_vas[39]:.4f}")
+print(f"CIR     R(10y): {R_cir[39]:.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{Heath--Jarrow--Morton (HJM) Framework}
+
+\begin{theorem}[HJM Framework (1992)]
+The HJM framework models instantaneous forward rates directly:
+\[
+    df(t,T) = \alpha(t,T)\,dt + \sigma(t,T)\,dW_t.
+\]
+The no-arbitrage condition imposes the \textbf{HJM drift condition}:
+\[
+    \alpha(t,T) = \sigma(t,T)\int_t^T \sigma(t,u)\,du.
+\]
+\end{theorem}
+
+\begin{remark}
+The HJM framework is very general but typically leads to non-Markovian
+models (except for specific choices of $\sigma$). The Vasicek and Hull--White
+models are special cases of HJM.
+\end{remark}
+
+\section{Interest Rate Product Pricing}
+
+\subsection{Caps and Floors}
+
+\begin{definition}[Caplet]
+A \textbf{caplet} on the period $[T_i, T_{i+1}]$ with strike rate $K$
+and notional $N$ pays:
+\[
+    N\,\delta_i\,(L(T_i, T_i, T_{i+1}) - K)^+,
+\]
+where $L(T_i, T_i, T_{i+1})$ is the LIBOR rate and $\delta_i = T_{i+1} - T_i$.
+\end{definition}
+
+\begin{theorem}[Black's Formula for Caplets]
+Under the Black model, the caplet price is:
+\[
+    \text{Caplet} = N\,\delta_i\,P(0,T_{i+1})
+    \bigl[L_0\Phi(d_1) - K\Phi(d_2)\bigr],
+\]
+with $d_1 = \frac{\ln(L_0/K) + \sigma_i^2 T_i/2}{\sigma_i\sqrt{T_i}}$,
+$L_0 = L(0, T_i, T_{i+1})$.
+\end{theorem}
+
+\subsection{Swaptions}
+
+\begin{definition}[Swaption]
+A \textbf{swaption} gives the right to enter into an interest rate swap at
+a future date. A payer swaption with strike $K$ and maturity $T_0$ on a
+swap with dates $T_0, \ldots, T_n$ has payoff:
+\[
+    \left(\sum_{i=0}^{n-1}\delta_i P(T_0, T_{i+1})\right)
+    (S_{T_0} - K)^+,
+\]
+where $S_{T_0}$ is the par swap rate.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Short Rate Path Simulation (Vasicek)}]
+\begin{minted}{python}
+def vasicek_paths(r0, a, b, sigma, T, N, M):
+    """Simulate M short rate paths under Vasicek."""
+    dt = T / N
+    r = np.zeros((M, N + 1))
+    r[:, 0] = r0
+    for i in range(N):
+        dW = np.sqrt(dt) * np.random.standard_normal(M)
+        r[:, i+1] = r[:, i] + a*(b - r[:, i])*dt + sigma*dW
+    return r
+
+def cir_paths(r0, a, b, sigma, T, N, M):
+    """Simulate M short rate paths under CIR (truncated Euler)."""
+    dt = T / N
+    r = np.zeros((M, N + 1))
+    r[:, 0] = r0
+    for i in range(N):
+        dW = np.sqrt(dt) * np.random.standard_normal(M)
+        r_pos = np.maximum(r[:, i], 0)
+        r[:, i+1] = (r[:, i] + a*(b - r_pos)*dt
+                     + sigma*np.sqrt(r_pos)*dW)
+        r[:, i+1] = np.maximum(r[:, i+1], 0)
+    return r
+
+np.random.seed(42)
+r_vas = vasicek_paths(0.03, 0.5, 0.04, 0.01, 10, 2520, 5)
+r_cir = cir_paths(0.03, 0.5, 0.04, 0.06, 10, 2520, 5)
+\end{minted}
+\end{codeblock}
+
+\section{LIBOR Market Model (BGM/LMM)}
+
+\begin{definition}[BGM/LMM Model]
+The \textbf{LIBOR Market Model} (Brace--Gatarek--Musiela) models forward
+LIBOR rates $L_i(t) = L(t, T_i, T_{i+1})$ directly under the $T_{i+1}$
+forward measure:
+\[
+    dL_i(t) = \sigma_i(t)L_i(t)\,dW_t^{T_{i+1}}.
+\]
+Under other measures, a drift term appears depending on correlations
+between forward rates.
+\end{definition}
+
+\section{Exercises}
+
+\begin{exercise}[Yield Curve]
+\begin{enumerate}
+    \item Compute and plot the yield curve $T \mapsto R(0,T)$ for Vasicek
+          and CIR with $r_0 = 0.03$, $a = 0.5$, $b = 0.04$,
+          $\sigma_V = 0.01$, $\sigma_C = 0.06$.
+    \item Compare curve shapes (upward-sloping, downward-sloping, humped).
+    \item Study the impact of parameters $a$, $b$, $\sigma$ on the shape.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Monte Carlo Bond Pricing]
+\begin{enumerate}
+    \item Price a 5-year zero-coupon bond by Monte Carlo under Vasicek:
+          $P(0,T) = \E^\mathbb{Q}\!\left[e^{-\int_0^T r_t\,dt}\right]$.
+    \item Compare with the analytical formula.
+    \item Repeat for the CIR model.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Caplet Pricing]
+\begin{enumerate}
+    \item Price a 1-year caplet using Black's formula.
+    \item Price the same caplet by Monte Carlo under the Hull--White model.
+    \item Compare the results.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Hull--White Calibration]
+\begin{enumerate}
+    \item Calibrate the Hull--White model to a given yield curve by
+          determining $\theta(t)$.
+    \item Verify that the model zero-coupon prices match market prices.
+\end{enumerate}
+\end{exercise}

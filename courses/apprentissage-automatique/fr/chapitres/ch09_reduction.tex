@@ -1,0 +1,532 @@
+% ============================================================
+\chapter{R\'eduction de dimensionnalit\'e~--- PCA, t-SNE, UMAP}
+\label{ch:reduction}
+\index{r\'eduction de dimensionnalit\'e}
+% ============================================================
+
+\section{Le fl\'eau de la dimension}
+\label{sec:curse}
+\index{fl\'eau de la dimension}
+
+\begin{definition}[Fl\'eau de la dimension]
+Le \textbf{fl\'eau de la dimension} (\emph{curse of dimensionality}) d\'esigne
+l'ensemble des ph\'enom\`enes qui rendent l'analyse de donn\'ees en grande
+dimension fondamentalement diff\'erente de l'intuition en basse dimension.
+\end{definition}
+
+\begin{theoreme}[Concentration des distances]
+Soit $\bm{x}_1, \ldots, \bm{x}_n$ des points i.i.d.\ tir\'es uniform\'ement
+dans $[0,1]^d$. Pour $d \to \infty$~:
+\begin{equation}
+  \frac{\max_i \norm{\bm{x}_i - \bm{x}_j} - \min_i \norm{\bm{x}_i -
+  \bm{x}_j}}{\min_i \norm{\bm{x}_i - \bm{x}_j}} \xrightarrow{p} 0
+\end{equation}
+Autrement dit, les distances entre points deviennent toutes \'equivalentes,
+rendant les m\'ethodes fond\'ees sur la distance (k-NN, $k$-Means) inefficaces.
+\end{theoreme}
+
+\begin{intuition}[title=\textbf{Cons\'equences pratiques}]
+\begin{itemize}
+  \item Le volume de l'hypersph\`ere unitaire tend vers $0$ quand $d \to \infty$.
+  \item Un \'echantillon de taille fixe $n$ devient de plus en plus
+    <<~\'epars~>> en grande dimension.
+  \item Il faut un nombre exponentiel de donn\'ees $n \sim \mathcal{O}(c^d)$
+    pour maintenir une densit\'e constante.
+\end{itemize}
+\end{intuition}
+
+\begin{proposition}[Volume de l'hypersph\`ere]
+Le volume de l'hypersph\`ere de rayon $r$ en dimension $d$ est~:
+\begin{equation}
+  V_d(r) = \frac{\pi^{d/2}}{\Gamma(d/2 + 1)} r^d
+\end{equation}
+En particulier, $V_d(1) \to 0$ quand $d \to \infty$.
+\end{proposition}
+
+La r\'eduction de dimensionnalit\'e cherche une repr\'esentation
+$\bm{z}_i \in \R^p$ (avec $p \ll d$) qui pr\'eserve au mieux la structure
+des donn\'ees originales $\bm{x}_i \in \R^d$.
+
+% ============================================================
+\section{Analyse en composantes principales (PCA)}
+\label{sec:pca}
+\index{PCA}\index{analyse en composantes principales}
+% ============================================================
+
+\subsection{Formulation}
+
+\begin{definition}[PCA]
+L'\textbf{analyse en composantes principales} cherche les directions de
+variance maximale dans les donn\'ees. Formellement, la premi\`ere composante
+principale est~:
+\begin{equation}
+  \bm{w}_1 = \argmax_{\norm{\bm{w}} = 1} \Var[\bm{w}^\top \bm{X}]
+  = \argmax_{\norm{\bm{w}} = 1} \bm{w}^\top \bm{S} \bm{w}
+  \label{eq:pca-obj}
+\end{equation}
+o\`u $\bm{S} = \frac{1}{n-1}\sum_{i=1}^n (\bm{x}_i - \bar{\bm{x}})
+(\bm{x}_i - \bar{\bm{x}})^\top$ est la matrice de covariance empirique.
+\end{definition}
+
+\subsection{D\'erivation par d\'ecomposition spectrale}
+
+\begin{theoreme}[Solution de la PCA]
+Les composantes principales sont les vecteurs propres de la matrice de
+covariance $\bm{S}$, ordonn\'es par valeurs propres d\'ecroissantes.
+\end{theoreme}
+
+\begin{proof}
+On cherche $\bm{w}_1 = \argmax_{\norm{\bm{w}}=1} \bm{w}^\top \bm{S} \bm{w}$.
+Par la m\'ethode des multiplicateurs de Lagrange~:
+\begin{equation}
+  \mathcal{L}(\bm{w}, \lambda) = \bm{w}^\top \bm{S} \bm{w} -
+  \lambda(\bm{w}^\top \bm{w} - 1)
+\end{equation}
+La condition de premier ordre donne~:
+\begin{equation}
+  \frac{\partial \mathcal{L}}{\partial \bm{w}} = 2\bm{S}\bm{w} -
+  2\lambda\bm{w} = \bm{0} \quad \Longrightarrow \quad
+  \bm{S}\bm{w} = \lambda\bm{w}
+  \label{eq:pca-eigen}
+\end{equation}
+Donc $\bm{w}$ est un vecteur propre de $\bm{S}$. En multipliant \`a gauche
+par $\bm{w}^\top$~:
+\begin{equation}
+  \bm{w}^\top \bm{S} \bm{w} = \lambda \bm{w}^\top \bm{w} = \lambda
+\end{equation}
+La variance projet\'ee est \'egale \`a la valeur propre. Pour maximiser,
+on choisit le vecteur propre associ\'e \`a la plus grande valeur propre
+$\lambda_1$. La $k$-i\`eme composante est le $k$-i\`eme vecteur propre
+(sous contrainte d'orthogonalit\'e avec les pr\'ec\'edents).
+\end{proof}
+
+\subsection{D\'erivation par SVD}
+\index{SVD}
+
+\begin{formules}[title=\textbf{PCA via la d\'ecomposition en valeurs singuli\`eres}]
+Soit $\tilde{\bm{X}} \in \R^{n \times d}$ la matrice de donn\'ees centr\'ees
+(lignes $= \bm{x}_i - \bar{\bm{x}}$). Sa SVD est~:
+\begin{equation}
+  \tilde{\bm{X}} = \bm{U} \bm{\Sigma} \bm{V}^\top
+\end{equation}
+o\`u $\bm{U} \in \R^{n \times n}$, $\bm{\Sigma} \in \R^{n \times d}$
+(diagonale), $\bm{V} \in \R^{d \times d}$ orthogonales. Alors~:
+\begin{equation}
+  \bm{S} = \frac{1}{n-1}\tilde{\bm{X}}^\top \tilde{\bm{X}} = \bm{V}
+  \frac{\bm{\Sigma}^\top \bm{\Sigma}}{n-1} \bm{V}^\top
+\end{equation}
+Les colonnes de $\bm{V}$ sont les composantes principales, et les valeurs
+propres de $\bm{S}$ sont $\lambda_k = \sigma_k^2 / (n-1)$.
+
+\textbf{Projection~:} les coordonn\'ees dans la base des composantes
+principales sont~:
+\begin{equation}
+  \bm{Z} = \tilde{\bm{X}} \bm{V}_p \in \R^{n \times p}
+\end{equation}
+o\`u $\bm{V}_p$ contient les $p$ premiers vecteurs propres.
+\end{formules}
+
+\begin{remarque}
+La SVD est pr\'ef\'erable num\'eriquement au calcul explicite de
+$\bm{S} = \tilde{\bm{X}}^\top \tilde{\bm{X}}$ car elle \'evite la perte de
+pr\'ecision li\'ee au conditionnement de $\bm{S}$.
+\end{remarque}
+
+\subsection{Variance expliqu\'ee et choix de $p$}
+
+\begin{definition}[Ratio de variance expliqu\'ee]
+Le ratio de variance expliqu\'ee par les $p$ premi\`eres composantes est~:
+\begin{equation}
+  \rho(p) = \frac{\sum_{k=1}^p \lambda_k}{\sum_{k=1}^d \lambda_k}
+  \label{eq:var-explained}
+\end{equation}
+\end{definition}
+
+\begin{bonnepratique}[title=\textbf{Choix du nombre de composantes}]
+\begin{itemize}
+  \item \textbf{Scree plot~:} tracer $\lambda_k$ en fonction de $k$ et chercher
+    un <<~coude~>>.
+  \item \textbf{Seuil de variance~:} choisir $p$ tel que $\rho(p) \geq 0.95$
+    (ou 0.90).
+  \item \textbf{R\`egle de Kaiser~:} retenir les composantes dont
+    $\lambda_k > \bar{\lambda} = \frac{1}{d}\sum_{k=1}^d \lambda_k$.
+\end{itemize}
+\end{bonnepratique}
+
+\begin{center}
+\begin{tikzpicture}
+  \begin{axis}[
+    width=10cm, height=6cm,
+    xlabel={Direction},
+    ylabel={Donn\'ees},
+    xmin=-3, xmax=3, ymin=-2, ymax=2,
+    axis lines=middle,
+    xtick=\empty, ytick=\empty,
+    clip=false
+  ]
+    % Data cloud (elongated) - hardcoded points
+    \fill[blue!50] (axis cs:1.5,1.1) circle (1.5pt);
+    \fill[blue!50] (axis cs:-0.8,-0.2) circle (1.5pt);
+    \fill[blue!50] (axis cs:0.6,0.6) circle (1.5pt);
+    \fill[blue!50] (axis cs:1.9,1.4) circle (1.5pt);
+    \fill[blue!50] (axis cs:-1.2,-0.5) circle (1.5pt);
+    \fill[blue!50] (axis cs:0.3,0.4) circle (1.5pt);
+    \fill[blue!50] (axis cs:-0.5,0.0) circle (1.5pt);
+    \fill[blue!50] (axis cs:1.1,0.9) circle (1.5pt);
+    \fill[blue!50] (axis cs:-1.6,-0.7) circle (1.5pt);
+    \fill[blue!50] (axis cs:0.9,0.7) circle (1.5pt);
+    \fill[blue!50] (axis cs:-0.2,0.1) circle (1.5pt);
+    \fill[blue!50] (axis cs:1.7,1.2) circle (1.5pt);
+    \fill[blue!50] (axis cs:-1.0,-0.3) circle (1.5pt);
+    \fill[blue!50] (axis cs:0.1,0.3) circle (1.5pt);
+    \fill[blue!50] (axis cs:1.3,1.0) circle (1.5pt);
+    \fill[blue!50] (axis cs:-0.6,-0.1) circle (1.5pt);
+    \fill[blue!50] (axis cs:0.7,0.5) circle (1.5pt);
+    \fill[blue!50] (axis cs:-1.4,-0.6) circle (1.5pt);
+    \fill[blue!50] (axis cs:0.4,0.2) circle (1.5pt);
+    \fill[blue!50] (axis cs:2.0,1.3) circle (1.5pt);
+    % PC1
+    \draw[-{Stealth}, red, very thick] (axis cs:0,0) --
+      (axis cs:{2.5*cos(30)},{2.5*sin(30)})
+      node[right,font=\small] {PC1};
+    % PC2
+    \draw[-{Stealth}, green!50!black, very thick] (axis cs:0,0) --
+      (axis cs:{-1.0*sin(30)},{1.0*cos(30)})
+      node[above,font=\small] {PC2};
+  \end{axis}
+\end{tikzpicture}
+\end{center}
+
+\subsection{Reconstruction et erreur}
+
+\begin{proposition}[Erreur de reconstruction]
+La PCA minimise \'egalement l'erreur de reconstruction au sens des moindres
+carr\'es~:
+\begin{equation}
+  \min_{\bm{V}_p} \sum_{i=1}^n \norm{\bm{x}_i - \bar{\bm{x}} -
+  \bm{V}_p \bm{V}_p^\top (\bm{x}_i - \bar{\bm{x}})}^2 =
+  \sum_{k=p+1}^d \lambda_k
+\end{equation}
+Les $p$ composantes principales fournissent la meilleure approximation de
+rang $p$ au sens de Frobenius (th\'eor\`eme d'Eckart-Young).
+\end{proposition}
+
+% ============================================================
+\section{Kernel PCA}
+\label{sec:kpca}
+\index{Kernel PCA}
+% ============================================================
+
+\begin{definition}[Kernel PCA]
+Lorsque les donn\'ees ne sont pas lin\'eairement s\'eparables, on peut
+appliquer la PCA dans un espace de Hilbert $\mathcal{H}$ induit par un noyau
+$\kappa : \R^d \times \R^d \to \R$. On d\'efinit la matrice de Gram
+$\bm{K}_{ij} = \kappa(\bm{x}_i, \bm{x}_j)$ et on r\'esout~:
+\begin{equation}
+  \tilde{\bm{K}} \bm{\alpha}_k = n \lambda_k \bm{\alpha}_k
+\end{equation}
+o\`u $\tilde{\bm{K}}$ est la matrice de Gram centr\'ee~:
+$\tilde{\bm{K}} = \bm{K} - \bm{1}_n \bm{K} - \bm{K} \bm{1}_n +
+\bm{1}_n \bm{K} \bm{1}_n$ avec $(\bm{1}_n)_{ij} = 1/n$.
+\end{definition}
+
+\begin{remarque}
+Les noyaux courants sont~: RBF $\kappa(\bm{x}, \bm{x}') = \exp(-\gamma
+\norm{\bm{x} - \bm{x}'}^2)$, polynomial $\kappa(\bm{x}, \bm{x}') =
+(\bm{x}^\top \bm{x}' + c)^p$, sigmo\"ide.
+\end{remarque}
+
+% ============================================================
+\section{t-SNE}
+\label{sec:tsne}
+\index{t-SNE}
+% ============================================================
+
+\subsection{Principe}
+
+\begin{definition}[t-SNE]
+\textbf{t-SNE} (\emph{t-distributed Stochastic Neighbor Embedding}) est une
+m\'ethode de visualisation non lin\'eaire qui pr\'eserve la structure locale
+des donn\'ees. Elle op\`ere en deux \'etapes~:
+
+\begin{enumerate}
+  \item \textbf{Espace d'entr\'ee~:} construire des probabilit\'es conjointes
+    $p_{ij}$ mesurant la similarit\'e entre $\bm{x}_i$ et $\bm{x}_j$~:
+    \begin{equation}
+      p_{j|i} = \frac{\exp(-\norm{\bm{x}_i - \bm{x}_j}^2 / 2\sigma_i^2)}
+      {\sum_{k \neq i} \exp(-\norm{\bm{x}_i - \bm{x}_k}^2 / 2\sigma_i^2)},
+      \quad p_{ij} = \frac{p_{j|i} + p_{i|j}}{2n}
+    \end{equation}
+
+  \item \textbf{Espace de sortie~:} d\'efinir des probabilit\'es $q_{ij}$
+    bas\'ees sur une distribution $t$ de Student \`a 1 degr\'e de libert\'e~:
+    \begin{equation}
+      q_{ij} = \frac{(1 + \norm{\bm{z}_i - \bm{z}_j}^2)^{-1}}
+      {\sum_{k \neq l} (1 + \norm{\bm{z}_k - \bm{z}_l}^2)^{-1}}
+    \end{equation}
+\end{enumerate}
+On minimise la divergence de Kullback-Leibler~:
+\begin{equation}
+  \KL(P \| Q) = \sum_{i \neq j} p_{ij} \ln \frac{p_{ij}}{q_{ij}}
+\end{equation}
+par descente de gradient sur les positions $\bm{z}_i$.
+\end{definition}
+
+\subsection{Perplexit\'e}
+
+\begin{definition}[Perplexit\'e]
+La \textbf{perplexit\'e} contr\^ole le nombre effectif de voisins~:
+\begin{equation}
+  \text{Perp}(P_i) = 2^{H(P_i)}, \quad H(P_i) = -\sum_j p_{j|i} \log_2 p_{j|i}
+\end{equation}
+Le param\`etre $\sigma_i$ est ajust\'e pour atteindre la perplexit\'e cible
+(typiquement 5--50).
+\end{definition}
+
+\begin{attention}[title=\textbf{Limitations de t-SNE}]
+\begin{itemize}
+  \item \textbf{Non reproductible~:} r\'esultats diff\'erents selon
+    l'initialisation (utiliser \texttt{random\_state}).
+  \item \textbf{Distances globales non fiables~:} seules les distances locales
+    sont pr\'eserv\'ees. La taille et l'\'ecartement des clusters ne sont pas
+    interpr\'etables.
+  \item \textbf{Complexit\'e~:} $\mathcal{O}(n^2)$ en m\'emoire et temps
+    (variante Barnes-Hut en $\mathcal{O}(n \log n)$).
+  \item \textbf{Perplexit\'e sensible~:} diff\'erentes perplexit\'es donnent
+    des visualisations tr\`es diff\'erentes.
+\end{itemize}
+\end{attention}
+
+% ============================================================
+\section{UMAP}
+\label{sec:umap}
+\index{UMAP}
+% ============================================================
+
+\begin{definition}[UMAP]
+\textbf{UMAP} (\emph{Uniform Manifold Approximation and Projection}) est une
+m\'ethode de r\'eduction non lin\'eaire fond\'ee sur la th\'eorie des
+vari\'et\'es riemanniennes et la topologie alg\'ebrique. Comme t-SNE, elle
+pr\'eserve la structure locale, mais elle~:
+\begin{itemize}
+  \item pr\'eserve mieux la structure \emph{globale},
+  \item est significativement plus rapide ($\mathcal{O}(n)$ apr\`es
+    construction du graphe),
+  \item poss\`ede un cadre math\'ematique plus rigoureux.
+\end{itemize}
+\end{definition}
+
+Les principaux hyperparam\`etres sont~:
+\begin{itemize}
+  \item \texttt{n\_neighbors}~: nombre de voisins (analogue \`a la
+    perplexit\'e), contr\^ole l'\'equilibre local/global.
+  \item \texttt{min\_dist}~: distance minimale entre points en sortie,
+    contr\^ole la compacit\'e des clusters.
+\end{itemize}
+
+\begin{remarque}
+UMAP peut \'egalement \^etre utilis\'e pour la r\'eduction de dimension en vue
+d'un apprentissage supervis\'e (mode \texttt{supervised}).
+\end{remarque}
+
+% ============================================================
+\section{Impl\'ementation en Python}
+\label{sec:code-reduction}
+% ============================================================
+
+\begin{codeblock}[title=\textbf{PCA from scratch}]
+\begin{minted}{python}
+import numpy as np
+
+def pca_scratch(X, n_components):
+    """PCA via decomposition spectrale de la covariance."""
+    # Centrer les donnees
+    X_centered = X - X.mean(axis=0)
+    # Matrice de covariance
+    n = X.shape[0]
+    S = (X_centered.T @ X_centered) / (n - 1)
+    # Decomposition en valeurs propres
+    eigenvalues, eigenvectors = np.linalg.eigh(S)
+    # Trier par valeurs propres decroissantes
+    idx = np.argsort(eigenvalues)[::-1]
+    eigenvalues = eigenvalues[idx]
+    eigenvectors = eigenvectors[:, idx]
+    # Projeter sur les p premieres composantes
+    W = eigenvectors[:, :n_components]
+    Z = X_centered @ W
+    explained_ratio = eigenvalues[:n_components] / eigenvalues.sum()
+    return Z, eigenvalues, explained_ratio
+
+# Test sur Iris
+from sklearn.datasets import load_iris
+X, y = load_iris(return_X_y=True)
+Z, eigvals, ratios = pca_scratch(X, n_components=2)
+print(f"Variance expliquee: {ratios}")
+print(f"Cumul: {ratios.sum():.4f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Variance expliquee: [0.72962445 0.22850762]
+Cumul: 0.9581
+\end{verbatim}
+\end{codeoutput}
+
+\begin{codeblock}[title=\textbf{PCA avec scikit-learn et scree plot}]
+\begin{minted}{python}
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+
+pca = PCA()
+pca.fit(X)
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+
+# Scree plot
+axes[0].bar(range(1, 5), pca.explained_variance_ratio_,
+            color='steelblue', alpha=0.8)
+axes[0].plot(range(1, 5),
+             np.cumsum(pca.explained_variance_ratio_),
+             'ro-')
+axes[0].set_xlabel('Composante')
+axes[0].set_ylabel('Variance expliquee')
+axes[0].set_title('Scree plot')
+axes[0].axhline(y=0.95, color='gray', linestyle='--',
+                label='Seuil 95%')
+axes[0].legend()
+
+# Projection 2D
+pca2 = PCA(n_components=2)
+Z_sk = pca2.fit_transform(X)
+scatter = axes[1].scatter(Z_sk[:, 0], Z_sk[:, 1],
+                          c=y, cmap='viridis', s=20)
+axes[1].set_xlabel('PC1')
+axes[1].set_ylabel('PC2')
+axes[1].set_title('PCA - Iris')
+plt.colorbar(scatter, ax=axes[1])
+
+# Biplot (loadings)
+loadings = pca2.components_.T
+feature_names = load_iris().feature_names
+for i, name in enumerate(feature_names):
+    axes[2].arrow(0, 0, loadings[i, 0], loadings[i, 1],
+                  head_width=0.03, color='red', alpha=0.7)
+    axes[2].text(loadings[i, 0]*1.15, loadings[i, 1]*1.15,
+                 name, fontsize=7)
+axes[2].set_xlabel('PC1'); axes[2].set_ylabel('PC2')
+axes[2].set_title('Biplot (loadings)')
+
+plt.tight_layout()
+plt.savefig('pca_iris.pdf')
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Kernel PCA, t-SNE et UMAP}]
+\begin{minted}{python}
+from sklearn.decomposition import KernelPCA
+from sklearn.manifold import TSNE
+# pip install umap-learn
+import umap
+
+# Kernel PCA (RBF)
+kpca = KernelPCA(n_components=2, kernel='rbf', gamma=0.1)
+Z_kpca = kpca.fit_transform(X)
+
+# t-SNE
+tsne = TSNE(n_components=2, perplexity=30, random_state=42,
+            n_iter=1000, learning_rate='auto', init='pca')
+Z_tsne = tsne.fit_transform(X)
+
+# UMAP
+reducer = umap.UMAP(n_neighbors=15, min_dist=0.1,
+                     random_state=42)
+Z_umap = reducer.fit_transform(X)
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+for ax, Z_proj, title in zip(
+    axes,
+    [Z_kpca, Z_tsne, Z_umap],
+    ['Kernel PCA (RBF)', 't-SNE', 'UMAP']
+):
+    ax.scatter(Z_proj[:, 0], Z_proj[:, 1],
+               c=y, cmap='viridis', s=20)
+    ax.set_title(title)
+plt.tight_layout()
+plt.savefig('reduction_comparison.pdf')
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Effet de la perplexit\'e (t-SNE)}]
+\begin{minted}{python}
+from sklearn.datasets import load_digits
+
+X_digits, y_digits = load_digits(return_X_y=True)
+
+fig, axes = plt.subplots(1, 4, figsize=(16, 4))
+for ax, perp in zip(axes, [5, 15, 30, 50]):
+    tsne = TSNE(n_components=2, perplexity=perp,
+                random_state=42, init='pca',
+                learning_rate='auto')
+    Z = tsne.fit_transform(X_digits)
+    ax.scatter(Z[:, 0], Z[:, 1], c=y_digits,
+               cmap='tab10', s=5, alpha=0.7)
+    ax.set_title(f'Perplexite = {perp}')
+    ax.set_xticks([]); ax.set_yticks([])
+plt.tight_layout()
+plt.savefig('tsne_perplexity.pdf')
+\end{minted}
+\end{codeblock}
+
+% ============================================================
+\section{Exercices}
+\label{sec:exercises-ch9}
+% ============================================================
+
+\begin{exercice}[Niveau 1~--- PCA analytique]
+On consid\`ere les donn\'ees centr\'ees~:
+$\bm{x}_1 = (2,1)^\top$, $\bm{x}_2 = (-1, -1)^\top$,
+$\bm{x}_3 = (1, 0)^\top$, $\bm{x}_4 = (-2, 0)^\top$.
+\begin{enumerate}
+  \item Calculer la matrice de covariance $\bm{S}$.
+  \item D\'eterminer les valeurs propres et vecteurs propres de $\bm{S}$.
+  \item Projeter les donn\'ees sur la premi\`ere composante principale.
+  \item Calculer le ratio de variance expliqu\'ee $\rho(1)$.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Niveau 2~--- PCA et SVD]
+\begin{enumerate}
+  \item Impl\'ementer la PCA via la SVD (\texttt{np.linalg.svd}) et v\'erifier
+    que les r\'esultats co\"incident avec ceux de \texttt{PCA} de scikit-learn
+    sur le dataset Iris.
+  \item Comparer le temps d'ex\'ecution de la PCA par d\'ecomposition spectrale
+    ($\bm{S} = \bm{V}\bm{\Lambda}\bm{V}^\top$) et par SVD
+    ($\tilde{\bm{X}} = \bm{U}\bm{\Sigma}\bm{V}^\top$) pour
+    $d \in \{10, 100, 1000\}$ avec $n = 500$.
+  \item Montrer que l'erreur de reconstruction
+    $\norm{\bm{X} - \bm{X}\bm{V}_p\bm{V}_p^\top}_F^2 = \sum_{k=p+1}^d
+    \lambda_k$ en utilisant la SVD.
+  \item Appliquer Kernel PCA avec un noyau RBF au dataset
+    \texttt{make\_circles}. Comparer avec la PCA lin\'eaire.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Niveau 3~--- Analyse compl\`ete MNIST]
+\begin{enumerate}
+  \item Charger le dataset MNIST (ou \texttt{load\_digits} de scikit-learn).
+  \item Appliquer la PCA et tracer le scree plot. Combien de composantes
+    faut-il pour expliquer 95\,\% de la variance~?
+  \item Reconstruire des images \`a partir de $p \in \{5, 10, 30, 50, 100\}$
+    composantes. Visualiser la qualit\'e de reconstruction.
+  \item Comparer les visualisations 2D obtenues par PCA, t-SNE
+    (perplexit\'es 10, 30, 50) et UMAP (\texttt{n\_neighbors} $\in
+    \{5, 15, 50\}$). Discuter les diff\'erences.
+  \item Mesurer l'effet de la r\'eduction de dimension (PCA) sur la performance
+    d'un classifieur $k$-NN en fonction de $p$. Tracer la courbe accuracy vs
+    $p$. Y a-t-il un $p$ optimal~?
+  \item (\emph{Bonus}) D\'emontrer que la PCA est \'equivalente \`a la
+    factorisation matricielle de rang $p$ minimisant la norme de Frobenius
+    (th\'eor\`eme d'Eckart-Young).
+\end{enumerate}
+\end{exercice}

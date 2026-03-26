@@ -1,0 +1,167 @@
+% ============================================================
+\chapter{D\'erivation et Int\'egration Num\'erique}
+\label{ch:integration}
+% ============================================================
+
+\section{Exemple motivant}
+Calculer $\int_0^1 e^{-x^2}\,dx$ : pas de primitive en forme close. On utilise des formules de quadrature. De m\^eme, $f'(x)$ peut \^etre approch\'ee par des diff\'erences finies lorsque $f$ n'est connue que num\'eriquement.
+
+\section{D\'erivation num\'erique}\index{derivation numerique@d\'erivation num\'erique}
+
+\begin{definition}[Diff\'erences finies]
+\begin{align}
+f'(x) &\approx \frac{f(x+h)-f(x)}{h} && \text{(progressive, } \BigO(h)\text{)} \\
+f'(x) &\approx \frac{f(x+h)-f(x-h)}{2h} && \text{(centr\'ee, } \BigO(h^2)\text{)} \\
+f''(x) &\approx \frac{f(x+h)-2f(x)+f(x-h)}{h^2} && (\BigO(h^2))
+\end{align}
+\end{definition}
+
+\begin{theoreme}[Erreur de la diff\'erence centr\'ee]
+Si $f\in C^3$ : $\frac{f(x+h)-f(x-h)}{2h}=f'(x)+\frac{h^2}{6}f'''(\xi)$.
+\end{theoreme}
+
+\begin{attention}
+Diminuer $h$ am\'eliore l'erreur de troncature mais augmente l'erreur d'arrondi. Le $h$ optimal est $h^*\sim\eps_{\mathrm{mach}}^{1/3}\approx 6\times 10^{-6}$ en double pr\'ecision.
+\end{attention}
+
+\section{Formules de Newton--Cotes}\index{Newton--Cotes}
+
+Principe : remplacer $f$ par son polyn\^ome d'interpolation sur $[a,b]$ et int\'egrer.
+
+\subsection{R\`egle du trap\`eze}\index{trapeze@trap\`eze}
+
+\begin{definition}
+\[
+\int_a^b f(x)\,dx \approx \frac{b-a}{2}[f(a)+f(b)].
+\]
+Erreur : $-\frac{(b-a)^3}{12}f''(\xi)$.
+\end{definition}
+
+\subsection{R\`egle de Simpson}\index{Simpson}
+
+\begin{definition}
+\[
+\int_a^b f(x)\,dx \approx \frac{b-a}{6}\left[f(a)+4f\!\left(\frac{a+b}{2}\right)+f(b)\right].
+\]
+Erreur : $-\frac{(b-a)^5}{2880}f^{(4)}(\xi)$.
+\end{definition}
+
+\begin{theoreme}[Formule de Simpson --- degr\'e d'exactitude]
+Simpson est exacte pour les polyn\^omes de degr\'e $\leq 3$ (un degr\'e de mieux que pr\'evu).
+\end{theoreme}
+
+\section{Formules composites}
+
+\begin{definition}[Trap\`eze composite]
+$n$ sous-intervalles, $h=(b-a)/n$ :
+\[
+T_n(f) = \frac{h}{2}\left[f(a)+2\sum_{i=1}^{n-1}f(x_i)+f(b)\right].
+\]
+Erreur : $-\frac{(b-a)h^2}{12}f''(\xi)=\BigO(h^2)$.
+\end{definition}
+
+\begin{definition}[Simpson composite]
+$n$ pairs de sous-intervalles, $h=(b-a)/n$ :
+\[
+S_n(f) = \frac{h}{3}\left[f(a)+4\sum_{\text{imp}}f(x_i)+2\sum_{\text{pair}}f(x_i)+f(b)\right].
+\]
+Erreur : $\BigO(h^4)$.
+\end{definition}
+
+\section{Extrapolation de Richardson}\index{Richardson}
+
+\begin{theoreme}
+Si $T(h)=I+c_1h^2+c_2h^4+\cdots$, alors $\frac{4T(h/2)-T(h)}{3}=I+\BigO(h^4)$. C'est la formule de Simpson !
+\end{theoreme}
+
+\section{Exemple num\'erique}
+
+$I=\int_0^1 e^{-x^2}\,dx\approx 0{,}746824$.
+
+\begin{center}
+\begin{tabular}{cccc}
+\toprule
+$n$ & Trap\`eze $T_n$ & Simpson $S_n$ & Erreur Simpson \\
+\midrule
+2 & 0.731531 & 0.747180 & $3{,}6\times10^{-4}$ \\
+4 & 0.742984 & 0.746831 & $7{,}0\times10^{-6}$ \\
+8 & 0.745866 & 0.746824 & $1{,}1\times10^{-7}$ \\
+16 & 0.746584 & 0.746824 & $1{,}7\times10^{-9}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Impl\'ementation}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+
+def trapezoidal(f, a, b, n):
+    x = np.linspace(a, b, n+1)
+    h = (b - a) / n
+    return h * (f(a)/2 + np.sum(f(x[1:-1])) + f(b)/2)
+
+def simpson(f, a, b, n):
+    assert n % 2 == 0
+    x = np.linspace(a, b, n+1)
+    h = (b - a) / n
+    return h/3 * (f(a) + 4*np.sum(f(x[1::2])) + 2*np.sum(f(x[2:-1:2])) + f(b))
+
+f = lambda x: np.exp(-x**2)
+exact = 0.7468241328124271  # scipy.integrate.quad
+
+for n in [2, 4, 8, 16, 32]:
+    T = trapezoidal(f, 0, 1, n)
+    S = simpson(f, 0, 1, n)
+    print(f"n={n:3d}  Trap={T:.10f}  Simp={S:.10f}  "
+          f"Err_T={abs(T-exact):.2e}  Err_S={abs(S-exact):.2e}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Julia}]
+\begin{minted}{julia}
+function trapezoidal(f, a, b, n)
+    h = (b - a) / n
+    x = range(a, b, length=n+1)
+    return h * (f(a)/2 + sum(f.(x[2:end-1])) + f(b)/2)
+end
+
+function simpson_rule(f, a, b, n)
+    h = (b - a) / n
+    x = range(a, b, length=n+1)
+    return h/3 * (f(a) + 4sum(f.(x[2:2:end-1])) + 2sum(f.(x[3:2:end-2])) + f(b))
+end
+
+f(x) = exp(-x^2)
+for n in [2, 4, 8, 16, 32]
+    println("n=$n  Trap=$(trapezoidal(f,0,1,n))  Simp=$(simpson_rule(f,0,1,n))")
+end
+\end{minted}
+\end{codeblock}
+
+\section{Exercices}
+
+\begin{exercice}[$\star$]
+Calculer $\int_0^\pi\sin x\,dx$ par trap\`eze et Simpson composites ($n=4$). Comparer \`a la valeur exacte.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+D\'emontrer que Simpson est exacte pour les polyn\^omes de degr\'e 3.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+V\'erifier num\'eriquement l'ordre $\BigO(h^2)$ du trap\`eze et $\BigO(h^4)$ de Simpson par un tableau d'erreurs.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Projet]
+Impl\'ementer l'int\'egration adaptative (Simpson adaptatif) et comparer avec \texttt{scipy.integrate.quad}.
+\end{exercice}
+
+\begin{formules}
+\begin{align*}
+T_n &= \frac{h}{2}[f(a)+2\textstyle\sum f(x_i)+f(b)], \; E=\BigO(h^2) \\
+S_n &= \frac{h}{3}[f(a)+4\textstyle\sum_{\text{imp}}+2\textstyle\sum_{\text{pair}}+f(b)], \; E=\BigO(h^4) \\
+f'(x) &\approx \frac{f(x+h)-f(x-h)}{2h}, \; E=\BigO(h^2)
+\end{align*}
+\end{formules}

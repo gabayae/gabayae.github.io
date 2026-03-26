@@ -1,0 +1,330 @@
+% ============================================================
+\chapter{LLM Evaluation}
+\label{ch:evaluation}
+% ============================================================
+
+\begin{intuition}[title=\textbf{Why evaluation is hard}]
+Evaluating NLP systems is fundamentally difficult because language is
+ambiguous, subjective, and context-dependent. A translation can be
+faithful but awkward, a summary can be fluent but unfaithful. Each task
+requires tailored metrics, and no automatic metric perfectly captures
+human-perceived quality.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Intrinsic vs Extrinsic Evaluation}
+\label{sec:eval:types}
+% ------------------------------------------------------------
+
+\begin{definition}[Intrinsic Evaluation]
+\index{intrinsic evaluation}
+\textbf{Intrinsic evaluation} measures the quality of an isolated
+component, independently of its downstream application. Examples:
+perplexity of a language model, POS tagging accuracy.
+\end{definition}
+
+\begin{definition}[Extrinsic Evaluation]
+\index{extrinsic evaluation}
+\textbf{Extrinsic evaluation} measures the impact of a component on a
+complete downstream task. Example: the effect of a better language model
+on dialogue system quality.
+\end{definition}
+
+\begin{remark}
+Intrinsic evaluation is reproducible and inexpensive but does not
+guarantee practical utility. Extrinsic evaluation is more relevant but
+costlier and harder to isolate.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Perplexity}
+\label{sec:eval:perplexity}
+% ------------------------------------------------------------
+
+\begin{definition}[Perplexity]
+\index{perplexity}
+The \textbf{perplexity} of a language model $P$ on a test corpus
+$w_1, \ldots, w_N$ is:
+\[
+    \text{PPL} = \exp\left(-\frac{1}{N} \sum_{i=1}^{N}
+    \log P(w_i | w_{<i})\right)
+    = \exp(H_{\text{cross}})
+\]
+where $H_{\text{cross}}$ is the cross-entropy between the true
+distribution and the model.
+\end{definition}
+
+\begin{proposition}[Interpreting Perplexity]
+\begin{itemize}
+    \item PPL $= \abs{\mathcal{V}}$: the model is uniform (no prediction).
+    \item PPL $= 1$: perfect prediction.
+    \item In practice, GPT-2 achieves PPL $\approx 22$ on WikiText-103.
+\end{itemize}
+\end{proposition}
+
+\begin{warning}[title=\textbf{Limitations of Perplexity}]
+Perplexity only measures the model's predictive ability on the test
+corpus. It does not capture coherence, factual faithfulness, or stylistic
+quality. Two models with the same perplexity can generate text of very
+different qualities.
+\end{warning}
+
+% ------------------------------------------------------------
+\section{BLEU}
+\label{sec:eval:bleu}
+% ------------------------------------------------------------
+
+\begin{definition}[BLEU]
+\index{BLEU}
+BLEU (Bilingual Evaluation Understudy, Papineni et al., 2002) measures
+translation quality by comparing $n$-grams between a candidate $c$ and
+reference translations $\{r\}$:
+\[
+    \text{BLEU} = \text{BP} \cdot \exp\left(\sum_{n=1}^{N}
+    \frac{1}{N} \log p_n\right)
+\]
+where $p_n$ is the modified $n$-gram precision and BP is the brevity
+penalty.
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{BLEU Components}]
+\textbf{Modified $n$-gram precision}:
+\[
+    p_n = \frac{\sum_{\text{$n$-gram} \in c}
+    \min(\text{count}(c), \max_r \text{count}(r))}
+    {\sum_{\text{$n$-gram} \in c} \text{count}(c)}
+\]
+\textbf{Brevity penalty}:
+\[
+    \text{BP} = \begin{cases}
+        1 & \text{if } \abs{c} > \abs{r} \\
+        \exp(1 - \abs{r}/\abs{c}) & \text{otherwise}
+    \end{cases}
+\]
+\end{keyformulas}
+
+\begin{remark}
+BLEU-4 (with $N=4$) is the standard for machine translation. It
+correlates reasonably with human judgment at the corpus level but
+poorly at the sentence level.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{ROUGE}
+\label{sec:eval:rouge}
+% ------------------------------------------------------------
+
+\begin{definition}[ROUGE]
+\index{ROUGE}
+ROUGE (Recall-Oriented Understudy for Gisting Evaluation, Lin, 2004)
+measures summary quality with a focus on recall:
+\begin{itemize}
+    \item \textbf{ROUGE-N}: $n$-gram recall:
+    $\text{ROUGE-N} = \frac{\sum_{\text{$n$-gram} \in r}
+    \min(\text{count}(c), \text{count}(r))}
+    {\sum_{\text{$n$-gram} \in r} \text{count}(r)}$
+    \item \textbf{ROUGE-L}: longest common subsequence (LCS) based F-measure.
+\end{itemize}
+\end{definition}
+
+\begin{proposition}[BLEU vs ROUGE]
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lcc}
+    \toprule
+    & \textbf{BLEU} & \textbf{ROUGE} \\
+    \midrule
+    Orientation & Precision & Recall \\
+    Primary use & Translation & Summarization \\
+    Granularity & Corpus & Document \\
+    \bottomrule
+\end{tabular}
+\end{center}
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{BERTScore}
+\label{sec:eval:bertscore}
+% ------------------------------------------------------------
+
+\begin{definition}[BERTScore]
+\index{BERTScore}
+BERTScore (Zhang et al., 2020) uses contextual embeddings from BERT
+to compute similarity between reference and candidate tokens:
+\[
+    P_{\text{BERT}} = \frac{1}{\abs{c}} \sum_{c_i \in c}
+    \max_{r_j \in r} \mathbf{c}_i^\top \mathbf{r}_j,
+    \qquad
+    R_{\text{BERT}} = \frac{1}{\abs{r}} \sum_{r_j \in r}
+    \max_{c_i \in c} \mathbf{r}_j^\top \mathbf{c}_i
+\]
+\[
+    F_{\text{BERT}} = 2 \cdot \frac{P_{\text{BERT}} \cdot R_{\text{BERT}}}
+    {P_{\text{BERT}} + R_{\text{BERT}}}
+\]
+\end{definition}
+
+\begin{remark}
+BERTScore captures semantic similarity rather than exact word matching,
+making it more robust to paraphrases. It correlates better with human
+judgment than BLEU and ROUGE on many tasks.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Human Evaluation}
+\label{sec:eval:human}
+% ------------------------------------------------------------
+
+\begin{definition}[Human Evaluation Protocols]
+\index{human evaluation}
+Human evaluation remains the gold standard. Common protocols include:
+\begin{enumerate}
+    \item \textbf{Likert scale}: annotators rate from 1 to 5 on criteria
+    (fluency, coherence, relevance).
+    \item \textbf{Pairwise comparison}: ``Which response is better,
+    A or B?'' (more reliable than absolute scales).
+    \item \textbf{Ranking}: order $n$ outputs from best to worst.
+    \item \textbf{Elo rating}: dynamic ranking through iterative
+    comparisons (used by Chatbot Arena).
+\end{enumerate}
+\end{definition}
+
+\begin{definition}[Inter-Annotator Agreement]
+\index{inter-annotator agreement}
+\textbf{Cohen's kappa} measures agreement between two annotators
+corrected for chance:
+\[
+    \kappa = \frac{P_o - P_e}{1 - P_e}
+\]
+where $P_o$ is observed agreement and $P_e$ is expected agreement by
+chance. $\kappa > 0.8$ indicates excellent agreement.
+\end{definition}
+
+\begin{warning}[title=\textbf{Human Evaluation Biases}]
+Human evaluation suffers from biases: preference for longer responses,
+position bias (first option is often preferred), annotator fatigue, and
+cultural variability. Rigorous protocols (randomization, explicit
+criteria, calibration) are essential.
+\end{warning}
+
+% ------------------------------------------------------------
+\section{Benchmarks: GLUE, SuperGLUE, and Beyond}
+\label{sec:eval:benchmarks}
+% ------------------------------------------------------------
+
+\begin{definition}[GLUE]
+\index{GLUE}
+The \textbf{GLUE} benchmark (General Language Understanding Evaluation,
+Wang et al., 2018) comprises 9 language understanding tasks: textual
+entailment (MNLI, RTE, WNLI), similarity (STS-B, MRPC, QQP), sentiment
+(SST-2), acceptability (CoLA), and QA (QNLI).
+\end{definition}
+
+\begin{definition}[SuperGLUE]
+\index{SuperGLUE}
+\textbf{SuperGLUE} (Wang et al., 2019) succeeded GLUE with harder tasks:
+BoolQ, CB, COPA, MultiRC, ReCoRD, RTE, WiC, WSC. Current models surpass
+human performance on SuperGLUE.
+\end{definition}
+
+\begin{remark}
+Since LLMs have saturated GLUE and SuperGLUE, more challenging
+benchmarks have emerged: MMLU (multi-domain knowledge), BIG-Bench
+(emergent tasks), HELM (holistic evaluation), and LMSYS Chatbot Arena
+(user-based evaluation).
+\end{remark}
+
+% ------------------------------------------------------------
+\section{LLM-as-a-Judge}
+\label{sec:eval:llm_judge}
+% ------------------------------------------------------------
+
+\begin{definition}[LLM-as-a-Judge]
+\index{LLM-as-a-Judge}
+The \textbf{LLM-as-a-Judge} approach uses a powerful language model
+(GPT-4, Claude) to evaluate outputs from other models. The judge
+receives a structured prompt with evaluation criteria and returns a
+score or ranking.
+\end{definition}
+
+\begin{attention}[title=\textbf{Leaderboard Pitfalls}]
+Leaderboards can be misleading:
+\begin{enumerate}
+    \item \textbf{Benchmark overfitting}: models are optimized
+    specifically for test benchmarks.
+    \item \textbf{Data contamination}: test data may appear in training
+    corpora.
+    \item \textbf{Inappropriate metrics}: a single score masks strengths
+    and weaknesses.
+    \item \textbf{Lack of diversity}: benchmarks underrepresent certain
+    languages and cultures.
+\end{enumerate}
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Python Implementation}
+\label{sec:eval:code}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Computing BLEU and ROUGE}]
+\begin{minted}{python}
+from nltk.translate.bleu_score import sentence_bleu
+from rouge_score import rouge_scorer
+
+# BLEU
+reference = [["the", "cat", "is", "on", "the", "mat"]]
+candidate = ["the", "cat", "is", "sitting", "on", "the", "mat"]
+bleu = sentence_bleu(reference, candidate)
+print(f"BLEU: {bleu:.4f}")
+
+# ROUGE
+scorer = rouge_scorer.RougeScorer(
+    ['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
+ref = "the cat is on the mat"
+hyp = "the cat is sitting on the mat"
+scores = scorer.score(ref, hyp)
+for key, val in scores.items():
+    print(f"{key}: P={val.precision:.3f} R={val.recall:.3f} "
+          f"F={val.fmeasure:.3f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{BERTScore}]
+\begin{minted}{python}
+from bert_score import score as bert_score
+
+refs = ["The cat is on the mat."]
+hyps = ["The cat is sitting on the mat."]
+P, R, F1 = bert_score(hyps, refs, lang="en")
+print(f"BERTScore F1: {F1.mean():.4f}")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+\label{sec:eval:exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}[Manual BLEU]
+Manually compute the BLEU-2 (bigram) score for the reference ``the small
+black cat sleeps'' and the candidate ``the black cat sleeps well''.
+Detail the computation of $p_1$, $p_2$, and BP.
+\end{exercise}
+
+\begin{exercise}[BERTScore vs BLEU]
+On a corpus of 100 (reference, candidate) pairs containing paraphrases,
+compare BLEU and BERTScore. Identify cases where the two metrics diverge
+and explain why.
+\end{exercise}
+
+\begin{exercise}[Human Evaluation Protocol]
+Design a human evaluation protocol for a customer service chatbot.
+Define criteria, scale, number of annotators, and how to measure
+inter-annotator agreement.
+\end{exercise}
+
+\begin{exercise}[Benchmark Contamination]
+Explain how test data contamination in an LLM's training corpus can
+bias results on MMLU. Propose methods to detect and mitigate this
+problem.
+\end{exercise}

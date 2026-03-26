@@ -1,0 +1,288 @@
+% ============================================================
+\chapter{Repr\'esentations de Nuages de Points}
+\label{ch:point_clouds}
+% ============================================================
+
+En 2017, Charles Qi et ses collaborateurs de Stanford publient PointNet, une architecture de r\'eseau de neurones capable de traiter directement des nuages de points 3D --- sans les convertir en voxels ni en maillages. L'id\'ee cl\'e est \'el\'egante~: puisqu'un nuage de points est un ensemble \emph{non ordonn\'e}, l'architecture doit \^etre \emph{invariante par permutation}. PointNet y parvient en appliquant une fonction partag\'ee \`a chaque point puis en aggr\'egeant par un max global. PointNet++, Dynamic Graph CNN (DGCNN), et les m\'ethodes bas\'ees sur les transformeurs \'etendront ensuite cette approche en capturant les structures locales et les relations de voisinage. Ce chapitre explore ces architectures, des fondements th\'eoriques (th\'eor\`eme de Zaheer sur les fonctions d'ensembles) aux applications en conduite autonome, robotique et reconstruction 3D.
+
+\begin{intuition}
+Un nuage de points\index{nuage de points} 3D est un ensemble
+\textbf{non ordonn\'e} de points $\{x_1, \ldots, x_n\} \subset \R^3$.
+Contrairement aux images (grille r\'eguli\`ere) ou aux graphes
+(structure combinatoire), il n'a pas de connectivit\'e canonique.
+Le d\'efi est de concevoir des architectures qui soient
+\textbf{invariantes par permutation} des points et, id\'ealement,
+\textbf{\'equivariantes} par rapport aux transformations g\'eom\'etriques
+(rotations, translations).
+\end{intuition}
+
+% ============================================================
+\section{Le probl\`eme de l'invariance par permutation}
+% ============================================================
+
+\begin{definition}[Fonction invariante par permutation]
+\index{invariance par permutation}
+Une fonction $f : \R^{n \times d} \to \R^k$ est \textbf{invariante
+par permutation} si pour toute matrice de permutation
+$\Pi \in \{0,1\}^{n \times n}$~:
+\[
+  f(\Pi X) = f(X).
+\]
+\end{definition}
+
+\begin{theoreme}[Caract\'erisation --- Zaheer et al.\ 2017]
+\label{thm:deepsets}
+\index{Deep Sets}
+Toute fonction continue $f : 2^{\R^d} \to \R$ invariante par
+permutation peut s'\'ecrire sous la forme~:
+\[
+  f(\{x_1, \ldots, x_n\}) = \rho\!\left(
+  \sum_{i=1}^n \phi(x_i)\right)
+\]
+pour des fonctions continues $\phi : \R^d \to \R^q$ et
+$\rho : \R^q \to \R$ (sous r\'eserve d'un $q$ suffisamment grand).
+\end{theoreme}
+
+\begin{remarque}
+Ce th\'eor\`eme fonde l'architecture \textbf{Deep Sets} et, par
+extension, \textbf{PointNet}. L'op\'eration cl\'e est l'agr\'egation
+par somme (ou max) qui garantit l'invariance par permutation.
+\end{remarque}
+
+% ============================================================
+\section{PointNet}
+\label{sec:pointnet}
+% ============================================================
+
+\begin{definition}[Architecture PointNet --- Qi et al.\ 2017]
+\index{PointNet}
+\textbf{PointNet} traite directement un nuage de $n$ points
+$X \in \R^{n \times 3}$~:
+\begin{enumerate}
+  \item \textbf{Transformation spatiale}~: un mini-r\'eseau (T-Net)
+        pr\'edit une matrice $T \in \R^{3 \times 3}$ qui aligne le nuage~:
+        $X' = X \cdot T$.
+  \item \textbf{MLP partag\'e}~: chaque point est transform\'e
+        ind\'ependamment par un MLP $\phi : \R^3 \to \R^{1024}$~:
+        $h_i = \phi(x_i')$.
+  \item \textbf{Agr\'egation sym\'etrique}~: un max-pooling global
+        produit un vecteur de features global~:
+        $g = \max_{i=1}^n h_i$.
+  \item \textbf{T\^ete de classification/segmentation}~: un MLP
+        final sur $g$ (ou $[g; h_i]$ pour la segmentation).
+\end{enumerate}
+\end{definition}
+
+\begin{formules}[title=\textbf{PointNet --- \'equation fondamentale}]
+\[
+  f(X) = \rho\!\left(\max_{i=1}^n \phi(x_i)\right)
+\]
+o\`u $\phi$ est un MLP point par point et $\rho$ un MLP global.
+\end{formules}
+
+\begin{proposition}[Approximation universelle de PointNet]
+PointNet peut approcher toute fonction continue invariante par
+permutation sur les nuages de points compacts, au sens du
+th\'eor\`eme \ref{thm:deepsets}.
+\end{proposition}
+
+\begin{attention}[title=\textbf{Limitations de PointNet}]
+PointNet traite chaque point \textbf{ind\'ependamment} avant
+l'agr\'egation~: il ne capture pas les structures locales
+(voisinages). Deux nuages avec les m\^emes points mais des
+g\'eom\'etries locales diff\'erentes peuvent avoir le m\^eme
+vecteur global.
+\end{attention}
+
+% ============================================================
+\section{PointNet++}
+\label{sec:pointnetpp}
+% ============================================================
+
+\begin{definition}[Architecture PointNet++ --- Qi et al.\ 2017]
+\index{PointNet++}
+\textbf{PointNet++} introduit une hi\'erarchie de traitements
+locaux~:
+\begin{enumerate}
+  \item \textbf{\'Echantillonnage}~: s\'election de $n'$ centres
+        par \emph{farthest point sampling} (FPS).
+  \item \textbf{Regroupement}~: pour chaque centre $c_j$, s\'election
+        des $K$ plus proches voisins (ou ball query de rayon $r$).
+  \item \textbf{PointNet local}~: application de PointNet sur chaque
+        groupe, produisant un feature $g_j \in \R^{d'}$.
+  \item \textbf{It\'eration}~: r\'ep\'etition sur les centres avec
+        leurs features, cr\'eant une pyramide multi-\'echelle.
+\end{enumerate}
+\end{definition}
+
+\begin{definition}[Set Abstraction Layer]
+\index{Set Abstraction}
+La couche de \textbf{Set Abstraction} (SA) combine les trois
+op\'erations~:
+\[
+  \mathrm{SA}(X) = \{g_j\}_{j=1}^{n'}, \qquad
+  g_j = \max_{x_i \in \mathcal{N}(c_j)} \phi(x_i - c_j)
+\]
+o\`u $\mathcal{N}(c_j)$ est le voisinage du centre $c_j$.
+\end{definition}
+
+\begin{intuition}
+PointNet++ est au nuage de points ce que le CNN est \`a l'image~:
+il applique des op\'erations locales de mani\`ere hi\'erarchique.
+La diff\'erence est qu'il n'y a pas de grille~: les voisinages
+sont d\'etermin\'es dynamiquement.
+\end{intuition}
+
+% ============================================================
+\section{Convolutions sur nuages de points}
+\label{sec:convolutions}
+% ============================================================
+
+\begin{definition}[Convolution continue sur nuage de points]
+\index{convolution continue}
+Une \textbf{convolution continue} sur un nuage de points est~:
+\[
+  (f * g)(x_i) = \sum_{x_j \in \mathcal{N}(x_i)}
+  g(x_j - x_i) \cdot h_j
+\]
+o\`u $g : \R^3 \to \R^{d' \times d}$ est un filtre continu
+et $h_j \in \R^d$ sont les features du point $x_j$.
+\end{definition}
+
+\begin{exemple}[Architectures bas\'ees sur la convolution]
+\begin{itemize}
+  \item \textbf{PointConv} (Wu et al.\ 2019)~: $g$ est param\'etr\'e
+        par un MLP appliqu\'e \`a la position relative et \`a la
+        densit\'e locale.
+  \item \textbf{KPConv} (Thomas et al.\ 2019)~: $g$ est d\'efini
+        par des points noyaux\index{KPConv} fixes $\{y_k\}_{k=1}^K$
+        avec des fonctions de corr\'elation~:
+        $g(x) = \sum_k W_k \cdot \max(0, 1 - \norm{x - y_k}/\sigma)$.
+  \item \textbf{DGCNN} (Wang et al.\ 2019)~: convolution sur un
+        graphe dynamique de $k$-plus proches voisins dans l'espace
+        des features.
+\end{itemize}
+\end{exemple}
+
+% ============================================================
+\section{\'Equivariance par rotation}
+\label{sec:equivariance_rotation}
+% ============================================================
+
+\begin{definition}[\'Equivariance $\mathrm{SO}(3)$]
+\index{\'equivariance SO(3)}
+Une fonction $f : \R^{n \times 3} \to \R^{n \times d}$ est
+\textbf{$\mathrm{SO}(3)$-\'equivariante} si pour toute rotation
+$R \in \mathrm{SO}(3)$~:
+\[
+  f(R \cdot X) = \rho(R) \cdot f(X)
+\]
+o\`u $\rho(R)$ est une repr\'esentation de $R$ agissant sur l'espace
+de sortie.
+\end{definition}
+
+\begin{theoreme}[Convolutions \'equivariantes --- Thomas et al.\ 2018]
+\index{Tensor Field Networks}
+Les filtres \'equivariants sous $\mathrm{SO}(3)$ s'expriment dans
+la base des harmoniques sph\'eriques~:
+\[
+  g^{(\ell)}(r, \hat{x}) = R^{(\ell)}(r) \cdot Y^{(\ell)}(\hat{x})
+\]
+o\`u $Y^{(\ell)}$ sont les harmoniques sph\'eriques de degr\'e $\ell$,
+$R^{(\ell)}$ est une fonction radiale apprise, et $\hat{x} = x / \norm{x}$.
+\end{theoreme}
+
+\begin{remarque}
+Les architectures \'equivariantes (Tensor Field Networks, SE(3)-Transformers,
+EGNN) garantissent que les pr\'edictions se transforment correctement
+sous rotation. Cela \'elimine le besoin d'augmentation de donn\'ees par
+rotations al\'eatoires.
+\end{remarque}
+
+% ============================================================
+\section{Applications}
+\label{sec:applications_pc}
+% ============================================================
+
+\begin{exemple}[Classification d'objets 3D]
+\index{classification 3D}
+Sur le benchmark \textbf{ModelNet40} (12\,311 mod\`eles, 40 classes)~:
+\begin{center}
+\begin{tabular}{lc}
+\toprule
+\textbf{M\'ethode} & \textbf{Accuracy (\%)} \\
+\midrule
+PointNet & 89.2 \\
+PointNet++ & 91.9 \\
+DGCNN & 92.9 \\
+KPConv & 92.9 \\
+Point Transformer & 93.7 \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{exemple}
+
+\begin{exemple}[Segmentation s\'emantique de sc\`enes]
+\index{segmentation s\'emantique}
+Pour la segmentation de nuages de points LiDAR (S3DIS, ScanNet),
+PointNet++ et KPConv atteignent des performances comp\'etitives.
+La segmentation attribue \`a chaque point une \'etiquette s\'emantique
+(sol, mur, meuble, etc.).
+\end{exemple}
+
+\begin{minted}{python}
+import torch
+from torch_geometric.nn import PointNetConv, fps, radius
+
+class PointNetPPLayer(torch.nn.Module):
+    """Une couche Set Abstraction de PointNet++."""
+    def __init__(self, ratio, r, nn):
+        super().__init__()
+        self.ratio = ratio
+        self.r = r
+        self.conv = PointNetConv(nn)
+
+    def forward(self, x, pos, batch):
+        # Farthest Point Sampling
+        idx = fps(pos, batch, ratio=self.ratio)
+        # Ball query
+        row, col = radius(
+            pos, pos[idx], self.r, batch, batch[idx]
+        )
+        edge_index = torch.stack([col, row], dim=0)
+        # PointNet local
+        x_out = self.conv(x, (pos, pos[idx]), edge_index)
+        return x_out, pos[idx], batch[idx]
+\end{minted}
+
+% ============================================================
+\section{Exercices}
+% ============================================================
+
+\begin{exercice}
+Montrer que le max-pooling global est invariant par permutation.
+Donner un contre-exemple montrant que la concat\'enation ne l'est pas.
+\end{exercice}
+
+\begin{exercice}
+Calculer le nombre de param\`etres de PointNet pour un nuage de
+$n = 1024$ points en 3D, avec un MLP point par point
+$[3, 64, 128, 1024]$ et un classificateur $[1024, 512, 256, 40]$.
+\end{exercice}
+
+\begin{exercice}[\'Equivariance]
+Montrer que PointNet avec T-Net est \textbf{approximativement}
+invariant par rotation mais pas exactement \'equivariant.
+Quelle propri\'et\'e manque-t-il~?
+\end{exercice}
+
+\begin{exercice}[Impl\'ementation]
+Impl\'ementer un PointNet simple en PyTorch et l'entra\^\i ner
+sur ModelNet10. Comparer avec et sans le T-Net.
+\end{exercice}
+
+\begin{exercice}[Convolution sur nuage]
+Expliquer pourquoi KPConv utilise des points noyaux fixes plut\^ot
+qu'un MLP pour d\'efinir le filtre. Quel avantage cela apporte-t-il
+en termes d'efficacit\'e et d'interpr\'etabilit\'e~?
+\end{exercice}

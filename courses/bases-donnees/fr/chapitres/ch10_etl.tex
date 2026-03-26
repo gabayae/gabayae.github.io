@@ -1,0 +1,290 @@
+% ============================================================
+\chapter{ETL et Entrep\^ots de Donn\'ees}
+\label{ch:etl}
+% ============================================================
+
+Les bases de donn\'ees transactionnelles sont optimis\'ees pour les op\'erations du quotidien~: ins\'erer une commande, mettre \`a jour un stock, enregistrer un paiement. Mais quand un dirigeant veut analyser les tendances de vente sur cinq ans, croiser les donn\'ees de trois d\'epartements et g\'en\'erer un tableau de bord, la base transactionnelle n'est pas l'outil adapt\'e. C'est pour r\'epondre \`a ce besoin que Bill Inmon et Ralph Kimball, dans les ann\'ees 1990, ont formalis\'e la notion d'\emph{entrep\^ot de donn\'ees} (data warehouse)~: un syst\`eme s\'epar\'e, organis\'e en sch\'ema en \'etoile, optimis\'e pour les requ\^etes analytiques. Les pipelines \emph{ETL} (Extract, Transform, Load) sont les tuyaux qui alimentent cet entrep\^ot en nettoyant et transformant les donn\'ees brutes provenant de sources h\'et\'erog\`enes.
+
+\begin{intuition}[title=\textbf{Id\'ee centrale}]
+Un entrep\^ot de donn\'ees (\emph{data warehouse}) centralise les donn\'ees
+de l'entreprise dans un sch\'ema optimis\'e pour l'analyse d\'ecisionnelle.
+Les pipelines ETL (Extract, Transform, Load) alimentent cet entrep\^ot en
+nettoyant et transformant les donn\'ees provenant de sources h\'et\'erog\`enes.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Concepts fondamentaux}
+% ------------------------------------------------------------
+
+\begin{definition}[Entrep\^ot de donn\'ees]
+\index{entrep\^ot de donn\'ees}
+Un \textbf{entrep\^ot de donn\'ees} (data warehouse) est une base de donn\'ees
+orient\'ee \emph{sujet}, \emph{int\'egr\'ee}, \emph{non volatile} et
+\emph{historis\'ee}, con\c{c}ue pour le support \`a la d\'ecision (Inmon, 1992).
+\end{definition}
+
+\begin{remarque}
+L'entrep\^ot de donn\'ees s'oppose aux bases \textbf{OLTP}
+(\emph{Online Transaction Processing}) qui servent les op\'erations
+quotidiennes. L'analyse d\'ecisionnelle rel\`eve de l'\textbf{OLAP}
+(\emph{Online Analytical Processing}).
+\end{remarque}
+
+\begin{center}
+\begin{tabular}{lcc}
+\hline
+\textbf{Caract\'eristique} & \textbf{OLTP} & \textbf{OLAP} \\
+\hline
+Op\'erations & Lectures/\'ecritures courtes & Requ\^etes analytiques longues \\
+Utilisateurs & Nombreux, op\'erationnels & Peu, analystes \\
+Donn\'ees & Courantes, d\'etaill\'ees & Historiques, agr\'eg\'ees \\
+Sch\'ema & Normalis\'e (3NF) & D\'enormalis\'e (\'etoile, flocon) \\
+\hline
+\end{tabular}
+\end{center}
+
+% ------------------------------------------------------------
+\section{Mod\'elisation dimensionnelle}
+% ------------------------------------------------------------
+
+\begin{definition}[Sch\'ema en \'etoile]
+\index{sch\'ema en \'etoile}
+Un \textbf{sch\'ema en \'etoile} organise les donn\'ees autour d'une
+\textbf{table de faits} centrale (mesures quantitatives) entour\'ee de
+\textbf{tables de dimension} (attributs descriptifs). Les dimensions sont
+reli\'ees \`a la table de faits par des cl\'es \'etrang\`eres.
+\end{definition}
+
+\begin{exemple}
+Entrep\^ot de donn\'ees pour les ventes d'un commerce~:
+\begin{minted}{python}
+-- Table de faits
+CREATE TABLE fait_ventes (
+    id_vente     SERIAL PRIMARY KEY,
+    id_produit   INT REFERENCES dim_produit(id),
+    id_client    INT REFERENCES dim_client(id),
+    id_date      INT REFERENCES dim_date(id),
+    id_magasin   INT REFERENCES dim_magasin(id),
+    quantite     INT,
+    montant      DECIMAL(10,2),
+    cout         DECIMAL(10,2)
+);
+
+-- Table de dimension
+CREATE TABLE dim_date (
+    id      INT PRIMARY KEY,
+    jour    DATE,
+    mois    INT,
+    trimestre INT,
+    annee   INT,
+    jour_semaine VARCHAR(10)
+);
+\end{minted}
+\end{exemple}
+
+\begin{definition}[Sch\'ema en flocon de neige]
+\index{sch\'ema en flocon}
+Le \textbf{sch\'ema en flocon de neige} est une variante o\`u les tables
+de dimension sont normalis\'ees~: chaque hi\'erarchie est extraite dans
+une table s\'epar\'ee (ex.~: \texttt{dim\_ville} $\to$ \texttt{dim\_region}
+$\to$ \texttt{dim\_pays}).
+\end{definition}
+
+\begin{attention}
+Le sch\'ema en \'etoile est g\'en\'eralement pr\'ef\'er\'e au flocon car~:
+\begin{itemize}
+  \item les jointures sont plus simples (une seule \'etape),
+  \item les performances sont meilleures (moins de jointures),
+  \item la redondance est acceptable en OLAP (espace disque bon march\'e).
+\end{itemize}
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Processus ETL}
+% ------------------------------------------------------------
+
+\begin{definition}[ETL]
+\index{ETL}
+Le processus \textbf{ETL} (\emph{Extract, Transform, Load}) comprend~:
+\begin{enumerate}
+  \item \textbf{Extraction}~: r\'ecup\'erer les donn\'ees des sources
+        (bases OLTP, fichiers CSV, API, logs).
+  \item \textbf{Transformation}~: nettoyer, normaliser, d\'edupliquer,
+        agr\'eger, calculer des indicateurs d\'eriv\'es.
+  \item \textbf{Chargement}~: ins\'erer les donn\'ees transform\'ees dans
+        l'entrep\^ot.
+\end{enumerate}
+\end{definition}
+
+\begin{exemple}
+Pipeline ETL en Python avec pandas~:
+\begin{minted}{python}
+import pandas as pd
+from sqlalchemy import create_engine
+
+# 1. Extract
+df_ventes = pd.read_csv("ventes_2025.csv")
+df_clients = pd.read_sql("SELECT * FROM clients", engine_oltp)
+
+# 2. Transform
+df_ventes["date"] = pd.to_datetime(df_ventes["date"])
+df_ventes = df_ventes.dropna(subset=["montant"])
+df_ventes["montant"] = df_ventes["montant"].clip(lower=0)
+df = df_ventes.merge(df_clients, on="client_id", how="left")
+df["trimestre"] = df["date"].dt.quarter
+
+# 3. Load
+engine_dw = create_engine("postgresql://user:pass@host/warehouse")
+df.to_sql("fait_ventes", engine_dw, if_exists="append", index=False)
+\end{minted}
+\end{exemple}
+
+\begin{definition}[ELT]
+\index{ELT}
+La variante \textbf{ELT} (\emph{Extract, Load, Transform}) charge d'abord
+les donn\'ees brutes dans l'entrep\^ot puis effectue les transformations
+directement en SQL. Cette approche est populaire avec les entrep\^ots cloud
+(BigQuery, Snowflake, Redshift) gr\^ace \`a leur puissance de calcul.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Dimensions \`a \'evolution lente (SCD)}
+% ------------------------------------------------------------
+
+\begin{definition}[Slowly Changing Dimensions]
+\index{SCD}
+Les \textbf{SCD} g\`erent les modifications des attributs dimensionnels~:
+\begin{itemize}
+  \item \textbf{Type 1}~: \'ecraser l'ancienne valeur (pas d'historique).
+  \item \textbf{Type 2}~: cr\'eer une nouvelle ligne avec dates de validit\'e
+        (\texttt{date\_debut}, \texttt{date\_fin}, \texttt{est\_courant}).
+  \item \textbf{Type 3}~: ajouter une colonne pour l'ancienne valeur
+        (historique limit\'e).
+\end{itemize}
+\end{definition}
+
+\begin{exemple}
+SCD Type 2 --- un client d\'em\'enage~:
+\begin{minted}{python}
+-- Avant : ligne courante
+-- id=1, nom='Dupont', ville='Paris', date_debut='2020-01-01',
+--        date_fin='9999-12-31', est_courant=TRUE
+
+-- Apres demenagement :
+UPDATE dim_client SET date_fin = '2025-06-15', est_courant = FALSE
+WHERE id = 1 AND est_courant = TRUE;
+
+INSERT INTO dim_client (id_naturel, nom, ville, date_debut, date_fin, est_courant)
+VALUES (1, 'Dupont', 'Lyon', '2025-06-15', '9999-12-31', TRUE);
+\end{minted}
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Op\'erations OLAP}
+% ------------------------------------------------------------
+
+\begin{definition}[Op\'erations OLAP]
+\index{OLAP}
+Les op\'erations OLAP classiques sur un cube multidimensionnel sont~:
+\begin{itemize}
+  \item \textbf{Roll-up} (agr\'egation)~: monter dans la hi\'erarchie
+        (jour $\to$ mois $\to$ ann\'ee).
+  \item \textbf{Drill-down} (d\'esagr\'egation)~: descendre dans la hi\'erarchie.
+  \item \textbf{Slice}~: fixer une dimension (ex.~: \texttt{annee = 2025}).
+  \item \textbf{Dice}~: s\'electionner un sous-cube multi-dimensionnel.
+  \item \textbf{Pivot}~: rotation des axes du cube.
+\end{itemize}
+\end{definition}
+
+\begin{minted}{python}
+-- Roll-up : ventes par mois -> ventes par trimestre
+SELECT d.trimestre, d.annee, SUM(f.montant) AS total
+FROM fait_ventes f
+JOIN dim_date d ON f.id_date = d.id
+GROUP BY d.trimestre, d.annee
+ORDER BY d.annee, d.trimestre;
+
+-- Slice + Dice avec CUBE
+SELECT d.annee, p.categorie, m.region,
+       SUM(f.montant) AS total
+FROM fait_ventes f
+JOIN dim_date d ON f.id_date = d.id
+JOIN dim_produit p ON f.id_produit = p.id
+JOIN dim_magasin m ON f.id_magasin = m.id
+WHERE d.annee IN (2024, 2025)
+GROUP BY CUBE (d.annee, p.categorie, m.region);
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Vues mat\'erialis\'ees}
+% ------------------------------------------------------------
+
+\begin{definition}[Vue mat\'erialis\'ee]
+\index{vue mat\'erialis\'ee}
+Une \textbf{vue mat\'erialis\'ee} est une vue dont le r\'esultat est
+physiquement stock\'e sur disque. Elle acc\'el\`ere les requ\^etes
+analytiques r\'ep\'etitives au prix d'un espace de stockage suppl\'ementaire
+et d'un co\^ut de rafra\^ichissement.
+\end{definition}
+
+\begin{minted}{python}
+-- Creation d'une vue materialisee
+CREATE MATERIALIZED VIEW mv_ventes_mensuelles AS
+SELECT d.annee, d.mois, p.categorie,
+       SUM(f.montant) AS total, COUNT(*) AS nb_ventes
+FROM fait_ventes f
+JOIN dim_date d ON f.id_date = d.id
+JOIN dim_produit p ON f.id_produit = p.id
+GROUP BY d.annee, d.mois, p.categorie;
+
+-- Rafraichissement
+REFRESH MATERIALIZED VIEW CONCURRENTLY mv_ventes_mensuelles;
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Formules cl\'es}
+% ------------------------------------------------------------
+
+\begin{formules}
+\begin{itemize}
+  \item \textbf{ETL}~: Extract $\to$ Transform $\to$ Load (vs.\ ELT~: Extract $\to$ Load $\to$ Transform)
+  \item \textbf{\'Etoile}~: 1 table de faits + $k$ tables de dimensions, jointures simples
+  \item \textbf{OLAP}~: Roll-up, Drill-down, Slice, Dice, Pivot
+  \item \textbf{SCD Type 2}~: historisation par \texttt{date\_debut}/\texttt{date\_fin}
+  \item \textbf{Vue mat\'erialis\'ee}~: compromis espace vs.\ temps de requ\^ete
+\end{itemize}
+\end{formules}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}
+Concevoir un sch\'ema en \'etoile pour un syst\`eme de r\'eservation de
+vols a\'eriens. Identifier la table de faits, les mesures et au moins
+quatre dimensions.
+\end{exercice}
+
+\begin{exercice}
+Transformer le sch\'ema en \'etoile de l'exercice pr\'ec\'edent en sch\'ema
+en flocon. Discuter les avantages et inconv\'enients.
+\end{exercice}
+
+\begin{exercice}
+\'Ecrire un pipeline ETL en Python qui~: (a) extrait des donn\'ees d'un
+fichier JSON, (b) nettoie les valeurs manquantes et normalise les dates,
+(c) charge le r\'esultat dans une table PostgreSQL.
+\end{exercice}
+
+\begin{exercice}
+Impl\'ementer une dimension \`a \'evolution lente de type 2 pour la table
+\texttt{dim\_produit}. Simuler un changement de prix et v\'erifier que
+l'historique est pr\'eserv\'e.
+\end{exercice}
+
+\begin{exercice}
+\'Ecrire les requ\^etes SQL correspondant aux op\'erations OLAP suivantes
+sur le sch\'ema de ventes~: (a) roll-up des ventes du jour au trimestre,
+(b) slice sur l'ann\'ee 2025, (c) dice sur les produits \'electroniques
+vendus en \^Ile-de-France.
+\end{exercice}

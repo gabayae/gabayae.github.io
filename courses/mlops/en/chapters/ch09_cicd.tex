@@ -1,0 +1,477 @@
+% ============================================================
+\chapter{CI/CD for Machine Learning}
+\label{ch:cicd}
+\index{CI/CD}
+% ============================================================
+
+\section{Why CI/CD for ML?}
+\label{sec:why-cicd}
+
+Traditional CI/CD pipelines test code and deploy applications.
+ML pipelines must additionally validate data, test model quality, and
+manage artifacts that are much larger than compiled binaries.
+
+\begin{definition}[CI/CD for ML]
+\textbf{Continuous Integration}\index{continuous integration} for ML
+verifies that code changes do not break the training pipeline, that
+data schemas are respected, and that model performance meets minimum
+thresholds. \textbf{Continuous Deployment}\index{continuous deployment}
+automates the promotion of validated models to staging and production
+environments.
+\end{definition}
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, rounded corners, minimum width=2.2cm,
+    minimum height=1cm, align=center, font=\scriptsize\bfseries},
+  arr/.style={-{Stealth[length=2mm]}, thick, steelblue}
+]
+  \node[box, fill=blue!10] (push) {Git Push};
+  \node[box, fill=cyan!10, right=1.2cm of push] (lint) {Lint \&\\Format};
+  \node[box, fill=cyan!10, right=1.2cm of lint] (test) {Unit\\Tests};
+  \node[box, fill=green!10, right=1.2cm of test] (train) {Train\\(small)};
+  \node[box, fill=green!10, right=1.2cm of train] (valid) {Model\\Validation};
+  \node[box, fill=orange!10, right=1.2cm of valid] (deploy) {Deploy\\Staging};
+  \node[box, fill=red!10, right=1.2cm of deploy] (prod) {Deploy\\Production};
+
+  \draw[arr] (push) -- (lint);
+  \draw[arr] (lint) -- (test);
+  \draw[arr] (test) -- (train);
+  \draw[arr] (train) -- (valid);
+  \draw[arr] (valid) -- (deploy);
+  \draw[arr] (deploy) -- (prod);
+
+  \node[below=0.5cm of lint, font=\scriptsize, text=gray] {CI};
+  \node[below=0.5cm of deploy, font=\scriptsize, text=gray] {CD};
+
+  \draw[dashed, gray] ([xshift=0.7cm, yshift=-0.3cm]test.south east)
+    -- ([xshift=0.7cm, yshift=0.8cm]test.north east);
+\end{tikzpicture}
+\end{center}
+
+\begin{remark}
+The key difference between CI/CD for software and CI/CD for ML is the
+\textbf{model validation} step: the pipeline must verify that the
+newly trained model meets performance thresholds before deployment. A
+model that passes all unit tests can still be useless if accuracy has
+regressed.
+\end{remark}
+
+\section{Pre-commit Hooks}
+\label{sec:pre-commit}
+\index{pre-commit}
+
+Pre-commit hooks run checks \emph{before} code enters the repository,
+catching issues at the earliest possible stage.
+
+\begin{codeblock}[title=\textbf{.pre-commit-config.yaml}]
+\begin{minted}{yaml}
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+
+  - repo: https://github.com/psf/black
+    rev: 24.2.0
+    hooks:
+      - id: black
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.3.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [numpy, pandas-stubs]
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Setting up pre-commit}]
+\begin{minted}{bash}
+# Install pre-commit
+pip install pre-commit
+
+# Install hooks in the repository
+pre-commit install
+
+# Run on all files (first time)
+pre-commit run --all-files
+
+# Update hooks to latest versions
+pre-commit autoupdate
+\end{minted}
+\end{codeblock}
+
+\section{GitHub Actions for ML}
+\label{sec:github-actions}
+\index{GitHub Actions}
+
+GitHub Actions is the most popular CI/CD platform for open-source ML
+projects. Workflows are defined in YAML files under
+\file{.github/workflows/}.
+
+\begin{codeblock}[title=\textbf{.github/workflows/ml-ci.yml --- Complete ML CI pipeline}]
+\begin{minted}{yaml}
+name: ML CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.11"
+  MLFLOW_TRACKING_URI: "sqlite:///mlflow.db"
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Lint with ruff
+        run: ruff check src/ tests/
+
+      - name: Format check with black
+        run: black --check src/ tests/
+
+      - name: Type check with mypy
+        run: mypy src/ --ignore-missing-imports
+
+      - name: Unit tests
+        run: pytest tests/unit/ -v --tb=short
+
+  train-and-validate:
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Set up DVC
+        uses: iterative/setup-dvc@v2
+
+      - name: Pull data with DVC
+        run: dvc pull
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+
+      - name: Train model (small dataset)
+        run: |
+          python src/train.py \
+            --config configs/ci_config.yaml \
+            --max-samples 1000
+
+      - name: Validate model performance
+        run: |
+          python src/evaluate.py \
+            --model models/model.joblib \
+            --min-accuracy 0.85 \
+            --min-f1 0.80
+
+      - name: Upload model artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-model
+          path: models/model.joblib
+          retention-days: 7
+
+  integration-test:
+    needs: train-and-validate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: test_db
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Download model artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: trained-model
+          path: models/
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run API integration tests
+        run: pytest tests/integration/ -v
+\end{minted}
+\end{codeblock}
+
+\section{Model Validation in CI}
+\label{sec:model-validation}
+\index{model validation}
+
+Model validation ensures that newly trained models meet minimum quality
+standards before deployment.
+
+\begin{codeblock}[title=\textbf{src/evaluate.py --- Model validation script}]
+\begin{minted}{python}
+"""Model validation for CI pipeline."""
+import argparse
+import json
+import sys
+
+import joblib
+import pandas as pd
+from sklearn.metrics import (
+    accuracy_score, f1_score, precision_score, recall_score
+)
+
+
+def validate_model(
+    model_path: str,
+    test_data_path: str = "data/test.csv",
+    min_accuracy: float = 0.85,
+    min_f1: float = 0.80,
+) -> bool:
+    """Validate model against minimum thresholds."""
+    model = joblib.load(model_path)
+    df = pd.read_csv(test_data_path)
+    X_test = df.drop("target", axis=1)
+    y_test = df["target"]
+
+    y_pred = model.predict(X_test)
+
+    metrics = {
+        "accuracy": accuracy_score(y_test, y_pred),
+        "f1": f1_score(y_test, y_pred, average="weighted"),
+        "precision": precision_score(y_test, y_pred,
+                                     average="weighted"),
+        "recall": recall_score(y_test, y_pred,
+                               average="weighted"),
+    }
+
+    # Save metrics report
+    with open("metrics.json", "w") as f:
+        json.dump(metrics, f, indent=2)
+
+    print("=== Model Validation Report ===")
+    for name, value in metrics.items():
+        status = "PASS" if value >= locals().get(
+            f"min_{name}", 0.0) else "FAIL"
+        print(f"  {name}: {value:.4f} [{status}]")
+
+    passed = (
+        metrics["accuracy"] >= min_accuracy
+        and metrics["f1"] >= min_f1
+    )
+    print(f"\nOverall: {'PASSED' if passed else 'FAILED'}")
+    return passed
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", required=True)
+    parser.add_argument("--test-data", default="data/test.csv")
+    parser.add_argument("--min-accuracy", type=float, default=0.85)
+    parser.add_argument("--min-f1", type=float, default=0.80)
+    args = parser.parse_args()
+
+    success = validate_model(
+        args.model, args.test_data,
+        args.min_accuracy, args.min_f1,
+    )
+    sys.exit(0 if success else 1)
+\end{minted}
+\end{codeblock}
+
+\section{DVC in CI}
+\label{sec:dvc-ci}
+\index{DVC!CI}
+
+Data Version Control (DVC) integrates with CI pipelines to pull
+versioned data and reproduce training pipelines.
+
+\begin{codeblock}[title=\textbf{DVC integration in GitHub Actions}]
+\begin{minted}{yaml}
+- name: Set up DVC
+  uses: iterative/setup-dvc@v2
+
+- name: Configure DVC remote
+  run: |
+    dvc remote modify myremote access_key_id \
+      ${{ secrets.AWS_ACCESS_KEY_ID }}
+    dvc remote modify myremote secret_access_key \
+      ${{ secrets.AWS_SECRET_KEY }}
+
+- name: Pull data
+  run: dvc pull
+
+- name: Reproduce pipeline
+  run: dvc repro
+
+- name: Compare metrics
+  run: |
+    dvc metrics diff --md >> $GITHUB_STEP_SUMMARY
+\end{minted}
+\end{codeblock}
+
+\begin{remark}
+Use \cli{dvc metrics diff} in pull requests to automatically show how
+a code change affects model performance. The CML (Continuous Machine
+Learning) tool by Iterative can post these comparisons as PR comments.
+\end{remark}
+
+\section{CI/CD Platform Comparison}
+\label{sec:cicd-comparison}
+
+\begin{center}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Criterion} & \textbf{GitHub Actions} & \textbf{GitLab CI} &
+  \textbf{Jenkins} & \textbf{CML} \\
+\midrule
+Hosted & Yes & Yes & Self-hosted & Cloud \\
+GPU runners & Paid & Yes & Self-hosted & Yes \\
+Config format & YAML & YAML & Groovy/YAML & YAML \\
+ML-specific & No & No & No & Yes \\
+Marketplace & Large & Medium & Large & Small \\
+Free tier & Generous & Generous & Free & Free \\
+Best for & Open source & GitLab users & Enterprise & ML teams \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Best Practices and Anti-patterns}
+
+\begin{bestpractice}[title=\textbf{CI/CD best practices for ML}]
+\begin{enumerate}
+  \item \textbf{Fast CI}: use a small data subset for CI training
+    (full training offline or nightly).
+  \item \textbf{Model performance gates}: fail the pipeline if
+    metrics drop below thresholds.
+  \item \textbf{Cache dependencies}: use pip/conda caching to speed
+    up builds.
+  \item \textbf{Secrets management}: never hardcode API keys; use
+    repository secrets.
+  \item \textbf{Artifact management}: upload trained models as CI
+    artifacts for traceability.
+  \item \textbf{Separate CI config}: use a lightweight
+    \file{ci\_config.yaml} with fewer epochs and smaller data.
+\end{enumerate}
+\end{bestpractice}
+
+\begin{antipattern}[title=\textbf{CI/CD anti-patterns}]
+\begin{itemize}
+  \item Training on the full dataset in CI---pipelines take hours.
+  \item No model validation step---broken models reach production.
+  \item Storing large data files in the Git repository.
+  \item Skipping linting and type checking for ML code.
+  \item No integration tests for the serving API.
+  \item Manual deployment after CI passes---defeats the purpose of CD.
+\end{itemize}
+\end{antipattern}
+
+\section{Mini-project: ML CI/CD Pipeline}
+\label{sec:mini-project-ch9}
+
+\begin{miniproject}[title=\textbf{Mini-project 9: CI/CD for ML}]
+\begin{enumerate}
+  \item Set up \pkg{pre-commit} with black, ruff, and mypy hooks.
+  \item Write a GitHub Actions workflow that:
+    \begin{itemize}
+      \item Runs linting and unit tests
+      \item Trains a model on a small subset
+      \item Validates model performance against thresholds
+    \end{itemize}
+  \item Add a model validation script that exits with code 1 if
+    metrics are below thresholds.
+  \item Configure DVC to pull test data in the CI pipeline.
+  \item Add a deployment step to staging (Docker build + push to a
+    registry).
+  \item Verify the full pipeline runs on a pull request.
+\end{enumerate}
+\end{miniproject}
+
+\section{Exercises}
+\label{sec:exercises-ch9}
+
+\begin{exercise}[$\bigstar$ --- Pre-commit setup]
+Configure \pkg{pre-commit} for an ML project with hooks for:
+black, ruff, mypy, trailing whitespace, and large file detection
+(max 500\,KB). Run it on an existing project and fix all issues.
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar$ --- GitHub Actions workflow]
+Write a GitHub Actions workflow for an ML project that:
+\begin{enumerate}
+  \item Runs on push to \texttt{main} and on pull requests
+  \item Uses a matrix strategy to test on Python 3.10 and 3.11
+  \item Caches pip dependencies
+  \item Runs unit tests and generates a coverage report
+  \item Uploads the coverage report as an artifact
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar\bigstar$ --- Complete ML CI/CD]
+Build an end-to-end CI/CD pipeline that:
+\begin{enumerate}
+  \item Pulls versioned data with DVC
+  \item Trains a model and logs metrics to MLflow
+  \item Compares metrics against the current production model
+  \item Builds a Docker image and pushes to GitHub Container Registry
+  \item Deploys to a staging environment
+  \item Posts a metric comparison table as a PR comment using CML
+\end{enumerate}
+\end{exercise}
+
+\section{Cheatsheet}
+
+\begin{cheatsheet}[title=\textbf{Chapter 9 Summary}]
+\begin{tabular}{@{}p{4cm}p{8.5cm}@{}}
+\toprule
+\textbf{Concept} & \textbf{Key Point} \\
+\midrule
+CI for ML & Lint + test + train (small) + validate metrics \\
+CD for ML & Auto-deploy if model passes validation gates \\
+Pre-commit & Local hooks: black, ruff, mypy, large file check \\
+GitHub Actions & YAML workflows in \file{.github/workflows/} \\
+Model validation & Script that fails CI if accuracy/F1 too low \\
+DVC in CI & \cli{dvc pull} + \cli{dvc repro} + \cli{dvc metrics diff} \\
+Secrets & Use repository secrets, never hardcode \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}

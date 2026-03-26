@@ -1,0 +1,216 @@
+% ============================================================
+\chapter*{Pr\'eface}
+\addcontentsline{toc}{chapter}{Pr\'eface}
+\markboth{Pr\'eface}{Pr\'eface}
+% ============================================================
+
+\section*{Objectifs de ce cours}
+
+La statistique bay\'esienne constitue l'un des deux grands paradigmes
+de l'inf\'erence statistique, aux c\^ot\'es de l'approche fr\'equentiste.
+Fond\'ee sur le th\'eor\`eme de Bayes, elle offre un cadre coh\'erent
+pour quantifier l'incertitude, incorporer des connaissances a priori
+et mettre \`a jour les croyances \`a la lumi\`ere des donn\'ees.
+
+Ce cours s'adresse aux \'etudiants de niveau Master en math\'ematiques
+appliqu\'ees, en science des donn\'ees et en intelligence artificielle.
+Il suppose une ma\^itrise pr\'ealable de la th\'eorie des probabilit\'es,
+de la statistique math\'ematique \'el\'ementaire et de l'alg\`ebre lin\'eaire.
+
+\section*{Organisation du cours}
+
+Le cours est structur\'e en onze chapitres, regroup\'es en quatre parties
+th\'ematiques~:
+
+\begin{enumerate}
+  \item \textbf{Fondements} (Chapitres 1--5)~: paradigme bay\'esien,
+        familles conjugu\'ees, estimation, tests et pr\'ediction.
+  \item \textbf{Mod\`eles avanc\'es} (Chapitre 6)~: mod\`eles hi\'erarchiques.
+  \item \textbf{M\'ethodes de calcul} (Chapitres 7--9)~: MCMC
+        (Metropolis--Hastings, \'echantillonneur de Gibbs) et inf\'erence
+        variationnelle.
+  \item \textbf{Extensions et applications} (Chapitres 10--11)~:
+        statistique bay\'esienne non param\'etrique et applications
+        concr\`etes.
+\end{enumerate}
+
+\section*{Philosophie p\'edagogique}
+
+Chaque chapitre alterne entre~:
+\begin{itemize}
+  \item des \textbf{d\'eveloppements th\'eoriques} rigoureux (d\'efinitions,
+        th\'eor\`emes, preuves),
+  \item des \textbf{exemples d\'etaill\'es} avec calculs explicites,
+  \item des \textbf{impl\'ementations num\'eriques} en Python (PyMC, NumPy,
+        SciPy),
+  \item des \textbf{exercices} de difficult\'e croissante.
+\end{itemize}
+
+\section*{Approche bay\'esienne \textit{versus} fr\'equentiste}
+
+Avant d'entamer l'\'etude d\'etaill\'ee, situons les deux paradigmes~:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{p{4cm} p{5cm} p{5cm}}
+\toprule
+\textbf{Aspect} & \textbf{Fr\'equentiste} & \textbf{Bay\'esien} \\
+\midrule
+Param\`etre $\theta$ & Fixe, inconnu & Variable al\'eatoire \\
+Probabilit\'e & Fr\'equence limite & Degr\'e de croyance \\
+Incertitude & Intervalles de confiance & Intervalles de cr\'edibilit\'e \\
+Information a priori & Non utilis\'ee formellement & Int\'egr\'ee via le prior \\
+R\'esultat principal & Estimateur $\hat{\theta}(x)$ & Loi a posteriori $\pi(\theta \mid x)$ \\
+Coh\'erence & Peut violer le principe de vraisemblance & Coh\'erence assur\'ee \\
+Petit \'echantillon & Difficult\'es possibles & Naturellement adapt\'ee \\
+Calcul & Souvent analytique & Souvent num\'erique (MCMC) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section*{Le th\'eor\`eme fondateur}
+
+Tout le paradigme bay\'esien repose sur la formule~:
+
+\begin{formules}[title=\textbf{Th\'eor\`eme de Bayes}]
+Soit $\theta \in \Theta$ un param\`etre de loi a priori $\pi(\theta)$
+et $x = (x_1, \ldots, x_n)$ un \'echantillon de vraisemblance
+$L(\theta \mid x)$. La \textbf{loi a posteriori} est~:
+\[
+  \pi(\theta \mid x)
+  = \frac{L(\theta \mid x)\,\pi(\theta)}
+         {\int_{\Theta} L(\theta \mid x)\,\pi(\theta)\,d\theta}
+  \propto L(\theta \mid x)\,\pi(\theta).
+\]
+\end{formules}
+
+\section*{Notation et conventions}
+
+Tout au long de ce cours, nous adoptons les conventions suivantes~:
+
+\begin{itemize}
+  \item $X$ d\'esigne une variable al\'eatoire, $x$ une r\'ealisation.
+  \item $\theta$ est le param\`etre d'int\'er\^et, $\Theta$ l'espace
+        des param\`etres.
+  \item $\pi(\theta)$ est la loi a priori (\textit{prior}).
+  \item $\pi(\theta \mid x)$ est la loi a posteriori (\textit{posterior}).
+  \item $L(\theta \mid x) = f(x \mid \theta)$ est la vraisemblance.
+  \item $m(x) = \int L(\theta \mid x)\,\pi(\theta)\,d\theta$ est la
+        vraisemblance marginale (\textit{evidence}).
+  \item $\E[\cdot]$, $\Var[\cdot]$, $\Cov[\cdot]$ d\'esignent
+        esp\'erance, variance et covariance.
+  \item $\PP(\cdot)$ d\'esigne la probabilit\'e.
+  \item $\KL(p \| q)$ d\'esigne la divergence de Kullback--Leibler.
+  \item $\norm{\cdot}$ d\'esigne la norme euclidienne.
+\end{itemize}
+
+\section*{Distributions utilis\'ees fr\'equemment}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lll}
+\toprule
+\textbf{Distribution} & \textbf{Notation} & \textbf{Param\`etres} \\
+\midrule
+Bernoulli & $\text{Ber}(p)$ & $p \in [0,1]$ \\
+Binomiale & $\text{Bin}(n, p)$ & $n \in \N$, $p \in [0,1]$ \\
+Poisson & $\text{Poi}(\lambda)$ & $\lambda > 0$ \\
+Normale & $\mathcal{N}(\mu, \sigma^2)$ & $\mu \in \R$, $\sigma^2 > 0$ \\
+Gamma & $\text{Ga}(\alpha, \beta)$ & $\alpha, \beta > 0$ \\
+B\^eta & $\text{Be}(a, b)$ & $a, b > 0$ \\
+Dirichlet & $\text{Dir}(\boldsymbol{\alpha})$ & $\alpha_k > 0$ \\
+Student & $t_\nu(\mu, \sigma^2)$ & $\nu > 0$ \\
+Wishart & $\mathcal{W}_p(\nu, \boldsymbol{\Sigma})$ & $\nu > p-1$ \\
+Inverse-Gamma & $\text{IG}(\alpha, \beta)$ & $\alpha, \beta > 0$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section*{Jalons historiques}
+
+\begin{itemize}
+  \item \textbf{1763}~: Publication posthume du th\'eor\`eme de Thomas Bayes
+        par Richard Price.
+  \item \textbf{1812}~: Pierre-Simon de Laplace formalise et g\'en\'eralise
+        la m\'ethode dans \textit{Th\'eorie analytique des probabilit\'es}.
+  \item \textbf{1937}~: Bruno de Finetti d\'eveloppe la notion de
+        probabilit\'e subjective et le th\'eor\`eme d'\'echangeabilit\'e.
+  \item \textbf{1954}~: Leonard Jimmie Savage publie \textit{The Foundations
+        of Statistics}, pilier de la th\'eorie de la d\'ecision bay\'esienne.
+  \item \textbf{1970s}~: Dennis Lindley et d'autres \'etablissent les
+        fondements modernes.
+  \item \textbf{1990s}~: R\'evolution MCMC --- Metropolis--Hastings devient
+        le cheval de bataille du calcul bay\'esien.
+  \item \textbf{2000s--2020s}~: Inf\'erence variationnelle, processus
+        gaussiens, apprentissage profond bay\'esien.
+\end{itemize}
+
+\section*{Logiciels et biblioth\`eques}
+
+Les impl\'ementations pratiques de ce cours utilisent~:
+
+\begin{itemize}
+  \item \textbf{Python 3.10+} comme langage principal.
+  \item \textbf{PyMC} (v5+) pour la mod\'elisation bay\'esienne et MCMC.
+  \item \textbf{ArviZ} pour le diagnostic et la visualisation des cha\^ines.
+  \item \textbf{NumPy / SciPy} pour le calcul num\'erique.
+  \item \textbf{Matplotlib / Seaborn} pour les graphiques.
+\end{itemize}
+
+\begin{codeblock}[title=\textbf{Installation des d\'ependances}]
+\begin{minted}{python}
+# Installation recommandée
+# pip install pymc arviz numpy scipy matplotlib seaborn
+
+import pymc as pm
+import arviz as az
+import numpy as np
+import matplotlib.pyplot as plt
+
+print(f"PyMC version: {pm.__version__}")
+print(f"ArviZ version: {az.__version__}")
+\end{minted}
+\end{codeblock}
+
+\section*{Comment utiliser ce cours}
+
+\begin{attention}[title=\textbf{Pr\'erequis importants}]
+Ce cours suppose que l'\'etudiant ma\^itrise~:
+\begin{enumerate}
+  \item La th\'eorie des probabilit\'es (variables al\'eatoires, lois
+        classiques, convergences).
+  \item La statistique math\'ematique (estimation, tests, vraisemblance).
+  \item L'alg\`ebre lin\'eaire (matrices, d\'ecompositions, formes
+        quadratiques).
+  \item La programmation en Python (syntaxe de base, NumPy).
+\end{enumerate}
+\end{attention}
+
+\begin{intuition}[title=\textbf{Fil conducteur}]
+L'id\'ee directrice de ce cours est simple~: \textit{toute inf\'erence
+est un probl\`eme de mise \`a jour d'une distribution de probabilit\'e}.
+On part d'une croyance a priori $\pi(\theta)$, on observe des donn\'ees
+$x$, et on obtient une croyance a posteriori $\pi(\theta \mid x)$.
+Cette vision unifi\'ee sous-tend l'ensemble des m\'ethodes pr\'esent\'ees.
+\end{intuition}
+
+\section*{R\'ef\'erences principales}
+
+\begin{itemize}
+  \item A.~Gelman, J.B.~Carlin, H.S.~Stern, D.B.~Dunson, A.~Vehtari,
+        D.B.~Rubin, \textit{Bayesian Data Analysis} (3e \'ed.), 2013.
+  \item C.P.~Robert, \textit{The Bayesian Choice} (2e \'ed.), 2007.
+  \item J.K.~Kruschke, \textit{Doing Bayesian Data Analysis} (2e \'ed.),
+        2015.
+  \item D.~Barber, \textit{Bayesian Reasoning and Machine Learning}, 2012.
+  \item K.P.~Murphy, \textit{Machine Learning: A Probabilistic Perspective},
+        2012.
+  \item P.~Hoff, \textit{A First Course in Bayesian Statistical Methods},
+        2009.
+\end{itemize}
+
+\bigskip
+\begin{flushright}
+\textit{L'auteur} \\
+Mars 2026
+\end{flushright}

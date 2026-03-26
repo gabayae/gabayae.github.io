@@ -1,0 +1,187 @@
+% ============================================================
+\chapter{Polynomial Interpolation}
+\label{ch:interpolation}
+% ============================================================
+
+\section{Motivating example}
+We have temperature measurements at 5 time instants. We want to estimate the temperature at an intermediate time. Polynomial interpolation constructs a polynomial passing exactly through the measured points.
+
+\section{The interpolation problem}
+
+\begin{theorem}[Existence and uniqueness]
+Given $n+1$ distinct points $(x_0,y_0),\ldots,(x_n,y_n)$, there exists a \textbf{unique} polynomial $p_n\in\mathcal{P}_n$ such that $p_n(x_i)=y_i$ for all $i$.
+\end{theorem}
+
+\begin{proof}
+The Vandermonde matrix $V_{ij}=x_i^j$ is invertible since $\det(V)=\prod_{i>j}(x_i-x_j)\neq 0$.
+\end{proof}
+
+\section{Lagrange form}\index{Lagrange}
+
+\begin{definition}
+\[
+p_n(x) = \sum_{i=0}^n y_i\,L_i(x), \quad L_i(x)=\prod_{\substack{j=0\\j\neq i}}^n\frac{x-x_j}{x_i-x_j}.
+\]
+The $L_i$ are the \textbf{Lagrange basis polynomials}: $L_i(x_j)=\delta_{ij}$.
+\end{definition}
+
+\section{Newton form}\index{Newton!interpolation}
+
+\begin{definition}[Divided differences]
+\[
+f[x_i]=f(x_i), \quad f[x_i,\ldots,x_{i+k}]=\frac{f[x_{i+1},\ldots,x_{i+k}]-f[x_i,\ldots,x_{i+k-1}]}{x_{i+k}-x_i}.
+\]
+\end{definition}
+
+\begin{definition}[Newton form]
+\[
+p_n(x) = f[x_0]+f[x_0,x_1](x-x_0)+\cdots+f[x_0,\ldots,x_n]\prod_{j=0}^{n-1}(x-x_j).
+\]
+Evaluation by the generalised Horner algorithm: $\BigO(n)$ operations.
+\end{definition}
+
+\section{Interpolation error}
+
+\begin{theorem}[Interpolation error]\label{thm:interp-error}
+If $f\in C^{n+1}([a,b])$, then for every $x\in[a,b]$:
+\[
+f(x)-p_n(x) = \frac{f^{(n+1)}(\xi_x)}{(n+1)!}\prod_{i=0}^n(x-x_i),
+\]
+where $\xi_x\in(a,b)$ depends on $x$.
+\end{theorem}
+
+\begin{proof}
+Set $w(t)=\prod(t-x_i)$ and $\varphi(t)=f(t)-p_n(t)-\lambda w(t)$ with $\lambda$ chosen so that $\varphi(x)=0$ (for a fixed $x\neq x_i$). Then $\varphi$ vanishes at $n+2$ points. By Rolle's theorem applied $n+1$ times, $\varphi^{(n+1)}$ vanishes at some point $\xi$. Since $\varphi^{(n+1)}=f^{(n+1)}-\lambda(n+1)!$, we get $\lambda=f^{(n+1)}(\xi)/(n+1)!$.
+\end{proof}
+
+\begin{warning}
+The \textbf{Runge phenomenon}: for $f(x)=1/(1+25x^2)$ on $[-1,1]$ with equidistant nodes, the interpolation error \emph{diverges} as $n\to\infty$ near the endpoints.
+\end{warning}
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=10cm, height=6cm, domain=-1:1, samples=100,
+  xlabel=$x$, ylabel=$y$, ymin=-0.5, ymax=1.5,
+  title={Runge phenomenon}
+]
+\addplot[thick,blue] {1/(1+25*x^2)};
+\addlegendentry{$f(x)$}
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+\section{Chebyshev nodes}\index{Chebyshev!nodes}
+
+\begin{definition}
+The Chebyshev nodes on $[-1,1]$:
+\[
+x_k = \cos\left(\frac{2k+1}{2(n+1)}\pi\right), \quad k=0,\ldots,n.
+\]
+They minimise $\max_{x\in[-1,1]}|\prod(x-x_i)|$.
+\end{definition}
+
+\begin{theorem}
+With Chebyshev nodes: $\max|w(x)|\leq 2^{-n}$, which avoids the Runge phenomenon for analytic functions.
+\end{theorem}
+
+\section{Cubic splines}\index{spline}
+
+\begin{definition}[Cubic interpolating spline]
+$s\in C^2([a,b])$, $s|_{[x_i,x_{i+1}]}\in\mathcal{P}_3$, $s(x_i)=y_i$. Boundary conditions:
+\begin{itemize}
+\item \textbf{Natural}: $s''(x_0)=s''(x_n)=0$.
+\item \textbf{Clamped}: $s'(x_0)=f'(x_0)$, $s'(x_n)=f'(x_n)$.
+\end{itemize}
+\end{definition}
+
+\begin{theorem}[Cubic spline error]
+If $f\in C^4$ and $h=\max(x_{i+1}-x_i)$:
+\[
+\|f-s\|_\infty \leq \frac{5}{384}h^4\|f^{(4)}\|_\infty.
+\]
+\end{theorem}
+
+\section{Implementation}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+from scipy.interpolate import lagrange, CubicSpline
+import matplotlib.pyplot as plt
+
+# Interpolation de Lagrange
+x_nodes = np.array([-1, -0.5, 0, 0.5, 1])
+f = lambda x: 1 / (1 + 25*x**2)
+y_nodes = f(x_nodes)
+p = lagrange(x_nodes, y_nodes)
+
+x_fine = np.linspace(-1, 1, 300)
+plt.figure(figsize=(10, 5))
+plt.plot(x_fine, f(x_fine), 'b-', label='f(x)', lw=2)
+plt.plot(x_fine, p(x_fine), 'r--', label=f'Lagrange deg {len(x_nodes)-1}')
+plt.plot(x_nodes, y_nodes, 'ko', markersize=8)
+plt.legend(); plt.title("Interpolation de Lagrange")
+plt.savefig("ch05_lagrange.pdf"); plt.show()
+
+# Noeuds de Tchebychev
+n = 15
+cheb = np.cos((2*np.arange(n+1)+1)/(2*(n+1))*np.pi)
+y_cheb = f(cheb)
+p_cheb = lagrange(cheb, y_cheb)
+print(f"Erreur equidist (n=15): {np.max(np.abs(f(x_fine)-lagrange(np.linspace(-1,1,16), f(np.linspace(-1,1,16)))(x_fine))):.4f}")
+print(f"Erreur Tchebychev (n=15): {np.max(np.abs(f(x_fine)-p_cheb(x_fine))):.6f}")
+
+# Spline cubique
+cs = CubicSpline(x_nodes, y_nodes)
+print(f"Spline en 0.25: {cs(0.25):.6f}, exact: {f(0.25):.6f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Julia}]
+\begin{minted}{julia}
+using Interpolations
+
+f(x) = 1 / (1 + 25x^2)
+nodes = [-1.0, -0.5, 0, 0.5, 1.0]
+vals = f.(nodes)
+
+# Differences divisees (Newton)
+function divided_diff(x, y)
+    n = length(x)
+    F = copy(y)
+    for j in 2:n, i in n:-1:j
+        F[i] = (F[i] - F[i-1]) / (x[i] - x[i-j+1])
+    end
+    return F
+end
+println("Coefs Newton: ", divided_diff(nodes, vals))
+\end{minted}
+\end{codeblock}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+Construct the Lagrange polynomial passing through $(0,1)$, $(1,3)$, $(2,7)$ and verify.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Prove Theorem~\ref{thm:interp-error} in detail.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Compare the interpolation error with equidistant nodes vs.\ Chebyshev nodes for $f(x)=1/(1+25x^2)$, $n=5,10,15,20$.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Project]
+Implement Hermite interpolation (data for both $f$ and $f'$). Apply to the construction of B\'ezier curves.
+\end{exercise}
+
+\begin{keyformulas}
+\begin{align*}
+L_i(x) &= \prod_{j\neq i}\frac{x-x_j}{x_i-x_j} \\
+f(x)-p_n(x) &= \frac{f^{(n+1)}(\xi)}{(n+1)!}\prod(x-x_i) \\
+x_k^{\text{Cheb}} &= \cos\!\left(\frac{2k+1}{2(n+1)}\pi\right) \\
+\|f-s\|_\infty &\leq \frac{5}{384}h^4\|f^{(4)}\|_\infty
+\end{align*}
+\end{keyformulas}

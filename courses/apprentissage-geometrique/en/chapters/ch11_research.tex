@@ -1,0 +1,254 @@
+% ============================================================
+\chapter{Current Research Directions}
+\label{ch:research}
+% ============================================================
+
+\begin{intuition}
+Geometric deep learning is a rapidly expanding field. This chapter
+presents the most active research directions and open problems that
+will shape the next advances in the field.
+\end{intuition}
+
+% ============================================================
+\section{Geometric foundation models}
+\label{sec:foundation_models}
+% ============================================================
+
+\begin{definition}[Geometric foundation model]
+\index{foundation model}
+A \textbf{geometric foundation model} is a large-scale pretrained
+model on structured data (graphs, molecules, point clouds) that is
+transferable to multiple downstream tasks via fine-tuning or
+prompting.
+\end{definition}
+
+\begin{example}[Examples of geometric foundation models]
+\begin{itemize}
+  \item \textbf{GEM} (Fang et al.\ 2022): foundation model for
+        molecules, pretrained on 20M structures.
+  \item \textbf{Uni-Mol} (Zhou et al.\ 2023): unified 2D/3D
+        molecular representation.
+  \item \textbf{Point-MAE} (Pang et al.\ 2022): masked autoencoder
+        for 3D point clouds.
+\end{itemize}
+\end{example}
+
+\begin{remark}
+Unlike text foundation models (GPT, Claude), geometric foundation
+models must respect data \textbf{symmetries} (permutation invariance,
+rotation equivariance). This imposes strong architectural constraints.
+\end{remark}
+
+\begin{proposition}[Scaling challenges]
+Scaling GNNs poses specific problems:
+\begin{enumerate}
+  \item \textbf{Neighborhood explosion}: $k$ layers imply
+        $\mathcal{O}(d^k)$ neighbors ($d$ = average degree).
+  \item \textbf{Over-smoothing}: representations converge with
+        depth.
+  \item \textbf{Over-squashing}: long-range information is
+        compressed through bottlenecks.
+  \item \textbf{Variable-size graphs}: batching is non-trivial.
+\end{enumerate}
+\end{proposition}
+
+% ============================================================
+\section{Equivariant transformers}
+\label{sec:equivariant_transformers}
+% ============================================================
+
+\begin{definition}[Geometric transformer]
+\index{geometric transformer}
+A \textbf{geometric transformer} is a transformer whose attention
+mechanism integrates geometric information while respecting
+symmetries:
+\[
+  \alpha_{ij} = \frac{\exp\!\left(\frac{q_i^\top k_j}{\sqrt{d}}
+  + b(x_i, x_j)\right)}{\sum_{l} \exp\!\left(
+  \frac{q_i^\top k_l}{\sqrt{d}} + b(x_i, x_l)\right)}
+\]
+where $b(x_i, x_j)$ is a geometry-dependent attention bias
+(distance, angle, relative orientation).
+\end{definition}
+
+\begin{example}[Example architectures]
+\begin{itemize}
+  \item \textbf{SE(3)-Transformer} (Fuchs et al.\ 2020):
+        $\mathrm{SE}(3)$-equivariant attention with tensor features.
+  \item \textbf{Equiformer} (Liao \& Smidt, 2023): equivariant
+        transformer with tensor products in attention.
+  \item \textbf{GPS} (Rampa\v{s}ek et al.\ 2022): combines local
+        message passing and global attention.
+\end{itemize}
+\end{example}
+
+\begin{theorem}[Expressiveness of Graph Transformers]
+\index{Graph Transformer}
+A Graph Transformer with spectral positional encoding and global
+attention is \textbf{strictly more expressive} than the $1$-WL test.
+With $\mathrm{SE}(3)$-equivariant positional encodings, it can
+approximate any continuous equivariant function.
+\end{theorem}
+
+\begin{keyformulas}[title=\textbf{Equivariant attention}]
+\[
+  h_i' = \sum_{j} \alpha_{ij} \cdot V(h_j, x_j - x_i)
+\]
+where $V : \R^d \times \R^3 \to \R^{d'}$ is a value function
+depending on relative position, and $\alpha_{ij}$ is
+$\mathrm{SE}(3)$-invariant.
+\end{keyformulas}
+
+% ============================================================
+\section{Diffusion models on manifolds}
+\label{sec:diffusion_manifolds}
+% ============================================================
+
+\begin{definition}[Riemannian diffusion]
+\index{Riemannian diffusion}
+A \textbf{Riemannian diffusion model} (De Bortoli et al.\ 2022)
+generalizes diffusion models (DDPM) to Riemannian manifolds
+$(\mathcal{M}, g)$:
+\begin{enumerate}
+  \item \textbf{Forward process}: Riemannian Brownian motion
+        $dX_t = \sqrt{2\beta_t}\, dB_t^{\mathcal{M}}$.
+  \item \textbf{Score matching}: learn the score
+        $\nabla_{\mathcal{M}} \log p_t(x)$ on the manifold.
+  \item \textbf{Reverse process}: integrate the reverse equation
+        on $\mathcal{M}$ with the learned score.
+\end{enumerate}
+\end{definition}
+
+\begin{example}[Applications of geometric diffusion]
+\begin{itemize}
+  \item \textbf{3D molecule generation}: diffusion on $\R^{3n}$
+        with $\mathrm{SE}(3)$ equivariance
+        (EDM, Hoogeboom et al.\ 2022).
+  \item \textbf{Conformation generation}: diffusion on torsion
+        angles (toric manifold).
+  \item \textbf{Protein generation}: diffusion on
+        $\mathrm{SO}(3)^n$ for residue frames
+        (RFDiffusion, Watson et al.\ 2023).
+\end{itemize}
+\end{example}
+
+\begin{attention}[title=\textbf{Technical challenges}]
+Diffusion on manifolds requires:
+\begin{itemize}
+  \item The exponential map $\exp_x : T_x\mathcal{M} \to
+        \mathcal{M}$ for integration steps.
+  \item The Riemannian logarithm $\log_x : \mathcal{M} \to
+        T_x\mathcal{M}$ for the score.
+  \item Parallel transport to move vectors between tangent spaces.
+\end{itemize}
+\end{attention}
+
+% ============================================================
+\section{Geometric self-supervised learning}
+\label{sec:geometric_ssl}
+% ============================================================
+
+\begin{definition}[Self-supervised learning on graphs]
+\index{self-supervised learning}
+\textbf{Self-supervised learning} (SSL) on graphs learns
+representations without labels via auxiliary tasks:
+\begin{enumerate}
+  \item \textbf{Contrastive}: maximize similarity between two
+        augmented views of the same graph (GraphCL, GCA).
+  \item \textbf{Predictive}: predict masked properties (node
+        features, edges, subgraphs).
+  \item \textbf{Generative}: reconstruct the graph from a
+        compressed representation (GraphMAE).
+\end{enumerate}
+\end{definition}
+
+\begin{proposition}[Geometric augmentations]
+Augmentations for graphs include:
+\begin{itemize}
+  \item Random node or edge dropout.
+  \item Feature perturbation.
+  \item Random subgraph extraction.
+  \item Heat diffusion (feature smoothing).
+\end{itemize}
+For 3D data, add: rotation, translation, Gaussian noise, partial
+sampling.
+\end{proposition}
+
+\begin{theorem}[Contrastive SSL guarantees]
+\index{contrastive learning}
+Under regularity assumptions on the data distribution and
+augmentations, contrastive representations are \textbf{linearly
+separable} for downstream tasks, with an error bound controlled
+by the alignment and uniformity of the representations.
+\end{theorem}
+
+% ============================================================
+\section{Open problems}
+\label{sec:open_problems}
+% ============================================================
+
+\begin{remark}[Major open problems]
+\index{open problems}
+\begin{enumerate}
+  \item \textbf{Optimal expressiveness}: what is the minimal GNN
+        architecture to match $k$-WL for a given $k$?
+  \item \textbf{Over-squashing}: how to enable long-range
+        information flow without expensive global attention
+        ($\mathcal{O}(n^2)$)?
+  \item \textbf{Out-of-distribution generalization}: do GNNs
+        generalize to graphs with very different structures from
+        training?
+  \item \textbf{Approximate equivariance}: how to handle
+        approximate symmetries (quasi-symmetries) of real-world
+        data?
+  \item \textbf{Interpretability}: how to explain GNN decisions
+        in terms of meaningful substructures?
+  \item \textbf{Scalability}: how to train GNNs on graphs with
+        billions of nodes?
+\end{enumerate}
+\end{remark}
+
+\begin{definition}[Over-squashing]
+\index{over-squashing}
+\textbf{Over-squashing} refers to the phenomenon where information
+from distant nodes is exponentially compressed when passing through
+message-passing layers. Formally, the Jacobian:
+\[
+  \left\|\frac{\partial h_v^{(L)}}{\partial h_u^{(0)}}\right\|
+  \leq C \cdot \lambda_{\max}^L \cdot
+  \prod_{\ell=1}^L \mathrm{Lip}(\sigma_\ell)
+\]
+decays exponentially with graph distance if $\lambda_{\max} < 1$.
+\end{definition}
+
+% ============================================================
+\section{Exercises}
+% ============================================================
+
+\begin{exercise}
+Explain why Laplacian positional encodings are not unique (sign,
+ordering). Propose a solution to make them invariant.
+\end{exercise}
+
+\begin{exercise}
+For a molecular graph, propose three contrastive augmentations
+that preserve chemical identity and three that do not. Justify.
+\end{exercise}
+
+\begin{exercise}[Over-squashing]
+Compute the bound on $\left\|\frac{\partial h_v^{(L)}}
+{\partial h_u^{(0)}}\right\|$ for a path graph of length $L$
+with a GCN with unit weights and ReLU activation.
+\end{exercise}
+
+\begin{exercise}
+Show that Brownian motion on the sphere $S^2$ converges to the
+uniform distribution. What is the convergence rate as a function
+of the first nonzero eigenvalue of the Laplacian?
+\end{exercise}
+
+\begin{exercise}[Project]
+Implement a simple equivariant diffusion model to generate 3D point
+clouds (e.g., shapes from ShapeNet). Evaluate quality using Chamfer
+distance and Betti numbers.
+\end{exercise}

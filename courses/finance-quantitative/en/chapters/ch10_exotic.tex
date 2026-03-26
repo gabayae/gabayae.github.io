@@ -1,0 +1,248 @@
+% ============================================================
+\chapter{Exotic Derivatives}
+\label{ch:exotic}
+% ============================================================
+
+\section{Introduction}
+
+Exotic options\index{exotic options} extend vanilla payoffs (European calls
+and puts) to meet specific hedging or speculation needs. This chapter presents
+the main families of exotics and their pricing methods.
+
+\begin{intuition}
+Vanilla options are elementary building blocks. Exotic options combine these
+blocks or add conditions (barriers, averages, extrema) to create tailor-made
+payoff profiles. Their pricing often requires advanced numerical methods since
+closed-form formulas are rare.
+\end{intuition}
+
+\section{Barrier Options}
+
+\begin{definition}[Barrier option]
+\index{barrier option}
+A \textbf{barrier option} is an option whose existence or activation depends
+on the underlying $S_t$ crossing a level $B$ during the option's life:
+\begin{itemize}
+    \item \textbf{Knock-out}: the option ceases to exist if $S_t$ reaches $B$.
+    \item \textbf{Knock-in}: the option only comes into existence if $S_t$
+    reaches $B$.
+\end{itemize}
+Combined with direction (up/down), this gives 8 fundamental types.
+\end{definition}
+
+\begin{theorem}[In-out parity]
+\index{in-out parity}
+For any barrier $B$, the price of a vanilla call (or put) satisfies:
+\[
+    V_{\mathrm{vanilla}} = V_{\mathrm{knock\text{-}in}} + V_{\mathrm{knock\text{-}out}}.
+\]
+\end{theorem}
+
+\begin{theorem}[Merton's formula for a down-and-out call]
+\index{Merton's formula}
+In the Black-Scholes model, for a down-and-out call with barrier $B < S_0$
+and $B < K$:
+\[
+    C_{\mathrm{do}} = C_{\mathrm{BS}} - \left(\frac{B}{S_0}\right)^{2\lambda}
+    C_{\mathrm{BS}}\!\left(\frac{B^2}{S_0}, K, r, \sigma, T\right),
+\]
+where $\lambda = \frac{r - \sigma^2/2}{\sigma^2} + \frac{1}{2}$ and
+$C_{\mathrm{BS}}$ is the Black-Scholes price.
+\end{theorem}
+
+\begin{attention}[title=\textbf{Hedging risk of barriers}]
+The delta of a barrier option diverges as the underlying approaches the
+barrier, making dynamic hedging extremely costly. In practice, discrete
+barriers (observed daily) are used with a Broadie-Glasserman-Kou correction.
+\end{attention}
+
+\section{Asian Options}
+
+\begin{definition}[Asian option]
+\index{Asian option}
+An \textbf{Asian option} has a payoff depending on the average of the
+underlying:
+\begin{itemize}
+    \item \textbf{Average price}: payoff $= (\bar{S} - K)^+$ (call) where
+    $\bar{S} = \frac{1}{T}\int_0^T S_t\,\mathrm{d}t$ (continuous average) or
+    $\bar{S} = \frac{1}{n}\sum_{i=1}^n S_{t_i}$ (discrete average).
+    \item \textbf{Average strike}: payoff $= (S_T - \bar{S})^+$.
+\end{itemize}
+\end{definition}
+
+\begin{proposition}[Properties of Asian options]
+\begin{enumerate}
+    \item Averaging reduces effective volatility:
+    $\Var(\bar{S}) < \Var(S_T)$, so Asian options are cheaper than the
+    corresponding vanillas.
+    \item The distribution of $\bar{S}$ is not lognormal, even when $S_t$
+    follows geometric Brownian motion.
+    \item No exact closed-form formula exists in Black-Scholes for the
+    arithmetic average (unlike the geometric average).
+\end{enumerate}
+\end{proposition}
+
+\begin{theorem}[Geometric Asian price]
+For the continuous geometric average
+$\bar{S}_G = \exp\!\left(\frac{1}{T}\int_0^T \ln S_t\,\mathrm{d}t\right)$,
+the call price is given by a modified Black-Scholes formula with
+\[
+    \hat{\sigma} = \frac{\sigma}{\sqrt{3}}, \qquad
+    \hat{r} = \frac{1}{2}\left(r - \frac{\sigma^2}{6}\right).
+\]
+\end{theorem}
+
+\section{Lookback Options}
+
+\begin{definition}[Lookback option]
+\index{lookback option}
+A \textbf{lookback option} depends on the extremum of the underlying:
+\begin{itemize}
+    \item \textbf{Floating strike lookback call}:
+    payoff $= S_T - \min_{0 \leq t \leq T} S_t$.
+    \item \textbf{Fixed strike lookback call}:
+    payoff $= (\max_{0 \leq t \leq T} S_t - K)^+$.
+\end{itemize}
+\end{definition}
+
+\begin{theorem}[Goldman, Sosin, Gatto (1979)]
+\index{GSG formula}
+In Black-Scholes, the floating strike lookback call price admits a closed-form
+expression involving $S_0$, $S_{\min}$, $r$, $\sigma$, $T$ and the normal CDF
+$\Phi$. In particular, the lookback call is always more expensive than the
+vanilla call since the holder benefits from the best possible exercise timing.
+\end{theorem}
+
+\section{Binary (Digital) Options}
+
+\begin{definition}[Binary option]
+\index{binary option}
+A \textbf{binary} (or digital) option has a discontinuous payoff:
+\begin{itemize}
+    \item \textbf{Cash-or-nothing call}: payoff $= Q \cdot \ind_{S_T > K}$
+    (pays $Q$ if $S_T > K$).
+    \item \textbf{Asset-or-nothing call}: payoff $= S_T \cdot \ind_{S_T > K}$.
+\end{itemize}
+\end{definition}
+
+\begin{proposition}[Black-Scholes prices]
+\begin{align*}
+    V_{\mathrm{cash}} &= Q\,e^{-rT}\,\Phi(d_2), \\
+    V_{\mathrm{asset}} &= S_0\,\Phi(d_1),
+\end{align*}
+where $d_1, d_2$ are the standard Black-Scholes quantities. A vanilla call
+decomposes as: $C = V_{\mathrm{asset}} - K\,e^{-rT}\Phi(d_2)$.
+\end{proposition}
+
+\begin{remark}
+The delta of a binary option diverges near the strike at expiry, making
+hedging very difficult. In practice, they are replicated by a tight call
+spread.
+\end{remark}
+
+\section{Monte Carlo Pricing}
+
+\begin{definition}[Monte Carlo estimator]
+\index{Monte Carlo!pricing}
+The price of an exotic option with payoff
+$h(S_{t_1}, \ldots, S_{t_n})$ is
+\[
+    V_0 = e^{-rT}\,\E^{\Q}[h(S_{t_1}, \ldots, S_{t_n})]
+    \approx \frac{e^{-rT}}{M}\sum_{j=1}^{M}
+    h(S_{t_1}^{(j)}, \ldots, S_{t_n}^{(j)}),
+\]
+where paths $(S^{(j)})$ are simulated under the risk-neutral measure.
+\end{definition}
+
+\begin{proposition}[Variance reduction techniques]
+\begin{enumerate}
+    \item \textbf{Antithetic variates}: for each path $W_t$, also use $-W_t$.
+    \item \textbf{Control variate}: use the known geometric average price to
+    correct the arithmetic average estimator.
+    \item \textbf{Importance sampling}: change measure to sample rare events
+    more efficiently.
+\end{enumerate}
+\end{proposition}
+
+\begin{keyformulas}[title=\textbf{Path Simulation under $\Q$}]
+In the Black-Scholes model:
+\[
+    S_{t_{i+1}} = S_{t_i}\exp\!\left[\left(r - \frac{\sigma^2}{2}\right)\Delta t
+    + \sigma\sqrt{\Delta t}\,Z_i\right], \quad Z_i \sim \mathcal{N}(0, 1).
+\]
+\end{keyformulas}
+
+\section{Tree Methods for Exotics}
+
+\begin{definition}[Trinomial tree]
+\index{trinomial tree}
+A \textbf{trinomial tree} discretises the underlying with three moves per step:
+$S \to Su$, $S \to Sm$, $S \to Sd$. The risk-neutral probabilities
+$(p_u, p_m, p_d)$ are calibrated to match the first two moments of $\ln S$.
+\end{definition}
+
+\begin{proposition}[Barrier tree adjustment]
+For a barrier option, the tree is adjusted so that a node coincides exactly
+with the barrier $B$, eliminating specification errors due to discretisation.
+\end{proposition}
+
+\begin{codeblock}[title=\textbf{Asian option pricing by Monte Carlo}]
+\begin{minted}{python}
+import numpy as np
+
+S0, K, r, sigma, T = 100, 100, 0.05, 0.2, 1.0
+n_steps, n_paths = 252, 100_000
+dt = T / n_steps
+
+np.random.seed(42)
+Z = np.random.randn(n_paths, n_steps)
+S = np.zeros((n_paths, n_steps + 1))
+S[:, 0] = S0
+
+for i in range(n_steps):
+    S[:, i+1] = S[:, i] * np.exp((r - 0.5*sigma**2)*dt
+                                  + sigma*np.sqrt(dt)*Z[:, i])
+
+S_mean = S[:, 1:].mean(axis=1)
+payoff = np.maximum(S_mean - K, 0)
+price = np.exp(-r*T) * payoff.mean()
+stderr = np.exp(-r*T) * payoff.std() / np.sqrt(n_paths)
+print(f"Asian call price: {price:.4f} +/- {1.96*stderr:.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{Exercises}
+
+\begin{exercise}[In-out parity]
+Prove the in-out parity relation for barrier options using the no-arbitrage
+principle.
+\end{exercise}
+
+\begin{exercise}[Asian vs vanilla]
+Show analytically that the price of an Asian call (average price) is less
+than the corresponding vanilla call price.
+\end{exercise}
+
+\begin{exercise}[Lookback pricing]
+Implement a Monte Carlo pricer for a floating strike lookback option and
+compare with the Goldman-Sosin-Gatto closed-form formula.
+\end{exercise}
+
+\begin{exercise}[Digital replication]
+Show that a cash-or-nothing call with payoff $Q\,\ind_{S_T > K}$ can be
+approximated by a call spread: $(C(K) - C(K + \epsilon))/\epsilon \times Q$,
+and compute the limit as $\epsilon \to 0$.
+\end{exercise}
+
+\begin{exercise}[Antithetic variates]
+Show that the antithetic variate Monte Carlo estimator has lower variance
+than the standard estimator if and only if payoffs are negatively correlated
+under the inversion $W \to -W$.
+\end{exercise}
+
+\begin{exercise}[Discrete barrier correction]
+For a down-and-out call with a daily observed discrete barrier, apply the
+Broadie-Glasserman-Kou correction:
+$B_{\mathrm{eff}} = B\,e^{-\beta\sigma\sqrt{\Delta t}}$ with
+$\beta \approx 0.5826$, and compare with the continuous barrier price.
+\end{exercise}

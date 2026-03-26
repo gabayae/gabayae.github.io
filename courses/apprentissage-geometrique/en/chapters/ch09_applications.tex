@@ -1,0 +1,246 @@
+% ============================================================
+\chapter{Applications}
+\label{ch:applications}
+% ============================================================
+
+Geometric deep learning is not a theoretical exercise: it solves concrete problems that classical methods could not address. In chemistry, GNNs predict molecular properties with accuracy rivalling ab initio quantum mechanics, but a thousand times faster. In particle physics, they reconstruct trajectories in the detectors at CERN's LHC. In biology, AlphaFold (Jumper et al., 2021) uses geometric transformers to predict the 3D structure of proteins, solving a problem that had been open for fifty years. In social networks, GNNs detect communities and predict links. This chapter surveys these applications, showing how geometric principles translate into practical performance.
+
+\begin{intuition}
+Geometric deep learning finds applications in numerous domains where
+data possesses a natural non-Euclidean structure: molecules (graphs),
+social networks (graphs), surfaces (manifolds), physics simulations
+(meshes and particles). This chapter presents the most impactful
+applications.
+\end{intuition}
+
+% ============================================================
+\section{Drug discovery}
+\label{sec:drug_discovery}
+% ============================================================
+
+\begin{definition}[Molecular graph representation]
+\index{molecular graph}
+A molecule is represented as a graph $G = (V, E)$ where:
+\begin{itemize}
+  \item Nodes $v \in V$ represent atoms, with features $h_v$
+        (atomic type, charge, hybridization, etc.).
+  \item Edges $e \in E$ represent chemical bonds, with features
+        $h_e$ (bond type, distance, etc.).
+\end{itemize}
+\end{definition}
+
+\begin{example}[Molecular property prediction]
+\index{molecular prediction}
+The \textbf{MoleculeNet} benchmark (Wu et al.\ 2018) includes
+several tasks:
+\begin{enumerate}
+  \item \textbf{ESOL}: aqueous solubility prediction (regression).
+  \item \textbf{BBBP}: blood-brain barrier penetration (binary
+        classification).
+  \item \textbf{Tox21}: toxicity across 12 biological targets
+        (multi-task classification).
+\end{enumerate}
+GNNs (SchNet, DimeNet, GemNet) achieve the best published results on these benchmarks thanks to their
+ability to encode molecular structure.
+\end{example}
+
+\begin{definition}[Message passing for molecules]
+For a molecular graph, SchNet's message passing
+(Sch\"utt et al.\ 2017)\index{SchNet} integrates interatomic
+distances:
+\[
+  m_{ij} = \phi_{\mathrm{msg}}(h_i, h_j, \norm{x_i - x_j})
+\]
+where $x_i \in \R^3$ are atomic positions. The continuous distance
+filter makes the model invariant under rotation and translation.
+\end{definition}
+
+\begin{minted}{python}
+import torch
+from torch_geometric.nn import SchNet
+
+# SchNet for molecular energy prediction
+model = SchNet(
+    hidden_channels=128,
+    num_filters=128,
+    num_interactions=6,
+    num_gaussians=50,
+    cutoff=10.0,
+)
+
+# z: atomic numbers, pos: 3D positions, batch: batch indices
+# energy = model(z, pos, batch)
+\end{minted}
+
+% ============================================================
+\section{Molecular property prediction}
+\label{sec:molecular_properties}
+% ============================================================
+
+\begin{theorem}[Universality of equivariant GNNs for molecules]
+\index{molecular universality}
+An $\mathrm{E}(3)$-equivariant GNN with tensorial features of
+sufficient degree can approximate any continuous equivariant
+function on molecular graphs with atomic positions.
+\end{theorem}
+
+\begin{remark}
+Recent models (DimeNet, SphereNet, PaiNN, MACE) use not only
+distances but also angles and dihedrals to improve expressiveness.
+\end{remark}
+
+% ============================================================
+\section{Social network analysis}
+\label{sec:social_networks}
+% ============================================================
+
+\begin{definition}[Social network tasks]
+\index{social network}
+On a social network modeled as a graph:
+\begin{enumerate}
+  \item \textbf{Node classification}: predict the interests or
+        community of a user.
+  \item \textbf{Link prediction}: predict future connections
+        between users.
+  \item \textbf{Community detection}: cluster the nodes.
+\end{enumerate}
+\end{definition}
+
+\begin{example}[Node classification on Cora]
+The \textbf{Cora}\index{Cora} dataset contains 2,708 scientific
+papers (nodes) connected by citations (edges). Each paper must be
+classified among 7 categories. A 2-layer GCN achieves $\sim 81\%$
+accuracy with only $20$ labels per class.
+\end{example}
+
+\begin{proposition}[Over-smoothing]
+\index{over-smoothing}
+For a GCN with $L$ layers, node embeddings converge to a subspace
+of dimension at most $1$ as $L \to \infty$:
+\[
+  \lim_{L \to \infty} h_v^{(L)} = c \cdot \sqrt{d_v} \quad
+  \text{for all } v \in V
+\]
+where $d_v$ is the node degree. This is the \textbf{over-smoothing}
+phenomenon that limits GNN depth.
+\end{proposition}
+
+% ============================================================
+\section{Recommender systems}
+\label{sec:recommender}
+% ============================================================
+
+\begin{definition}[Collaborative filtering on bipartite graphs]
+\index{recommender system}
+A recommender system can be modeled as a bipartite graph
+$G = (U \cup I, E)$ where $U$ are users, $I$ are items, and
+$(u, i) \in E$ if user $u$ interacted with item $i$.
+\end{definition}
+
+\begin{example}[PinSage --- Ying et al.\ 2018]
+\index{PinSage}
+\textbf{PinSage} is a GNN deployed by Pinterest on a graph of
+3 billion nodes and 18 billion edges. It uses:
+\begin{itemize}
+  \item \textbf{Neighbor sampling}: importance-weighted random walks.
+  \item \textbf{Local aggregation}: similar to GraphSAGE.
+  \item \textbf{Mini-batch training}: on sampled subgraphs.
+\end{itemize}
+\end{example}
+
+% ============================================================
+\section{Physics simulation}
+\label{sec:physics}
+% ============================================================
+
+\begin{definition}[Learned simulator via GNN]
+\index{physics simulation}
+A learned simulator models a physical system as an interaction
+graph:
+\begin{itemize}
+  \item Nodes represent particles (position, velocity, type).
+  \item Edges represent interactions (nearest neighbors).
+\end{itemize}
+The GNN predicts the acceleration of each particle:
+\[
+  \ddot{x}_i = f_\theta\!\left(h_i,
+  \{h_j, x_j - x_i\}_{j \in \mathcal{N}(i)}\right).
+\]
+\end{definition}
+
+\begin{example}[GNS --- Sanchez-Gonzalez et al.\ 2020]
+\index{GNS}
+The \textbf{Graph Network Simulator} (GNS) simulates fluids,
+granular materials, and deformable solids. It generalizes to
+unseen initial conditions and different domain geometries.
+\end{example}
+
+\begin{theorem}[Energy conservation by construction]
+\index{Hamiltonian GNN}
+By parameterizing a GNN as a Hamiltonian $H_\theta$ and integrating
+Hamilton's equations:
+\[
+  \dot{q}_i = \frac{\partial H_\theta}{\partial p_i}, \qquad
+  \dot{p}_i = -\frac{\partial H_\theta}{\partial q_i}
+\]
+one obtains a simulator that conserves energy by construction
+(Hamiltonian GNN).
+\end{theorem}
+
+% ============================================================
+\section{Weather prediction}
+\label{sec:weather}
+% ============================================================
+
+\begin{example}[GraphCast --- Lam et al.\ 2023]
+\index{GraphCast}
+\textbf{GraphCast} (DeepMind) uses a GNN on an icosahedral mesh
+of Earth for 10-day weather forecasting. It outperforms ECMWF's
+HRES numerical model on $90\%$ of metrics, with computation time
+of \textbf{less than one minute} versus hours for physical models.
+
+The architecture uses:
+\begin{enumerate}
+  \item An \textbf{encoder} from grid to multi-resolution mesh.
+  \item A \textbf{processor} GNN on the mesh (16 message-passing
+        layers).
+  \item A \textbf{decoder} from mesh back to grid.
+\end{enumerate}
+\end{example}
+
+\begin{remark}
+The success of GraphCast illustrates the potential of GNNs for
+problems defined on non-planar domains (Earth's sphere).
+\end{remark}
+
+% ============================================================
+\section{Exercises}
+% ============================================================
+
+\begin{exercise}
+For a benzene molecule ($C_6H_6$), construct the molecular graph
+(nodes, edges, features). How many messages are exchanged in one
+iteration of message passing?
+\end{exercise}
+
+\begin{exercise}
+Explain why permutation invariance of nodes is essential for
+molecular graphs. What would happen if atoms were numbered
+differently?
+\end{exercise}
+
+\begin{exercise}[Over-smoothing]
+For a complete graph $K_n$ with a GCN without bias or nonlinearity,
+show that features converge to a constant vector after $L$ layers
+when $L$ is large.
+\end{exercise}
+
+\begin{exercise}[Implementation]
+Implement a GNN for solubility prediction on the ESOL dataset
+with PyTorch Geometric. Compare GCN, GAT, and SchNet.
+\end{exercise}
+
+\begin{exercise}[Simulation]
+Implement a simple GNS to simulate $N$ particles interacting via a
+Lennard-Jones potential. Compare with classical Verlet integration.
+\end{exercise}

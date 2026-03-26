@@ -1,0 +1,245 @@
+% ============================================================
+% Chapitre 9 : Regression Multiple et ANOVA
+% ============================================================
+\chapter{R\'egression Lin\'eaire Multiple et ANOVA}
+\label{ch:regression-multiple}
+
+\begin{center}
+\textit{<<~En science, la r\'ealit\'e est rarement unidimensionnelle.~>>}
+\end{center}
+
+% ------------------------------------------------------------
+\section{Exemple motivant}
+% ------------------------------------------------------------
+
+On veut pr\'edire le prix d'un appartement en fonction de la surface, du nombre de pi\`eces, de l'\'etage et de la distance au centre-ville. Un seul pr\'edicteur ne suffit plus : il faut la r\'egression \textbf{multiple}.
+
+% ------------------------------------------------------------
+\section{Le mod\`ele matriciel}
+% ------------------------------------------------------------
+
+\begin{definition}[Mod\`ele lin\'eaire g\'en\'eral]
+\index{regression lineaire@r\'egression lin\'eaire!multiple}
+\[
+\mathbf{Y} = \mathbf{X}\bm{\beta} + \bm{\varepsilon},
+\]
+o\`u $\mathbf{Y}\in\R^n$, $\mathbf{X}\in\R^{n\times p}$ (matrice de design, rang $p$), $\bm{\beta}\in\R^p$, $\bm{\varepsilon}\sim\mathcal{N}(\mathbf{0},\sigma^2\mathbf{I}_n)$.
+
+Explicitement : $Y_i=\beta_0+\beta_1 x_{i1}+\cdots+\beta_{p-1}x_{i,p-1}+\varepsilon_i$.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Estimation MCO}
+% ------------------------------------------------------------
+
+\begin{theoreme}[Solution MCO]
+L'estimateur MCO est :
+\[
+\hat{\bm{\beta}} = (\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{Y}.
+\]
+Il minimise $\|\mathbf{Y}-\mathbf{X}\bm{\beta}\|^2$.
+\end{theoreme}
+
+\begin{proof}
+$Q(\bm{\beta})=(\mathbf{Y}-\mathbf{X}\bm{\beta})^\top(\mathbf{Y}-\mathbf{X}\bm{\beta})$. La condition $\nabla_{\bm{\beta}}Q=\mathbf{0}$ donne $-2\mathbf{X}^\top(\mathbf{Y}-\mathbf{X}\bm{\beta})=\mathbf{0}$, soit $\mathbf{X}^\top\mathbf{X}\bm{\beta}=\mathbf{X}^\top\mathbf{Y}$ (\textbf{\'equations normales}).
+\end{proof}
+
+\begin{theoreme}[Propri\'et\'es]
+\begin{enumerate}
+\item $\E[\hat{\bm{\beta}}]=\bm{\beta}$ (sans biais).
+\item $\Cov(\hat{\bm{\beta}})=\sigma^2(\mathbf{X}^\top\mathbf{X})^{-1}$.
+\item $\hat{\sigma}^2=\frac{\|\mathbf{Y}-\mathbf{X}\hat{\bm{\beta}}\|^2}{n-p}$ est sans biais.
+\item $\hat{\bm{\beta}}\sim\mathcal{N}(\bm{\beta},\sigma^2(\mathbf{X}^\top\mathbf{X})^{-1})$.
+\end{enumerate}
+\end{theoreme}
+
+\begin{definition}[Matrice de projection]
+\index{matrice de projection}
+La \textbf{matrice chapeau} est $\mathbf{H}=\mathbf{X}(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top$. On a $\hat{\mathbf{Y}}=\mathbf{H}\mathbf{Y}$ et $\mathbf{e}=(\mathbf{I}-\mathbf{H})\mathbf{Y}$.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Inf\'erence}
+% ------------------------------------------------------------
+
+\subsection{Test individuel}
+
+Pour $H_0:\beta_j=0$ :
+\[
+T_j = \frac{\hat{\beta}_j}{\mathrm{SE}(\hat{\beta}_j)} \sim t(n-p), \quad \mathrm{SE}(\hat{\beta}_j)=\hat{\sigma}\sqrt{[(\mathbf{X}^\top\mathbf{X})^{-1}]_{jj}}.
+\]
+
+\subsection{Test global de Fisher}
+
+$H_0:\beta_1=\cdots=\beta_{p-1}=0$ :
+\[
+F = \frac{(\mathrm{SCT}-\mathrm{SCR})/(p-1)}{\mathrm{SCR}/(n-p)} = \frac{R^2/(p-1)}{(1-R^2)/(n-p)} \sim F(p-1,n-p).
+\]
+
+\begin{definition}[$R^2$ ajust\'e]
+\index{R2 ajuste@$R^2$ ajust\'e}
+\[
+R^2_{\mathrm{adj}} = 1-\frac{n-1}{n-p}(1-R^2).
+\]
+P\'enalise l'ajout de variables inutiles.
+\end{definition}
+
+\subsection{Test de sous-mod\`ele}
+
+Pour comparer un mod\`ele complet ($p$ param\`etres) et un mod\`ele r\'eduit ($q<p$ param\`etres) :
+\[
+F = \frac{(\mathrm{SCR}_{\text{r\'ed}}-\mathrm{SCR}_{\text{comp}})/(p-q)}{\mathrm{SCR}_{\text{comp}}/(n-p)} \sim F(p-q,n-p).
+\]
+
+% ------------------------------------------------------------
+\section{ANOVA \`a un facteur}
+% ------------------------------------------------------------
+
+\begin{definition}[Mod\`ele ANOVA]
+\index{ANOVA}
+Soit $k$ groupes avec $n_j$ observations dans le groupe $j$ :
+\[
+Y_{ij} = \mu + \alpha_j + \varepsilon_{ij}, \quad i=1,\ldots,n_j,\; j=1,\ldots,k,
+\]
+avec $\sum n_j\alpha_j=0$ et $\varepsilon_{ij}\iid\mathcal{N}(0,\sigma^2)$.
+
+$H_0:\alpha_1=\cdots=\alpha_k=0$ (toutes les moyennes sont \'egales).
+\end{definition}
+
+\begin{theoreme}[Tableau ANOVA]
+\begin{center}
+\begin{tabular}{lcccl}
+\toprule
+\textbf{Source} & \textbf{SC} & \textbf{ddl} & \textbf{CM} & \textbf{$F$} \\
+\midrule
+Facteur & $\mathrm{SCE}=\sum n_j(\bar{Y}_j-\bar{Y})^2$ & $k-1$ & $\mathrm{CME}$ & $F=\frac{\mathrm{CME}}{\mathrm{CMR}}$ \\
+R\'esidu & $\mathrm{SCR}=\sum\sum(Y_{ij}-\bar{Y}_j)^2$ & $n-k$ & $\mathrm{CMR}$ & \\
+Total & $\mathrm{SCT}=\sum\sum(Y_{ij}-\bar{Y})^2$ & $n-1$ & & \\
+\bottomrule
+\end{tabular}
+\end{center}
+Sous $H_0$ : $F\sim F(k-1,n-k)$.
+\end{theoreme}
+
+\begin{intuition}
+L'ANOVA est un cas particulier de r\'egression multiple avec des variables explicatives indicatrices (dummy variables). Le test $F$ de l'ANOVA est exactement le test global de Fisher du mod\`ele correspondant.
+\end{intuition}
+
+\subsection{Comparaisons multiples}
+
+\begin{attention}
+Si $H_0$ est rejet\'ee, on veut savoir \emph{quels} groupes diff\`erent. Les tests de comparaison deux \`a deux sans correction augmentent le risque d'erreur de type~I global. On utilise :
+\begin{itemize}
+\item \textbf{Bonferroni} : $\alpha_{\mathrm{corrig\'e}}=\alpha/m$ o\`u $m=\binom{k}{2}$.
+\item \textbf{Tukey HSD} : bas\'e sur la loi de l'\'etendue studentis\'ee.
+\end{itemize}
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Impl\'ementation Python}
+% ------------------------------------------------------------
+
+\begin{python}
+\begin{minted}{python}
+import numpy as np
+import pandas as pd
+import statsmodels.api as sm
+from statsmodels.formula.api import ols
+from scipy import stats
+import matplotlib.pyplot as plt
+
+# --- Regression multiple ---
+np.random.seed(42)
+n = 50
+surface = np.random.uniform(25, 120, n)
+pieces = np.random.randint(1, 6, n)
+etage = np.random.randint(0, 10, n)
+prix = 30 + 2.5*surface + 15*pieces + 3*etage + np.random.normal(0, 15, n)
+
+df = pd.DataFrame({'prix': prix, 'surface': surface,
+                    'pieces': pieces, 'etage': etage})
+
+# Ajustement
+X = sm.add_constant(df[['surface', 'pieces', 'etage']])
+model = sm.OLS(df['prix'], X).fit()
+print(model.summary())
+
+# R^2 ajuste
+print(f"\nR^2 = {model.rsquared:.4f}")
+print(f"R^2 ajuste = {model.rsquared_adj:.4f}")
+
+# --- ANOVA a un facteur ---
+# Rendement de 3 types d'engrais
+engrais_A = [20.1, 21.5, 19.8, 22.0, 20.5, 21.2]
+engrais_B = [23.4, 24.1, 22.8, 23.9, 24.5, 23.2]
+engrais_C = [19.5, 20.2, 18.9, 20.8, 19.1, 20.5]
+
+f_stat, p_val = stats.f_oneway(engrais_A, engrais_B, engrais_C)
+print(f"\nANOVA: F={f_stat:.4f}, p={p_val:.6f}")
+
+# Avec statsmodels (plus de details)
+df_anova = pd.DataFrame({
+    'rendement': engrais_A + engrais_B + engrais_C,
+    'engrais': ['A']*6 + ['B']*6 + ['C']*6
+})
+model_anova = ols('rendement ~ C(engrais)', data=df_anova).fit()
+anova_table = sm.stats.anova_lm(model_anova, typ=2)
+print("\nTableau ANOVA:")
+print(anova_table)
+
+# Comparaisons multiples (Tukey)
+from statsmodels.stats.multicomp import pairwise_tukeyhsd
+tukey = pairwise_tukeyhsd(df_anova['rendement'], df_anova['engrais'], alpha=0.05)
+print("\nComparaisons de Tukey:")
+print(tukey)
+
+# --- Diagnostic regression multiple ---
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+residuals = model.resid
+fitted = model.fittedvalues
+
+axes[0].scatter(fitted, residuals, alpha=0.6)
+axes[0].axhline(0, color='red', linestyle='--')
+axes[0].set_xlabel('Valeurs ajustees')
+axes[0].set_ylabel('Residus')
+axes[0].set_title('Residus vs Ajustees')
+
+stats.probplot(residuals, plot=axes[1])
+axes[1].set_title('QQ-plot des residus')
+
+plt.tight_layout()
+plt.savefig("ch09_diagnostic.pdf")
+plt.show()
+\end{minted}
+\end{python}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}[$\star$ -- R\'egression multiple]
+Ajuster un mod\`ele de r\'egression du prix d'une voiture en fonction de l'ann\'ee, du kilom\'etrage et de la puissance (donn\'ees simul\'ees ou r\'eelles). Interpr\'eter les coefficients.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- D\'emonstration]
+Montrer que $\hat{\bm{\beta}}=(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{Y}$ et que $\mathbf{H}=\mathbf{X}(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top$ est idempotente et sym\'etrique.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- ANOVA]
+Quatre m\'ethodes p\'edagogiques sont test\'ees sur des groupes de 10 \'etudiants. R\'ealiser l'ANOVA, v\'erifier les hypoth\`eses (normalit\'e, homog\'en\'eit\'e) et effectuer les comparaisons de Tukey.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Projet : s\'election de mod\`ele]
+Sur un jeu de donn\'ees r\'eel, comparer les mod\`eles par AIC, BIC et $R^2_{\mathrm{adj}}$. Utiliser la validation crois\'ee pour \'evaluer le pouvoir pr\'edictif.
+\end{exercice}
+
+% ------------------------------------------------------------
+\begin{formules}
+\begin{align*}
+\hat{\bm{\beta}} &= (\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{Y} \\
+\Cov(\hat{\bm{\beta}}) &= \sigma^2(\mathbf{X}^\top\mathbf{X})^{-1} \\
+F_{\text{global}} &= \frac{R^2/(p-1)}{(1-R^2)/(n-p)} \\
+R^2_{\mathrm{adj}} &= 1 - \frac{n-1}{n-p}(1-R^2) \\
+F_{\text{ANOVA}} &= \frac{\mathrm{CME}}{\mathrm{CMR}} \sim F(k-1,n-k)
+\end{align*}
+\end{formules}

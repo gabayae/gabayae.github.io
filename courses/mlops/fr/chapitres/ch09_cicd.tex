@@ -1,0 +1,566 @@
+%!TEX root = ../main.tex
+\chapter{CI/CD pour le Machine Learning}
+\label{ch:cicd}
+
+\section{Introduction}
+
+Dans le d\'eveloppement logiciel traditionnel, les pratiques de CI/CD (Int\'egration Continue / D\'eploiement Continu) ont r\'evolutionn\'e la mani\`ere dont les \'equipes livrent du code. En Machine Learning, ces pratiques deviennent encore plus critiques~: il ne s'agit plus seulement de tester du code, mais \'egalement de valider des donn\'ees, des mod\`eles et des pipelines d'entra\^inement complets.
+
+\begin{definition}[Int\'egration Continue (CI)]
+L'int\'egration continue est une pratique de d\'eveloppement o\`u les d\'eveloppeurs fusionnent fr\'equemment leurs modifications dans une branche principale. Chaque fusion d\'eclenche une compilation et des tests automatis\'es pour d\'etecter les erreurs le plus t\^ot possible.
+\end{definition}
+
+\begin{definition}[Livraison Continue (CD)]
+La livraison continue \'etend la CI en automatisant le processus de mise en production. On distingue~:
+\begin{itemize}
+    \item \textbf{Continuous Delivery}~: le code est pr\^et \`a \^etre d\'eploy\'e \`a tout moment, mais le d\'eploiement reste manuel.
+    \item \textbf{Continuous Deployment}~: chaque modification valid\'ee est automatiquement d\'eploy\'ee en production.
+\end{itemize}
+\end{definition}
+
+%% ----------------------------------------------------------------
+\section{CI/CD pour le ML~: qu'est-ce qui change~?}
+\label{sec:cicd-ml-specifics}
+
+Le ML introduit des d\'efis suppl\'ementaires par rapport au d\'eveloppement logiciel classique.
+
+\begin{attention}[title=\textbf{Sp\'ecificit\'es du CI/CD en ML}]
+Contrairement au logiciel traditionnel, un pipeline ML doit valider~:
+\begin{enumerate}
+    \item \textbf{Le code} -- qualit\'e, linting, typage
+    \item \textbf{Les donn\'ees} -- sch\'ema, distribution, int\'egrit\'e
+    \item \textbf{Le mod\`ele} -- performance, \'equit\'e, robustesse
+    \item \textbf{L'infrastructure} -- reproductibilit\'e, ressources
+\end{enumerate}
+Un changement de donn\'ees peut casser un mod\`ele \emph{sans qu'aucune ligne de code n'ait chang\'e}.
+\end{attention}
+
+\begin{formules}[title=\textbf{Diff\'erences CI/CD classique vs ML}]
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Aspect} & \textbf{CI/CD classique} & \textbf{CI/CD ML} \\
+\midrule
+Entr\'ee & Code source & Code + Donn\'ees + Mod\`ele \\
+Tests & Unitaires, int\'egration & + validation donn\'ees, perf. mod\`ele \\
+Artefact & Binaire, image Docker & + mod\`ele s\'erialis\'e, m\'etriques \\
+D\'eclencheur & Commit, PR & + nouveau dataset, drift d\'etect\'e \\
+Validation & Tests passent & + seuils de performance atteints \\
+D\'eploiement & Blue/Green, Canary & + A/B testing, Shadow mode \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{formules}
+
+\subsection{Strat\'egies de d\'eploiement ML}
+
+\begin{definition}[A/B Testing pour les mod\`eles]
+L'A/B testing en ML consiste \`a exposer simultan\'ement deux versions d'un mod\`ele \`a des sous-ensembles d'utilisateurs, puis \`a comparer les m\'etriques m\'etier (taux de clic, revenu, satisfaction) pour d\'eterminer quelle version est sup\'erieure. Cette approche n\'ecessite une infrastructure capable de router le trafic et de collecter des m\'etriques en temps r\'eel.
+\end{definition}
+
+\begin{definition}[Shadow Deployment]
+Le \emph{shadow deployment} (ou \emph{dark launch}) consiste \`a d\'eployer un nouveau mod\`ele en parall\`ele du mod\`ele en production. Le nouveau mod\`ele re\c{c}oit le m\^eme trafic, mais ses pr\'edictions ne sont pas expos\'ees aux utilisateurs. Cela permet de comparer les performances sans risque.
+\end{definition}
+
+%% ----------------------------------------------------------------
+\section{GitHub Actions~: workflow complet pour un projet ML}
+\label{sec:github-actions}
+
+GitHub Actions est l'outil de CI/CD int\'egr\'e \`a GitHub. Il utilise des fichiers YAML pour d\'efinir des workflows d\'eclench\'es par des \'ev\'enements (push, pull request, etc.).
+
+\begin{codeblock}[title=\textbf{Workflow CI/CD complet pour un projet ML}]
+\begin{minted}{yaml}
+# .github/workflows/ml-pipeline.yml
+name: ML Pipeline CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.11"
+  DVC_REMOTE: s3://my-bucket/dvc-store
+
+jobs:
+  lint-and-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install linting tools
+        run: pip install ruff black mypy
+      - name: Check formatting (Black)
+        run: black --check src/ tests/
+      - name: Lint (Ruff)
+        run: ruff check src/ tests/
+      - name: Type checking (mypy)
+        run: mypy src/ --ignore-missing-imports
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint-and-format
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+      - name: Run unit tests
+        run: pytest tests/unit/ -v --cov=src/ --cov-report=xml
+      - name: Run integration tests
+        run: pytest tests/integration/ -v
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+
+  train-and-validate:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install DVC
+        run: pip install dvc[s3]
+      - name: Pull data with DVC
+        run: dvc pull
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+      - name: Reproduce pipeline
+        run: dvc repro
+      - name: Validate model performance
+        run: python scripts/validate_model.py
+          --min-accuracy 0.85
+          --max-latency-ms 100
+          --check-drift
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: train-and-validate
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t ml-model:${{ github.sha }} .
+      - name: Push to registry
+        run: |
+          docker tag ml-model:${{ github.sha }} \
+            ghcr.io/${{ github.repository }}/model:latest
+          docker push ghcr.io/${{ github.repository }}/model:latest
+      - name: Deploy to staging
+        run: |
+          kubectl set image deployment/ml-model \
+            model=ghcr.io/${{ github.repository }}/model:latest
+\end{minted}
+\end{codeblock}
+
+%% ----------------------------------------------------------------
+\section{Pre-commit hooks pour la qualit\'e du code}
+\label{sec:pre-commit}
+
+Les \emph{pre-commit hooks} permettent d'ex\'ecuter des v\'erifications automatiques avant chaque commit, garantissant que le code qui entre dans le d\'ep\^ot respecte les standards de qualit\'e.
+
+\begin{codeblock}[title=\textbf{Configuration \file{.pre-commit-config.yaml}}]
+\begin{minted}{yaml}
+repos:
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+      - id: black
+        language_version: python3.11
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [numpy, pandas-stubs]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+\end{minted}
+\end{codeblock}
+
+\begin{bonnepratique}[title=\textbf{Installation et utilisation}]
+\begin{minted}{bash}
+# Installation
+pip install pre-commit
+
+# Initialiser les hooks dans le depot
+pre-commit install
+
+# Executer sur tous les fichiers (premiere fois)
+pre-commit run --all-files
+\end{minted}
+Les hooks s'ex\'ecutent automatiquement \`a chaque \cli{git commit}. Si un hook \'echoue, le commit est bloqu\'e jusqu'\`a correction.
+\end{bonnepratique}
+
+\begin{remarque}
+L'option \cli{--maxkb=500} dans \texttt{check-added-large-files} emp\^eche l'ajout accidentel de fichiers volumineux (datasets, mod\`eles s\'erialis\'es) dans le d\'ep\^ot Git. Utilisez DVC pour versionner ces fichiers \`a la place.
+\end{remarque}
+
+%% ----------------------------------------------------------------
+\section{Validation de mod\`ele dans la CI}
+\label{sec:model-validation-ci}
+
+La validation automatis\'ee du mod\`ele est l'\'etape la plus sp\'ecifique au ML dans un pipeline CI/CD.
+
+\begin{codeblock}[title=\textbf{Script de validation de mod\`ele}]
+\begin{minted}{python}
+# scripts/validate_model.py
+import argparse
+import json
+import sys
+from pathlib import Path
+
+import joblib
+import numpy as np
+from scipy import stats
+from sklearn.metrics import accuracy_score, f1_score
+
+
+def load_metrics(path: str = "metrics.json") -> dict:
+    """Charge les metriques du modele entraine."""
+    with open(path) as f:
+        return json.load(f)
+
+
+def check_performance(metrics: dict, min_accuracy: float) -> bool:
+    """Verifie que les metriques depassent les seuils."""
+    accuracy = metrics.get("accuracy", 0.0)
+    if accuracy < min_accuracy:
+        print(f"ECHEC: accuracy={accuracy:.4f} < {min_accuracy}")
+        return False
+    print(f"OK: accuracy={accuracy:.4f} >= {min_accuracy}")
+    return True
+
+
+def check_data_drift(
+    reference_path: str, current_path: str, threshold: float = 0.05
+) -> bool:
+    """Detecte le drift via le test de Kolmogorov-Smirnov."""
+    ref = np.load(reference_path)
+    cur = np.load(current_path)
+
+    drift_detected = False
+    for i in range(ref.shape[1]):
+        stat, p_value = stats.ks_2samp(ref[:, i], cur[:, i])
+        if p_value < threshold:
+            print(f"DRIFT feature {i}: KS={stat:.4f}, p={p_value:.6f}")
+            drift_detected = True
+
+    return not drift_detected
+
+
+def check_latency(model_path: str, sample_path: str,
+                  max_latency_ms: float) -> bool:
+    """Verifie la latence d'inference."""
+    import time
+    model = joblib.load(model_path)
+    sample = np.load(sample_path)[:100]
+
+    start = time.perf_counter()
+    for x in sample:
+        model.predict(x.reshape(1, -1))
+    elapsed_ms = (time.perf_counter() - start) / len(sample) * 1000
+
+    if elapsed_ms > max_latency_ms:
+        print(f"ECHEC: latence={elapsed_ms:.2f}ms > {max_latency_ms}ms")
+        return False
+    print(f"OK: latence={elapsed_ms:.2f}ms <= {max_latency_ms}ms")
+    return True
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--min-accuracy", type=float, default=0.85)
+    parser.add_argument("--max-latency-ms", type=float, default=100)
+    parser.add_argument("--check-drift", action="store_true")
+    args = parser.parse_args()
+
+    metrics = load_metrics()
+    checks = [check_performance(metrics, args.min_accuracy)]
+
+    if args.check_drift:
+        checks.append(check_data_drift(
+            "data/reference.npy", "data/current.npy"
+        ))
+
+    checks.append(check_latency(
+        "models/model.pkl", "data/current.npy", args.max_latency_ms
+    ))
+
+    if not all(checks):
+        print("\nValidation ECHOUEE -- deploiement bloque.")
+        sys.exit(1)
+    print("\nValidation REUSSIE -- pret pour le deploiement.")
+\end{minted}
+\end{codeblock}
+
+%% ----------------------------------------------------------------
+\section{DVC dans la CI~: reproduire les pipelines automatiquement}
+\label{sec:dvc-ci}
+
+DVC (Data Version Control) permet de versionner les donn\'ees et de d\'efinir des pipelines reproductibles. Dans un contexte CI, DVC garantit que le pipeline est ex\'ecut\'e de mani\`ere d\'eterministe.
+
+\begin{codeblock}[title=\textbf{Pipeline DVC \file{dvc.yaml}}]
+\begin{minted}{yaml}
+stages:
+  preprocess:
+    cmd: python src/preprocess.py
+    deps:
+      - src/preprocess.py
+      - data/raw/
+    outs:
+      - data/processed/
+    params:
+      - preprocess.test_size
+      - preprocess.seed
+
+  train:
+    cmd: python src/train.py
+    deps:
+      - src/train.py
+      - data/processed/
+    outs:
+      - models/model.pkl
+    params:
+      - train.n_estimators
+      - train.learning_rate
+    metrics:
+      - metrics.json:
+          cache: false
+
+  evaluate:
+    cmd: python src/evaluate.py
+    deps:
+      - src/evaluate.py
+      - models/model.pkl
+      - data/processed/test.csv
+    metrics:
+      - eval_metrics.json:
+          cache: false
+    plots:
+      - plots/confusion_matrix.csv:
+          x: predicted
+          y: actual
+\end{minted}
+\end{codeblock}
+
+\begin{bonnepratique}[title=\textbf{Commandes DVC dans la CI}]
+\begin{minted}{bash}
+# Reproduire le pipeline (seules les etapes modifiees)
+dvc repro
+
+# Comparer les metriques avec la branche principale
+dvc metrics diff main
+
+# Afficher les parametres
+dvc params diff main
+\end{minted}
+La commande \cli{dvc repro} n'ex\'ecute que les \'etapes dont les d\'ependances ont chang\'e, ce qui acc\'el\`ere consid\'erablement les pipelines CI.
+\end{bonnepratique}
+
+%% ----------------------------------------------------------------
+\section{Architecture d'un pipeline CI/CD pour le ML}
+\label{sec:cicd-architecture}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    node distance=1.8cm and 2.5cm,
+    block/.style={rectangle, draw, rounded corners, fill=blue!10,
+        minimum width=2.8cm, minimum height=1cm, align=center,
+        font=\small},
+    decision/.style={diamond, draw, fill=orange!15, aspect=2,
+        inner sep=1pt, font=\small, align=center},
+    arrow/.style={-{Stealth[length=2.5mm]}, thick},
+    label/.style={font=\scriptsize, text=gray}
+]
+
+% Nodes
+\node[block] (commit) {Commit /\\Pull Request};
+\node[block, right=of commit] (lint) {Lint \&\\Formatage};
+\node[block, right=of lint] (test) {Tests\\unitaires};
+\node[block, below=of test] (data) {Validation\\donn\'ees};
+\node[block, left=of data] (train) {Entra\^inement\\(DVC repro)};
+\node[decision, left=of train] (gate) {Seuils\\OK~?};
+\node[block, below=of gate] (staging) {D\'eploiement\\staging};
+\node[block, right=of staging] (ab) {A/B Test /\\Shadow};
+\node[decision, right=of ab] (validate) {M\'etriques\\OK~?};
+\node[block, below=of validate] (prod) {Production};
+
+% Arrows
+\draw[arrow] (commit) -- (lint);
+\draw[arrow] (lint) -- (test);
+\draw[arrow] (test) -- (data);
+\draw[arrow] (data) -- (train);
+\draw[arrow] (train) -- (gate);
+\draw[arrow] (gate) -- node[left, label] {Oui} (staging);
+\draw[arrow] (staging) -- (ab);
+\draw[arrow] (ab) -- (validate);
+\draw[arrow] (validate) -- node[right, label] {Oui} (prod);
+
+% Rejection paths
+\draw[arrow, dashed, red!60] (gate.north) -- ++(0,0.8) node[above, font=\scriptsize, text=red!70] {Non -- bloquer};
+\draw[arrow, dashed, red!60] (validate.east) -- ++(1.2,0) node[right, font=\scriptsize, text=red!70] {Non -- rollback};
+
+\end{tikzpicture}
+\caption{Pipeline CI/CD complet pour un projet de Machine Learning.}
+\label{fig:cicd-pipeline}
+\end{figure}
+
+%% ----------------------------------------------------------------
+\section{Comparaison des outils CI/CD}
+\label{sec:cicd-comparison}
+
+\begin{formules}[title=\textbf{GitHub Actions vs GitLab CI vs Jenkins vs CircleCI}]
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Crit\`ere} & \textbf{GitHub Actions} & \textbf{GitLab CI} & \textbf{Jenkins} & \textbf{CircleCI} \\
+\midrule
+H\'ebergement & Cloud & Cloud/Self & Self-hosted & Cloud \\
+Configuration & YAML & YAML & Groovy/YAML & YAML \\
+GPU natif & Non\textsuperscript{*} & Oui & Oui & Non\textsuperscript{*} \\
+Cache int\'egr\'e & Oui & Oui & Plugin & Oui \\
+Marketplace & Tr\`es riche & Mod\'er\'e & Tr\`es riche & Mod\'er\'e \\
+Gratuit (public) & Oui & Oui & Oui & Limit\'e \\
+Complexit\'e & Faible & Faible & \'Elev\'ee & Faible \\
+Int\'egration ML & Bonne & Bonne & Manuelle & Mod\'er\'ee \\
+\bottomrule
+\end{tabular}
+\end{center}
+\textsuperscript{*} Possible via des runners auto-h\'eberg\'es.
+\end{formules}
+
+\begin{antipattern}[title=\textbf{Erreurs fr\'equentes en CI/CD ML}]
+\begin{itemize}
+    \item \textbf{Stocker les donn\'ees dans Git}~: les fichiers volumineux ralentissent le d\'ep\^ot et augmentent les co\^uts. Utilisez DVC ou Git LFS.
+    \item \textbf{Entra\^iner sur la CI sans cache}~: chaque pipeline r\'e-entra\^ine depuis z\'ero. Utilisez le cache DVC.
+    \item \textbf{Ignorer les tests de donn\'ees}~: tester uniquement le code ne suffit pas en ML.
+    \item \textbf{D\'eployer sans \emph{gate}}~: l'absence de seuils de performance peut mettre un mod\`ele d\'egrad\'e en production.
+    \item \textbf{Secrets en dur}~: ne jamais mettre les cl\'es API dans le code. Utilisez les \emph{secrets} du fournisseur CI.
+\end{itemize}
+\end{antipattern}
+
+%% ----------------------------------------------------------------
+\section{Mini-projet~: mettre en place le CI/CD}
+\label{sec:cicd-miniproject}
+
+\begin{miniprojet}[title=\textbf{CI/CD pour le projet de cours}]
+\textbf{Objectif}~: configurer un pipeline CI/CD complet pour le projet ML du cours.
+
+\textbf{\'Etapes}~:
+\begin{enumerate}
+    \item \textbf{Pre-commit}~: cr\'eer le fichier \file{.pre-commit-config.yaml} avec Black, Ruff et mypy. Ex\'ecuter \cli{pre-commit run --all-files} et corriger les erreurs.
+    \item \textbf{Tests}~: \'ecrire au moins 5 tests unitaires (fonctions de pr\'etraitement, chargement des donn\'ees, forme des sorties du mod\`ele).
+    \item \textbf{Validation}~: cr\'eer le script \file{scripts/validate\_model.py} avec des seuils de performance.
+    \item \textbf{GitHub Actions}~: cr\'eer \file{.github/workflows/ml-pipeline.yml} avec les jobs~: lint, test, train, validate.
+    \item \textbf{DVC}~: int\'egrer \cli{dvc repro} dans le pipeline CI.
+    \item \textbf{Badge}~: ajouter le badge de statut CI dans le \file{README.md}.
+\end{enumerate}
+
+\textbf{Livrables}~:
+\begin{itemize}
+    \item D\'ep\^ot GitHub avec pipeline CI fonctionnel (badge vert).
+    \item Capture d'\'ecran de l'ex\'ecution r\'eussie du workflow.
+    \item Document expliquant chaque \'etape du pipeline.
+\end{itemize}
+\end{miniprojet}
+
+%% ----------------------------------------------------------------
+\section{Exercices}
+\label{sec:cicd-exercises}
+
+\begin{exercice}[Niveau 1 -- Premiers pas avec GitHub Actions]
+Cr\'eez un workflow GitHub Actions minimal qui~:
+\begin{enumerate}
+    \item Se d\'eclenche sur chaque push vers la branche \texttt{main}.
+    \item Installe Python 3.11 et les d\'ependances du projet.
+    \item Ex\'ecute \cli{ruff check src/} et \cli{pytest tests/}.
+\end{enumerate}
+V\'erifiez que le workflow s'ex\'ecute correctement en poussant un commit.
+\end{exercice}
+
+\begin{exercice}[Niveau 2 -- Validation automatis\'ee du mod\`ele]
+\'Etendez le pipeline CI pour inclure une \'etape de validation du mod\`ele~:
+\begin{enumerate}
+    \item Apr\`es l'entra\^inement, ex\'ecutez un script qui v\'erifie que l'accuracy d\'epasse 0.80 et que le F1-score d\'epasse 0.75.
+    \item Ajoutez une v\'erification de drift via le test de Kolmogorov-Smirnov entre les donn\'ees de r\'ef\'erence et les donn\'ees courantes.
+    \item Si un seuil n'est pas atteint, le pipeline doit \'echouer avec un message explicite.
+    \item Utilisez \cli{dvc metrics diff} pour comparer les m\'etriques avec la branche principale et afficher la diff\'erence dans un commentaire de PR.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Niveau 3 -- Pipeline CI/CD de bout en bout avec A/B testing]
+Concevez et impl\'ementez un pipeline CI/CD complet~:
+\begin{enumerate}
+    \item \textbf{CI}~: lint, tests, entra\^inement, validation (seuils + drift + latence).
+    \item \textbf{CD staging}~: d\'eploiement automatique sur un environnement de staging via Docker + Kubernetes.
+    \item \textbf{A/B testing}~: configurez Istio ou un proxy pour router 10\,\% du trafic vers le nouveau mod\`ele pendant 24h.
+    \item \textbf{Promotion}~: si les m\'etriques m\'etier (taux de conversion, latence p95) sont meilleures, promouvoir automatiquement le mod\`ele en production.
+    \item \textbf{Rollback}~: impl\'ementez un m\'ecanisme de rollback automatique si les m\'etriques se d\'egradent.
+\end{enumerate}
+Documentez l'architecture compl\`ete avec un diagramme et justifiez vos choix techniques.
+\end{exercice}
+
+%% ----------------------------------------------------------------
+\section{Aide-m\'emoire}
+\label{sec:cicd-cheatsheet}
+
+\begin{cheatsheet}[title=\textbf{CI/CD pour le Machine Learning}]
+\textbf{Concepts cl\'es}~:
+\begin{itemize}
+    \item \textbf{CI} = int\'egration continue~: tests automatiques \`a chaque commit
+    \item \textbf{CD} = livraison/d\'eploiement continu~: mise en production automatis\'ee
+    \item \textbf{Gate} = seuil de qualit\'e \`a franchir avant d\'eploiement
+\end{itemize}
+
+\textbf{Commandes essentielles}~:
+\begin{minted}{bash}
+# Pre-commit
+pre-commit install          # Activer les hooks
+pre-commit run --all-files  # Executer sur tout
+
+# DVC dans la CI
+dvc pull                    # Telecharger les donnees
+dvc repro                   # Reproduire le pipeline
+dvc metrics diff main       # Comparer les metriques
+
+# GitHub Actions (debug local)
+act -j test                 # Executer un job localement
+\end{minted}
+
+\textbf{Checklist CI/CD ML}~:
+\begin{enumerate}
+    \item[$\square$] Pre-commit hooks configur\'es (Black, Ruff, mypy)
+    \item[$\square$] Tests unitaires avec couverture $\geq 80\,\%$
+    \item[$\square$] Validation des donn\'ees (sch\'ema, drift)
+    \item[$\square$] Seuils de performance d\'efinis et v\'erifi\'es
+    \item[$\square$] V\'erification de la latence d'inf\'erence
+    \item[$\square$] Pipeline DVC reproductible
+    \item[$\square$] Secrets stock\'es de mani\`ere s\'ecuris\'ee
+    \item[$\square$] Strat\'egie de rollback d\'efinie
+\end{enumerate}
+\end{cheatsheet}

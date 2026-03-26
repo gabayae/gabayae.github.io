@@ -1,0 +1,152 @@
+% ============================================================
+% Chapter 6: Hypothesis Testing — General Framework
+% ============================================================
+\chapter{Hypothesis Testing --- General Framework}
+\label{ch:tests}
+
+\begin{center}
+\textit{``Absence of evidence is not evidence of absence.''} --- Carl Sagan
+\end{center}
+
+\section{Motivating Example}
+
+A manufacturer claims screws have mean strength 50~kN. A client samples $n=25$: $\bar{x}=48.2$~kN, $s=4.5$~kN. Is the difference significant or due to sampling variability?
+
+\section{Hypotheses}
+
+\begin{definition}[Null and Alternative Hypotheses]
+\index{null hypothesis}\index{alternative hypothesis}
+$H_0$: \textbf{null hypothesis} (status quo). $H_1$: \textbf{alternative hypothesis}.
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Type} & $H_0$ & $H_1$ \\
+\midrule
+Two-sided & $\theta=\theta_0$ & $\theta\neq\theta_0$ \\
+One-sided left & $\theta\geq\theta_0$ & $\theta<\theta_0$ \\
+One-sided right & $\theta\leq\theta_0$ & $\theta>\theta_0$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{definition}
+
+\section{Type I and Type II Errors}
+
+\begin{definition}
+\index{Type I error}\index{Type II error}
+\begin{center}
+\begin{tabular}{l|cc}
+& $H_0$ true & $H_0$ false \\
+\hline
+Reject $H_0$ & \textbf{Type I error} ($\alpha$) & Correct \\
+Fail to reject & Correct & \textbf{Type II error} ($\beta$) \\
+\end{tabular}
+\end{center}
+$\alpha$: significance level. $1-\beta$: \textbf{power}.
+\end{definition}
+
+\section{Test Structure}
+
+\begin{definition}[$p$-value]
+\index{p-value@$p$-value}
+The probability, under $H_0$, of observing a test statistic at least as extreme as the one observed. Reject $H_0$ iff $p\leq\alpha$.
+\end{definition}
+
+\begin{warning}
+The $p$-value is \textbf{NOT} the probability that $H_0$ is true. Other pitfalls:
+\begin{itemize}
+\item $p>0.05$ does not mean $H_0$ is true---only that there is insufficient evidence against it.
+\item Statistical significance ($p<0.05$) does not imply practical significance.
+\end{itemize}
+\end{warning}
+
+\section{Power Function}
+
+\begin{definition}[Power Function]
+\index{power}
+$\pi(\theta) = \Prob_\theta(\text{reject } H_0)$. For $\theta\in\Theta_0$: $\pi(\theta)\leq\alpha$. For $\theta\in\Theta_1$: $\pi(\theta)=1-\beta(\theta)$.
+\end{definition}
+
+\section{Neyman--Pearson Lemma}
+
+\begin{theorem}[Neyman--Pearson]
+\index{Neyman--Pearson}
+For simple $H_0:\theta=\theta_0$ vs $H_1:\theta=\theta_1$, the most powerful test rejects when:
+\[
+\Lambda(\mathbf{x}) = \frac{L(\theta_1;\mathbf{x})}{L(\theta_0;\mathbf{x})} > k_\alpha.
+\]
+\end{theorem}
+
+\section{Generalized Likelihood Ratio Test}
+
+\begin{definition}
+\index{likelihood ratio test}
+\[
+\lambda(\mathbf{x}) = \frac{\sup_{\Theta_0} L(\theta;\mathbf{x})}{\sup_{\Theta} L(\theta;\mathbf{x})}.
+\]
+Reject $H_0$ for small $\lambda$.
+\end{definition}
+
+\begin{theorem}[Wilks' Theorem]
+\index{Wilks}
+Under $H_0$: $-2\ln\lambda \xrightarrow{\mathcal{L}} \chi^2(r)$ where $r=\dim(\Theta)-\dim(\Theta_0)$.
+\end{theorem}
+
+\section{Python Implementation}
+
+\begin{python}
+\begin{minted}{python}
+import numpy as np
+from scipy import stats
+import matplotlib.pyplot as plt
+
+data = np.array([48.2, 47.5, 49.1, 46.8, 50.3, 48.7, 47.9, 49.5,
+                 46.2, 48.8, 49.0, 47.3, 48.1, 50.1, 47.0,
+                 49.4, 48.6, 46.5, 49.8, 47.2, 48.3, 49.7,
+                 47.8, 48.5, 46.9])
+
+t_stat, p_val = stats.ttest_1samp(data, 50)
+print(f"t = {t_stat:.4f}, p = {p_val:.6f}")
+
+# Power function
+from scipy.stats import norm
+def power_z(mu, mu0, sigma, n, alpha=0.05):
+    z_a = norm.ppf(1-alpha/2)
+    d = (mu-mu0)/(sigma/np.sqrt(n))
+    return 1 - norm.cdf(z_a-d) + norm.cdf(-z_a-d)
+
+mu_vals = np.linspace(44, 56, 200)
+plt.plot(mu_vals, [power_z(m, 50, 4.5, 25) for m in mu_vals], 'b-', lw=2)
+plt.axhline(0.05, color='red', ls='--')
+plt.xlabel(r'$\mu$'); plt.ylabel('Power')
+plt.title('Power function'); plt.savefig("ch06_power.pdf"); plt.show()
+\end{minted}
+\end{python}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+A teacher claims average grade is 12. With $n=20$, $\bar{x}=11.2$, $s=2.5$, test $H_0:\mu=12$ vs $H_1:\mu<12$ at 5\%.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Apply Neyman--Pearson for $H_0:\mu=0$ vs $H_1:\mu=1$ with $X_i\iid\mathcal{N}(\mu,1)$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+For $H_0:\mu=100$, $\sigma=15$, $\alpha=0.05$: compute power at $\mu_1=105$ with $n=25$. Find $n$ for 90\% power.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Project]
+Simulate Type I error rates and power for the $t$-test under normal, exponential, and uniform distributions.
+\end{exercise}
+
+\begin{keyformulas}
+\begin{align*}
+\alpha &= \Prob(\text{reject }H_0\mid H_0) & \beta &= \Prob(\text{fail to reject}\mid H_1) \\
+\text{NP} &: \text{reject if } L(\theta_1)/L(\theta_0)>k_\alpha &
+\lambda &= \sup_{\Theta_0}L/\sup_\Theta L
+\end{align*}
+Wilks: $-2\ln\lambda\xrightarrow{\mathcal{L}}\chi^2(r)$.
+\end{keyformulas}

@@ -1,0 +1,364 @@
+% ============================================================
+\chapter{Environments and Dependency Management}
+\label{ch:environments}
+\index{environments}
+% ============================================================
+
+\section{Why Isolate Environments?}
+\label{sec:why-envs}
+
+A classic problem in ML: ``It works on my machine!'' The causes:
+\begin{itemize}
+  \item Different Python versions
+  \item Incompatible library versions
+  \item Missing system dependencies (CUDA, cuDNN)
+  \item Unconfigured environment variables
+\end{itemize}
+
+\begin{definition}[Virtual environment]
+A \textbf{virtual environment}\index{virtual environment} is an isolated
+directory containing a specific Python installation and a set of packages,
+independent of the system and other projects.
+\end{definition}
+
+\begin{center}
+\begin{tikzpicture}[
+  env/.style={rectangle, draw, rounded corners, minimum width=3cm,
+    minimum height=2.5cm, align=center, font=\small},
+  pkg/.style={rectangle, draw, fill=blue!10, font=\scriptsize,
+    minimum width=2.5cm, rounded corners}
+]
+  \node[env, fill=green!5] (env1) {};
+  \node[above=0.1cm] at (env1.north) {\textbf{Project A}};
+  \node[pkg] at ([yshift=0.3cm]env1.center) {scikit-learn 1.3};
+  \node[pkg] at ([yshift=-0.3cm]env1.center) {pandas 2.0};
+  \node[below=0.1cm, font=\scriptsize] at (env1.south) {Python 3.10};
+
+  \node[env, fill=orange!5, right=2cm of env1] (env2) {};
+  \node[above=0.1cm] at (env2.north) {\textbf{Project B}};
+  \node[pkg] at ([yshift=0.3cm]env2.center) {scikit-learn 1.5};
+  \node[pkg] at ([yshift=-0.3cm]env2.center) {pandas 2.2};
+  \node[below=0.1cm, font=\scriptsize] at (env2.south) {Python 3.12};
+
+  \node[below=1.5cm of env1, font=\small] (sys) {System};
+  \node[below=1.5cm of env2, font=\small] (sys2) {System};
+  \draw[dashed, gray] ([xshift=-1cm]sys.north) -- ([xshift=1cm]sys2.north);
+\end{tikzpicture}
+\end{center}
+
+\section{venv --- Python's Built-in Tool}
+\label{sec:venv}
+\index{venv}
+
+\cli{venv} is Python's standard module for creating virtual environments.
+It is simple, lightweight, and requires no additional installation.
+
+\begin{codeblock}[title=\textbf{Essential venv commands}]
+\begin{minted}{bash}
+# Create a virtual environment
+python -m venv .venv
+
+# Activate (Linux/macOS)
+source .venv/bin/activate
+
+# Activate (Windows)
+.venv\Scripts\activate
+
+# Install packages
+pip install numpy pandas scikit-learn
+
+# Save dependencies
+pip freeze > requirements.txt
+
+# Recreate the environment
+pip install -r requirements.txt
+
+# Deactivate
+deactivate
+\end{minted}
+\end{codeblock}
+
+\begin{warning}[title=\textbf{pip freeze pitfalls}]
+\cli{pip freeze} includes \textbf{all} transitive dependencies, making the
+file fragile. Prefer:
+\begin{itemize}
+  \item Manually maintaining a \file{requirements.txt} with direct
+    dependencies and their versions.
+  \item Using \pkg{pip-tools} to generate a locked \file{requirements.txt}
+    from a \file{requirements.in}.
+\end{itemize}
+\end{warning}
+
+\subsection{pip-tools: dependency locking}
+\index{pip-tools}
+
+\begin{codeblock}[title=\textbf{pip-tools workflow}]
+\begin{minted}{bash}
+# Install pip-tools
+pip install pip-tools
+
+# requirements.in (direct dependencies only)
+# numpy>=1.24
+# pandas>=2.0
+# scikit-learn>=1.3
+
+# Compile (resolve and lock)
+pip-compile requirements.in -o requirements.txt
+
+# Install exactly the locked versions
+pip-sync requirements.txt
+\end{minted}
+\end{codeblock}
+
+\section{Conda --- Environments with System Dependencies}
+\label{sec:conda}
+\index{Conda}
+
+\textbf{Conda}\index{Conda} manages not only Python packages but also
+system libraries (CUDA, MKL, OpenSSL). It is the preferred tool for ML
+projects requiring GPUs.
+
+\begin{codeblock}[title=\textbf{Essential Conda commands}]
+\begin{minted}{bash}
+# Create an environment
+conda create -n ml-project python=3.11
+
+# Activate
+conda activate ml-project
+
+# Install packages
+conda install numpy pandas scikit-learn
+conda install -c pytorch pytorch torchvision  # PyTorch channel
+
+# Export the environment
+conda env export > environment.yml
+
+# Export without OS-specific dependencies
+conda env export --from-history > environment.yml
+
+# Recreate the environment
+conda env create -f environment.yml
+
+# List environments
+conda env list
+
+# Remove an environment
+conda env remove -n ml-project
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{environment.yml}]
+\begin{minted}{yaml}
+name: ml-project
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - numpy=1.26
+  - pandas=2.1
+  - scikit-learn=1.3
+  - pytorch=2.1
+  - pip:
+    - mlflow>=2.8
+    - wandb>=0.16
+\end{minted}
+\end{codeblock}
+
+\begin{bestpractice}[title=\textbf{Conda vs pip}]
+\begin{itemize}
+  \item Use Conda for system dependencies (CUDA, compilers).
+  \item Use pip inside a Conda environment for pure Python packages.
+  \item \textbf{Never} mix \cli{conda install} and \cli{pip install} for
+    the same package---Conda will not see packages installed by pip and
+    vice versa.
+\end{itemize}
+\end{bestpractice}
+
+\section{Poetry --- Modern Dependency Management}
+\label{sec:poetry}
+\index{Poetry}
+
+\textbf{Poetry}\index{Poetry} is a modern dependency manager that combines
+package management, version locking, and package publishing in a single tool.
+
+\begin{codeblock}[title=\textbf{Poetry workflow}]
+\begin{minted}{bash}
+# Install Poetry
+curl -sSL https://install.python-poetry.org | python3 -
+
+# Create a new project
+poetry new ml-project
+cd ml-project
+
+# Add dependencies
+poetry add numpy pandas scikit-learn
+poetry add --group dev pytest black mypy
+
+# Install dependencies
+poetry install
+
+# Run in the environment
+poetry run python train.py
+poetry run pytest tests/
+
+# Export to requirements.txt (compatibility)
+poetry export -f requirements.txt -o requirements.txt
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{pyproject.toml (excerpt)}]
+\begin{minted}{toml}
+[tool.poetry]
+name = "ml-project"
+version = "0.1.0"
+description = "ML classification project"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+numpy = "^1.26"
+pandas = "^2.1"
+scikit-learn = "^1.3"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4"
+black = "^23.10"
+mypy = "^1.6"
+\end{minted}
+\end{codeblock}
+
+\section{Tool Comparison}
+\label{sec:env-comparison}
+
+\begin{center}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Criterion} & \textbf{venv+pip} & \textbf{Conda} & \textbf{Poetry} & \textbf{uv} \\
+\midrule
+Built into Python & Yes & No & No & No \\
+System deps & No & Yes & No & No \\
+Locking & pip-tools & Yes & Yes & Yes \\
+GPU/CUDA & Manual & Yes & Manual & Manual \\
+Speed & Fast & Slow & Medium & Very fast \\
+Pkg publishing & No & No & Yes & No \\
+Learning curve & Low & Medium & Medium & Low \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{uv --- The Fast New Tool}
+\label{sec:uv}
+\index{uv}
+
+\textbf{uv} is a Python package manager written in Rust, compatible with
+pip, extremely fast (10--100$\times$ faster than pip).
+
+\begin{codeblock}[title=\textbf{uv workflow}]
+\begin{minted}{bash}
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create environment and install
+uv venv
+source .venv/bin/activate
+uv pip install numpy pandas scikit-learn
+
+# Or all at once
+uv pip install -r requirements.txt
+
+# Locking
+uv pip compile requirements.in -o requirements.txt
+uv pip sync requirements.txt
+\end{minted}
+\end{codeblock}
+
+\section{Best Practices for Reproducibility}
+\label{sec:env-best-practices}
+
+\begin{bestpractice}[title=\textbf{Golden rules for environments}]
+\begin{enumerate}
+  \item \textbf{One project = one environment}: never share an environment
+    between projects.
+  \item \textbf{Versioned dependency file}: \file{requirements.txt} or
+    \file{environment.yml} in the Git repository.
+  \item \textbf{Pin versions}: \cli{numpy==1.26.2}, not \cli{numpy} without
+    a version.
+  \item \textbf{Separate dev and prod}: development tools (pytest, black)
+    should not be in production.
+  \item \textbf{Document the Python version}: in the README or
+    \file{pyproject.toml}.
+  \item \textbf{Never modify the system environment}: never use
+    \cli{sudo pip install}.
+\end{enumerate}
+\end{bestpractice}
+
+\begin{antipattern}[title=\textbf{Common anti-patterns}]
+\begin{itemize}
+  \item Installing all packages in the system environment
+  \item Using \cli{pip install} without \cli{-r requirements.txt}
+  \item Forgetting to update \file{requirements.txt} after adding a package
+  \item Mixing Conda and pip haphazardly
+  \item Sharing a Conda environment via an absolute path
+\end{itemize}
+\end{antipattern}
+
+\section{Mini-project: Reproducible Environment}
+\label{sec:mini-project-ch2}
+
+\begin{miniproject}[title=\textbf{Mini-project 2: Setting up an environment}]
+Building on the structured project from Chapter~\ref{ch:introduction}:
+\begin{enumerate}
+  \item Create a virtual environment with \cli{venv} or Conda.
+  \item Write a \file{requirements.in} with direct dependencies.
+  \item Generate a locked \file{requirements.txt} with \pkg{pip-tools}.
+  \item Write an equivalent \file{environment.yml} for Conda.
+  \item Verify that a colleague can recreate the environment from the
+    dependency file alone.
+  \item Add a \cli{setup.sh} script that automates environment creation.
+\end{enumerate}
+\end{miniproject}
+
+\section{Exercises}
+\label{sec:exercises-ch2}
+
+\begin{exercise}[$\bigstar$ --- Environment creation]
+Create a virtual environment with each of the three tools (venv, Conda,
+Poetry) for a project using \pkg{numpy}, \pkg{pandas}, and \pkg{matplotlib}.
+Compare the environment sizes and creation times.
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar$ --- Conflict resolution]
+A project requires \pkg{tensorflow>=2.15} and \pkg{numpy<1.24} (a real
+conflict). Use \pkg{pip-tools} to identify the conflict, then find
+compatible versions. Document the resolution process.
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar\bigstar$ --- Cross-platform environment]
+Create an ML project that works on Linux, macOS, and Windows:
+\begin{enumerate}
+  \item Write a multi-OS compatible \file{environment.yml} for Conda
+    (\cli{conda env export --from-history})
+  \item Create a \cli{setup.sh} / \cli{setup.bat} script that detects
+    the OS and installs appropriate dependencies
+  \item Test on at least two systems (or use Docker containers to simulate)
+  \item Handle the GPU case (install PyTorch CPU vs CUDA depending on the
+    machine)
+\end{enumerate}
+\end{exercise}
+
+\section{Cheatsheet}
+
+\begin{cheatsheet}[title=\textbf{Chapter 2 Summary}]
+\begin{tabular}{@{}p{4cm}p{8.5cm}@{}}
+\toprule
+\textbf{Tool} & \textbf{Key Commands} \\
+\midrule
+\textbf{venv} & \cli{python -m venv .venv}, \cli{source .venv/bin/activate} \\
+\textbf{pip-tools} & \cli{pip-compile requirements.in}, \cli{pip-sync} \\
+\textbf{Conda} & \cli{conda create -n env python=3.11}, \cli{conda env export} \\
+\textbf{Poetry} & \cli{poetry add pkg}, \cli{poetry install}, \cli{poetry run} \\
+\textbf{uv} & \cli{uv pip install}, \cli{uv pip compile}, \cli{uv pip sync} \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}

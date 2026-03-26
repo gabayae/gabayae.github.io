@@ -1,0 +1,397 @@
+% ============================================================
+\chapter{Mod\`eles \'Epid\'emiologiques}
+\label{ch:epidemiologie}
+% ============================================================
+
+\section{Introduction}
+
+En 1927, William Ogilvy Kermack et Anderson Gray McKendrick publient un article qui allait fonder l'\'epid\'emiologie math\'ematique~: leur mod\`ele SIR divise la population en trois compartiments --- Susceptibles, Infectieux, R\'etablis --- et pr\'edit, avec une simplicit\'e remarquable, le d\'eroulement d'une \'epid\'emie. Le nombre de reproduction de base $R_0$ \'emerge naturellement~: si $R_0 > 1$, l'\'epid\'emie se propage~; si $R_0 < 1$, elle s'\'eteint. Ce seuil, devenu c\'el\`ebre lors de la pand\'emie de COVID-19, est un r\'esultat purement math\'ematique qui guide les politiques de sant\'e publique.
+
+Les mod\`eles \'epid\'emiologiques compartimentaux permettent de comprendre
+la propagation des maladies infectieuses et d'\'evaluer l'impact des
+interventions (vaccination, quarantaine).  Ce chapitre d\'eveloppe les
+mod\`eles SIR et SEIR \`a partir de principes premiers, analyse le nombre
+de reproduction de base $\mathcal{R}_0$ et propose des simulations Python.
+
+% ------------------------------------------------------------
+\section{Le mod\`ele SIR de Kermack--McKendrick}
+\label{sec:sir}
+% ------------------------------------------------------------
+
+\begin{definition}[Compartiments SIR]
+On divise la population totale $N$ (constante) en trois compartiments :
+\begin{itemize}
+  \item $S(t)$ : \textbf{Susceptibles} (individus pouvant \^etre infect\'es).
+  \item $I(t)$ : \textbf{Infectieux} (individus contagieux).
+  \item $R(t)$ : \textbf{R\'etablis} (individus immunis\'es ou d\'ec\'ed\'es).
+\end{itemize}
+La contrainte de conservation est $S(t)+I(t)+R(t)=N$.
+\end{definition}
+
+\subsection{D\'erivation du mod\`ele}
+
+\begin{intuition}[title=\textbf{Hypoth\`eses du mod\`ele SIR}]
+\begin{itemize}
+  \item La population est homog\`ene et bien m\'elang\'ee.
+  \item Le taux de transmission est proportionnel au produit $SI$
+    (action de masse).
+  \item Les infectieux gu\'erissent au taux constant $\gamma$.
+  \item Il n'y a ni naissance, ni mort (sauf par la maladie), ni
+    d\'emographie.
+\end{itemize}
+\end{intuition}
+
+Les \'equations du mod\`ele SIR sont :
+\begin{align}
+  \frac{dS}{dt} &= -\beta\frac{SI}{N}, \label{eq:sir_s}\\
+  \frac{dI}{dt} &= \beta\frac{SI}{N} - \gamma I, \label{eq:sir_i}\\
+  \frac{dR}{dt} &= \gamma I, \label{eq:sir_r}
+\end{align}
+o\`u $\beta>0$ est le taux de transmission et $\gamma>0$ le taux de
+gu\'erison.
+
+\begin{formules}[title=\textbf{Param\`etres du mod\`ele SIR}]
+\begin{center}
+\begin{tabular}{ccc}
+\toprule
+Param\`etre & Signification & Unit\'e \\
+\midrule
+$\beta$ & Taux de transmission & $\text{temps}^{-1}$ \\
+$\gamma$ & Taux de gu\'erison & $\text{temps}^{-1}$ \\
+$1/\gamma$ & Dur\'ee moyenne d'infection & temps \\
+$\mathcal{R}_0 = \beta/\gamma$ & Nombre de reproduction de base & sans dimension \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{formules}
+
+% ------------------------------------------------------------
+\section{Le nombre de reproduction de base $\mathcal{R}_0$}
+\label{sec:r0}
+% ------------------------------------------------------------
+
+\begin{definition}[Nombre de reproduction de base]
+Le \textbf{nombre de reproduction de base} $\mathcal{R}_0$ est le
+nombre moyen de cas secondaires produits par un individu infectieux
+dans une population enti\`erement susceptible :
+\[
+  \mathcal{R}_0 = \frac{\beta}{\gamma}.
+\]
+\end{definition}
+
+\begin{theoreme}[Seuil \'epid\'emique]
+Une \'epid\'emie se d\'eclenche si et seulement si $\mathcal{R}_0 > 1$.
+Plus pr\'ecis\'ement, $dI/dt > 0$ au d\'ebut de l'\'epid\'emie si et
+seulement si $\mathcal{R}_0 S(0)/N > 1$.
+\end{theoreme}
+
+\begin{proof}
+Au d\'ebut, $S\approx N$. L'\'equation~\eqref{eq:sir_i} donne :
+\[
+  \frac{dI}{dt}\bigg|_{t=0} \approx (\beta - \gamma)I_0
+  = \gamma(\mathcal{R}_0 - 1)I_0.
+\]
+Donc $dI/dt > 0$ si et seulement si $\mathcal{R}_0 > 1$.
+\end{proof}
+
+\begin{remarque}
+Quelques valeurs typiques de $\mathcal{R}_0$ :
+rougeole $\approx 12$--$18$, grippe $\approx 1{,}5$--$3$,
+COVID-19 (souche originale) $\approx 2{,}5$--$3{,}5$,
+Ebola $\approx 1{,}5$--$2{,}5$.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Analyse qualitative du mod\`ele SIR}
+% ------------------------------------------------------------
+
+\subsection{R\'eduction \`a deux \'equations}
+
+Gr\^ace \`a $R=N-S-I$, il suffit d'\'etudier le syst\`eme
+$(S,I)$ dans le triangle $\{S\geq 0,\;I\geq 0,\;S+I\leq N\}$.
+
+\subsection{Taille finale de l'\'epid\'emie}
+
+\begin{theoreme}[\'Equation de la taille finale]
+Si $I(0)=I_0\ll N$ et $S(0)\approx N$, la fraction finale de
+susceptibles $s_\infty = S(\infty)/N$ v\'erifie l'\'equation
+transcendante :
+\[
+  \ln s_\infty = \mathcal{R}_0(s_\infty - 1).
+\]
+\end{theoreme}
+
+\begin{proof}
+En divisant $dS/dI$ :
+\[
+  \frac{dS}{dI} = \frac{-\beta SI/N}{\beta SI/N - \gamma I}
+  = \frac{-\beta S/N}{\beta S/N - \gamma}.
+\]
+Pour $S=N s$ o\`u $s=S/N$ :
+\[
+  \frac{ds}{dI} = \frac{-\mathcal{R}_0 s}{\mathcal{R}_0 s - 1}\cdot\frac{1}{N}.
+\]
+En int\'egrant et en utilisant $I(\infty)=0$, $S(\infty)+R(\infty)=N$,
+on obtient l'\'equation de la taille finale.
+\end{proof}
+
+\begin{codeblock}[title=\textbf{Simulation du mod\`ele SIR}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+
+N = 10000
+beta, gamma = 0.3, 0.1  # R0 = 3
+S0, I0, R0_init = N - 10, 10, 0
+
+def sir(t, y):
+    S, I, R = y
+    dS = -beta * S * I / N
+    dI = beta * S * I / N - gamma * I
+    dR = gamma * I
+    return [dS, dI, dR]
+
+sol = solve_ivp(sir, [0, 200], [S0, I0, R0_init],
+                t_eval=np.linspace(0, 200, 1000),
+                method='RK45')
+
+plt.figure(figsize=(10, 5))
+plt.plot(sol.t, sol.y[0], 'b-', label='$S(t)$')
+plt.plot(sol.t, sol.y[1], 'r-', label='$I(t)$')
+plt.plot(sol.t, sol.y[2], 'g-', label='$R(t)$')
+plt.xlabel('Temps (jours)'); plt.ylabel('Nombre d\'individus')
+plt.legend(); plt.title(f'Modèle SIR ($\\mathcal{{R}}_0 = {beta/gamma:.1f}$)')
+plt.tight_layout(); plt.savefig('sir.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Vaccination et immunit\'e de groupe}
+\label{sec:vaccination}
+% ------------------------------------------------------------
+
+\begin{theoreme}[Seuil d'immunit\'e de groupe]
+Si une fraction $p$ de la population est vaccin\'ee (et immunis\'ee),
+alors la fraction de susceptibles est $S(0)/N = 1-p$.  L'\'epid\'emie
+ne se d\'eclenche pas si $(1-p)\mathcal{R}_0 < 1$, soit :
+\[
+  p > p_c = 1 - \frac{1}{\mathcal{R}_0}.
+\]
+\end{theoreme}
+
+\begin{exemple}
+Pour la rougeole ($\mathcal{R}_0\approx 15$) :
+$p_c = 1 - 1/15 \approx 93{,}3\%$.
+Il faut vacciner plus de 93\% de la population.
+\end{exemple}
+
+\begin{codeblock}[title=\textbf{Effet de la vaccination}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+
+N = 10000
+beta, gamma = 0.3, 0.1
+
+def sir_vacc(t, y):
+    S, I, R = y
+    return [-beta*S*I/N, beta*S*I/N - gamma*I, gamma*I]
+
+fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+vaccination_rates = [0, 0.3, 0.6, 0.75]
+
+for ax, p in zip(axes.flat, vaccination_rates):
+    S0 = N * (1 - p) - 10
+    R0_init = N * p
+    I0 = 10
+    sol = solve_ivp(sir_vacc, [0, 200], [S0, I0, R0_init],
+                    t_eval=np.linspace(0, 200, 500))
+    ax.plot(sol.t, sol.y[1], 'r-', lw=2)
+    ax.set_title(f'$p = {p:.0%}$, $I_{{\\max}} = {max(sol.y[1]):.0f}$')
+    ax.set_xlabel('Temps'); ax.set_ylabel('$I(t)$')
+
+plt.suptitle(f'Effet de la vaccination ($\\mathcal{{R}}_0 = {beta/gamma:.1f}$)')
+plt.tight_layout(); plt.savefig('vaccination.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Le mod\`ele SEIR}
+\label{sec:seir}
+% ------------------------------------------------------------
+
+\begin{definition}[Mod\`ele SEIR]
+On ajoute un compartiment \textbf{Expos\'e} ($E$) pour les individus
+infect\'es mais pas encore contagieux (p\'eriode de latence $1/\sigma$) :
+\begin{align}
+  \frac{dS}{dt} &= -\beta\frac{SI}{N}, \\
+  \frac{dE}{dt} &= \beta\frac{SI}{N} - \sigma E, \\
+  \frac{dI}{dt} &= \sigma E - \gamma I, \\
+  \frac{dR}{dt} &= \gamma I.
+\end{align}
+Le nombre de reproduction de base reste $\mathcal{R}_0 = \beta/\gamma$.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Simulation du mod\`ele SEIR}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+
+N = 10000
+beta, sigma, gamma = 0.5, 0.2, 0.1
+S0, E0, I0, R0_init = N - 10, 0, 10, 0
+
+def seir(t, y):
+    S, E, I, R = y
+    dS = -beta * S * I / N
+    dE = beta * S * I / N - sigma * E
+    dI = sigma * E - gamma * I
+    dR = gamma * I
+    return [dS, dE, dI, dR]
+
+sol = solve_ivp(seir, [0, 200], [S0, E0, I0, R0_init],
+                t_eval=np.linspace(0, 200, 1000))
+
+plt.figure(figsize=(10, 5))
+plt.plot(sol.t, sol.y[0], 'b-', label='$S$')
+plt.plot(sol.t, sol.y[1], 'orange', label='$E$')
+plt.plot(sol.t, sol.y[2], 'r-', label='$I$')
+plt.plot(sol.t, sol.y[3], 'g-', label='$R$')
+plt.xlabel('Temps'); plt.ylabel('Population')
+plt.legend(); plt.title(f'Modèle SEIR ($\\mathcal{{R}}_0 = {beta/gamma}$)')
+plt.tight_layout(); plt.savefig('seir.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Extensions et mod\`eles avanc\'es}
+% ------------------------------------------------------------
+
+\subsection{Mod\`ele SIR avec d\'emographie}
+
+\begin{definition}[SIR avec d\'emographie]
+En ajoutant naissance (taux $\mu$) et mort naturelle (taux $\mu$) :
+\begin{align}
+  \frac{dS}{dt} &= \mu N - \beta\frac{SI}{N} - \mu S, \\
+  \frac{dI}{dt} &= \beta\frac{SI}{N} - (\gamma+\mu) I, \\
+  \frac{dR}{dt} &= \gamma I - \mu R.
+\end{align}
+Le nombre de reproduction de base devient
+$\mathcal{R}_0 = \beta/(\gamma+\mu)$.
+\end{definition}
+
+\begin{proposition}[\'Equilibre end\'emique]
+Pour $\mathcal{R}_0 > 1$, il existe un \'equilibre end\'emique
+(maladie pr\'esente en permanence) :
+\[
+  S^* = \frac{N}{\mathcal{R}_0}, \qquad
+  I^* = \frac{\mu N}{\gamma+\mu}\left(1-\frac{1}{\mathcal{R}_0}\right).
+\]
+\end{proposition}
+
+\subsection{Mod\`ele SIRS (perte d'immunit\'e)}
+
+Si l'immunit\'e est temporaire (dur\'ee moyenne $1/\delta$), les
+r\'etablis redeviennent susceptibles :
+\[
+  \frac{dR}{dt} = \gamma I - \delta R, \qquad
+  \frac{dS}{dt} = -\beta\frac{SI}{N} + \delta R.
+\]
+Ce mod\`ele peut produire des oscillations.
+
+% ------------------------------------------------------------
+\section{Ajustement aux donn\'ees r\'eelles}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Ajustement SIR \`a des donn\'ees}]
+\begin{minted}{python}
+import numpy as np
+from scipy.integrate import solve_ivp
+from scipy.optimize import minimize
+
+# Données synthétiques réalistes
+np.random.seed(42)
+N = 10000; beta_true, gamma_true = 0.3, 0.1
+sol_true = solve_ivp(lambda t, y: [-beta_true*y[0]*y[1]/N,
+                     beta_true*y[0]*y[1]/N - gamma_true*y[1],
+                     gamma_true*y[1]],
+                     [0, 100], [N-10, 10, 0],
+                     t_eval=np.arange(0, 100, 7))
+I_obs = sol_true.y[1] + np.random.normal(0, 50, len(sol_true.t))
+I_obs = np.maximum(I_obs, 0)
+
+def cost(params):
+    b, g = params
+    if b <= 0 or g <= 0: return 1e10
+    sol = solve_ivp(lambda t, y: [-b*y[0]*y[1]/N,
+                    b*y[0]*y[1]/N - g*y[1], g*y[1]],
+                    [0, 100], [N-10, 10, 0],
+                    t_eval=np.arange(0, 100, 7))
+    return np.sum((sol.y[1] - I_obs)**2)
+
+result = minimize(cost, [0.2, 0.05], method='Nelder-Mead')
+print(f"beta = {result.x[0]:.4f}, gamma = {result.x[1]:.4f}")
+print(f"R0 estimé = {result.x[0]/result.x[1]:.2f}")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Limites des mod\`eles compartimentaux}
+% ------------------------------------------------------------
+
+\begin{attention}[title=\textbf{Limites \`a conna\^itre}]
+\begin{itemize}
+  \item \textbf{Homog\'en\'eit\'e :} la population est suppos\'ee bien
+    m\'elang\'ee ; en r\'ealit\'e, les contacts sont structur\'es
+    (r\'eseaux sociaux).
+  \item \textbf{Param\`etres constants :} $\beta$ peut varier avec les
+    saisons, les mesures de sant\'e publique, le comportement.
+  \item \textbf{D\'eterminisme :} pour de petits nombres de cas,
+    les mod\`eles stochastiques sont plus adapt\'es.
+  \item \textbf{H\'et\'erog\'en\'eit\'e :} \^age, g\'eographie, comorbidit\'es
+    influencent la transmission et la s\'ev\'erit\'e.
+\end{itemize}
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}
+Pour le mod\`ele SIR avec $N=10000$, $\beta=0.4$, $\gamma=0.1$ :
+\begin{enumerate}
+  \item Calculer $\mathcal{R}_0$ et le seuil d'immunit\'e de groupe.
+  \item Simuler l'\'epid\'emie et d\'eterminer le pic \'epid\'emique.
+  \item V\'erifier num\'eriquement l'\'equation de la taille finale.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}
+Comparer les dynamiques SIR et SEIR pour les m\^emes valeurs de
+$\beta$ et $\gamma$, avec $\sigma=0.2$.  Comment la p\'eriode de
+latence affecte-t-elle le pic et la dur\'ee de l'\'epid\'emie ?
+\end{exercice}
+
+\begin{exercice}
+Impl\'ementer un mod\`ele SIR stochastique (Gillespie) et comparer
+avec le mod\`ele d\'eterministe pour $N=100$ et $N=10000$.
+\end{exercice}
+
+\begin{exercice}
+Mod\'eliser une campagne de vaccination progressive : $p(t)$
+augmente lin\'eairement de 0 \`a $p_{\max}$ sur une dur\'ee $T_v$.
+Comparer l'impact sur le nombre total de cas pour diff\'erentes
+valeurs de $T_v$.
+\end{exercice}
+
+\begin{exercice}
+\'Etudier le mod\`ele SIRS avec $\beta=0.5$, $\gamma=0.1$, $\delta=0.01$.
+\begin{enumerate}
+  \item Trouver l'\'equilibre end\'emique.
+  \item Montrer num\'eriquement l'existence d'oscillations amorties.
+  \item Comparer avec un mod\`ele SIR standard.
+\end{enumerate}
+\end{exercice}

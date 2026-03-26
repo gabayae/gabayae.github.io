@@ -1,0 +1,1175 @@
+% ch7-theoreme-spectral.tex — Chapitre 7 : Théorème spectral et matrices symétriques
+% Ce chapitre développe la théorie spectrale des opérateurs auto-adjoints :
+% matrices symétriques et hermitiennes, diagonalisation orthogonale,
+% opérateurs normaux, matrices définies positives, décomposition en valeurs
+% singulières (SVD) et applications (ACP, formes quadratiques, optimisation).
+
+\chapter{Théorème spectral et matrices symétriques}\label{ch:theoreme-spectral}
+
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+
+Les matrices symétriques\index{matrice symétrique} occupent une place
+privilégiée en algèbre linéaire~: elles apparaissent naturellement dans
+de très nombreux contextes appliqués et jouissent de propriétés spectrales
+remarquables qui les rendent particulièrement maniables.
+
+\medskip
+
+Voici quelques-unes de leurs occurrences les plus fréquentes~:
+\begin{itemize}
+  \item \textbf{Matrices de covariance~:}\index{matrice de covariance}
+    en statistiques, la matrice de covariance
+    $\Sigma = \mathbb{E}[(X-\mu)(X-\mu)^{\mathsf{T}}]$
+    d'un vecteur aléatoire est symétrique (et semi-définie positive).
+    L'analyse en composantes principales (ACP) repose entièrement sur
+    sa diagonalisation.
+  \item \textbf{Hessiennes~:}\index{hessienne} en optimisation, la matrice
+    hessienne $H_f(x) = \bigl(\frac{\partial^2 f}{\partial x_i
+    \partial x_j}\bigr)$ d'une fonction de classe $\mathcal{C}^2$
+    est symétrique, et la nature de ses valeurs propres détermine la
+    nature des points critiques.
+  \item \textbf{Formes quadratiques~:}\index{forme quadratique} toute
+    forme quadratique $q(\vec{x}) = \transpose{\vec{x}} A \vec{x}$
+    peut être associée à une matrice symétrique~$A$, et sa classification
+    (définie positive, semi-définie, indéfinie) est dictée par les valeurs
+    propres de~$A$.
+  \item \textbf{Vibrations et modes propres~:}\index{vibrations} en
+    mécanique, l'équation $M\ddot{x} + Kx = 0$ conduit au problème
+    aux valeurs propres généralisé $Kv = \omega^2 Mv$ où $K$ et $M$ sont
+    symétriques.
+  \item \textbf{Graphes et réseaux~:}\index{matrice laplacienne} la
+    matrice laplacienne d'un graphe est symétrique et semi-définie positive~;
+    ses valeurs propres gouvernent la connectivité et les processus de
+    diffusion sur le graphe.
+\end{itemize}
+
+\medskip
+
+Le résultat central de ce chapitre --- le \emph{théorème spectral}\index{théorème spectral} ---
+affirme que toute matrice symétrique réelle (ou hermitienne complexe) est
+\emph{orthogonalement diagonalisable}~: il existe une base orthonormée de
+vecteurs propres. Ce théorème est l'un des résultats les plus importants
+et les plus utilisés de toute l'algèbre linéaire.
+
+\medskip
+
+Dans tout ce chapitre, sauf mention contraire, $E$ désigne un espace
+vectoriel de dimension finie $n \geq 1$ muni d'un produit scalaire
+(réel) ou hermitien (complexe). On note $\inner{{\cdot},{\cdot}}$ ce
+produit et $\norm{\cdot}$ la norme associée.
+
+% ============================================================
+\section{Opérateurs auto-adjoints}\label{sec:auto-adjoint}
+% ============================================================
+
+\begin{definition}{Adjoint d'un endomorphisme}{def:adjoint-ch7}
+  Soit $E$ un espace préhilbertien\index{espace préhilbertien} de
+  dimension finie et $f \in \End(E)$. L'\emph{adjoint}\index{adjoint}
+  de $f$, noté $f^*$, est l'unique endomorphisme de $E$ vérifiant
+  \[
+    \forall \vec{u}, \vec{v} \in E, \qquad
+    \inner{f(\vec{u}), \vec{v}} = \inner{\vec{u}, f^*(\vec{v})}.
+  \]
+\end{definition}
+
+\begin{remark}{Existence et unicité de l'adjoint}{rem:adjoint-existence}
+  L'existence de $f^*$ découle du théorème de représentation de Riesz
+  appliqué à la forme linéaire $\vec{v} \mapsto \inner{f(\vec{u}), \vec{v}}$.
+  L'unicité provient de la non-dégénérescence du produit scalaire~: si
+  $\inner{\vec{u}, g_1(\vec{v})} = \inner{\vec{u}, g_2(\vec{v})}$ pour
+  tout $\vec{u}$, alors $g_1 = g_2$.
+\end{remark}
+
+\begin{proposition}{Matrice de l'adjoint}{prop:mat-adjoint}
+  Soit $\cB$ une base \emph{orthonormée} de~$E$ et
+  $A = \Mat_\cB(f)$.
+  \begin{enumerate}[label=(\roman*)]
+    \item Sur $\R$~: $\Mat_\cB(f^*) = \transpose{A}$.
+    \item Sur $\C$~: $\Mat_\cB(f^*) = \hermit{A} = \overline{\transpose{A}}$.
+  \end{enumerate}
+\end{proposition}
+
+\begin{proof}
+  Soient $(\vece{1},\ldots,\vece{n})$ la base orthonormée $\cB$, et
+  $A = (a_{ij})$, $B = (b_{ij})$ les matrices de $f$ et $f^*$. On a
+  \[
+    b_{ij} = \inner{f^*(\vece{j}), \vece{i}}
+           = \inner{\vece{j}, f(\vece{i})}
+           = \overline{\inner{f(\vece{i}), \vece{j}}}
+           = \overline{a_{ji}}.
+  \]
+  Donc $B = \hermit{A}$. Sur $\R$, $\overline{a_{ji}} = a_{ji}$, d'où
+  $B = \transpose{A}$.
+\end{proof}
+
+\begin{definition}{Opérateur auto-adjoint (symétrique/hermitien)}{def:auto-adjoint}
+  Un endomorphisme $f \in \End(E)$ est dit
+  \emph{auto-adjoint}\index{opérateur auto-adjoint} (ou
+  \emph{symétrique}\index{opérateur symétrique} si $\K = \R$,
+  \emph{hermitien}\index{opérateur hermitien} si $\K = \C$) si
+  $f^* = f$, c'est-à-dire
+  \[
+    \forall \vec{u}, \vec{v} \in E, \qquad
+    \inner{f(\vec{u}), \vec{v}} = \inner{\vec{u}, f(\vec{v})}.
+  \]
+  En termes matriciels (dans une base orthonormée)~:
+  \begin{itemize}
+    \item sur $\R$~: $\transpose{A} = A$ (matrice symétrique),
+    \item sur $\C$~: $\hermit{A} = A$ (matrice hermitienne).
+  \end{itemize}
+\end{definition}
+
+\begin{example}{Matrices symétriques et hermitiennes}{ex:sym-herm}
+  La matrice $A = \begin{pmatrix} 2 & -1 \\ -1 & 3 \end{pmatrix}$ est
+  symétrique réelle~: $\transpose{A} = A$.
+
+  La matrice $B = \begin{pmatrix} 3 & 2-i \\ 2+i & 5 \end{pmatrix}$ est
+  hermitienne~: $\hermit{B} = B$. On note que les éléments diagonaux
+  sont réels et que $b_{ji} = \overline{b_{ij}}$.
+\end{example}
+
+\begin{proposition}{Propriétés élémentaires des opérateurs auto-adjoints}{prop:auto-adj-props}
+  Soit $f$ un opérateur auto-adjoint sur~$E$.
+  \begin{enumerate}[label=(\roman*)]
+    \item $\inner{f(\vec{v}), \vec{v}} \in \R$ pour tout $\vec{v} \in E$
+      (même si $\K = \C$).
+    \item Si $g$ est aussi auto-adjoint et $\alpha, \beta \in \R$, alors
+      $\alpha f + \beta g$ est auto-adjoint.
+    \item Si $f$ est inversible, alors $\inv{f}$ est auto-adjoint.
+    \item $\Ker(f)$ et $\im(f)$ sont des sous-espaces orthogonaux~:
+      $\Ker(f) = \im(f)^\perp$.
+  \end{enumerate}
+\end{proposition}
+
+\begin{proof}\leavevmode
+  \begin{enumerate}[label=(\roman*)]
+    \item $\inner{f(\vec{v}), \vec{v}} = \inner{\vec{v}, f(\vec{v})}
+      = \overline{\inner{f(\vec{v}), \vec{v}}}$, donc
+      $\inner{f(\vec{v}), \vec{v}} \in \R$.
+    \item $(\alpha f + \beta g)^* = \alpha f^* + \beta g^*
+      = \alpha f + \beta g$ (car $\alpha, \beta \in \R$).
+    \item $\inner{\inv{f}(\vec{u}), \vec{v}}
+      = \inner{\inv{f}(\vec{u}), f(\inv{f}(\vec{v}))}
+      = \inner{f(\inv{f}(\vec{u})), \inv{f}(\vec{v})}
+      = \inner{\vec{u}, \inv{f}(\vec{v})}$.
+    \item $\vec{v} \in \Ker(f) \iff f(\vec{v}) = \vzero
+      \iff \inner{f(\vec{v}), \vec{u}} = 0 \;\forall \vec{u}
+      \iff \inner{\vec{v}, f(\vec{u})} = 0 \;\forall \vec{u}
+      \iff \vec{v} \in \im(f)^\perp$. \qedhere
+  \end{enumerate}
+\end{proof}
+
+% ============================================================
+\section{Valeurs propres réelles}\label{sec:vp-reelles}
+% ============================================================
+
+\begin{theorem}{Les valeurs propres d'un opérateur auto-adjoint sont réelles}{thm:vp-reelles}
+  Soit $f$ un opérateur auto-adjoint sur un espace préhilbertien
+  complexe\index{valeur propre!réelle} (ou euclidien) de dimension
+  finie. Alors toutes les valeurs propres de $f$ sont réelles.
+\end{theorem}
+
+\begin{proof}
+  Soit $\lambda \in \C$ une valeur propre de $f$ et $\vec{v} \neq \vzero$
+  un vecteur propre associé~: $f(\vec{v}) = \lambda \vec{v}$.
+
+  Calculons $\inner{f(\vec{v}), \vec{v}}$ de deux manières.
+
+  D'une part~:
+  \[
+    \inner{f(\vec{v}), \vec{v}} = \inner{\lambda \vec{v}, \vec{v}}
+    = \lambda \inner{\vec{v}, \vec{v}} = \lambda \norm{\vec{v}}^2.
+  \]
+
+  D'autre part, comme $f$ est auto-adjoint~:
+  \[
+    \inner{f(\vec{v}), \vec{v}} = \inner{\vec{v}, f(\vec{v})}
+    = \inner{\vec{v}, \lambda \vec{v}}
+    = \overline{\lambda} \inner{\vec{v}, \vec{v}}
+    = \overline{\lambda} \norm{\vec{v}}^2.
+  \]
+
+  Puisque $\vec{v} \neq \vzero$, $\norm{\vec{v}}^2 > 0$, et en égalant~:
+  \[
+    \lambda \norm{\vec{v}}^2 = \overline{\lambda} \norm{\vec{v}}^2
+    \implies \lambda = \overline{\lambda}
+    \implies \lambda \in \R. \qedhere
+  \]
+\end{proof}
+
+\begin{remark}{Nécessité du produit scalaire}{rem:necessite-ps}
+  Ce résultat est faux sans hypothèse sur le produit scalaire~: la matrice
+  $\begin{pmatrix} 0 & -1 \\ 1 & 0 \end{pmatrix}$ vérifie
+  $\transpose{A} = -A$ (antisymétrique) et possède les valeurs propres
+  $\pm i$. En revanche, pour une matrice symétrique réelle, la preuve
+  ci-dessus s'applique en travaillant dans $\C^n$ muni du produit
+  hermitien standard.
+\end{remark}
+
+% ============================================================
+\section{Orthogonalité des vecteurs propres}\label{sec:vp-orthogonaux}
+% ============================================================
+
+\begin{theorem}{Orthogonalité des sous-espaces propres}{thm:vp-orthogonaux}
+  Soit $f$ un opérateur auto-adjoint. Si $\lambda$ et $\mu$ sont deux
+  valeurs propres \emph{distinctes}\index{vecteurs propres!orthogonaux}
+  de $f$, alors les sous-espaces propres $E_\lambda(f)$ et $E_\mu(f)$
+  sont orthogonaux~:
+  \[
+    \lambda \neq \mu \implies E_\lambda(f) \perp E_\mu(f).
+  \]
+\end{theorem}
+
+\begin{proof}
+  Soient $\vec{u} \in E_\lambda(f)$ et $\vec{v} \in E_\mu(f)$. Alors
+  $f(\vec{u}) = \lambda \vec{u}$ et $f(\vec{v}) = \mu \vec{v}$.
+
+  D'une part~:
+  \[
+    \inner{f(\vec{u}), \vec{v}} = \inner{\lambda \vec{u}, \vec{v}}
+    = \lambda \inner{\vec{u}, \vec{v}}.
+  \]
+  (On utilise que $\lambda \in \R$ d'après le ef{thm:thm:vp-reelles}.)
+
+  D'autre part, par auto-adjonction~:
+  \[
+    \inner{f(\vec{u}), \vec{v}} = \inner{\vec{u}, f(\vec{v})}
+    = \inner{\vec{u}, \mu \vec{v}}
+    = \overline{\mu} \inner{\vec{u}, \vec{v}}
+    = \mu \inner{\vec{u}, \vec{v}}.
+  \]
+
+  En soustrayant~:
+  \[
+    (\lambda - \mu)\inner{\vec{u}, \vec{v}} = 0.
+  \]
+  Comme $\lambda \neq \mu$, on conclut $\inner{\vec{u}, \vec{v}} = 0$.
+\end{proof}
+
+% ============================================================
+\section{Théorème spectral pour les matrices symétriques réelles}%
+\label{sec:spectral-reel}
+% ============================================================
+
+\begin{theorem}{Théorème spectral réel}{thm:spectral-reel}
+  Soit $A \in \Mat_n(\R)$ une matrice symétrique\index{théorème spectral!réel}
+  ($\transpose{A} = A$). Alors~:
+  \begin{enumerate}[label=(\roman*)]
+    \item Toutes les valeurs propres de $A$ sont réelles.
+    \item Il existe une matrice orthogonale\index{matrice orthogonale}
+      $P \in \Orth(n)$ ($\transpose{P}P = I_n$) et une matrice diagonale
+      $D = \diag(\lambda_1, \ldots, \lambda_n)$ telles que
+      \[
+        A = P D \transpose{P}.
+      \]
+    \item Les colonnes de $P$ forment une base orthonormée de $\R^n$
+      constituée de vecteurs propres de~$A$.
+  \end{enumerate}
+  De manière intrinsèque~: tout opérateur auto-adjoint sur un espace
+  euclidien de dimension finie admet une base orthonormée de vecteurs
+  propres.
+\end{theorem}
+
+\begin{proof}
+  La preuve procède par récurrence\index{récurrence} forte sur la
+  dimension $n$.
+
+  \medskip
+  \noindent\emph{Initialisation~:} pour $n = 1$, toute matrice $A = (a)$
+  est triviallement symétrique et diagonale~; on prend $P = (1)$ et
+  $D = (a)$.
+
+  \medskip
+  \noindent\emph{Hérédité~:} supposons le résultat vrai pour tout espace
+  euclidien de dimension $< n$, et soit $f$ un opérateur auto-adjoint sur
+  un espace euclidien $E$ de dimension~$n$.
+
+  \medskip
+  \noindent\textbf{Étape 1~: Existence d'une valeur propre réelle.}
+
+  Considérons la matrice $A = \Mat_\cB(f)$ dans une base orthonormée
+  $\cB$. Comme $\transpose{A} = A$, on peut voir $A$ comme une matrice
+  hermitienne dans $\C^n$. Le polynôme caractéristique
+  $\chi_A(\lambda) = \det(A - \lambda I_n)$ est de degré $n$ à
+  coefficients réels. Par le théorème fondamental de l'algèbre, il
+  possède au moins une racine $\lambda_1 \in \C$. Par le
+  ef{thm:thm:vp-reelles}, $\lambda_1 \in \R$.
+
+  \medskip
+  \noindent\textbf{Étape 2~: Choix d'un vecteur propre unitaire.}
+
+  Soit $\vec{v}_1 \in E$ un vecteur propre associé à $\lambda_1$ avec
+  $\norm{\vec{v}_1} = 1$.
+
+  \medskip
+  \noindent\textbf{Étape 3~: Invariance du complément orthogonal.}
+
+  Posons $W = (\Vect(\vec{v}_1))^\perp = \set{\vec{w} \in E :
+  \inner{\vec{w}, \vec{v}_1} = 0}$. Montrons que $W$ est stable par $f$.
+
+  Soit $\vec{w} \in W$. Alors~:
+  \[
+    \inner{f(\vec{w}), \vec{v}_1}
+    = \inner{\vec{w}, f(\vec{v}_1)}
+    = \inner{\vec{w}, \lambda_1 \vec{v}_1}
+    = \lambda_1 \inner{\vec{w}, \vec{v}_1} = 0.
+  \]
+  Donc $f(\vec{w}) \in W$~: le sous-espace $W$ est invariant par~$f$.
+
+  \medskip
+  \noindent\textbf{Étape 4~: Application de l'hypothèse de récurrence.}
+
+  La restriction $g = f\restrict{W} \in \End(W)$ est auto-adjointe sur
+  l'espace euclidien $W$ (le produit scalaire est hérité de~$E$) de
+  dimension $n - 1$. Par hypothèse de récurrence, il existe une base
+  orthonormée $(\vec{v}_2, \ldots, \vec{v}_n)$ de $W$ constituée de
+  vecteurs propres de~$g$ (donc de~$f$), associés à des valeurs propres
+  réelles $\lambda_2, \ldots, \lambda_n$.
+
+  \medskip
+  \noindent\textbf{Étape 5~: Conclusion.}
+
+  La famille $(\vec{v}_1, \vec{v}_2, \ldots, \vec{v}_n)$ est une base
+  orthonormée de $E$ (car $\vec{v}_1 \perp W$ et
+  $(\vec{v}_2, \ldots, \vec{v}_n)$ est orthonormée dans~$W$). Chaque
+  $\vec{v}_i$ est vecteur propre de $f$ pour $\lambda_i$.
+
+  En posant $P = (\vec{v}_1 \mid \vec{v}_2 \mid \cdots \mid \vec{v}_n)$,
+  la matrice dont les colonnes sont les $\vec{v}_i$, on obtient
+  $P \in \Orth(n)$ et $\transpose{P} A P = D = \diag(\lambda_1, \ldots,
+  \lambda_n)$, soit $A = P D \transpose{P}$.
+\end{proof}
+
+\begin{corollary}{Existence d'une base orthonormée de vecteurs propres}{cor:bon-vp}
+  Soit $A \in \Sym_n(\R)$. Alors $\R^n$ possède une base orthonormée
+  formée de vecteurs propres de~$A$, et le polynôme caractéristique
+  de $A$ est scindé sur~$\R$.
+\end{corollary}
+
+\begin{remark}{Interprétation géométrique}{rem:spectral-geometrique}
+  L'écriture $A = P D \transpose{P}$ signifie que l'application linéaire
+  associée à $A$ agit par~:
+  \begin{enumerate}[label=(\arabic*)]
+    \item rotation (passage en coordonnées dans la base propre via
+      $\transpose{P}$),
+    \item dilatation le long des axes propres (multiplication par les
+      valeurs propres via~$D$),
+    \item rotation inverse (retour à la base de départ via~$P$).
+  \end{enumerate}
+\end{remark}
+
+% ============================================================
+\section{Théorème spectral pour les matrices hermitiennes}%
+\label{sec:spectral-hermitien}
+% ============================================================
+
+\begin{theorem}{Théorème spectral hermitien}{thm:spectral-hermitien}
+  Soit $A \in \Mat_n(\C)$ une matrice hermitienne\index{théorème spectral!hermitien}
+  ($\hermit{A} = A$). Alors~:
+  \begin{enumerate}[label=(\roman*)]
+    \item Toutes les valeurs propres de $A$ sont réelles.
+    \item Il existe une matrice unitaire\index{matrice unitaire}
+      $U \in \Mat_n(\C)$ ($\hermit{U}U = I_n$) et une matrice diagonale
+      réelle $D = \diag(\lambda_1, \ldots, \lambda_n)$ telles que
+      \[
+        A = U D \hermit{U}.
+      \]
+    \item Les colonnes de $U$ forment une base orthonormée de $\C^n$
+      (pour le produit hermitien standard) constituée de vecteurs propres
+      de~$A$.
+  \end{enumerate}
+\end{theorem}
+
+\begin{proof}
+  La preuve est identique à celle du ef{thm:thm:spectral-reel}, en
+  remplaçant «~orthogonal~» par «~unitaire~», «~transposée~» par
+  «~transconjuguée~» et le produit scalaire euclidien par le produit
+  hermitien. L'existence d'une valeur propre est immédiate car $\C$ est
+  algébriquement clos, et la réalité des valeurs propres est assurée par
+  le ef{thm:thm:vp-reelles}. L'argument d'invariance du complément
+  orthogonal reste valide~: si $f(\vec{v}_1) = \lambda_1 \vec{v}_1$
+  avec $\lambda_1 \in \R$ et $\vec{w} \perp \vec{v}_1$, alors
+  $\inner{f(\vec{w}), \vec{v}_1} = \inner{\vec{w}, f(\vec{v}_1)}
+  = \overline{\lambda_1}\inner{\vec{w}, \vec{v}_1} = 0$.
+\end{proof}
+
+% ============================================================
+\section{Diagonalisation orthogonale~: procédure et exemples}%
+\label{sec:diag-ortho}
+% ============================================================
+
+La procédure de \emph{diagonalisation orthogonale}\index{diagonalisation orthogonale}
+d'une matrice symétrique réelle $A \in \Sym_n(\R)$ se déroule en
+quatre étapes~:
+
+\begin{enumerate}[label=\textbf{Étape \arabic*}.]
+  \item \textbf{Polynôme caractéristique~:} calculer
+    $\chi_A(\lambda) = \det(A - \lambda I_n)$ et trouver ses racines
+    $\lambda_1, \ldots, \lambda_r$ (avec multiplicités).
+  \item \textbf{Sous-espaces propres~:} pour chaque $\lambda_i$, déterminer
+    $E_{\lambda_i} = \Ker(A - \lambda_i I_n)$ par résolution du système
+    homogène.
+  \item \textbf{Orthonormalisation~:} si $\dim E_{\lambda_i} > 1$,
+    appliquer le procédé de Gram--Schmidt\index{Gram--Schmidt} pour obtenir
+    une base orthonormée de chaque sous-espace propre. (Les vecteurs
+    propres associés à des valeurs propres \emph{distinctes} sont déjà
+    orthogonaux par le ef{thm:thm:vp-orthogonaux}.)
+  \item \textbf{Assemblage~:} former $P$ en juxtaposant les vecteurs
+    propres orthonormés, et $D = \transpose{P} A P$.
+\end{enumerate}
+
+\begin{example}{Diagonalisation orthogonale d'une matrice $2 \times 2$}{ex:diag-ortho-2x2}
+  Soit $A = \begin{pmatrix} 5 & 2 \\ 2 & 2 \end{pmatrix}$.
+
+  \textbf{Étape 1.} $\chi_A(\lambda) = (5-\lambda)(2-\lambda) - 4
+  = \lambda^2 - 7\lambda + 6 = (\lambda - 1)(\lambda - 6)$.
+  Valeurs propres~: $\lambda_1 = 1$, $\lambda_2 = 6$.
+
+  \textbf{Étape 2.}
+  \begin{itemize}
+    \item $E_1 = \Ker(A - I_2) = \Ker\begin{pmatrix} 4 & 2 \\ 2 & 1
+      \end{pmatrix} = \Vect\begin{pmatrix} 1 \\ -2 \end{pmatrix}$.
+    \item $E_6 = \Ker(A - 6I_2) = \Ker\begin{pmatrix} -1 & 2 \\ 2 & -4
+      \end{pmatrix} = \Vect\begin{pmatrix} 2 \\ 1 \end{pmatrix}$.
+  \end{itemize}
+
+  \textbf{Étape 3.} On normalise~:
+  $\vec{v}_1 = \frac{1}{\sqrt{5}}\begin{pmatrix} 1 \\ -2 \end{pmatrix}$,
+  $\vec{v}_2 = \frac{1}{\sqrt{5}}\begin{pmatrix} 2 \\ 1 \end{pmatrix}$.
+  On vérifie~: $\inner{\vec{v}_1, \vec{v}_2} = \frac{1}{5}(2-2) = 0$.
+
+  \textbf{Étape 4.}
+  $P = \frac{1}{\sqrt{5}}\begin{pmatrix} 1 & 2 \\ -2 & 1 \end{pmatrix}$,
+  $D = \begin{pmatrix} 1 & 0 \\ 0 & 6 \end{pmatrix}$, et
+  $A = P D \transpose{P}$.
+\end{example}
+
+\begin{example}{Diagonalisation orthogonale d'une matrice $3 \times 3$}{ex:diag-ortho-3x3}
+  Soit $A = \begin{pmatrix} 2 & 1 & 1 \\ 1 & 2 & 1 \\ 1 & 1 & 2 \end{pmatrix}$.
+
+  \textbf{Étape 1.} On calcule~:
+  \[
+    \chi_A(\lambda) = -(\lambda - 4)(\lambda - 1)^2.
+  \]
+  Valeurs propres~: $\lambda_1 = 4$ (multiplicité 1),
+  $\lambda_2 = 1$ (multiplicité 2).
+
+  \textbf{Étape 2.}
+  \begin{itemize}
+    \item $E_4 = \Ker(A - 4I_3)
+      = \Vect\begin{pmatrix} 1 \\ 1 \\ 1 \end{pmatrix}$.
+    \item $E_1 = \Ker(A - I_3)
+      = \setcond{\begin{pmatrix} x \\ y \\ z \end{pmatrix}}{x + y + z = 0}
+      = \Vect\left(\begin{pmatrix} -1 \\ 1 \\ 0 \end{pmatrix},\;
+      \begin{pmatrix} -1 \\ 0 \\ 1 \end{pmatrix}\right)$.
+  \end{itemize}
+
+  \textbf{Étape 3.} Pour $E_4$~: $\vec{v}_1
+  = \frac{1}{\sqrt{3}}\begin{pmatrix} 1 \\ 1 \\ 1 \end{pmatrix}$.
+
+  Pour $E_1$, on applique Gram--Schmidt.
+  Posons $\vec{w}_1 = \begin{pmatrix} -1 \\ 1 \\ 0 \end{pmatrix}$,
+  $\vec{w}_2 = \begin{pmatrix} -1 \\ 0 \\ 1 \end{pmatrix}$.
+
+  $\vec{u}_1 = \vec{w}_1$, $\norm{\vec{u}_1} = \sqrt{2}$.
+
+  $\vec{u}_2 = \vec{w}_2 - \frac{\inner{\vec{w}_2, \vec{u}_1}}{\norm{\vec{u}_1}^2}\vec{u}_1
+  = \begin{pmatrix} -1 \\ 0 \\ 1 \end{pmatrix}
+  - \frac{1}{2}\begin{pmatrix} -1 \\ 1 \\ 0 \end{pmatrix}
+  = \begin{pmatrix} -1/2 \\ -1/2 \\ 1 \end{pmatrix}$.
+  On a $\norm{\vec{u}_2} = \sqrt{3/2}$.
+
+  Après normalisation~:
+  $\vec{v}_2 = \frac{1}{\sqrt{2}}\begin{pmatrix} -1 \\ 1 \\ 0 \end{pmatrix}$,
+  $\vec{v}_3 = \frac{1}{\sqrt{6}}\begin{pmatrix} -1 \\ -1 \\ 2 \end{pmatrix}$.
+
+  \textbf{Étape 4.}
+  \[
+    P = \begin{pmatrix}
+      1/\sqrt{3} & -1/\sqrt{2} & -1/\sqrt{6} \\
+      1/\sqrt{3} & 1/\sqrt{2}  & -1/\sqrt{6} \\
+      1/\sqrt{3} & 0           & 2/\sqrt{6}
+    \end{pmatrix}, \qquad
+    D = \begin{pmatrix} 4 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \end{pmatrix}.
+  \]
+\end{example}
+
+% ============================================================
+\section{Opérateurs normaux}\label{sec:normaux}
+% ============================================================
+
+\begin{definition}{Opérateur normal}{def:normal}
+  Un endomorphisme $f \in \End(E)$ est dit
+  \emph{normal}\index{opérateur normal} si $f$ commute avec son adjoint~:
+  \[
+    f \circ f^* = f^* \circ f.
+  \]
+  En termes matriciels (dans une base orthonormée), $A$ est
+  normale\index{matrice normale} si $\hermit{A}A = A\hermit{A}$.
+\end{definition}
+
+\begin{remark}{Exemples d'opérateurs normaux}{rem:ex-normaux}
+  Les classes suivantes sont toutes constituées d'opérateurs normaux~:
+  \begin{itemize}
+    \item opérateurs auto-adjoints ($f^* = f$),
+    \item opérateurs anti-auto-adjoints ($f^* = -f$),
+    \item opérateurs unitaires/orthogonaux ($f^* = \inv{f}$).
+  \end{itemize}
+\end{remark}
+
+\begin{lemma}{Caractérisation par la norme}{lem:normal-norme}
+  $f$ est normal si et seulement si
+  $\norm{f(\vec{v})} = \norm{f^*(\vec{v})}$ pour tout $\vec{v} \in E$.
+\end{lemma}
+
+\begin{proof}
+  On a $\norm{f(\vec{v})}^2 = \inner{f(\vec{v}), f(\vec{v})}
+  = \inner{f^*f(\vec{v}), \vec{v}}$ et de même
+  $\norm{f^*(\vec{v})}^2 = \inner{ff^*(\vec{v}), \vec{v}}$.
+  Donc $\norm{f(\vec{v})}^2 - \norm{f^*(\vec{v})}^2
+  = \inner{(f^*f - ff^*)(\vec{v}), \vec{v}}$.
+
+  Si $f$ est normal, $f^*f = ff^*$ et l'expression est nulle.
+  Réciproquement, si $\inner{g(\vec{v}), \vec{v}} = 0$ pour tout
+  $\vec{v}$ avec $g = f^*f - ff^*$ auto-adjoint, alors $g = 0$ (par
+  polarisation), donc $f^*f = ff^*$.
+\end{proof}
+
+\begin{theorem}{Théorème spectral pour les opérateurs normaux sur $\C$}{thm:spectral-normal}
+  Soit $E$ un espace hermitien de dimension finie et
+  $f \in \End(E)$.\index{théorème spectral!opérateurs normaux}
+  Les assertions suivantes sont équivalentes~:
+  \begin{enumerate}[label=(\roman*)]
+    \item $f$ est normal~: $f \circ f^* = f^* \circ f$.
+    \item Il existe une base orthonormée de $E$ constituée de vecteurs
+      propres de~$f$.
+  \end{enumerate}
+  En termes matriciels~: $A \in \Mat_n(\C)$ est normale si et seulement
+  s'il existe une matrice unitaire $U$ telle que
+  $A = U \diag(\lambda_1, \ldots, \lambda_n) \hermit{U}$.
+\end{theorem}
+
+\begin{proof}\leavevmode
+
+  \noindent$(\mathrm{ii}) \Rightarrow (\mathrm{i})$~:
+  Si $A = U D \hermit{U}$ avec $D$ diagonale, alors
+  $\hermit{A} = U \overline{D} \hermit{U}$, et
+  $A\hermit{A} = U D\overline{D} \hermit{U}
+  = U \overline{D}D \hermit{U} = \hermit{A}A$ car $D\overline{D}
+  = \overline{D}D$ (matrices diagonales commutent).
+
+  \medskip
+  \noindent$(\mathrm{i}) \Rightarrow (\mathrm{ii})$~:
+  Par récurrence sur $n = \dim E$.
+
+  Pour $n = 1$, c'est trivial. Supposons le résultat pour
+  $n - 1$ et soit $f$ normal sur $E$ de dimension~$n$.
+
+  Comme $\C$ est algébriquement clos, $f$ possède une valeur propre
+  $\lambda_1$ et un vecteur propre unitaire $\vec{v}_1$~:
+  $f(\vec{v}_1) = \lambda_1 \vec{v}_1$.
+
+  \textbf{Fait clé~:} $\vec{v}_1$ est aussi vecteur propre de $f^*$
+  pour la valeur propre $\overline{\lambda_1}$. En effet,
+  $\norm{(f^* - \overline{\lambda_1}\Id)(\vec{v}_1)}
+  = \norm{(f - \lambda_1\Id)(\vec{v}_1)} = 0$, en utilisant le
+  ef{lem:lem:normal-norme} appliqué à l'opérateur normal
+  $f - \lambda_1 \Id$.
+
+  Posons $W = (\Vect(\vec{v}_1))^\perp$. Pour $\vec{w} \in W$~:
+  $\inner{f(\vec{w}), \vec{v}_1}
+  = \inner{\vec{w}, f^*(\vec{v}_1)}
+  = \inner{\vec{w}, \overline{\lambda_1}\vec{v}_1}
+  = \lambda_1 \inner{\vec{w}, \vec{v}_1} = 0$.
+  Donc $W$ est stable par $f$.
+
+  De même, $\inner{f^*(\vec{w}), \vec{v}_1}
+  = \inner{\vec{w}, f(\vec{v}_1)}
+  = \overline{\lambda_1}\inner{\vec{w}, \vec{v}_1} = 0$,
+  donc $W$ est stable par $f^*$. Ainsi $g = f\restrict{W}$ est normal
+  sur $W$ (de dimension $n-1$). Par hypothèse de récurrence, $W$ possède
+  une base orthonormée de vecteurs propres de~$g$, et on conclut en
+  ajoutant $\vec{v}_1$.
+\end{proof}
+
+% ============================================================
+\section{Matrices définies positives et semi-définies positives}%
+\label{sec:definie-positive}
+% ============================================================
+
+\begin{definition}{Matrice définie positive, semi-définie positive}{def:definie-pos}
+  Soit $A \in \Sym_n(\R)$.\index{matrice définie positive}\index{matrice semi-définie positive}
+  \begin{enumerate}[label=(\roman*)]
+    \item $A$ est \emph{définie positive} si
+      $\transpose{\vec{x}} A \vec{x} > 0$ pour tout
+      $\vec{x} \in \R^n \setminus \set{\vzero}$.
+    \item $A$ est \emph{semi-définie positive} si
+      $\transpose{\vec{x}} A \vec{x} \geq 0$ pour tout $\vec{x} \in \R^n$.
+    \item Les notions de \emph{définie négative} et \emph{semi-définie
+      négative} s'obtiennent en inversant les inégalités.
+    \item $A$ est \emph{indéfinie} si elle n'entre dans aucune des
+      catégories précédentes.
+  \end{enumerate}
+  On note $A \succ 0$ (définie positive), $A \succeq 0$ (semi-définie
+  positive).
+\end{definition}
+
+\begin{theorem}{Caractérisations des matrices définies positives}{thm:carac-def-pos}
+  Pour $A \in \Sym_n(\R)$, les assertions suivantes sont
+  équivalentes\index{matrice définie positive!caractérisations}~:
+  \begin{enumerate}[label=(\roman*)]
+    \item $A$ est définie positive~: $\transpose{\vec{x}} A \vec{x} > 0$
+      pour tout $\vec{x} \neq \vzero$.
+    \item Toutes les valeurs propres de $A$ sont strictement positives~:
+      $\lambda_i > 0$ pour $i = 1, \ldots, n$.
+    \item Tous les mineurs principaux dominants de $A$ sont strictement
+      positifs\index{critère de Sylvester} (critère de Sylvester)~:
+      $\Delta_k = \det(A_{1..k, 1..k}) > 0$ pour $k = 1, \ldots, n$.
+    \item Il existe une matrice triangulaire inférieure $L$ à coefficients
+      diagonaux strictement positifs telle que $A = L\transpose{L}$
+      (décomposition de Cholesky\index{décomposition de Cholesky}).
+    \item Il existe une matrice inversible $B$ telle que $A = \transpose{B}B$.
+  \end{enumerate}
+\end{theorem}
+
+\begin{proof}
+  Nous démontrons les implications principales.
+
+  \medskip
+  $(\mathrm{i}) \Rightarrow (\mathrm{ii})$~:
+  Soit $\lambda$ une valeur propre de $A$ et $\vec{v}$ un vecteur propre
+  associé ($\norm{\vec{v}} = 1$). Alors
+  $0 < \transpose{\vec{v}} A \vec{v} = \lambda \transpose{\vec{v}} \vec{v}
+  = \lambda$, donc $\lambda > 0$.
+
+  \medskip
+  $(\mathrm{ii}) \Rightarrow (\mathrm{i})$~:
+  Par le théorème spectral, $A = P D \transpose{P}$ avec $D = \diag(\lambda_1,
+  \ldots, \lambda_n)$, $\lambda_i > 0$, et $P$ orthogonale. Pour
+  $\vec{x} \neq \vzero$, posons $\vec{y} = \transpose{P}\vec{x} \neq \vzero$~:
+  \[
+    \transpose{\vec{x}} A \vec{x}
+    = \transpose{\vec{y}} D \vec{y}
+    = \sum_{i=1}^{n} \lambda_i y_i^2 > 0.
+  \]
+
+  \medskip
+  $(\mathrm{i}) \Rightarrow (\mathrm{iii})$~:
+  Si $A \succ 0$, alors pour tout $k \leq n$, la sous-matrice
+  $A_k = A_{1..k,1..k}$ est définie positive (restreindre à
+  $\vec{x} = (x_1, \ldots, x_k, 0, \ldots, 0)^{\mathsf{T}}$). Donc
+  ses valeurs propres sont positives, et $\Delta_k = \det(A_k) > 0$.
+
+  \medskip
+  $(\mathrm{ii}) \Rightarrow (\mathrm{iv})$~:
+  Si $\lambda_i > 0$, on pose $A = P D \transpose{P}
+  = P D^{1/2} \transpose{(P D^{1/2})} = \transpose{(D^{1/2}\transpose{P})}
+  (D^{1/2}\transpose{P})$ avec $D^{1/2} = \diag(\sqrt{\lambda_1}, \ldots,
+  \sqrt{\lambda_n})$. La factorisation de Cholesky proprement dite
+  s'obtient ensuite par un algorithme constructif (élimination de Gauss
+  adaptée).
+
+  \medskip
+  $(\mathrm{iv}) \Rightarrow (\mathrm{v})$~: prendre $B = L$.
+
+  \medskip
+  $(\mathrm{v}) \Rightarrow (\mathrm{i})$~:
+  $\transpose{\vec{x}} A \vec{x} = \transpose{\vec{x}} \transpose{B} B \vec{x}
+  = \norm{B\vec{x}}^2 \geq 0$, avec égalité si et seulement si
+  $B\vec{x} = \vzero$, c'est-à-dire $\vec{x} = \vzero$ car $B$ est
+  inversible.
+\end{proof}
+
+\begin{proposition}{Critère de Sylvester}{prop:sylvester}
+  Soit $A \in \Sym_n(\R)$.\index{critère de Sylvester}
+  \begin{enumerate}[label=(\roman*)]
+    \item $A \succ 0 \iff \Delta_k > 0$ pour tout $k = 1, \ldots, n$.
+    \item $A \prec 0 \iff (-1)^k \Delta_k > 0$ pour tout $k = 1, \ldots, n$.
+  \end{enumerate}
+  Pour la semi-définie positivité, il faut vérifier que \emph{tous} les
+  mineurs principaux (pas seulement les dominants) sont $\geq 0$.
+\end{proposition}
+
+\begin{example}{Critère de Sylvester appliqué}{ex:sylvester}
+  $A = \begin{pmatrix} 2 & -1 & 0 \\ -1 & 3 & -1 \\ 0 & -1 & 2 \end{pmatrix}$.
+
+  $\Delta_1 = 2 > 0$, \quad
+  $\Delta_2 = \det\begin{pmatrix} 2 & -1 \\ -1 & 3 \end{pmatrix}
+  = 6 - 1 = 5 > 0$, \quad
+  $\Delta_3 = \det(A) = 2(6-1) + 1(-2-0) = 10 - 2 = 8 > 0$.
+
+  Par le critère de Sylvester, $A$ est définie positive.
+\end{example}
+
+% ============================================================
+\section{Décomposition en valeurs singulières (SVD)}%
+\label{sec:svd}
+% ============================================================
+
+\begin{theorem}{Décomposition en valeurs singulières}{thm:svd}
+  Soit $A \in \Mat_{m \times n}(\R)$ une matrice
+  quelconque.\index{décomposition en valeurs singulières}\index{SVD}
+  Il existe~:
+  \begin{itemize}
+    \item une matrice orthogonale $U \in \Orth(m)$,
+    \item une matrice orthogonale $V \in \Orth(n)$,
+    \item une matrice $\Sigma \in \Mat_{m \times n}(\R)$ de la forme
+      $\Sigma = \diag(\sigma_1, \ldots, \sigma_p, 0, \ldots, 0)$ avec
+      $p = \min(m,n)$ et $\sigma_1 \geq \sigma_2 \geq \cdots \geq
+      \sigma_p \geq 0$,
+  \end{itemize}
+  telles que $A = U \Sigma \transpose{V}$.
+
+  Les $\sigma_i > 0$ sont les \emph{valeurs singulières}\index{valeurs singulières}
+  de $A$~: ce sont les racines carrées des valeurs propres non nulles de
+  $\transpose{A}A$ (ou de $A\transpose{A}$). Le nombre de valeurs
+  singulières non nulles est égal au rang de~$A$.
+\end{theorem}
+
+\begin{proof}[Idée de la preuve]
+  La matrice $\transpose{A}A \in \Sym_n(\R)$ est semi-définie positive.
+  Par le théorème spectral, $\transpose{A}A = V D \transpose{V}$ avec
+  $V$ orthogonale et $D = \diag(\sigma_1^2, \ldots, \sigma_r^2,
+  0, \ldots, 0)$, $\sigma_i > 0$.
+
+  Pour $i = 1, \ldots, r$, posons $\vec{u}_i = \frac{1}{\sigma_i} A \vec{v}_i$
+  où les $\vec{v}_i$ sont les colonnes de $V$. On vérifie que les
+  $\vec{u}_i$ sont orthonormés~:
+  \[
+    \inner{\vec{u}_i, \vec{u}_j}
+    = \frac{1}{\sigma_i \sigma_j} \transpose{\vec{v}_i} \transpose{A} A \vec{v}_j
+    = \frac{\sigma_j^2}{\sigma_i \sigma_j} \delta_{ij}
+    = \delta_{ij}.
+  \]
+
+  On complète $(\vec{u}_1, \ldots, \vec{u}_r)$ en une base orthonormée
+  $(\vec{u}_1, \ldots, \vec{u}_m)$ de $\R^m$ et on pose
+  $U = (\vec{u}_1 \mid \cdots \mid \vec{u}_m)$. Alors $A \vec{v}_i
+  = \sigma_i \vec{u}_i$ pour $i \leq r$ et $A\vec{v}_i = \vzero$ pour
+  $i > r$, ce qui donne $A V = U \Sigma$, soit $A = U \Sigma \transpose{V}$.
+\end{proof}
+
+\begin{remark}{Interprétation géométrique de la SVD}{rem:svd-geo}
+  L'écriture $A = U \Sigma \transpose{V}$ décompose l'application
+  linéaire $\vec{x} \mapsto A\vec{x}$ en trois étapes~:
+  \begin{enumerate}[label=(\arabic*)]
+    \item rotation/réflexion dans $\R^n$ (via $\transpose{V}$),
+    \item dilatation le long des axes et éventuellement changement de
+      dimension (via $\Sigma$),
+    \item rotation/réflexion dans $\R^m$ (via $U$).
+  \end{enumerate}
+  Géométriquement, l'image de la sphère unité de $\R^n$ par $A$ est un
+  ellipsoïde dans $\R^m$ dont les demi-axes ont pour longueurs
+  $\sigma_1, \ldots, \sigma_r$.
+\end{remark}
+
+\begin{example}{SVD d'une matrice $2 \times 2$}{ex:svd-2x2}
+  Soit $A = \begin{pmatrix} 3 & 0 \\ 0 & 1 \end{pmatrix}$.
+
+  $\transpose{A}A = \begin{pmatrix} 9 & 0 \\ 0 & 1 \end{pmatrix}$~:
+  valeurs propres $9, 1$, donc $\sigma_1 = 3$, $\sigma_2 = 1$.
+  Ici $V = I_2$, $U = I_2$, $\Sigma = A$, et la SVD est triviale.
+
+  Pour un exemple non trivial, soit
+  $B = \begin{pmatrix} 1 & 1 \\ 0 & 0 \end{pmatrix}$.
+
+  $\transpose{B}B = \begin{pmatrix} 1 & 1 \\ 1 & 1 \end{pmatrix}$~:
+  valeurs propres $2, 0$, donc $\sigma_1 = \sqrt{2}$, $\rg(B) = 1$.
+
+  Vecteur propre de $\transpose{B}B$ pour $\lambda = 2$~:
+  $\vec{v}_1 = \frac{1}{\sqrt{2}}\begin{pmatrix} 1 \\ 1 \end{pmatrix}$,
+  et pour $\lambda = 0$~:
+  $\vec{v}_2 = \frac{1}{\sqrt{2}}\begin{pmatrix} -1 \\ 1 \end{pmatrix}$.
+
+  $\vec{u}_1 = \frac{1}{\sqrt{2}} B \vec{v}_1
+  = \frac{1}{\sqrt{2}} \cdot \frac{1}{\sqrt{2}}\begin{pmatrix} 2 \\ 0 \end{pmatrix}
+  = \begin{pmatrix} 1 \\ 0 \end{pmatrix}$.
+
+  On complète~: $\vec{u}_2 = \begin{pmatrix} 0 \\ 1 \end{pmatrix}$.
+
+  Donc~: $B = \begin{pmatrix} 1 & 0 \\ 0 & 1 \end{pmatrix}
+  \begin{pmatrix} \sqrt{2} & 0 \\ 0 & 0 \end{pmatrix}
+  \frac{1}{\sqrt{2}}\begin{pmatrix} 1 & -1 \\ 1 & 1 \end{pmatrix}^{\mathsf{T}}$.
+\end{example}
+
+% ============================================================
+\section{Applications}\label{sec:spectral-applications}
+% ============================================================
+
+\subsection{Analyse en composantes principales (ACP)}%
+\label{subsec:acp}
+
+L'\emph{analyse en composantes principales}\index{ACP}\index{analyse en composantes principales}
+est la technique fondamentale de réduction de dimension en statistiques.
+
+Soit $X \in \Mat_{n \times p}(\R)$ une matrice de données centrées
+($n$ observations, $p$ variables). La matrice de covariance empirique est
+\[
+  C = \frac{1}{n-1}\transpose{X}X \in \Sym_p(\R).
+\]
+Cette matrice est semi-définie positive. Par le théorème spectral,
+$C = P D \transpose{P}$ avec $D = \diag(\lambda_1, \ldots, \lambda_p)$,
+$\lambda_1 \geq \cdots \geq \lambda_p \geq 0$.
+
+Les colonnes de $P$ sont les \emph{directions principales}~: la première
+composante principale est la direction de variance maximale ($\lambda_1$),
+la deuxième est la direction de variance maximale orthogonale à la première
+($\lambda_2$), et ainsi de suite.
+
+La proportion de variance expliquée par les $k$ premières composantes est
+\[
+  \frac{\sum_{i=1}^{k} \lambda_i}{\sum_{i=1}^{p} \lambda_i} = \frac{\sum_{i=1}^{k} \lambda_i}{\tr(C)}.
+\]
+
+\subsection{Classification des formes quadratiques}%
+\label{subsec:formes-quad}
+
+Une \emph{forme quadratique}\index{forme quadratique!classification}
+$q \colon \R^n \to \R$ est définie par
+$q(\vec{x}) = \transpose{\vec{x}} A \vec{x}$ pour une matrice symétrique
+$A$ unique. Par le théorème spectral, dans la base propre orthonormée de~$A$~:
+\[
+  q(\vec{x}) = \lambda_1 y_1^2 + \lambda_2 y_2^2 + \cdots + \lambda_n y_n^2
+\]
+où $\vec{y} = \transpose{P}\vec{x}$. La classification est alors immédiate~:
+\begin{itemize}
+  \item \emph{Définie positive}~: tous les $\lambda_i > 0$.
+  \item \emph{Semi-définie positive}~: tous les $\lambda_i \geq 0$.
+  \item \emph{Définie négative}~: tous les $\lambda_i < 0$.
+  \item \emph{Semi-définie négative}~: tous les $\lambda_i \leq 0$.
+  \item \emph{Indéfinie}~: $\lambda_i > 0$ et $\lambda_j < 0$ pour
+    certains $i, j$.
+\end{itemize}
+La \emph{signature}\index{signature d'une forme quadratique}
+$(p, q)$ de la forme (nombre de valeurs propres positives, négatives)
+est un invariant (loi d'inertie de Sylvester\index{loi d'inertie de Sylvester}).
+
+\subsection{Optimisation~: min/max des formes quadratiques}%
+\label{subsec:minmax}
+
+\begin{theorem}{Principe du min-max (Courant--Fischer)}{thm:courant-fischer}
+  Soit $A \in \Sym_n(\R)$ avec valeurs propres
+  $\lambda_1 \leq \lambda_2 \leq \cdots \leq \lambda_n$.\index{Courant--Fischer}
+  Alors~:
+  \[
+    \lambda_k = \min_{\substack{V \leq \R^n \\ \dim V = k}}
+    \max_{\substack{\vec{x} \in V \\ \norm{\vec{x}} = 1}}
+    \transpose{\vec{x}} A \vec{x}
+    = \max_{\substack{V \leq \R^n \\ \dim V = n-k+1}}
+    \min_{\substack{\vec{x} \in V \\ \norm{\vec{x}} = 1}}
+    \transpose{\vec{x}} A \vec{x}.
+  \]
+  En particulier~:
+  \[
+    \lambda_1 = \min_{\norm{\vec{x}}=1} \transpose{\vec{x}} A \vec{x},
+    \qquad
+    \lambda_n = \max_{\norm{\vec{x}}=1} \transpose{\vec{x}} A \vec{x}.
+  \]
+\end{theorem}
+
+\begin{proof}
+  Démontrons le cas particulier $\lambda_n = \max_{\norm{\vec{x}}=1}
+  \transpose{\vec{x}} A \vec{x}$.
+
+  Par le théorème spectral, $A = P D \transpose{P}$ avec
+  $D = \diag(\lambda_1, \ldots, \lambda_n)$. Posons $\vec{y} = \transpose{P}\vec{x}$~;
+  $\norm{\vec{x}} = 1$ équivaut à $\norm{\vec{y}} = 1$, et
+  \[
+    \transpose{\vec{x}} A \vec{x}
+    = \sum_{i=1}^{n} \lambda_i y_i^2
+    \leq \lambda_n \sum_{i=1}^{n} y_i^2
+    = \lambda_n.
+  \]
+  Le maximum est atteint pour $\vec{y} = \vece{n}$, c'est-à-dire
+  $\vec{x} = P\vece{n}$ (le vecteur propre associé à $\lambda_n$).
+  Le cas de $\lambda_1$ est analogue.
+\end{proof}
+
+\subsection{Vibrations et modes propres}\label{subsec:vibrations}
+
+Considérons un système mécanique\index{vibrations!modes propres}
+linéarisé au voisinage d'un équilibre~:
+\[
+  M \ddot{\vec{x}} + K \vec{x} = \vzero,
+\]
+où $M \succ 0$ (matrice de masse) et $K \succeq 0$ (matrice de raideur)
+sont symétriques. On cherche des solutions harmoniques
+$\vec{x}(t) = \vec{v} \cos(\omega t)$, ce qui conduit au problème aux
+valeurs propres généralisé~:
+\[
+  K \vec{v} = \omega^2 M \vec{v}.
+\]
+En posant $\tilde{K} = M^{-1/2} K M^{-1/2}$ (qui est symétrique et
+semi-définie positive), on se ramène au problème standard
+$\tilde{K}\vec{w} = \omega^2 \vec{w}$, $\vec{w} = M^{1/2}\vec{v}$.
+Par le théorème spectral, il existe une base orthonormée de
+\emph{modes propres}, chacun vibrant à sa propre fréquence
+$\omega_i = \sqrt{\lambda_i}$.
+
+% ============================================================
+\section{Illustrations}\label{sec:spectral-tikz}
+% ============================================================
+
+\subsection{Classification des coniques par les valeurs propres}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=0.9]
+  % Ellipse: both eigenvalues positive
+  \begin{scope}[shift={(-5,0)}]
+    \draw[thick,thmcolor!80,->] (-2.5,0) -- (2.5,0) node[right]{$x$};
+    \draw[thick,thmcolor!80,->] (0,-2) -- (0,2) node[above]{$y$};
+    \draw[thick,defcolor,rotate=30] (0,0) ellipse (1.8 and 1);
+    \draw[defcolor!60,->,thick,rotate=30] (0,0) -- (1.8,0)
+      node[pos=0.5,below,rotate=30]{\small $1/\sqrt{\lambda_1}$};
+    \draw[defcolor!60,->,thick,rotate=30] (0,0) -- (0,1)
+      node[pos=0.5,left,rotate=30]{\small $1/\sqrt{\lambda_2}$};
+    \node[below] at (0,-2.3) {\small $\lambda_1, \lambda_2 > 0$ : ellipse};
+  \end{scope}
+
+  % Hyperbola: eigenvalues of opposite sign
+  \begin{scope}[shift={(0,0)}]
+    \draw[thick,thmcolor!80,->] (-2.5,0) -- (2.5,0) node[right]{$x$};
+    \draw[thick,thmcolor!80,->] (0,-2) -- (0,2) node[above]{$y$};
+    \draw[thick,defcolor,domain=-1.3:1.3,samples=100,rotate=20]
+      plot ({cosh(\x)},{sinh(\x)});
+    \draw[thick,defcolor,domain=-1.3:1.3,samples=100,rotate=20]
+      plot ({-cosh(\x)},{sinh(\x)});
+    \draw[defcolor!40,dashed,rotate=20] (-2,-2) -- (2,2);
+    \draw[defcolor!40,dashed,rotate=20] (-2,2) -- (2,-2);
+    \node[below] at (0,-2.3) {\small $\lambda_1 > 0 > \lambda_2$ : hyperbole};
+  \end{scope}
+
+  % Parabola-like: one eigenvalue zero
+  \begin{scope}[shift={(5,0)}]
+    \draw[thick,thmcolor!80,->] (-2.5,0) -- (2.5,0) node[right]{$x$};
+    \draw[thick,thmcolor!80,->] (0,-2) -- (0,2) node[above]{$y$};
+    \draw[thick,defcolor,domain=-1.8:1.8,samples=100]
+      plot ({\x*\x/2 - 1},{\x});
+    \node[below] at (0,-2.3) {\small $\lambda_1 > 0,\; \lambda_2 = 0$ : parabole};
+  \end{scope}
+\end{tikzpicture}
+\caption{Classification des coniques
+  $\transpose{\vec{x}}A\vec{x} + \vec{b}^{\mathsf{T}}\vec{x} + c = 0$
+  selon les valeurs propres de la partie
+  quadratique~$A$.}\label{fig:coniques}
+\end{figure}
+
+\subsection{Géométrie de la SVD}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=1.1]
+  % Left: unit circle
+  \begin{scope}[shift={(-4,0)}]
+    \draw[thick,thmcolor!80,->] (-1.8,0) -- (1.8,0) node[right]{$x_1$};
+    \draw[thick,thmcolor!80,->] (0,-1.8) -- (0,1.8) node[above]{$x_2$};
+    \draw[thick,defcolor] (0,0) circle (1);
+    \draw[defcolor!70,->,very thick] (0,0) -- (1,0)
+      node[below right]{\small $\vec{v}_1$};
+    \draw[defcolor!70,->,very thick] (0,0) -- (0,1)
+      node[above left]{\small $\vec{v}_2$};
+    \node[below] at (0,-2.0) {\small Cercle unité dans $\R^2$};
+  \end{scope}
+
+  % Arrow
+  \draw[-{Stealth},ultra thick,thmcolor!60] (-1.8,0) -- (-0.5,0)
+    node[midway,above]{\small $A = U\Sigma \transpose{V}$};
+
+  % Right: ellipse
+  \begin{scope}[shift={(3,0)}]
+    \draw[thick,thmcolor!80,->] (-2.8,0) -- (2.8,0) node[right]{$y_1$};
+    \draw[thick,thmcolor!80,->] (0,-1.8) -- (0,1.8) node[above]{$y_2$};
+    \draw[thick,defcolor,rotate=25] (0,0) ellipse (2.2 and 0.8);
+    \draw[lemcolor,->,very thick,rotate=25] (0,0) -- (2.2,0)
+      node[pos=0.6,below,rotate=25]{\small $\sigma_1 \vec{u}_1$};
+    \draw[lemcolor,->,very thick,rotate=25] (0,0) -- (0,0.8)
+      node[pos=0.7,left,rotate=25]{\small $\sigma_2 \vec{u}_2$};
+    \node[below] at (0,-2.0) {\small Image~: ellipse de demi-axes $\sigma_1, \sigma_2$};
+  \end{scope}
+\end{tikzpicture}
+\caption{La SVD transforme le cercle unité en un ellipsoïde. Les
+  directions principales sont données par les vecteurs singuliers
+  gauches $\vec{u}_i$, et les longueurs des demi-axes sont les valeurs
+  singulières $\sigma_i$.}\label{fig:svd-geo}
+\end{figure}
+
+% ============================================================
+\section{Exercices}\label{sec:spectral-exercices}
+% ============================================================
+
+\begin{exercise}{Diagonalisation orthogonale $2 \times 2$ \basic}{exo:diag2x2}
+  Diagonaliser orthogonalement la matrice
+  $A = \begin{pmatrix} 3 & 1 \\ 1 & 3 \end{pmatrix}$.
+  Vérifier que $A = P D \transpose{P}$.
+\end{exercise}
+
+\begin{exercise}{Diagonalisation orthogonale $3 \times 3$ \basic}{exo:diag3x3}
+  Diagonaliser orthogonalement la matrice
+  $A = \begin{pmatrix} 1 & 0 & 0 \\ 0 & 0 & 1 \\ 0 & 1 & 0 \end{pmatrix}$.
+\end{exercise}
+
+\begin{exercise}{Matrice hermitienne \intermediate}{exo:hermitienne}
+  Diagonaliser unitairement la matrice hermitienne
+  $H = \begin{pmatrix} 2 & 1+i \\ 1-i & 3 \end{pmatrix}$.
+  Vérifier que les valeurs propres sont réelles et que les vecteurs propres
+  sont orthogonaux.
+\end{exercise}
+
+\begin{exercise}{Critère de Sylvester \basic}{exo:sylvester}
+  En utilisant le critère de Sylvester, déterminer la nature
+  (définie positive, définie négative, indéfinie) de~:
+  \[
+    A = \begin{pmatrix} 4 & 2 \\ 2 & 3 \end{pmatrix}, \qquad
+    B = \begin{pmatrix} -3 & 1 \\ 1 & -5 \end{pmatrix}, \qquad
+    C = \begin{pmatrix} 1 & 2 \\ 2 & 1 \end{pmatrix}.
+  \]
+\end{exercise}
+
+\begin{exercise}{Formes quadratiques et coniques \intermediate}{exo:conique}
+  Classifier la conique $5x^2 + 4xy + 2y^2 = 6$ en déterminant les
+  valeurs propres de la matrice associée à la forme quadratique.
+  Tracer la conique dans la base propre.
+\end{exercise}
+
+\begin{exercise}{Calcul de SVD \intermediate}{exo:svd-calcul}
+  Calculer la décomposition en valeurs singulières de la matrice
+  $A = \begin{pmatrix} 1 & 1 \\ 1 & -1 \\ 0 & 0 \end{pmatrix}$.
+\end{exercise}
+
+\begin{exercise}{Décomposition de Cholesky \intermediate}{exo:cholesky}
+  Calculer la décomposition de Cholesky de la matrice
+  $A = \begin{pmatrix} 4 & 2 & -2 \\ 2 & 5 & -4 \\ -2 & -4 & 14 \end{pmatrix}$.
+  Vérifier que $A = L\transpose{L}$.
+\end{exercise}
+
+\begin{exercise}{Puissances d'une matrice symétrique \intermediate}{exo:puissance-sym}
+  Soit $A = \begin{pmatrix} 5 & 4 \\ 4 & 5 \end{pmatrix}$.
+  \begin{enumerate}[label=(\alph*)]
+    \item Diagonaliser orthogonalement~$A$.
+    \item Calculer $A^{10}$.
+    \item Exprimer $e^{tA} = \sum_{k=0}^{\infty} \frac{t^k}{k!} A^k$
+      sous forme explicite.
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Opérateur normal non auto-adjoint \intermediate}{exo:normal}
+  Soit $A = \begin{pmatrix} 1 & -1 \\ 1 & 1 \end{pmatrix} \in \Mat_2(\R)$.
+  \begin{enumerate}[label=(\alph*)]
+    \item Montrer que $A$ n'est pas symétrique.
+    \item Vérifier que $A$ est normale~: $\transpose{A}A = A\transpose{A}$.
+    \item Montrer que $A$ n'est pas diagonalisable sur $\R$ mais
+      l'est sur $\C$. Trouver une matrice unitaire $U$ telle que
+      $A = U D \hermit{U}$.
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Approximation de rang faible et SVD \challenging}{exo:approx-rang}
+  Soit $A \in \Mat_{m \times n}(\R)$ de SVD $A = U \Sigma \transpose{V}$.
+  \begin{enumerate}[label=(\alph*)]
+    \item Montrer que pour tout $k \leq \rg(A)$, la matrice
+      $A_k = \sum_{i=1}^{k} \sigma_i \vec{u}_i \transpose{\vec{v}_i}$
+      est de rang~$k$.
+    \item Admettre le théorème d'Eckart--Young\index{théorème d'Eckart--Young}~:
+      $A_k$ est la meilleure approximation de rang~$k$ de~$A$ au sens de
+      la norme de Frobenius~:
+      $\norm{A - A_k}_F = \min_{\rg(B) \leq k} \norm{A - B}_F$.
+    \item Calculer $\norm{A - A_k}_F^2$ en fonction des valeurs singulières.
+    \item Application~: si $A = \begin{pmatrix} 3 & 0 \\ 0 & 2 \\ 0 & 0
+      \end{pmatrix}$, quelle est la meilleure approximation de rang~$1$~?
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Rayleigh et convergence \challenging}{exo:rayleigh}
+  Soit $A \in \Sym_n(\R)$ avec valeurs propres
+  $\lambda_1 < \lambda_2 \leq \cdots \leq \lambda_n$. Le
+  \emph{quotient de Rayleigh}\index{quotient de Rayleigh} est
+  $R(\vec{x}) = \frac{\transpose{\vec{x}} A \vec{x}}{\transpose{\vec{x}} \vec{x}}$
+  pour $\vec{x} \neq \vzero$.
+  \begin{enumerate}[label=(\alph*)]
+    \item Montrer que $\lambda_1 \leq R(\vec{x}) \leq \lambda_n$.
+    \item Montrer que $R(\vec{x}) = \lambda_k$ si et seulement si $\vec{x}$
+      est vecteur propre de $A$ pour $\lambda_k$.
+    \item Calculer le gradient $\nabla R(\vec{x})$ et montrer que ses
+      points critiques sont les vecteurs propres de~$A$.
+  \end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Preuve de la décomposition de Cholesky \challenging}{exo:cholesky-preuve}
+  Soit $A \in \Sym_n(\R)$ définie positive.
+  \begin{enumerate}[label=(\alph*)]
+    \item Montrer que $a_{11} > 0$.
+    \item Écrire $A$ sous la forme par blocs
+      $A = \begin{pmatrix} a_{11} & \transpose{\vec{c}} \\
+      \vec{c} & A' \end{pmatrix}$ et montrer que
+      $S = A' - \frac{1}{a_{11}} \vec{c}\transpose{\vec{c}}$ (le
+      complément de Schur\index{complément de Schur}) est définie
+      positive de taille $(n-1) \times (n-1)$.
+    \item En déduire par récurrence l'existence de la décomposition
+      $A = L\transpose{L}$ avec $L$ triangulaire inférieure à diagonale
+      strictement positive.
+    \item Montrer l'unicité de cette décomposition.
+  \end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section*{Résumé du chapitre}
+\addcontentsline{toc}{section}{Résumé du chapitre}
+% ============================================================
+
+\begin{tcolorbox}[colback=defcolor!3,colframe=defcolor!60,
+  title={\textbf{Résumé --- Chapitre \thechapter}},
+  fonttitle=\large,breakable]
+
+\textbf{Opérateurs auto-adjoints.}
+$f$ est auto-adjoint si $f = f^*$, i.e.\
+$\inner{f(\vec{u}),\vec{v}} = \inner{\vec{u},f(\vec{v})}$ pour tous
+$\vec{u}, \vec{v}$. En base orthonormée~: matrice symétrique ($\R$) ou
+hermitienne ($\C$).
+
+\medskip
+\textbf{Propriétés spectrales fondamentales.}
+\begin{itemize}[nosep]
+  \item Les valeurs propres d'un opérateur auto-adjoint sont \emph{réelles}.
+  \item Les sous-espaces propres associés à des valeurs propres distinctes
+    sont \emph{orthogonaux}.
+\end{itemize}
+
+\medskip
+\textbf{Théorème spectral (réel).}
+Toute matrice symétrique réelle $A \in \Sym_n(\R)$ est
+\emph{orthogonalement diagonalisable}~:
+$A = P D \transpose{P}$, $P \in \Orth(n)$, $D$ diagonale réelle.
+
+\medskip
+\textbf{Théorème spectral (hermitien).}
+Toute matrice hermitienne $A = \hermit{A}$ est
+\emph{unitairement diagonalisable}~:
+$A = U D \hermit{U}$, $U$ unitaire, $D$ diagonale réelle.
+
+\medskip
+\textbf{Opérateurs normaux.}
+$f$ est normal si $ff^* = f^*f$. Sur $\C$, $f$ est normal $\iff$
+$f$ admet une base orthonormée de vecteurs propres.
+
+\medskip
+\textbf{Matrices définies positives.}
+$A \succ 0$ $\iff$ $\lambda_i > 0\ \forall i$ $\iff$ $\Delta_k > 0\
+\forall k$ (Sylvester) $\iff$ $A = L\transpose{L}$ (Cholesky) $\iff$
+$A = \transpose{B}B$, $B$ inversible.
+
+\medskip
+\textbf{SVD.}
+Toute matrice $A \in \Mat_{m \times n}(\R)$ s'écrit
+$A = U \Sigma \transpose{V}$ avec $U \in \Orth(m)$, $V \in \Orth(n)$,
+$\Sigma = \diag(\sigma_1, \ldots, \sigma_p)$, $\sigma_i \geq 0$.
+Les $\sigma_i$ sont les racines carrées des valeurs propres de
+$\transpose{A}A$.
+
+\medskip
+\textbf{Applications.}
+ACP (directions de variance maximale), classification des formes
+quadratiques et coniques, principe du min-max (Courant--Fischer),
+approximation de rang faible (Eckart--Young), vibrations et modes propres.
+\end{tcolorbox}

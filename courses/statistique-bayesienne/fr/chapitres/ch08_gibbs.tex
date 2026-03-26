@@ -1,0 +1,371 @@
+% ============================================================
+\chapter{Algorithme de Gibbs}
+\label{ch:gibbs}
+% ============================================================
+
+En 1984, Stuart et Donald Geman publient un article sur la restauration d'images en introduisant un algorithme MCMC particuli\`erement \'el\'egant~: l'\emph{\'echantillonneur de Gibbs}. Au lieu de proposer des mouvements dans l'espace complet des param\`etres (comme Metropolis--Hastings), l'algorithme met \`a jour chaque composante s\'epar\'ement, en tirant directement de sa \emph{loi conditionnelle compl\`ete} --- la distribution de cette composante conditionnellement \`a toutes les autres. Le g\'enie du proc\'ed\'e est que le taux d'acceptation est toujours de $100\,\%$, \'eliminant le besoin de calibrer une distribution de proposition. Alan Gelfand et Adrian Smith (1990) montrent ensuite que l'\'echantillonneur de Gibbs est applicable \`a une vaste classe de mod\`eles bay\'esiens hi\'erarchiques, d\'eclenchant la r\'evolution MCMC en statistique.
+
+\begin{intuition}[title=\textbf{Id\'ee centrale}]
+L'\'echantillonneur de Gibbs est un cas particulier de
+Metropolis--Hastings o\`u chaque composante du param\`etre est mise \`a
+jour en tirant directement depuis sa \textbf{loi conditionnelle compl\`ete}.
+Le taux d'acceptation est toujours $1$, ce qui \'elimine le besoin de
+calibration de la proposition.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Lois conditionnelles compl\`etes}
+% ------------------------------------------------------------
+
+\begin{definition}[Loi conditionnelle compl\`ete]
+Soit $\theta = (\theta_1, \ldots, \theta_d)$. La \textbf{loi
+conditionnelle compl\`ete} de $\theta_k$ est~:
+\[
+  \pi(\theta_k \mid \theta_{-k}, x)
+  \propto \pi(\theta_1, \ldots, \theta_d \mid x)
+  \quad \text{en tant que fonction de } \theta_k,
+\]
+o\`u $\theta_{-k} = (\theta_1, \ldots, \theta_{k-1}, \theta_{k+1}, \ldots, \theta_d)$.
+\end{definition}
+
+\begin{remarque}
+Pour identifier la conditionnelle compl\`ete, on fixe toutes les
+composantes sauf $\theta_k$ dans le posterior joint et on reconna\^it
+la loi en $\theta_k$.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Algorithme de Gibbs}
+% ------------------------------------------------------------
+
+\begin{algorithme}[title=\textbf{\'Echantillonneur de Gibbs}]
+\begin{enumerate}
+  \item Initialiser $\theta^{(0)} = (\theta_1^{(0)}, \ldots, \theta_d^{(0)})$.
+  \item Pour $t = 0, 1, \ldots, T-1$~:
+  \begin{enumerate}
+    \item Tirer $\theta_1^{(t+1)} \sim \pi(\theta_1 \mid \theta_2^{(t)}, \ldots, \theta_d^{(t)}, x)$.
+    \item Tirer $\theta_2^{(t+1)} \sim \pi(\theta_2 \mid \theta_1^{(t+1)}, \theta_3^{(t)}, \ldots, \theta_d^{(t)}, x)$.
+    \item[$\vdots$]
+    \item Tirer $\theta_d^{(t+1)} \sim \pi(\theta_d \mid \theta_1^{(t+1)}, \ldots, \theta_{d-1}^{(t+1)}, x)$.
+  \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+\begin{theoreme}[Gibbs comme cas particulier de MH]
+L'\'echantillonneur de Gibbs est un algorithme de Metropolis--Hastings
+o\`u la proposition pour $\theta_k$ est
+$q_k(\theta_k^* \mid \theta_{-k}) = \pi(\theta_k^* \mid \theta_{-k}, x)$.
+Le ratio d'acceptation vaut toujours~$1$.
+\end{theoreme}
+
+\begin{proof}
+Le ratio d'acceptation pour la mise \`a jour de $\theta_k$ est~:
+\begin{align*}
+  \alpha &= \frac{\pi(\theta_k^*, \theta_{-k} \mid x)\,\pi(\theta_k^{(t)} \mid \theta_{-k}, x)}
+                 {\pi(\theta_k^{(t)}, \theta_{-k} \mid x)\,\pi(\theta_k^* \mid \theta_{-k}, x)} \\
+  &= \frac{\pi(\theta_k^* \mid \theta_{-k}, x)\,\pi(\theta_{-k} \mid x)
+            \cdot \pi(\theta_k^{(t)} \mid \theta_{-k}, x)}
+          {\pi(\theta_k^{(t)} \mid \theta_{-k}, x)\,\pi(\theta_{-k} \mid x)
+            \cdot \pi(\theta_k^* \mid \theta_{-k}, x)}
+  = 1.
+\end{align*}
+\end{proof}
+
+\begin{theoreme}[Convergence de l'\'echantillonneur de Gibbs]
+Sous des conditions de r\'egularit\'e (positivit\'e du posterior sur
+tout l'espace), l'\'echantillonneur de Gibbs converge vers la loi
+cible $\pi(\theta \mid x)$.
+\end{theoreme}
+
+% ------------------------------------------------------------
+\section{Exemples fondamentaux}
+% ------------------------------------------------------------
+
+\subsection{Mod\`ele normal bivari\'e}
+
+\begin{exemple}
+Soit $(\theta_1, \theta_2) \sim \mathcal{N}_2(\boldsymbol{\mu}, \boldsymbol{\Sigma})$
+avec $\boldsymbol{\Sigma} = \begin{pmatrix} 1 & \rho \\ \rho & 1 \end{pmatrix}$.
+Les conditionnelles compl\`etes sont~:
+\begin{align*}
+  \theta_1 \mid \theta_2 &\sim \mathcal{N}(\mu_1 + \rho(\theta_2 - \mu_2),\; 1 - \rho^2), \\
+  \theta_2 \mid \theta_1 &\sim \mathcal{N}(\mu_2 + \rho(\theta_1 - \mu_1),\; 1 - \rho^2).
+\end{align*}
+\end{exemple}
+
+\begin{attention}[title=\textbf{Forte corr\'elation}]
+Quand $\rho$ est proche de $\pm 1$, le Gibbs sampler m\'elange lentement
+car les mises \`a jour par composante ne peuvent pas explorer
+efficacement la distribution allong\'ee. On pr\'ef\`ere alors HMC/NUTS
+ou une reparam\'etrisation.
+\end{attention}
+
+\subsection{Mod\`ele normal avec moyenne et variance inconnues}
+
+\begin{exemple}
+Soit $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \mathcal{N}(\mu, \sigma^2)$
+avec prior $\mu \sim \mathcal{N}(\mu_0, \tau_0^2)$ et
+$\sigma^2 \sim \text{IG}(\alpha_0, \beta_0)$. Les conditionnelles sont~:
+\begin{align*}
+  \mu \mid \sigma^2, x &\sim \mathcal{N}\!\left(
+  \frac{\mu_0/\tau_0^2 + n\bar{x}/\sigma^2}{1/\tau_0^2 + n/\sigma^2},\;
+  \frac{1}{1/\tau_0^2 + n/\sigma^2}\right), \\
+  \sigma^2 \mid \mu, x &\sim \text{IG}\!\left(
+  \alpha_0 + \frac{n}{2},\;
+  \beta_0 + \frac{1}{2}\sum_{i=1}^n (x_i - \mu)^2\right).
+\end{align*}
+\end{exemple}
+
+\subsection{Mod\`ele de m\'elange}
+
+\begin{exemple}
+\textbf{M\'elange de $K$ gaussiennes.} Soient les donn\'ees
+$x_1, \ldots, x_n$ avec variables latentes $z_i \in \{1, \ldots, K\}$
+et param\`etres $(\boldsymbol{\pi}, \boldsymbol{\mu}, \boldsymbol{\sigma}^2)$.
+Les conditionnelles sont~:
+
+\textbf{Allocation}~:
+$\PP(z_i = k \mid \cdot) \propto \pi_k\,\mathcal{N}(x_i \mid \mu_k, \sigma_k^2)$.
+
+\textbf{Proportions}~:
+$\boldsymbol{\pi} \mid \cdot \sim \text{Dir}(\alpha_1 + n_1, \ldots, \alpha_K + n_K)$,
+o\`u $n_k = \#\{i : z_i = k\}$.
+
+\textbf{Moyennes}~:
+$\mu_k \mid \cdot \sim \mathcal{N}\!\left(\frac{\mu_0/\tau^2 + \sum_{z_i=k} x_i/\sigma_k^2}{1/\tau^2 + n_k/\sigma_k^2},\;
+\frac{1}{1/\tau^2 + n_k/\sigma_k^2}\right)$.
+
+\textbf{Variances}~:
+$\sigma_k^2 \mid \cdot \sim \text{IG}\!\left(a + n_k/2,\;
+b + \frac{1}{2}\sum_{z_i=k}(x_i - \mu_k)^2\right)$.
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Variantes de Gibbs}
+% ------------------------------------------------------------
+
+\begin{definition}[Gibbs par blocs]
+Au lieu de mettre \`a jour chaque composante s\'epar\'ement, le
+\textbf{Gibbs par blocs} met \`a jour des groupes de composantes
+simultan\'ement. Cela am\'eliore le m\'elange quand les composantes
+d'un bloc sont fortement corr\'el\'ees.
+\end{definition}
+
+\begin{definition}[Collapsed Gibbs / Rao--Blackwellisation]
+Le \textbf{collapsed Gibbs} marginalise analytiquement certains
+param\`etres avant l'\'echantillonnage, r\'eduisant la dimension et
+am\'eliorant l'efficacit\'e.
+\end{definition}
+
+\begin{theoreme}[Rao--Blackwellisation]
+Si $g(\theta)$ est une fonction d'int\'er\^et et qu'on peut calculer
+$\E[g(\theta_1) \mid \theta_2, x]$ analytiquement, alors l'estimateur
+Rao--Blackwellis\'e~:
+\[
+  \hat{g}_{\text{RB}} = \frac{1}{T}\sum_{t=1}^T
+  \E[g(\theta_1) \mid \theta_2^{(t)}, x]
+\]
+a une variance inf\'erieure ou \'egale \`a $\hat{g} = \frac{1}{T}\sum_t g(\theta_1^{(t)})$.
+\end{theoreme}
+
+% ------------------------------------------------------------
+\section{Augmentation de donn\'ees}
+% ------------------------------------------------------------
+
+\begin{definition}[Augmentation de donn\'ees]
+L'\textbf{augmentation de donn\'ees} introduit des variables latentes
+$z$ pour faciliter l'\'echantillonnage. On alterne~:
+\begin{enumerate}
+  \item Tirer $z \mid \theta, x$ (\'etape I).
+  \item Tirer $\theta \mid z, x$ (\'etape P).
+\end{enumerate}
+\end{definition}
+
+\begin{exemple}
+\textbf{Mod\`ele probit.} Pour $Y_i \in \{0, 1\}$ avec
+$\PP(Y_i = 1) = \Phi(X_i^\top \beta)$, on introduit
+$Z_i \sim \mathcal{N}(X_i^\top \beta, 1)$ et $Y_i = \mathbf{1}(Z_i > 0)$.
+Conditionnellement aux $Z_i$, $\beta$ a un posterior gaussien. L'\'echantillonnage
+de $Z_i$ se fait par troncature.
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Impl\'ementation Python}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Gibbs pour le mod\`ele normal}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import stats
+
+# Données
+np.random.seed(42)
+n = 50
+mu_true, sigma_true = 5.0, 2.0
+data = np.random.normal(mu_true, sigma_true, n)
+xbar = data.mean()
+S2 = ((data - data.mean())**2).sum()
+
+# Hyperparamètres
+mu_0, tau_0 = 0, 10
+alpha_0, beta_0 = 1, 1
+
+# Gibbs sampler
+T = 10000
+mu_samples = np.zeros(T)
+sigma2_samples = np.zeros(T)
+mu_samples[0] = 0
+sigma2_samples[0] = 1
+
+for t in range(1, T):
+    # Tirer mu | sigma^2, x
+    prec_post = 1/tau_0**2 + n/sigma2_samples[t-1]
+    mu_post = (mu_0/tau_0**2 + n*xbar/sigma2_samples[t-1]) \
+              / prec_post
+    mu_samples[t] = np.random.normal(mu_post,
+                                      1/np.sqrt(prec_post))
+
+    # Tirer sigma^2 | mu, x
+    alpha_post = alpha_0 + n/2
+    beta_post = beta_0 + 0.5 * np.sum(
+        (data - mu_samples[t])**2)
+    sigma2_samples[t] = 1 / np.random.gamma(alpha_post,
+                                              1/beta_post)
+
+burn_in = 1000
+print(f"mu: {mu_samples[burn_in:].mean():.3f} "
+      f"(vrai: {mu_true})")
+print(f"sigma: {np.sqrt(sigma2_samples[burn_in:]).mean():.3f} "
+      f"(vrai: {sigma_true})")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Gibbs pour m\'elange de gaussiennes}]
+\begin{minted}{python}
+# Mélange de 2 gaussiennes
+np.random.seed(42)
+n = 200
+z_true = np.random.choice([0, 1], size=n, p=[0.4, 0.6])
+data_mix = np.where(z_true == 0,
+                     np.random.normal(0, 1, n),
+                     np.random.normal(5, 1.5, n))
+
+K = 2
+T = 5000
+
+# Stockage
+pi_samples = np.zeros((T, K))
+mu_samples_mix = np.zeros((T, K))
+sigma2_samples_mix = np.zeros((T, K))
+z_samples = np.zeros((T, n), dtype=int)
+
+# Initialisation
+mu_samples_mix[0] = [-1, 6]
+sigma2_samples_mix[0] = [1, 1]
+pi_samples[0] = [0.5, 0.5]
+
+for t in range(1, T):
+    # Étape E: tirer z_i
+    for i in range(n):
+        probs = np.array([
+            pi_samples[t-1, k] *
+            stats.norm.pdf(data_mix[i],
+                           mu_samples_mix[t-1, k],
+                           np.sqrt(sigma2_samples_mix[t-1, k]))
+            for k in range(K)])
+        probs /= probs.sum()
+        z_samples[t, i] = np.random.choice(K, p=probs)
+
+    # Étape M: tirer paramètres
+    for k in range(K):
+        idx = z_samples[t] == k
+        nk = idx.sum()
+        # Proportions
+        pi_samples[t, k] = nk  # sera normalisé
+        if nk > 0:
+            xk = data_mix[idx]
+            # mu_k
+            prec = 1/100 + nk/sigma2_samples_mix[t-1, k]
+            m = (nk * xk.mean() / sigma2_samples_mix[t-1, k]) / prec
+            mu_samples_mix[t, k] = np.random.normal(m, 1/np.sqrt(prec))
+            # sigma^2_k
+            a = 1 + nk/2
+            b = 1 + 0.5 * np.sum((xk - mu_samples_mix[t, k])**2)
+            sigma2_samples_mix[t, k] = 1/np.random.gamma(a, 1/b)
+        else:
+            mu_samples_mix[t, k] = mu_samples_mix[t-1, k]
+            sigma2_samples_mix[t, k] = sigma2_samples_mix[t-1, k]
+
+    # Dirichlet pour les proportions
+    counts = np.array([(z_samples[t]==k).sum() for k in range(K)])
+    pi_samples[t] = np.random.dirichlet(1 + counts)
+
+burn = 1000
+print("mu estimates:", mu_samples_mix[burn:].mean(axis=0))
+print("pi estimates:", pi_samples[burn:].mean(axis=0))
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Diagnostics et visualisation}]
+\begin{minted}{python}
+fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+
+# Trace plots
+axes[0, 0].plot(mu_samples[:3000])
+axes[0, 0].set_title(r"Trace de $\mu$")
+axes[0, 1].plot(sigma2_samples[:3000])
+axes[0, 1].set_title(r"Trace de $\sigma^2$")
+
+# Joint posterior
+axes[1, 0].scatter(mu_samples[burn_in::10],
+                    sigma2_samples[burn_in::10],
+                    alpha=0.1, s=1)
+axes[1, 0].set_xlabel(r"$\mu$")
+axes[1, 0].set_ylabel(r"$\sigma^2$")
+axes[1, 0].set_title("Posterior joint")
+
+# Marginal de sigma
+axes[1, 1].hist(np.sqrt(sigma2_samples[burn_in:]),
+                bins=50, density=True, alpha=0.5)
+axes[1, 1].axvline(sigma_true, color="red",
+                    linestyle="--")
+axes[1, 1].set_title(r"Marginal de $\sigma$")
+
+plt.tight_layout()
+plt.savefig("gibbs_diagnostics.pdf")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}
+D\'eriver les conditionnelles compl\`etes pour le mod\`ele de r\'egression
+lin\'eaire bay\'esien $y = X\beta + \varepsilon$ avec
+$\beta \sim \mathcal{N}(0, \sigma_\beta^2 I)$ et
+$\sigma^2 \sim \text{IG}(\alpha, \beta)$.
+\end{exercice}
+
+\begin{exercice}
+Impl\'ementer l'augmentation de donn\'ees d'Albert et Chib (1993) pour
+le mod\`ele probit et comparer avec PyMC.
+\end{exercice}
+
+\begin{exercice}
+Pour le Gibbs bivari\'e gaussien, montrer analytiquement que
+l'autocorr\'elation d'ordre $k$ du Gibbs sampler est $\rho^{2k}$ et
+calculer l'ESS en fonction de $\rho$.
+\end{exercice}
+
+\begin{exercice}
+Comparer Gibbs standard et Gibbs par blocs sur le mod\`ele normal
+multivari\'e avec diff\'erentes structures de corr\'elation.
+\end{exercice}
+
+\begin{exercice}
+\textbf{(Avanc\'e)} Impl\'ementer le collapsed Gibbs pour le mod\`ele
+de m\'elange en marginalisant les proportions $\pi_k$. Comparer l'ESS
+avec le Gibbs standard.
+\end{exercice}

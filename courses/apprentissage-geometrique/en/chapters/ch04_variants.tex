@@ -1,0 +1,353 @@
+% ============================================================
+\chapter{GNN Variants (GAT, GIN, GraphSAGE)}
+\label{ch:variants}
+% ============================================================
+
+The GCN of Kipf and Welling (2017) opened the way, but its limitations quickly became apparent: isotropic aggregation, expressivity capped at the 1-Weisfeiler-Leman test, and inability to handle large graphs inductively. In response, a wave of alternative architectures emerged: \emph{Graph Attention Networks} (GAT) introduce attention mechanisms to weight neighbours; \emph{Graph Isomorphism Networks} (GIN) maximise theoretical expressivity; \emph{GraphSAGE} enables inductive learning through neighbourhood sampling. This chapter explores these variants and the trade-offs they embody.
+
+\section{Beyond GCN: Motivations}
+
+The GCN of Kipf and Welling has several limitations:
+\begin{itemize}
+    \item \textbf{Isotropic} aggregation: all neighbors are treated equally
+          (weighted only by degree).
+    \item \textbf{Limited expressivity}: strict equivalence to 1-WL.
+    \item \textbf{Scalability}: requires the full adjacency matrix.
+\end{itemize}
+
+This chapter presents three major variants addressing these limitations.
+
+\section{Graph Attention Networks (GAT)}
+
+\subsection{Attention on Graphs}
+
+\begin{definition}[GAT layer --- Veli\v{c}kovi\'c et al., 2018]
+The GAT layer uses an \textbf{attention} mechanism to weight neighbor
+contributions:
+\[
+    \mathbf{h}_v^{(\ell+1)} = \sigma\!\left(\sum_{u \in \mathcal{N}(v) \cup \{v\}}
+    \alpha_{vu}^{(\ell)}\, \mathbf{W}^{(\ell)} \mathbf{h}_u^{(\ell)}\right)
+\]
+where the attention coefficients $\alpha_{vu}$ are computed by:
+\begin{align}
+    e_{vu}^{(\ell)} &= \text{LeakyReLU}\!\left(\mathbf{a}^{\top}\!
+    \left[\mathbf{W}\mathbf{h}_v^{(\ell)} \| \mathbf{W}\mathbf{h}_u^{(\ell)}\right]\right) \\
+    \alpha_{vu}^{(\ell)} &= \frac{\exp(e_{vu}^{(\ell)})}{\sum_{w \in \mathcal{N}(v) \cup \{v\}}
+    \exp(e_{vw}^{(\ell)})}
+\end{align}
+where $\mathbf{a} \in \R^{2d'}$ is the learned attention vector and $\|$
+denotes concatenation.
+\end{definition}
+
+\begin{remark}[Multi-head attention]
+To stabilize training, GAT uses $K$ independent attention heads:
+\[
+    \mathbf{h}_v^{(\ell+1)} = \Big\|_{k=1}^{K} \sigma\!\left(\sum_{u \in \mathcal{N}(v)}
+    \alpha_{vu}^{k} \mathbf{W}^k \mathbf{h}_u^{(\ell)}\right)
+\]
+The last layer typically uses averaging instead of concatenation.
+\end{remark}
+
+\begin{intuition}[title=\textbf{Why attention?}]
+Attention allows the model to learn \textbf{which neighbors matter} for each
+node, unlike GCN where weighting is fixed by graph structure. This is
+especially useful when:
+\begin{itemize}
+    \item Neighbors have \textbf{varying relevance}.
+    \item The graph contains \textbf{noise} (uninformative edges).
+    \item Relationships are \textbf{asymmetric} (directed graphs).
+\end{itemize}
+\end{intuition}
+
+\begin{codeblock}[title=\textbf{GAT implementation with PyTorch Geometric}]
+\begin{minted}{python}
+import torch
+import torch.nn.functional as F
+from torch_geometric.nn import GATConv
+from torch_geometric.datasets import Planetoid
+
+class GAT(torch.nn.Module):
+    def __init__(self, in_channels, hidden_channels, out_channels,
+                 heads=8, dropout=0.6):
+        super().__init__()
+        self.conv1 = GATConv(in_channels, hidden_channels,
+                             heads=heads, dropout=dropout)
+        self.conv2 = GATConv(hidden_channels * heads, out_channels,
+                             heads=1, concat=False, dropout=dropout)
+        self.dropout = dropout
+
+    def forward(self, x, edge_index):
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        x = F.elu(self.conv1(x, edge_index))
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        x = self.conv2(x, edge_index)
+        return x
+
+dataset = Planetoid(root='/tmp/Cora', name='Cora')
+data = dataset[0]
+model = GAT(dataset.num_features, 8, dataset.num_classes, heads=8)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=5e-4)
+
+for epoch in range(200):
+    model.train()
+    optimizer.zero_grad()
+    out = model(data.x, data.edge_index)
+    loss = F.cross_entropy(out[data.train_mask], data.y[data.train_mask])
+    loss.backward()
+    optimizer.step()
+
+model.eval()
+pred = model(data.x, data.edge_index).argmax(dim=1)
+acc = (pred[data.test_mask] == data.y[data.test_mask]).float().mean()
+print(f"GAT test accuracy: {acc:.4f}")
+\end{minted}
+\end{codeblock}
+
+\subsection{GATv2: Dynamic Attention}
+
+\begin{definition}[GATv2 --- Brody et al., 2022]
+GATv2 fixes a limitation of GAT where attention is \textbf{static} (the
+ranking of neighbors does not depend on the query node). GATv2 uses:
+\[
+    e_{vu} = \mathbf{a}^\top \text{LeakyReLU}\!\left(\mathbf{W}\!\left[
+    \mathbf{h}_v \| \mathbf{h}_u\right]\right)
+\]
+The nonlinearity is applied \textbf{before} the dot product with $\mathbf{a}$,
+making the attention truly \textbf{dynamic}.
+\end{definition}
+
+\section{Graph Isomorphism Network (GIN)}
+
+\subsection{Maximizing Expressive Power}
+
+\begin{theorem}[GIN --- Xu et al., 2019]
+For an MPNN to achieve the maximum power of the 1-WL test, the following
+conditions are necessary and sufficient:
+\begin{enumerate}
+    \item The aggregation must be \textbf{injective} on multisets.
+    \item The update function must be \textbf{injective}.
+\end{enumerate}
+\end{theorem}
+
+\begin{definition}[GIN layer]
+The GIN layer computes:
+\[
+    \mathbf{h}_v^{(\ell+1)} = \text{MLP}^{(\ell)}\!\left((1 + \epsilon^{(\ell)})
+    \cdot \mathbf{h}_v^{(\ell)} + \sum_{u \in \mathcal{N}(v)}
+    \mathbf{h}_u^{(\ell)}\right)
+\]
+where $\epsilon$ is a learned or fixed parameter.
+\end{definition}
+
+\begin{proposition}[Injectivity of sum]
+Among classical aggregations (sum, mean, max), only \textbf{sum} is injective
+on multisets:
+\begin{itemize}
+    \item $\text{max}\{1, 1, 2\} = \text{max}\{1, 2\} = 2$ (information loss).
+    \item $\text{mean}\{1, 1\} = \text{mean}\{1\} = 1$ (cardinality loss).
+    \item $\text{sum}\{1, 1, 2\} = 4 \neq \text{sum}\{1, 2\} = 3$ (injective).
+\end{itemize}
+\end{proposition}
+
+\begin{codeblock}[title=\textbf{GIN implementation}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch_geometric.nn import GINConv, global_add_pool
+from torch_geometric.datasets import TUDataset
+from torch_geometric.loader import DataLoader
+
+class GIN(nn.Module):
+    def __init__(self, num_features, hidden_dim, num_classes, num_layers=5):
+        super().__init__()
+        self.convs = nn.ModuleList()
+        self.bns = nn.ModuleList()
+        for i in range(num_layers):
+            in_dim = num_features if i == 0 else hidden_dim
+            mlp = nn.Sequential(
+                nn.Linear(in_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, hidden_dim),
+            )
+            self.convs.append(GINConv(mlp, train_eps=True))
+            self.bns.append(nn.BatchNorm1d(hidden_dim))
+        self.classifier = nn.Linear(hidden_dim, num_classes)
+
+    def forward(self, data):
+        x, edge_index, batch = data.x, data.edge_index, data.batch
+        for conv, bn in zip(self.convs, self.bns):
+            x = F.relu(bn(conv(x, edge_index)))
+        x = global_add_pool(x, batch)
+        return self.classifier(x)
+
+dataset = TUDataset(root='/tmp/MUTAG', name='MUTAG')
+loader = DataLoader(dataset, batch_size=32, shuffle=True)
+model = GIN(dataset.num_features, 64, dataset.num_classes)
+print(f"Parameters: {sum(p.numel() for p in model.parameters()):,}")
+\end{minted}
+\end{codeblock}
+
+\section{GraphSAGE: Inductive Learning}
+
+\subsection{Motivation: Scalability}
+
+\begin{definition}[GraphSAGE --- Hamilton et al., 2017]
+GraphSAGE (\textit{SAmple and aggreGatE}) uses \textbf{neighborhood sampling}
+for scalability:
+\[
+    \mathbf{h}_v^{(\ell+1)} = \sigma\!\left(\mathbf{W}^{(\ell)} \cdot
+    \text{CONCAT}\!\left(\mathbf{h}_v^{(\ell)},\;
+    \text{AGG}(\{\mathbf{h}_u^{(\ell)} : u \in \mathcal{S}(v)\})\right)\right)
+\]
+where $\mathcal{S}(v) \subseteq \mathcal{N}(v)$ is a sampled subset of
+neighbors (typically $\abs{\mathcal{S}(v)} \leq k$).
+\end{definition}
+
+\begin{proposition}[Advantages of GraphSAGE]
+\begin{enumerate}
+    \item \textbf{Inductive}: can generalize to unseen nodes.
+    \item \textbf{Scalable}: complexity controlled by sample count.
+    \item \textbf{Mini-batch}: compatible with mini-batch training.
+\end{enumerate}
+\end{proposition}
+
+\begin{algorithme}[title=\textbf{Subgraph sampling for GraphSAGE}]
+\begin{enumerate}
+    \item For each target node $v$, sample $k_1$ direct neighbors.
+    \item For each of those neighbors, sample $k_2$ neighbors (2-hop).
+    \item Form the induced subgraph and propagate messages.
+    \item Per-batch complexity is $\mathcal{O}(B \cdot k_1 \cdot k_2)$
+          instead of $\mathcal{O}(n)$.
+\end{enumerate}
+\end{algorithme}
+
+\begin{codeblock}[title=\textbf{GraphSAGE with neighborhood sampling}]
+\begin{minted}{python}
+import torch
+import torch.nn.functional as F
+from torch_geometric.nn import SAGEConv
+from torch_geometric.loader import NeighborLoader
+from torch_geometric.datasets import Planetoid
+
+dataset = Planetoid(root='/tmp/Cora', name='Cora')
+data = dataset[0]
+
+class GraphSAGE(torch.nn.Module):
+    def __init__(self, in_channels, hidden_channels, out_channels):
+        super().__init__()
+        self.conv1 = SAGEConv(in_channels, hidden_channels)
+        self.conv2 = SAGEConv(hidden_channels, out_channels)
+
+    def forward(self, x, edge_index):
+        x = F.relu(self.conv1(x, edge_index))
+        x = F.dropout(x, p=0.5, training=self.training)
+        x = self.conv2(x, edge_index)
+        return x
+
+train_loader = NeighborLoader(
+    data,
+    num_neighbors=[25, 10],
+    batch_size=256,
+    input_nodes=data.train_mask,
+)
+
+model = GraphSAGE(dataset.num_features, 64, dataset.num_classes)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+
+for epoch in range(20):
+    model.train()
+    for batch in train_loader:
+        optimizer.zero_grad()
+        out = model(batch.x, batch.edge_index)[:batch.batch_size]
+        loss = F.cross_entropy(out, batch.y[:batch.batch_size])
+        loss.backward()
+        optimizer.step()
+\end{minted}
+\end{codeblock}
+
+\section{Variant Comparison}
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Property} & \textbf{GCN} & \textbf{GAT} & \textbf{GIN} & \textbf{SAGE} \\
+\midrule
+Attention & No & Yes & No & No \\
+1-WL expressivity & $<$ & $<$ & $=$ & $<$ \\
+Inductive & No & Yes & Yes & Yes \\
+Scalable (mini-batch) & Hard & Moderate & Moderate & Yes \\
+Edge features & No & Yes (v2) & No & No \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Advanced Architectures}
+
+\subsection{PNA --- Principal Neighbourhood Aggregation}
+
+\begin{definition}[PNA --- Corso et al., 2020]
+PNA combines \textbf{multiple aggregators} and \textbf{scalers}:
+\[
+    \mathbf{h}_v^{(\ell+1)} = U\!\left(\mathbf{h}_v^{(\ell)},
+    \underset{\substack{\oplus \in \{\text{sum, mean,}\\\text{max, std}\}}}
+    {\Big\|}
+    \underset{s \in \{1, \sqrt{d}, 1/\sqrt{d}\}}{\Big\|}
+    s \cdot \bigoplus_{u \in \mathcal{N}(v)} M(\mathbf{h}_v^{(\ell)},
+    \mathbf{h}_u^{(\ell)})\right)
+\]
+The concatenation of $4 \times 3 = 12$ channels captures different aspects
+of the neighborhood distribution.
+\end{definition}
+
+\subsection{Residual Connections for Deep GNNs}
+
+\begin{definition}[GCNII --- Chen et al., 2020]
+GCNII adds an \textbf{initial residual connection} and \textbf{identity
+mapping} to avoid over-smoothing:
+\[
+    \mathbf{H}^{(\ell+1)} = \sigma\!\left(\left((1-\alpha_\ell)\hat{\mathbf{P}}
+    \mathbf{H}^{(\ell)} + \alpha_\ell \mathbf{H}^{(0)}\right)
+    \left((1-\beta_\ell)\mathbf{I} + \beta_\ell \mathbf{W}^{(\ell)}\right)\right)
+\]
+where $\hat{\mathbf{P}} = \hat{\mathbf{D}}^{-1/2}\hat{\mathbf{A}}\hat{\mathbf{D}}^{-1/2}$
+and $\alpha_\ell, \beta_\ell$ are hyperparameters.
+\end{definition}
+
+\section*{Exercises}
+
+\begin{exercise}[Experimental comparison]
+Compare GCN, GAT, GIN, and GraphSAGE on the Cora dataset:
+\begin{enumerate}
+    \item Implement all four models with the same parameter count.
+    \item Train for 200 epochs with the same hyperparameters.
+    \item Report test accuracy and loss curves.
+    \item Analyze performance differences.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[GAT attention visualization]
+\begin{enumerate}
+    \item Train a GAT on Cora and extract attention coefficients $\alpha_{vu}$.
+    \item Visualize attention weights on a subgraph of 20 nodes.
+    \item Are attention coefficients correlated with node labels?
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[GIN expressive power]
+\begin{enumerate}
+    \item Construct two graphs that GCN cannot distinguish but GIN can.
+    \item Verify experimentally.
+    \item Construct two graphs that even GIN cannot distinguish (1-WL failure).
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Mini-batch training]
+Implement mini-batch training with neighborhood sampling for a GCN (without
+using \texttt{NeighborLoader}).
+\begin{enumerate}
+    \item Implement the sampling strategy.
+    \item Compare training speed with full-batch mode.
+    \item Evaluate the impact of the number of sampled neighbors on accuracy.
+\end{enumerate}
+\end{exercise}

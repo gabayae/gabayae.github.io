@@ -1,0 +1,275 @@
+% ============================================================
+\chapter{Fine-tuning and Instruction Tuning}
+\label{ch:finetuning}
+% ============================================================
+
+In 2018, GPT and BERT demonstrated that a model pre-trained on massive text corpora acquires a general understanding of language, transferable to specific tasks. But how does one go from generalist to specialist? \emph{Fine-tuning} --- adjusting the model's weights on a targeted dataset --- is the classic answer. Yet as models grew to billions of parameters, full fine-tuning became prohibitive. Two revolutions followed in quick succession: first, parameter-efficient methods like LoRA (Hu et al., 2022), which modify only a tiny fraction of weights; then \emph{instruction tuning} and RLHF (Reinforcement Learning from Human Feedback), which align the model not to a task but to \emph{human preferences}. It is this last ingredient that transforms a language model into a conversational assistant. This chapter traces that trajectory, from classical fine-tuning to alignment through reinforcement.
+
+\begin{intuition}[title=\textbf{Adapting a generalist model}]
+A pre-trained model is a language ``generalist.'' Fine-tuning and instruction
+tuning transform it into a specialist for a specific task or desired behavior,
+often with limited labeled data.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Classical Fine-tuning}
+\label{sec:ft:classical}
+% ------------------------------------------------------------
+
+\begin{definition}[Fine-tuning]
+\emph{Fine-tuning} consists of re-training a pre-trained model
+$\theta_{\text{pre}}$ on a task-specific dataset
+$\mathcal{D}_{\text{task}} = \{(\mathbf{x}_i, y_i)\}_{i=1}^{N}$:
+\[
+\theta^* = \argmin_\theta \sum_{i=1}^{N} \mathcal{L}(f_\theta(\mathbf{x}_i), y_i), \quad \theta_0 = \theta_{\text{pre}}
+\]
+\end{definition}
+
+\begin{bestpractice}[title=\textbf{Fine-tuning strategies}]
+\begin{itemize}
+    \item \textbf{Learning rate}: use a small learning rate ($2\times 10^{-5}$
+          to $5\times 10^{-5}$ for BERT).
+    \item \textbf{Warmup}: gradual learning rate increase over the first
+          iterations.
+    \item \textbf{Epochs}: 2--4 epochs are generally sufficient.
+    \item \textbf{Partial freezing}: freeze lower layers and only fine-tune
+          upper layers for small datasets.
+\end{itemize}
+\end{bestpractice}
+
+\begin{codeblock}[title=\textbf{Fine-tuning BERT with Hugging Face Trainer}]
+\begin{minted}{python}
+from transformers import (AutoTokenizer, AutoModelForSequenceClassification,
+                          Trainer, TrainingArguments)
+from datasets import load_dataset
+
+dataset = load_dataset("imdb")
+tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+
+def tokenize_fn(examples):
+    return tokenizer(examples["text"], truncation=True, padding="max_length",
+                     max_length=256)
+
+tokenized = dataset.map(tokenize_fn, batched=True)
+model = AutoModelForSequenceClassification.from_pretrained(
+    "bert-base-uncased", num_labels=2
+)
+
+training_args = TrainingArguments(
+    output_dir="./results",
+    num_train_epochs=3,
+    per_device_train_batch_size=16,
+    per_device_eval_batch_size=32,
+    learning_rate=2e-5,
+    warmup_steps=500,
+    weight_decay=0.01,
+    evaluation_strategy="epoch",
+    save_strategy="epoch",
+    load_best_model_at_end=True,
+)
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized["train"],
+    eval_dataset=tokenized["test"],
+)
+trainer.train()
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Parameter-Efficient Fine-Tuning (PEFT)}
+\label{sec:ft:peft}
+% ------------------------------------------------------------
+
+Full fine-tuning of large models is expensive in memory and compute. PEFT
+methods update only a small fraction of parameters.
+
+\subsection{LoRA: Low-Rank Adaptation}
+
+\begin{definition}[LoRA]
+LoRA (Hu et al., 2022) injects low-rank matrices into attention layers. For a
+weight matrix $\mathbf{W}_0 \in \R^{d \times d}$, the update is:
+\[
+\mathbf{W} = \mathbf{W}_0 + \Delta \mathbf{W} = \mathbf{W}_0 + \mathbf{B}\mathbf{A}
+\]
+where $\mathbf{B} \in \R^{d \times r}$, $\mathbf{A} \in \R^{r \times d}$ with
+$r \ll d$ (typically $r \in [4, 64]$). Only $\mathbf{A}$ and $\mathbf{B}$ are
+trained; $\mathbf{W}_0$ is frozen.
+\end{definition}
+
+\begin{proposition}[LoRA Parameter Complexity]
+The number of trainable parameters per layer is $2rd$ instead of $d^2$. The
+compression ratio is:
+\[
+\frac{2rd}{d^2} = \frac{2r}{d}
+\]
+For $d = 4096$ and $r = 16$: $0.78\%$ of the original parameters.
+\end{proposition}
+
+\begin{codeblock}[title=\textbf{LoRA with PEFT}]
+\begin{minted}{python}
+from peft import LoraConfig, get_peft_model, TaskType
+from transformers import AutoModelForCausalLM
+
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf")
+
+lora_config = LoraConfig(
+    task_type=TaskType.CAUSAL_LM,
+    r=16,
+    lora_alpha=32,
+    lora_dropout=0.1,
+    target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
+)
+
+model = get_peft_model(model, lora_config)
+model.print_trainable_parameters()
+# trainable params: 4,194,304 || all params: 6,742,609,920 || trainable%: 0.062
+\end{minted}
+\end{codeblock}
+
+\subsection{QLoRA}
+
+\begin{definition}[QLoRA]
+QLoRA (Dettmers et al., 2023) combines LoRA with 4-bit quantization of the
+base model, enabling fine-tuning of 65B parameter models on a single 48~GB GPU.
+\end{definition}
+
+\subsection{Other PEFT Methods}
+
+\begin{itemize}
+    \item \textbf{Prefix tuning} (Li \& Liang, 2021): adds learnable vectors
+          to the beginning of attention keys and values.
+    \item \textbf{Adapters} (Houlsby et al., 2019): inserts small feed-forward
+          networks between Transformer layers.
+    \item \textbf{IA$^3$} (Liu et al., 2022): learned scaling vectors for keys,
+          values, and FFN.
+\end{itemize}
+
+% ------------------------------------------------------------
+\section{Instruction Tuning}
+\label{sec:ft:instruction}
+% ------------------------------------------------------------
+
+\begin{definition}[Instruction Tuning]
+\emph{Instruction tuning} trains a language model on a set of natural language
+instructions paired with expected responses:
+\[
+\mathcal{D}_{\text{inst}} = \{(\text{instruction}_i, \text{response}_i)\}_{i=1}^{N}
+\]
+The model learns to follow general instructions rather than solve a single task.
+\end{definition}
+
+Examples of models: FLAN-T5 (Chung et al., 2022), InstructGPT (Ouyang et al.,
+2022).
+
+% ------------------------------------------------------------
+\section{RLHF: Reinforcement Learning from Human Feedback}
+\label{sec:ft:rlhf}
+% ------------------------------------------------------------
+
+\begin{definition}[RLHF]
+RLHF (\emph{Reinforcement Learning from Human Feedback}) aligns a language
+model with human preferences in three stages:
+\begin{enumerate}
+    \item \textbf{SFT} (Supervised Fine-Tuning): supervised fine-tuning on
+          human demonstrations.
+    \item \textbf{Reward model}: train a model $r_\phi$ that predicts human
+          preference between two responses:
+          \[
+          \mathcal{L}_{\text{RM}} = -\E_{(y_w, y_l)}\left[\log \sigma(r_\phi(y_w) - r_\phi(y_l))\right]
+          \]
+          where $y_w$ is the preferred response and $y_l$ the less preferred.
+    \item \textbf{PPO optimization}: optimize the policy $\pi_\theta$ via
+          proximal policy optimization:
+          \[
+          \mathcal{L}_{\text{PPO}} = \E\left[r_\phi(y) - \beta \KL(\pi_\theta \| \pi_{\text{ref}})\right]
+          \]
+          where the KL term prevents drift from the reference model
+          $\pi_{\text{ref}}$.
+\end{enumerate}
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{DPO (Direct Preference Optimization) Objective}]
+DPO (Rafailov et al., 2023) eliminates the explicit reward model:
+\[
+\mathcal{L}_{\text{DPO}} = -\E_{(x, y_w, y_l)}\left[\log \sigma\!\left(\beta \log \frac{\pi_\theta(y_w \mid x)}{\pi_{\text{ref}}(y_w \mid x)} - \beta \log \frac{\pi_\theta(y_l \mid x)}{\pi_{\text{ref}}(y_l \mid x)}\right)\right]
+\]
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Alignment and Safety}
+\label{sec:ft:alignment}
+% ------------------------------------------------------------
+
+\begin{definition}[Aligned Model]
+A language model is said to be \emph{aligned} if it satisfies the \textbf{HHH}
+criteria (Helpful, Honest, Harmless):
+\begin{itemize}
+    \item \textbf{Helpful}: responds to requests in an informative manner.
+    \item \textbf{Honest}: does not fabricate information, expresses
+          uncertainty.
+    \item \textbf{Harmless}: refuses dangerous requests, avoids toxic content.
+\end{itemize}
+\end{definition}
+
+\begin{warning}[title=\textbf{Red teaming and jailbreaking}]
+\emph{Red teaming} consists of systematically testing the limits of an aligned
+model. \emph{Jailbreaking} refers to techniques for evading guardrails (prompt
+injection, system role manipulation). Alignment is a continuous process, not a
+final state.
+\end{warning}
+
+% ------------------------------------------------------------
+\section{Transfer Learning and Domain Adaptation}
+\label{sec:ft:transfer}
+% ------------------------------------------------------------
+
+\begin{definition}[Domain Adaptation]
+\emph{Domain adaptation} consists of further pre-training a model on
+target-domain data before task-specific fine-tuning. Examples: BioBERT
+(biomedical), SciBERT (scientific), FinBERT (finance).
+\end{definition}
+
+\begin{theorem}[Generalization Bound in Transfer Learning]
+Let $\epsilon_S(\theta)$ be the source domain error and $\epsilon_T(\theta)$ be
+the target domain error. Under bounded divergence assumptions
+$d_{\mathcal{H}}(\mathcal{D}_S, \mathcal{D}_T)$:
+\[
+\epsilon_T(\theta) \leq \epsilon_S(\theta) + d_{\mathcal{H}}(\mathcal{D}_S, \mathcal{D}_T) + \lambda
+\]
+where $\lambda$ is the sum of optimal errors on both domains.
+\end{theorem}
+
+% ------------------------------------------------------------
+\section{Exercises}
+\label{sec:ft:exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}[$\star$]
+Calculate the number of trainable parameters with LoRA ($r=8$) applied to all
+4 attention projections of a model with $d = 4096$ and $N = 32$ layers.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Implement BERT fine-tuning for sentiment classification on IMDB with Hugging
+Face \texttt{Trainer}. Compare performance with full freezing, partial freezing
+(first 6 layers), and full fine-tuning.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Derive the DPO objective from the RLHF objective by showing that the optimal
+policy under KL constraint has an analytical form.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Compare LoRA and full fine-tuning in terms of performance and training time on
+a NER task.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+Implement a simplified RLHF pipeline: (1) SFT on a small instruction dataset,
+(2) reward model via binary preferences, (3) PPO optimization (use
+\texttt{trl}).
+\end{exercise}

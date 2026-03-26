@@ -1,0 +1,379 @@
+% ============================================================
+\chapter{Policy Gradient Methods}
+\label{ch:policy_gradient}
+% ============================================================
+
+Until now, we have learned \emph{value functions} and derived the policy indirectly. Policy gradient methods invert this logic: they directly parameterise the policy $\pi_\theta$ and optimise its parameters by gradient ascent. The REINFORCE algorithm, proposed by Ronald Williams in 1992, uses the \emph{policy gradient theorem}---an elegant result that expresses the gradient of expected performance as an expectation under the policy, without needing to differentiate through the environment dynamics. This approach opens the door to continuous action spaces and expressive stochastic policies.
+
+\begin{intuition}
+Policy gradient methods optimize the parameters $\theta$ of a policy
+$\pi_\theta$ by ascending the gradient of the expected return
+$J(\theta) = \E_{\pi_\theta}[G_0]$. Unlike value-based methods, they
+naturally handle continuous action spaces and stochastic policies, and
+avoid the instabilities of deriving a policy from a Q-function.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Motivation}
+\label{sec:pg:motivation}
+% ------------------------------------------------------------
+
+DQN-style methods have fundamental limitations:
+\begin{itemize}
+    \item They require \textbf{discrete} and small action spaces (the
+    $\max$ over actions is explicit).
+    \item The policy is implicit (greedy w.r.t.\ $Q$) and can only
+    represent deterministic policies.
+    \item Small changes in $Q$ can cause large, discontinuous changes in
+    the policy, destabilizing training.
+\end{itemize}
+
+The policy gradient idea is to parameterize $\pi_\theta$ directly and
+optimize $\theta$ by gradient ascent.
+
+% ------------------------------------------------------------
+\section{Performance Objective}
+\label{sec:pg:objective}
+% ------------------------------------------------------------
+
+\begin{definition}[Performance Objective]
+\index{policy gradient!objective}
+The performance objective is the expected return under $\pi_\theta$:
+\[
+    J(\theta) = \E_{\tau \sim \pi_\theta}\left[
+    \sum_{t=0}^{T-1} \gamma^t R_{t+1}\right]
+    = \E_{s_0 \sim \rho_0}\left[V^{\pi_\theta}(s_0)\right]
+\]
+where $\rho_0$ is the initial state distribution and
+$\tau = (s_0, a_0, r_1, s_1, \ldots)$ is a trajectory.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{The Policy Gradient Theorem}
+\label{sec:pg:theorem}
+% ------------------------------------------------------------
+
+\begin{theorem}[Policy Gradient Theorem]
+\index{policy gradient theorem}
+\label{thm:policy_gradient}
+The gradient of $J(\theta)$ is:
+\[
+    \nabla_\theta J(\theta) = \E_{\pi_\theta}\left[
+    \sum_{t=0}^{T-1} \nabla_\theta \log \pi_\theta(A_t \mid S_t) \,
+    Q^{\pi_\theta}(S_t, A_t) \right].
+\]
+\end{theorem}
+
+\begin{proof}
+Starting from $J(\theta) = \sum_s d^{\pi_\theta}(s)
+\sum_a \pi_\theta(a|s) Q^{\pi_\theta}(s,a)$ where $d^{\pi_\theta}(s)$
+is the discounted state visitation frequency, we compute:
+\begin{align*}
+    \nabla_\theta J(\theta)
+    &= \sum_s d^{\pi_\theta}(s) \sum_a \nabla_\theta \pi_\theta(a|s)
+       Q^{\pi_\theta}(s,a) \\
+    &= \sum_s d^{\pi_\theta}(s) \sum_a \pi_\theta(a|s)
+       \nabla_\theta \log \pi_\theta(a|s) \, Q^{\pi_\theta}(s,a) \\
+    &= \E_{\pi_\theta}\left[\nabla_\theta \log \pi_\theta(A_t|S_t)
+       \, Q^{\pi_\theta}(S_t, A_t)\right].
+\end{align*}
+The key identity used is
+$\nabla_\theta \pi_\theta = \pi_\theta \nabla_\theta \log \pi_\theta$
+(the log-derivative trick).
+\end{proof}
+
+\begin{keyformulas}[title=\textbf{Policy Gradient Estimator}]
+\[
+    \nabla_\theta J(\theta) \approx \frac{1}{N} \sum_{i=1}^{N}
+    \sum_{t=0}^{T_i-1} \nabla_\theta \log \pi_\theta(a_t^{(i)} \mid s_t^{(i)})
+    \, \hat{Q}_t^{(i)}
+\]
+where $\hat{Q}_t^{(i)}$ is an estimate of $Q^{\pi_\theta}(s_t, a_t)$
+from the $i$-th trajectory.
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{REINFORCE Algorithm}
+\label{sec:reinforce}
+% ------------------------------------------------------------
+
+\begin{definition}[REINFORCE]
+\index{REINFORCE}
+The REINFORCE algorithm (Williams, 1992) uses the Monte Carlo return
+$G_t = \sum_{k=0}^{T-t-1} \gamma^k R_{t+k+1}$ as an unbiased estimate
+of $Q^{\pi_\theta}(S_t, A_t)$:
+\[
+    \theta \leftarrow \theta + \alpha \sum_{t=0}^{T-1}
+    \gamma^t \nabla_\theta \log \pi_\theta(A_t \mid S_t) \, G_t.
+\]
+\end{definition}
+
+\begin{algorithme}[title=\textbf{REINFORCE}]
+\begin{enumerate}
+    \item Initialize policy parameters $\theta$ randomly
+    \item For each episode:
+    \begin{enumerate}
+        \item Generate trajectory $\tau = (s_0, a_0, r_1, \ldots, s_T)$
+              following $\pi_\theta$
+        \item For $t = T-1, T-2, \ldots, 0$: compute $G_t = \sum_{k=0}^{T-t-1} \gamma^k r_{t+k+1}$
+        \item $\theta \leftarrow \theta + \alpha \sum_{t=0}^{T-1}
+              \gamma^t \nabla_\theta \log \pi_\theta(a_t | s_t) \, G_t$
+    \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+\begin{attention}[title=\textbf{High Variance of REINFORCE}]
+REINFORCE uses full Monte Carlo returns, which have high variance.
+This leads to slow convergence and noisy gradient estimates. Variance
+reduction techniques are essential in practice.
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Baselines for Variance Reduction}
+\label{sec:pg:baseline}
+% ------------------------------------------------------------
+
+\begin{theorem}[Baseline Invariance]
+\label{thm:baseline}
+For any function $b(s)$ that does not depend on $a$:
+\[
+    \E_{\pi_\theta}\left[\nabla_\theta \log \pi_\theta(a|s) \, b(s)\right] = 0.
+\]
+Therefore, subtracting $b(s)$ from $Q^{\pi_\theta}(s,a)$ does not change
+the gradient expectation but can reduce variance.
+\end{theorem}
+
+\begin{proof}
+$\E_{a \sim \pi_\theta(\cdot|s)}[\nabla_\theta \log \pi_\theta(a|s) \, b(s)]
+= b(s) \sum_a \nabla_\theta \pi_\theta(a|s)
+= b(s) \nabla_\theta \underbrace{\sum_a \pi_\theta(a|s)}_{= 1} = 0$.
+\end{proof}
+
+\begin{definition}[REINFORCE with Baseline]
+\index{baseline}
+Using $b(s) = V^{\pi_\theta}(s)$ as baseline, the update becomes:
+\[
+    \theta \leftarrow \theta + \alpha \sum_{t=0}^{T-1}
+    \nabla_\theta \log \pi_\theta(A_t | S_t) \,
+    \underbrace{(G_t - V_\phi(S_t))}_{\hat{A}_t}
+\]
+where $\hat{A}_t$ approximates the advantage $A^{\pi_\theta}(S_t, A_t)$
+and $V_\phi$ is a learned value function.
+\end{definition}
+
+\begin{proposition}[Optimal Baseline]
+The variance-minimizing baseline is:
+\[
+    b^*(s) = \frac{\E\left[\norm{\nabla_\theta \log \pi_\theta(a|s)}^2 Q^{\pi}(s,a)\right]}
+    {\E\left[\norm{\nabla_\theta \log \pi_\theta(a|s)}^2\right]}.
+\]
+In practice, $V^{\pi}(s)$ is a good approximation and much simpler.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Generalized Advantage Estimation (GAE)}
+\label{sec:gae}
+% ------------------------------------------------------------
+
+\begin{definition}[Generalized Advantage Estimation]
+\index{GAE}
+GAE (Schulman et al., 2016) is an exponentially weighted average of
+$n$-step advantage estimates:
+\[
+    \hat{A}_t^{\text{GAE}(\gamma, \lambda)} = \sum_{l=0}^{\infty}
+    (\gamma \lambda)^l \delta_{t+l}
+\]
+where $\delta_t = R_{t+1} + \gamma V_\phi(S_{t+1}) - V_\phi(S_t)$ is
+the TD error.
+\end{definition}
+
+\begin{proposition}[Limiting Cases of GAE]
+\begin{itemize}
+    \item $\lambda = 0$: $\hat{A}_t = \delta_t$ (one-step TD error;
+    low variance, high bias).
+    \item $\lambda = 1$: $\hat{A}_t = G_t - V_\phi(S_t)$ (MC return minus
+    baseline; high variance, no bias).
+\end{itemize}
+In practice, $\lambda \in [0.9, 0.99]$ achieves a good trade-off.
+\end{proposition}
+
+\begin{keyformulas}[title=\textbf{GAE Recursive Computation}]
+\[
+    \hat{A}_t^{\text{GAE}} = \delta_t + \gamma \lambda \, \hat{A}_{t+1}^{\text{GAE}}
+\]
+with $\hat{A}_T^{\text{GAE}} = 0$. This enables efficient backward
+computation in $O(T)$ time.
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Natural Policy Gradient}
+\label{sec:npg}
+% ------------------------------------------------------------
+
+\begin{definition}[Fisher Information Matrix]
+\index{Fisher information}
+The Fisher information matrix of $\pi_\theta$ is:
+\[
+    F(\theta) = \E_{s \sim d^{\pi_\theta}, a \sim \pi_\theta}
+    \left[\nabla_\theta \log \pi_\theta(a|s) \,
+    \nabla_\theta \log \pi_\theta(a|s)^\top\right].
+\]
+\end{definition}
+
+\begin{definition}[Natural Policy Gradient]
+\index{natural policy gradient}
+The natural policy gradient (Kakade, 2001) update uses the inverse Fisher
+matrix to account for the geometry of the policy space:
+\[
+    \theta \leftarrow \theta + \alpha F(\theta)^{-1}
+    \nabla_\theta J(\theta).
+\]
+This is equivalent to steepest ascent in the KL-divergence metric.
+\end{definition}
+
+\begin{theorem}[Equivalence to KL-Constrained Update]
+The natural gradient step is the solution to:
+\[
+    \max_{\Delta\theta} \; \nabla_\theta J(\theta)^\top \Delta\theta
+    \quad \text{s.t.} \quad
+    \frac{1}{2} \Delta\theta^\top F(\theta) \Delta\theta \leq \epsilon.
+\]
+This ensures that each update does not change the policy too much in a
+distribution-theoretic sense.
+\end{theorem}
+
+% ------------------------------------------------------------
+\section{Trust Region Concepts}
+\label{sec:trpo_concepts}
+% ------------------------------------------------------------
+
+\begin{definition}[Trust Region Policy Optimization]
+\index{TRPO}
+TRPO (Schulman et al., 2015) maximizes a surrogate objective subject to
+a KL-divergence constraint:
+\[
+    \max_\theta \; \E_{s,a \sim \pi_{\theta_{\text{old}}}}\left[
+    \frac{\pi_\theta(a|s)}{\pi_{\theta_{\text{old}}}(a|s)} \hat{A}_t
+    \right]
+    \quad \text{s.t.} \quad
+    \E_s\left[D_{\text{KL}}(\pi_{\theta_{\text{old}}}(\cdot|s)
+    \| \pi_\theta(\cdot|s))\right] \leq \delta.
+\]
+\end{definition}
+
+\begin{remark}
+TRPO guarantees monotonic policy improvement under certain conditions.
+However, it requires computing second-order information (Fisher-vector
+products via conjugate gradient), making it computationally expensive.
+PPO (covered in the next chapter) provides a simpler first-order
+approximation.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Python Implementation}
+\label{sec:pg:code}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{REINFORCE with Baseline}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+import numpy as np
+
+class PolicyNet(nn.Module):
+    def __init__(self, state_dim, action_dim, hidden=64):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, hidden), nn.ReLU(),
+            nn.Linear(hidden, action_dim), nn.Softmax(dim=-1)
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+class ValueNet(nn.Module):
+    def __init__(self, state_dim, hidden=64):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, hidden), nn.ReLU(),
+            nn.Linear(hidden, 1)
+        )
+
+    def forward(self, x):
+        return self.net(x).squeeze(-1)
+
+def reinforce_baseline(env, n_episodes=1000, gamma=0.99,
+                       lr_pi=1e-3, lr_v=1e-3):
+    sd = env.observation_space.shape[0]
+    ad = env.action_space.n
+    policy = PolicyNet(sd, ad)
+    value = ValueNet(sd)
+    opt_pi = torch.optim.Adam(policy.parameters(), lr=lr_pi)
+    opt_v = torch.optim.Adam(value.parameters(), lr=lr_v)
+
+    for ep in range(n_episodes):
+        states, actions, rewards = [], [], []
+        s, _ = env.reset()
+        done = False
+        while not done:
+            probs = policy(torch.FloatTensor(s))
+            dist = torch.distributions.Categorical(probs)
+            a = dist.sample()
+            s2, r, term, trunc, _ = env.step(a.item())
+            states.append(s); actions.append(a); rewards.append(r)
+            s = s2; done = term or trunc
+
+        # Compute returns
+        G, returns = 0.0, []
+        for r in reversed(rewards):
+            G = r + gamma * G
+            returns.insert(0, G)
+        returns = torch.FloatTensor(returns)
+        states_t = torch.FloatTensor(np.array(states))
+
+        # Update value function
+        V = value(states_t)
+        value_loss = nn.MSELoss()(V, returns)
+        opt_v.zero_grad(); value_loss.backward(); opt_v.step()
+
+        # Update policy with advantage
+        with torch.no_grad():
+            advantages = returns - value(states_t)
+        log_probs = torch.stack([
+            torch.distributions.Categorical(
+                policy(torch.FloatTensor(s))).log_prob(a)
+            for s, a in zip(states, actions)])
+        policy_loss = -(log_probs * advantages).mean()
+        opt_pi.zero_grad(); policy_loss.backward(); opt_pi.step()
+    return policy
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+\label{sec:pg:exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}[REINFORCE Variance]
+Run REINFORCE on \texttt{CartPole-v1} with and without a baseline.
+Plot the variance of the gradient estimate (computed over 10 runs)
+as a function of episodes. Quantify the variance reduction.
+\end{exercise}
+
+\begin{exercise}[GAE Implementation]
+Implement GAE with different values of $\lambda \in \{0, 0.5, 0.9, 1.0\}$.
+Compare learning curves on \texttt{LunarLander-v2}.
+\end{exercise}
+
+\begin{exercise}[Continuous Actions]
+Implement REINFORCE for a continuous action space using a Gaussian policy
+$\pi_\theta(a|s) = \mathcal{N}(\mu_\theta(s), \sigma^2)$. Test on
+\texttt{MountainCarContinuous-v0}.
+\end{exercise}
+
+\begin{exercise}[Policy Gradient Theorem Proof]
+Extend the proof of the policy gradient theorem to the infinite-horizon
+discounted setting. Show that the state visitation distribution
+$d^{\pi_\theta}(s) = (1-\gamma) \sum_{t=0}^\infty \gamma^t P(S_t = s | \pi_\theta)$
+makes the theorem hold.
+\end{exercise}

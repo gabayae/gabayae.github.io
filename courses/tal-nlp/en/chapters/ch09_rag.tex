@@ -1,0 +1,290 @@
+% ============================================================
+\chapter{Retrieval-Augmented Generation}
+\label{ch:rag}
+% ============================================================
+
+Large language models are remarkably capable, but they have two structural weaknesses: they ``hallucinate'' (generate plausible but false information) and their knowledge is frozen at training time. In 2020, Patrick Lewis and collaborators at Facebook AI Research proposed an elegant solution: \emph{Retrieval-Augmented Generation} (RAG). The principle is to couple the generative model with a document retrieval system: before generating a response, the model retrieves relevant passages from an external knowledge base and uses them as context. This architecture decouples \emph{memory} (the document base, easily updated) from \emph{reasoning} (the language model). RAG is today at the heart of enterprise question-answering systems, specialized chatbots, and research assistants.
+
+\begin{intuition}[title=\textbf{Why augment with retrieval?}]
+Generative language models (LLMs) suffer from hallucinations and
+knowledge frozen at training time. Retrieval-Augmented Generation (RAG)
+addresses these problems by providing the model with relevant documents
+from an external knowledge base before generation. This grounds the
+output in verifiable facts and enables knowledge updates without
+retraining.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{RAG Framework}
+\label{sec:rag:framework}
+% ------------------------------------------------------------
+
+\begin{definition}[Retrieval-Augmented Generation]
+\index{RAG}
+A \textbf{RAG} system combines a \emph{retriever} and a \emph{generator}.
+Given a query $q$ and a corpus $\mathcal{C}$:
+\begin{enumerate}
+    \item \textbf{Retrieve}: extract the $k$ most relevant documents
+    $\{d_1, \ldots, d_k\} = \text{Retrieve}(q, \mathcal{C})$
+    \item \textbf{Generate}: produce the answer
+    $y = \text{Generate}(q, d_1, \ldots, d_k)$
+\end{enumerate}
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{Probabilistic RAG Formulation}]
+\[
+    P(y | q) = \sum_{d \in \mathcal{C}} P(d | q) \, P(y | q, d)
+    \approx \sum_{i=1}^{k} P(d_i | q) \, P_{\text{LLM}}(y | q, d_i)
+\]
+where $P(d | q)$ is the relevance score and $P_{\text{LLM}}(y | q, d)$
+is the generative probability conditioned on the document.
+\end{keyformulas}
+
+\begin{proposition}[Benefits of RAG]
+\begin{enumerate}
+    \item \textbf{Up-to-date knowledge}: the knowledge base can be updated
+    without retraining the model.
+    \item \textbf{Traceability}: sources are identifiable (citations).
+    \item \textbf{Reduced hallucinations}: the model grounds its output
+    in verifiable facts.
+    \item \textbf{Parameter efficiency}: a smaller model with retrieval
+    can match the quality of a larger model.
+\end{enumerate}
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Dense Retrieval}
+\label{sec:rag:dense}
+% ------------------------------------------------------------
+
+\begin{definition}[Dense Passage Retrieval (DPR)]
+\index{DPR}\index{dense retrieval}
+DPR (Karpukhin et al., 2020) encodes queries and documents into a
+shared vector space:
+\[
+    \text{sim}(q, d) = \mathbf{e}_q^\top \mathbf{e}_d
+    = E_Q(q)^\top E_D(d)
+\]
+where $E_Q$ and $E_D$ are BERT encoders fine-tuned to maximize
+similarity between queries and relevant passages.
+\end{definition}
+
+\begin{definition}[Contrastive Training Loss for DPR]
+Training uses a contrastive loss over positive and negative passages:
+\[
+    \mathcal{L} = -\log \frac{\exp(\text{sim}(q, d^+))}
+    {\exp(\text{sim}(q, d^+)) + \sum_{j=1}^{n}
+    \exp(\text{sim}(q, d_j^-))}
+\]
+where $d^+$ is the relevant passage and $\{d_j^-\}$ are negatives
+(in-batch negatives and hard negatives from BM25).
+\end{definition}
+
+\begin{definition}[ColBERT]
+\index{ColBERT}
+ColBERT (Khattab et al., 2020) uses a \emph{late interaction} between
+query and document tokens:
+\[
+    \text{sim}(q, d) = \sum_{i=1}^{\abs{q}} \max_{j=1}^{\abs{d}}
+    \mathbf{q}_i^\top \mathbf{d}_j
+\]
+where $\mathbf{q}_i$ and $\mathbf{d}_j$ are contextual token embeddings.
+This fine-grained interaction improves precision while remaining
+efficient through precomputed document embeddings.
+\end{definition}
+
+\begin{remark}
+Dense retrieval outperforms traditional sparse methods (BM25) on many
+benchmarks, especially for semantic matching. However, BM25 remains
+competitive for exact keyword matching and is often used as a first-stage
+retriever or for generating hard negatives.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Vector Databases}
+\label{sec:rag:vectordb}
+% ------------------------------------------------------------
+
+\begin{definition}[Vector Database]
+\index{vector database}
+A \textbf{vector database} stores embedding vectors and supports
+Approximate Nearest Neighbor (ANN) search in sub-linear time. Examples
+include FAISS, Pinecone, Weaviate, Qdrant, and ChromaDB.
+\end{definition}
+
+\begin{proposition}[Indexing Methods]
+The main ANN indexing methods are:
+\begin{itemize}
+    \item \textbf{IVF} (Inverted File): partitions the space into
+    Voronoi cells for coarse search.
+    \item \textbf{HNSW} (Hierarchical Navigable Small World): a navigable
+    graph structure offering excellent speed-accuracy trade-offs.
+    \item \textbf{PQ} (Product Quantization): compresses vectors via
+    quantization to reduce memory footprint.
+\end{itemize}
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Chunking Strategies}
+\label{sec:rag:chunking}
+% ------------------------------------------------------------
+
+\begin{definition}[Document Chunking]
+\index{chunking}
+\textbf{Chunking} divides documents into fragments suitable for the
+model's context window:
+\begin{itemize}
+    \item \textbf{Fixed-size}: $n$ tokens with overlap of $m$ tokens.
+    \item \textbf{Paragraph-based}: respects document structure.
+    \item \textbf{Semantic}: splits at topic boundaries (using a
+    segmentation model).
+    \item \textbf{Recursive}: hierarchical splitting
+    (title $\to$ section $\to$ paragraph).
+\end{itemize}
+\end{definition}
+
+\begin{warning}[title=\textbf{Chunk Size Trade-off}]
+Chunks that are too small lose context; chunks that are too large dilute
+relevant information and waste the model's token budget. In practice,
+$256$--$512$ tokens with $50$--$100$ overlap offers a good balance.
+\end{warning}
+
+% ------------------------------------------------------------
+\section{RAG Architectures}
+\label{sec:rag:architectures}
+% ------------------------------------------------------------
+
+\begin{definition}[RAG-Sequence and RAG-Token]
+\index{RAG-Sequence}\index{RAG-Token}
+Lewis et al.\ (2020) propose two variants:
+\begin{itemize}
+    \item \textbf{RAG-Sequence}: a single document is used for the entire
+    generation:
+    $P(y|q) \approx \sum_{d} P(d|q) \prod_t P(y_t | q, d, y_{<t})$
+    \item \textbf{RAG-Token}: the document can change at each token:
+    $P(y|q) \approx \prod_t \sum_{d} P(d|q) P(y_t | q, d, y_{<t})$
+\end{itemize}
+\end{definition}
+
+\subsection{Advanced RAG}
+
+\begin{definition}[Self-RAG]
+\index{Self-RAG}
+Self-RAG (Asai et al., 2023) teaches the model to decide \emph{when}
+to retrieve (via special reflection tokens) and to evaluate the
+relevance of retrieved documents before using them.
+\end{definition}
+
+\begin{definition}[RAPTOR]
+\index{RAPTOR}
+RAPTOR builds a hierarchical tree of summaries: leaves are original
+chunks, internal nodes are cluster summaries. Retrieval traverses the
+tree from general to specific.
+\end{definition}
+
+\begin{intuition}
+Modern RAG pipelines are increasingly sophisticated: they include
+reranking of retrieved documents, query rewriting, iterative retrieval
+(the model can issue follow-up queries), and self-reflection on whether
+the retrieved context is sufficient.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Evaluating RAG Systems}
+\label{sec:rag:eval}
+% ------------------------------------------------------------
+
+\begin{definition}[RAG Evaluation Metrics]
+\index{RAG evaluation}
+RAG evaluation covers three dimensions:
+\begin{enumerate}
+    \item \textbf{Retrieval quality}: recall@$k$, precision@$k$, MRR
+    (Mean Reciprocal Rank).
+    \item \textbf{Faithfulness}: is the answer consistent with the
+    retrieved documents?
+    \item \textbf{Answer relevance}: does the answer correctly address
+    the question?
+\end{enumerate}
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{Recall@$k$ and MRR}]
+\[
+    \text{Recall@}k = \frac{\abs{\{d \in \text{top-}k : d \in \mathcal{R}\}}}
+    {\abs{\mathcal{R}}}
+    \qquad
+    \text{MRR} = \frac{1}{\abs{Q}} \sum_{q \in Q} \frac{1}{\text{rank}(d_q^+)}
+\]
+where $\mathcal{R}$ is the set of relevant documents and $d_q^+$ is the
+first relevant document.
+\end{keyformulas}
+
+\begin{example}[RAGAS Framework]
+The RAGAS framework automatically evaluates RAG systems on four metrics:
+faithfulness, answer relevance, context relevance, and context recall.
+It uses an LLM as a judge to assess each dimension.
+\end{example}
+
+% ------------------------------------------------------------
+\section{Python Implementation}
+\label{sec:rag:code}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Minimal RAG Pipeline}]
+\begin{minted}{python}
+from sentence_transformers import SentenceTransformer
+import numpy as np
+
+class SimpleRAG:
+    def __init__(self, docs, model_name="all-MiniLM-L6-v2"):
+        self.encoder = SentenceTransformer(model_name)
+        self.docs = docs
+        self.embeddings = self.encoder.encode(docs)
+
+    def retrieve(self, query, k=3):
+        q_emb = self.encoder.encode([query])
+        scores = (self.embeddings @ q_emb.T).squeeze()
+        top_k = np.argsort(scores)[-k:][::-1]
+        return [(self.docs[i], scores[i]) for i in top_k]
+
+    def generate_prompt(self, query, k=3):
+        results = self.retrieve(query, k)
+        context = "\n\n".join([doc for doc, _ in results])
+        return (f"Context:\n{context}\n\n"
+                f"Question: {query}\nAnswer:")
+
+# Usage
+docs = ["Paris is the capital of France.",
+        "Berlin is the capital of Germany.",
+        "The Eiffel Tower is 330 meters tall."]
+rag = SimpleRAG(docs)
+prompt = rag.generate_prompt("What is the capital of France?")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+\label{sec:rag:exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}[RAG Pipeline]
+Implement a complete RAG pipeline using ChromaDB as the vector store and
+a HuggingFace model for generation. Test on a corpus of Wikipedia
+articles.
+\end{exercise}
+
+\begin{exercise}[Chunking Strategies]
+Compare three chunking strategies (fixed-size, paragraph-based, semantic)
+on a corpus of 100 documents. Measure recall@5 for a set of 50 questions.
+\end{exercise}
+
+\begin{exercise}[DPR vs BM25]
+Compare DPR (dense retrieval) with BM25 (sparse retrieval) on the
+Natural Questions dataset. In which cases does dense retrieval outperform
+BM25? And vice versa?
+\end{exercise}
+
+\begin{exercise}[RAG Evaluation]
+Design an evaluation protocol for a medical question-answering RAG
+system. Which metrics are critical? How should hallucinations be handled
+in a medical context?
+\end{exercise}

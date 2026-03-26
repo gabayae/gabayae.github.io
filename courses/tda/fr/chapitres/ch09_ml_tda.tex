@@ -1,0 +1,262 @@
+% ============================================================
+\chapter{Apprentissage Machine avec la TDA}
+\label{ch:ml_tda}
+% ============================================================
+
+Les diagrammes de persistance capturent la ``forme'' des donn\'ees, mais les algorithmes d'apprentissage machine --- SVM, for\^ets al\'eatoires, r\'eseaux de neurones --- attendent des vecteurs de dimension fixe. Comment combler ce foss\'e~? C'est le probl\`eme de la \emph{vectorisation}, l'un des d\'efis centraux de la TDA appliqu\'ee. Peter Bubenik (2015) propose les \emph{paysages de persistance}, des fonctions dans un espace de Banach~; Henry Adams et ses collaborateurs introduisent les \emph{images de persistance}~; Mathieu Carri\`ere et al.\ d\'eveloppent les noyaux de persistance. Plus r\'ecemment, les couches de persistance diff\'erentiables permettent d'int\'egrer la TDA directement dans les r\'eseaux de neurones profonds, ouvrant la voie \`a un apprentissage topologique de bout en bout.
+
+\begin{intuition}
+Les diagrammes de persistance vivent dans un espace non vectoriel~:
+on ne peut pas directement les additionner ni les multiplier par un
+scalaire. Pour les utiliser dans un pipeline d'apprentissage machine,
+il faut les \textbf{vectoriser}\index{vectorisation}, c'est-\`a-dire
+les transformer en repr\'esentations vivant dans un espace de Hilbert
+ou un espace de features de dimension finie.
+\end{intuition}
+
+% ============================================================
+\section{Paysages de persistance}
+\label{sec:landscapes}
+% ============================================================
+
+Rappelons le paysage de persistance introduit au
+Chapitre~\ref{ch:diagrammes}~: pour un diagramme
+$D = \{(b_i, d_i)\}$, le $k$-\`eme paysage $\lambda_k(t)$ est la
+$k$-\`eme plus grande valeur des fonctions tentes $\Lambda_i(t)$.
+Les paysages vivent dans un espace de Banach, ce qui permet de calculer
+moyennes, variances et de r\'ealiser des tests statistiques.
+\index{paysage de persistance}
+
+\begin{minted}{python}
+from gudhi.representations import Landscape
+import numpy as np
+
+# Diagramme de persistance
+dgm = np.array([[0.0, 1.5], [0.5, 2.0], [1.0, 3.0]])
+
+# Calcul des 3 premiers paysages sur une grille
+landscape = Landscape(num_landscapes=3, resolution=100)
+L = landscape.fit_transform([dgm])
+print(f"Shape: {L.shape}")  # (1, 300)
+\end{minted}
+
+% ============================================================
+\section{Images de persistance}
+\label{sec:images}
+% ============================================================
+
+\begin{definition}[Image de persistance --- Adams et al.\ 2017]
+\index{image de persistance}
+Soit $D$ un diagramme de persistance. L'\textbf{image de persistance}
+est construite en trois \'etapes~:
+\begin{enumerate}
+  \item \textbf{Changement de coordonn\'ees}~: on transforme chaque
+        $(b_i, d_i)$ en $(b_i, d_i - b_i)$ (naissance, persistance).
+  \item \textbf{Pond\'eration}~: on applique une fonction de poids
+        $w : \R^2 \to \R_+$ (typiquement lin\'eaire en la persistance)
+        pour att\'enuer les points proches de la diagonale.
+  \item \textbf{Lissage gaussien}~: on place une gaussienne
+        $\mathcal{N}((b_i, p_i), \sigma^2 I)$ sur chaque point et
+        on discr\'etise sur une grille $N \times N$.
+\end{enumerate}
+L'image r\'esultante est~:
+\[
+  \rho(x, y) = \sum_{i=1}^n w(b_i, p_i) \cdot
+  \frac{1}{2\pi\sigma^2}
+  \exp\!\left(-\frac{(x - b_i)^2 + (y - p_i)^2}{2\sigma^2}\right).
+\]
+\end{definition}
+
+\begin{theoreme}[Stabilit\'e des images de persistance]
+Si $w$ est lipschitzienne et born\'ee, l'application
+$D \mapsto \rho_D$ est lipschitzienne pour la distance de Wasserstein
+$W_1$~:
+\[
+  \norm{\rho_{D_1} - \rho_{D_2}}_\infty \leq C \cdot W_1(D_1, D_2).
+\]
+\end{theoreme}
+
+% ============================================================
+\section{Silhouettes de persistance}
+\label{sec:silhouettes}
+% ============================================================
+
+Rappelons la silhouette de persistance d'ordre $q$ introduite au
+Chapitre~\ref{ch:diagrammes}~: c'est la moyenne pond\'er\'ee (par
+$(d_i - b_i)^q$) des fonctions tentes. Pour $q$ grand, elle donne plus
+de poids aux structures persistantes. La silhouette est un \'el\'ement
+de $L^p(\R)$, donc directement utilisable comme feature dans un
+pipeline d'apprentissage.
+\index{silhouette de persistance}
+
+% ============================================================
+\section{M\'ethodes \`a noyaux}
+\label{sec:noyaux}
+% ============================================================
+
+\begin{definition}[Noyau de persistance]
+\index{noyau de persistance}
+Un \textbf{noyau de persistance} est un noyau d\'efini positif
+$K : \mathcal{D} \times \mathcal{D} \to \R$ sur l'espace des
+diagrammes de persistance.
+\end{definition}
+
+\begin{definition}[Noyau \`a \'echelle de persistance --- Reininghaus et al.\ 2015]
+\[
+  k_\sigma(D_1, D_2) = \frac{1}{8\pi\sigma}
+  \sum_{p \in D_1} \sum_{q \in D_2}
+  \left(e^{-\frac{\norm{p - q}^2}{8\sigma}}
+  - e^{-\frac{\norm{p - \bar{q}}^2}{8\sigma}}\right)
+\]
+o\`u $\bar{q} = (d_q, b_q)$ est le point $q$ r\'efl\'echi par rapport
+\`a la diagonale.
+\end{definition}
+
+\begin{proposition}[D\'efini positivit\'e]
+Le noyau $k_\sigma$ est d\'efini positif et stable~:
+$\abs{k_\sigma(D_1, D_1') - k_\sigma(D_2, D_2')} \leq
+C_\sigma (W_1(D_1, D_2) + W_1(D_1', D_2'))$.
+\end{proposition}
+
+\begin{definition}[Noyau de Fisher --- Le, Yamada 2018]
+\index{noyau de Fisher}
+Le \textbf{noyau de Fisher} mod\'elise chaque diagramme comme une
+distribution et utilise la distance de Fisher entre distributions~:
+\[
+  K_{\mathrm{Fisher}}(D_1, D_2) = \exp\!\left(
+  -\frac{1}{2t} d_{\mathrm{Fisher}}^2(D_1, D_2)\right).
+\]
+\end{definition}
+
+% ============================================================
+\section{Int\'egration dans un pipeline ML}
+\label{sec:pipeline}
+% ============================================================
+
+\begin{exemple}[Pipeline complet de classification]
+\begin{enumerate}
+  \item \textbf{Donn\'ees}~: nuages de points ou s\'eries temporelles.
+  \item \textbf{Filtration}~: Rips, Alpha ou sublevel set.
+  \item \textbf{Persistance}~: calcul des diagrammes via \texttt{gudhi}
+        ou \texttt{ripser}.
+  \item \textbf{Vectorisation}~: images de persistance, paysages ou noyaux.
+  \item \textbf{Mod\`ele}~: SVM, Random Forest ou r\'egression logistique.
+\end{enumerate}
+\end{exemple}
+
+\begin{minted}{python}
+from sklearn.pipeline import Pipeline
+from sklearn.svm import SVC
+from gudhi.representations import (
+    PersistenceImage, Landscape, DiagramSelector
+)
+
+# Pipeline scikit-learn avec features topologiques
+pipe = Pipeline([
+    ("selector", DiagramSelector(use=True)),
+    ("persistence_image", PersistenceImage(
+        bandwidth=0.1, resolution=[20, 20]
+    )),
+    ("classifier", SVC(kernel="rbf", C=10.0)),
+])
+
+# pipe.fit(X_train_diagrams, y_train)
+# y_pred = pipe.predict(X_test_diagrams)
+\end{minted}
+
+\begin{attention}[title=\textbf{Choix de la vectorisation}]
+\begin{itemize}
+  \item Les \textbf{paysages} pr\'eservent la structure de Banach et
+        permettent des tests statistiques.
+  \item Les \textbf{images} sont plus adapt\'ees aux CNN car elles
+        produisent des repr\'esentations 2D.
+  \item Les \textbf{noyaux} sont pr\'ef\'erables avec des SVM en
+        petite dimension.
+\end{itemize}
+\end{attention}
+
+% ============================================================
+\section{Scikit-TDA et \'ecosyst\`eme logiciel}
+\label{sec:scikit_tda}
+% ============================================================
+
+\begin{remarque}[\'Ecosyst\`eme Python pour la TDA]
+\index{scikit-TDA}
+\begin{itemize}
+  \item \textbf{GUDHI}~: biblioth\`eque C++/Python compl\`ete
+        (filtrations, persistance, repr\'esentations).
+  \item \textbf{Ripser}~: calcul rapide de la persistance de Rips.
+  \item \textbf{scikit-tda}~: m\'eta-paquet int\'egrant Ripser,
+        Persim (distances), KeplerMapper.
+  \item \textbf{giotto-tda}~: pipeline TDA compatible scikit-learn
+        avec acc\'el\'eration C++.
+\end{itemize}
+\end{remarque}
+
+% ============================================================
+\section{Exercices}
+% ============================================================
+
+\begin{exercice}
+Calculer les deux premiers paysages de persistance du diagramme
+$D = \{(0, 3), (1, 4), (2, 5)\}$ et les tracer.
+\end{exercice}
+
+\begin{exercice}
+Montrer que la silhouette de persistance d'ordre $q = 1$ est la
+moyenne pond\'er\'ee (par la persistance) des fonctions tentes.
+\end{exercice}
+
+\begin{exercice}[Impl\'ementation]
+Construire un pipeline complet qui classifie des nuages de points
+\'echantillonn\'es sur le cercle vs.\ la figure en huit, en utilisant
+des images de persistance et un SVM.
+\end{exercice}
+
+\begin{exercice}
+Montrer que le noyau de Reininghaus est invariant par r\'eflexion
+diagonale~: $k_\sigma(D, D') = k_\sigma(D', D)$.
+\end{exercice}
+
+\begin{exercice}[Comparaison exp\'erimentale]
+Comparer les performances de classification (accuracy, temps de
+calcul) entre paysages, images et noyaux de persistance sur un
+jeu de donn\'ees de votre choix.
+\end{exercice}
+
+\begin{exercice}[Stabilit\'e des paysages de persistance]
+Soient $D_1$ et $D_2$ deux diagrammes de persistance et
+$\lambda_k^{(1)}$, $\lambda_k^{(2)}$ leurs $k$-\`emes paysages respectifs.
+\begin{enumerate}
+  \item Montrer que pour chaque point $(b, d)$ du diagramme, la fonction
+        tente $\Lambda(t) = \max(0, \min(t - b, d - t))$ est $1$-lipschitzienne.
+  \item En utilisant le fait que l'op\'eration $\mathrm{kmax}$ est
+        $1$-lipschitzienne en norme $\ell^\infty$ sur les vecteurs tri\'es,
+        montrer que~:
+        \[
+          \norm{\lambda_k^{(1)} - \lambda_k^{(2)}}_{L^\infty}
+          \leq W_\infty(D_1, D_2).
+        \]
+  \item G\'en\'eraliser au cas $L^p$~: montrer que
+        $\norm{\lambda_k^{(1)} - \lambda_k^{(2)}}_{L^p}
+        \leq C_p \cdot W_p(D_1, D_2)^{1/p}$
+        et discuter la constante $C_p$.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Pipeline SVM \`a noyau avec features de persistance]
+On souhaite classifier des nuages de points en trois classes~:
+cercle, tore (section 2D) et sph\`ere (\'echantillonn\'ee en 3D).
+\begin{enumerate}
+  \item Pour chaque nuage, calculer le diagramme de persistance en
+        homologie de degr\'es 0 et 1 via un complexe de Vietoris--Rips.
+  \item Construire la matrice de Gram du noyau de Reininghaus~:
+        $G_{ij} = k_\sigma(D_i, D_j)$ pour un param\`etre $\sigma$ choisi
+        par validation crois\'ee.
+  \item Entra\^iner un SVM \`a noyau pr\'ecalcul\'e (\texttt{kernel='precomputed'})
+        et rapporter l'accuracy en validation crois\'ee 5-folds.
+  \item Comparer avec un pipeline utilisant des images de persistance
+        concat\'en\'ees (degr\'es 0 et 1) et un SVM RBF. Discuter les
+        avantages et inconv\'enients de chaque approche.
+\end{enumerate}
+\end{exercice}

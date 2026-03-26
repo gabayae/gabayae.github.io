@@ -1,0 +1,255 @@
+% ============================================================
+\chapter{Programmation Non-Lin\'eaire}
+\label{ch:non_lineaire}
+% ============================================================
+
+\section{Introduction}
+
+La programmation lin\'eaire suppose que le monde est fait de lignes droites et de plans. Mais d\`es que l'on cherche \`a maximiser un profit en pr\'esence de rendements d\'ecroissants, \`a minimiser une \'energie non quadratique, ou \`a concevoir une structure a\'erodynamique, on quitte le monde lin\'eaire. La \emph{programmation non lin\'eaire} traite ces probl\`emes, au prix d'une complexit\'e consid\'erablement accrue~: l'optimalit\'e locale ne garantit plus l'optimalit\'e globale, et les conditions n\'ecessaires (KKT) deviennent plus subtiles. Les m\'ethodes de descente (gradient, Newton, quasi-Newton), les p\'enalit\'es et les multiplicateurs augment\'es forment l'arsenal algorithmique de ce chapitre.
+
+\begin{intuition}
+En programmation lin\'eaire, l'optimum se trouve toujours sur un sommet du
+poly\`edre. En optimisation non lin\'eaire, l'optimum peut se situer n'importe
+o\`u --- \`a l'int\'erieur de la r\'egion r\'ealisable, sur sa fronti\`ere, ou
+m\^eme \^etre un point selle. Il faut des outils d'analyse plus fins que la
+simple g\'eom\'etrie des poly\`edres.
+\end{intuition}
+
+\section{Optimisation sans contraintes}
+
+\subsection{Conditions d'optimalit\'e}
+
+\begin{theoreme}[Conditions n\'ecessaires du premier ordre]
+\index{conditions d'optimalit\'e}
+Si $f : \R^n \to \R$ est diff\'erentiable et $x^*$ est un minimum local, alors~:
+\[
+  \nabla f(x^*) = 0.
+\]
+\end{theoreme}
+
+\begin{theoreme}[Conditions suffisantes du second ordre]
+Si $f$ est deux fois diff\'erentiable, $\nabla f(x^*) = 0$ et la matrice
+hessienne $\nabla^2 f(x^*)$ est \textbf{d\'efinie positive}, alors $x^*$ est
+un \textbf{minimum local strict}.
+\end{theoreme}
+
+\begin{attention}[title=\textbf{Minima locaux vs globaux}]
+Pour une fonction non convexe, un point satisfaisant les conditions du
+premier et second ordre n'est qu'un minimum \textbf{local}. Il peut exister
+de nombreux minima locaux. Seule la convexit\'e de $f$ garantit que tout
+minimum local est global.
+\end{attention}
+
+\subsection{M\'ethode de descente de gradient}
+
+\begin{definition}[Descente de gradient]
+\index{descente de gradient}
+La \textbf{descente de gradient} g\'en\`ere une suite $(x_k)$ par~:
+\[
+  x_{k+1} = x_k - \alpha_k \nabla f(x_k),
+\]
+o\`u $\alpha_k > 0$ est le \textbf{pas} (ou taux d'apprentissage).
+\end{definition}
+
+\begin{theoreme}[Convergence -- fonctions $L$-lisses convexes]
+Si $f$ est convexe et $\nabla f$ est $L$-lipschitzienne, la descente de
+gradient avec pas constant $\alpha = 1/L$ v\'erifie~:
+\[
+  f(x_k) - f(x^*) \leq \frac{L \norm{x_0 - x^*}^2}{2k}.
+\]
+La convergence est en $\mathcal{O}(1/k)$.
+\end{theoreme}
+
+\begin{formules}[title=\textbf{Choix du pas}]
+\begin{itemize}
+  \item \textbf{Pas constant}~: $\alpha_k = \alpha < 2/L$ (simple, convergent).
+  \item \textbf{Recherche lin\'eaire exacte}~:
+        $\alpha_k = \argmin_{\alpha > 0} f(x_k - \alpha \nabla f(x_k))$.
+  \item \textbf{Backtracking (Armijo)}~: r\'eduire $\alpha$ par un facteur
+        $\beta \in (0,1)$ jusqu'\`a~:
+        $f(x_k - \alpha \nabla f(x_k)) \leq f(x_k) -
+        c \alpha \norm{\nabla f(x_k)}^2$ avec $c \in (0, 1)$.
+\end{itemize}
+\end{formules}
+
+\subsection{M\'ethode de Newton}
+
+\begin{definition}[M\'ethode de Newton]
+\index{m\'ethode de Newton}
+La \textbf{m\'ethode de Newton} utilise l'information du second ordre~:
+\[
+  x_{k+1} = x_k - [\nabla^2 f(x_k)]^{-1} \nabla f(x_k).
+\]
+\end{definition}
+
+\begin{theoreme}[Convergence quadratique]
+Si $f$ est deux fois continument diff\'erentiable, $\nabla^2 f$ est
+lipschitzienne, et $x_0$ est suffisamment proche de $x^*$ (o\`u
+$\nabla^2 f(x^*)$ est d\'efinie positive), alors la convergence est
+\textbf{quadratique}~:
+\[
+  \norm{x_{k+1} - x^*} \leq C \norm{x_k - x^*}^2.
+\]
+\end{theoreme}
+
+\begin{remarque}
+La m\'ethode de Newton converge tr\`es rapidement pr\`es de la solution, mais
+n\'ecessite le calcul et l'inversion de la hessienne ($\mathcal{O}(n^3)$
+par it\'eration). Les m\'ethodes de \textbf{quasi-Newton} (BFGS, L-BFGS)
+approximent la hessienne pour r\'eduire le co\^ut.
+\end{remarque}
+
+\begin{exemple}[Descente de gradient vs Newton]
+Consid\'erons $f(x_1, x_2) = 10 x_1^2 + x_2^2$ (fonction quadratique mal
+conditionn\'ee, $L/\mu = 10$). Depuis $x_0 = (10, 1)^\top$~:
+\begin{itemize}
+  \item Gradient (pas $\alpha = 1/L = 1/20$)~: convergence lente, trajectoire
+        en zigzag.
+  \item Newton~: convergence en \textbf{une seule it\'eration} car $f$ est
+        quadratique et la hessienne est constante.
+\end{itemize}
+\end{exemple}
+
+\section{Optimisation avec contraintes~: conditions KKT}
+
+\begin{definition}[Probl\`eme d'optimisation contraint]
+On consid\`ere~:
+\[
+  \min_{x \in \R^n} f(x) \quad \text{s.c.} \quad
+  g_i(x) \leq 0, \; i = 1, \ldots, m, \qquad
+  h_j(x) = 0, \; j = 1, \ldots, p.
+\]
+\end{definition}
+
+\begin{theoreme}[Conditions de Karush-Kuhn-Tucker]
+\index{conditions KKT}
+Si $x^*$ est un minimum local et qu'une condition de qualification des
+contraintes est satisfaite (ex.~: LICQ), alors il existe des multiplicateurs
+$\lambda^* \in \R^m_+$ et $\nu^* \in \R^p$ tels que~:
+\begin{enumerate}
+  \item \textbf{Stationnarit\'e}~:
+        $\nabla f(x^*) + \sum_{i=1}^m \lambda_i^* \nabla g_i(x^*)
+        + \sum_{j=1}^p \nu_j^* \nabla h_j(x^*) = 0$.
+  \item \textbf{R\'ealisabilit\'e primale}~:
+        $g_i(x^*) \leq 0$, $h_j(x^*) = 0$.
+  \item \textbf{R\'ealisabilit\'e duale}~: $\lambda_i^* \geq 0$.
+  \item \textbf{Compl\'ementarit\'e}~: $\lambda_i^* g_i(x^*) = 0$.
+\end{enumerate}
+\end{theoreme}
+
+\begin{remarque}
+Pour un probl\`eme convexe (fonction objectif convexe, contraintes
+d'in\'egalit\'e convexes, contraintes d'\'egalit\'e affines), les conditions
+KKT sont aussi \textbf{suffisantes} pour l'optimalit\'e globale.
+\end{remarque}
+
+\section{M\'ethodes de p\'enalit\'e et barri\`ere}
+
+\subsection{M\'ethode de p\'enalit\'e ext\'erieure}
+
+\begin{definition}[P\'enalit\'e quadratique]
+\index{m\'ethode de p\'enalit\'e}
+On remplace le probl\`eme contraint par la suite de probl\`emes sans
+contraintes~:
+\[
+  \min_{x} f(x) + \frac{\rho}{2} \sum_{i=1}^m [\max(0, g_i(x))]^2
+  + \frac{\rho}{2} \sum_{j=1}^p [h_j(x)]^2,
+\]
+avec $\rho \to +\infty$.
+\end{definition}
+
+\begin{theoreme}[Convergence de la p\'enalit\'e]
+Si $\rho_k \to +\infty$ et $x_k$ est un minimum (approch\'e) du probl\`eme
+p\'enalis\'e avec param\`etre $\rho_k$, alors tout point d'accumulation de
+$(x_k)$ est une solution du probl\`eme contraint.
+\end{theoreme}
+
+\subsection{M\'ethode de barri\`ere (points int\'erieurs)}
+
+\begin{definition}[Fonction barri\`ere logarithmique]
+\index{m\'ethode de barri\`ere}
+Pour un probl\`eme avec contraintes d'in\'egalit\'e $g_i(x) \leq 0$~:
+\[
+  \min_{x} f(x) - \frac{1}{t} \sum_{i=1}^m \ln(-g_i(x)),
+\]
+avec $t \to +\infty$. La barri\`ere emp\^eche de quitter l'int\'erieur de la
+r\'egion r\'ealisable.
+\end{definition}
+
+\section{Programmation quadratique s\'equentielle (SQP)}
+
+\begin{definition}[SQP]
+\index{SQP}
+La m\'ethode \textbf{SQP} (Sequential Quadratic Programming) r\'esout un
+probl\`eme non lin\'eaire contraint en r\'esolvant \`a chaque it\'eration un
+\textbf{sous-probl\`eme quadratique}~:
+\[
+  \min_{d} \nabla f(x_k)^\top d + \frac{1}{2} d^\top H_k d \quad
+  \text{s.c.} \quad g_i(x_k) + \nabla g_i(x_k)^\top d \leq 0,
+\]
+o\`u $H_k$ est une approximation de la hessienne du lagrangien. On pose alors
+$x_{k+1} = x_k + d_k$.
+\end{definition}
+
+\begin{remarque}
+SQP est la g\'en\'eralisation de la m\'ethode de Newton au cas contraint.
+C'est l'une des m\'ethodes les plus efficaces pour l'optimisation non
+lin\'eaire de taille mod\'er\'ee, avec convergence superlin\'eaire pr\`es de
+la solution.
+\end{remarque}
+
+\section{Impl\'ementation Python}
+
+\begin{codeblock}[title=\textbf{Optimisation non lin\'eaire avec SciPy}]
+\begin{minted}{python}
+import numpy as np
+from scipy.optimize import minimize
+
+# Fonction de Rosenbrock
+def rosenbrock(x):
+    return (1 - x[0])**2 + 100*(x[1] - x[0]**2)**2
+
+x0 = np.array([-1.0, 1.0])
+
+# Descente de gradient (via L-BFGS-B)
+res = minimize(rosenbrock, x0, method='L-BFGS-B')
+print("L-BFGS-B :", res.x, "en", res.nit, "iterations")
+
+# Avec contraintes
+cons = ({'type': 'ineq', 'fun': lambda x: x[0] + x[1] - 1})
+res_c = minimize(rosenbrock, x0, method='SLSQP',
+                 constraints=cons)
+print("SLSQP :", res_c.x)
+\end{minted}
+\end{codeblock}
+
+\section{Exercices}
+
+\begin{exercice}[$\star$ -- Conditions KKT]
+Trouver les points KKT de~: $\min x_1^2 + x_2^2$ s.c. $x_1 + x_2 \geq 1$.
+V\'erifier que la solution est bien le minimum global.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- Descente de gradient]
+Impl\'ementer la descente de gradient avec backtracking pour
+$f(x) = x_1^4 + x_2^4 - 2x_1 x_2$ depuis $x_0 = (2, 2)^\top$.
+Tracer la trajectoire et la d\'ecroissance de $f$.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- Newton]
+Appliquer la m\'ethode de Newton \`a $f(x) = e^{x_1 + x_2} + x_1^2 + x_2^2$
+depuis $x_0 = (1, 1)^\top$. Calculer les trois premi\`eres it\'erations \`a
+la main.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- P\'enalit\'e]
+R\'esoudre $\min x_1^2 + x_2^2$ s.c. $x_1 + x_2 = 1$ par la m\'ethode de
+p\'enalit\'e quadratique pour $\rho \in \{1, 10, 100, 1000\}$. Observer la
+convergence vers la solution exacte.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- SQP]
+Formuler le sous-probl\`eme QP de la m\'ethode SQP pour~:
+$\min (x_1 - 2)^2 + (x_2 - 1)^2$ s.c. $x_1^2 + x_2^2 \leq 1$.
+R\'esoudre deux it\'erations depuis $x_0 = (0, 0)^\top$.
+\end{exercice}

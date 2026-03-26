@@ -1,0 +1,359 @@
+% !TEX root = ../main.tex
+\chapter{Analyse Exploratoire des Donn\'ees (EDA)}
+\label{ch:eda}
+
+\begin{intuition}
+L'analyse exploratoire des donn\'ees (EDA) est une philosophie d'analyse initi\'ee par John Tukey dans les ann\'ees 1970. Plut\^ot que de tester des hypoth\`eses pr\'ed\'efinies, l'EDA invite \`a <<~laisser parler les donn\'ees ~>> en les explorant syst\'ematiquement par des r\'esum\'es num\'eriques et des visualisations.
+\end{intuition}
+
+% ============================================================
+\section{Qu'est-ce que l'EDA ?}
+\index{EDA}\index{analyse exploratoire}
+
+\begin{definition}[Analyse exploratoire des donn\'ees]
+L'EDA\index{EDA} est une approche d'analyse qui utilise des techniques visuelles et quantitatives pour comprendre la structure, les anomalies et les relations dans un jeu de donn\'ees \emph{avant} toute mod\'elisation formelle.
+\end{definition}
+
+Les objectifs principaux de l'EDA sont :
+\begin{itemize}
+    \item D\'ecouvrir la \textbf{structure} des donn\'ees (dimensions, types, valeurs manquantes).
+    \item Identifier les \textbf{distributions} et les \textbf{tendances centrales}.
+    \item Rep\'erer les \textbf{anomalies} et les \textbf{valeurs aberrantes}.
+    \item Explorer les \textbf{relations} entre variables.
+    \item Formuler des \textbf{hypoth\`eses} \`a tester ult\'erieurement.
+\end{itemize}
+
+% ============================================================
+\section{Processus syst\'ematique d'EDA}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.2cm,
+    block/.style={rectangle, draw=steelblue!80, fill=steelblue!10, rounded corners, text width=3.8cm, align=center, minimum height=1cm, font=\small},
+    arrow/.style={->, thick, >=stealth, color=gray!70}
+]
+\node[align=center,block] (load) {1. Charger les donn\'ees\\{\scriptsize \py{pd.read\_csv}, \py{sns.load\_dataset}}};
+\node[align=center,block, below=of load] (shape) {2. Dimensions et types\\{\scriptsize \py{shape}, \py{dtypes}, \py{info()}}};
+\node[align=center,block, below=of shape] (missing) {3. Valeurs manquantes\\{\scriptsize \py{isnull().sum()}}};
+\node[align=center,block, below=of missing] (desc) {4. Statistiques descriptives\\{\scriptsize \py{describe()}, \py{value\_counts()}}};
+\node[align=center,block, right=2.5cm of load] (uni) {5. Analyse univari\'ee\\{\scriptsize histogrammes, boxplots}};
+\node[align=center,block, below=of uni] (bi) {6. Analyse bivari\'ee\\{\scriptsize scatter, corr\'elation}};
+\node[align=center,block, below=of bi] (multi) {7. Analyse multivari\'ee\\{\scriptsize pairplot, heatmap}};
+\node[block, below=of multi] (concl) {8. Conclusions et hypoth\`eses};
+
+\draw[arrow] (load) -- (shape);
+\draw[arrow] (shape) -- (missing);
+\draw[arrow] (missing) -- (desc);
+\draw[arrow] (desc.east) -- ++(1.25,0) |- (uni.west);
+\draw[arrow] (uni) -- (bi);
+\draw[arrow] (bi) -- (multi);
+\draw[arrow] (multi) -- (concl);
+\end{tikzpicture}
+\end{center}
+
+% ============================================================
+\section{\'Etude de cas : le jeu Titanic}
+\index{Titanic}
+
+\subsection{Chargement et premi\`ere inspection}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+titanic = sns.load_dataset('titanic')
+print(f"Dimensions : {titanic.shape}")
+print(titanic.dtypes)
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Dimensions : (891, 15)
+survived         int64
+pclass           int64
+sex             object
+age            float64
+sibsp            int64
+parch            int64
+fare           float64
+embarked        object
+class         category
+who             object
+adult_male        bool
+deck          category
+embark_town     object
+alive           object
+alone             bool
+\end{minted}
+\end{codeoutput}
+
+\subsection{Valeurs manquantes}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+missing = titanic.isnull().sum()
+missing_pct = (missing / len(titanic) * 100).round(1)
+missing_df = pd.DataFrame({'Manquantes': missing,
+                           'Pourcentage': missing_pct})
+print(missing_df[missing_df['Manquantes'] > 0])
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+             Manquantes  Pourcentage
+age                 177         19.9
+embarked              2          0.2
+deck                688         77.2
+embark_town           2          0.2
+\end{minted}
+\end{codeoutput}
+
+\begin{remarque}
+La variable \py{deck} a 77\,\% de valeurs manquantes : elle sera probablement inutilisable sans imputation lourde. La variable \py{age} a environ 20\,\% de manquants, ce qui est g\'erable.
+\end{remarque}
+
+\subsection{Statistiques descriptives}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+print(titanic.describe())
+print("\n--- Variables catégorielles ---")
+print(titanic[['sex', 'embarked', 'class']].describe())
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+         survived     pclass        age      sibsp      parch       fare
+count  891.000000  891.000000  714.00000  891.00000  891.00000  891.00000
+mean     0.383838    2.308642   29.69912    0.52301    0.38159   32.20421
+std      0.486592    0.836071   14.52650    1.10274    0.80606   49.69343
+min      0.000000    1.000000    0.42000    0.00000    0.00000    0.00000
+25%      0.000000    2.000000   20.12500    0.00000    0.00000    7.91040
+50%      0.000000    3.000000   28.00000    0.00000    0.00000   14.45420
+75%      1.000000    3.000000   38.00000    1.00000    0.00000   31.00000
+max      1.000000    3.000000   80.00000    8.00000    6.00000  512.32920
+
+--- Variables catégorielles ---
+          sex embarked class
+count     891      889   891
+unique      2        3     3
+top      male        S Third
+freq      577      644   491
+\end{minted}
+\end{codeoutput}
+
+% ============================================================
+\section{Analyse univari\'ee}
+\index{analyse univari\'ee}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+fig, axes = plt.subplots(2, 2, figsize=(12, 9))
+
+sns.histplot(titanic['age'].dropna(), bins=30, kde=True,
+             ax=axes[0,0], color='steelblue')
+axes[0,0].set_title('Distribution de l\'\\^age')
+
+sns.countplot(data=titanic, x='pclass', ax=axes[0,1],
+              palette='viridis')
+axes[0,1].set_title('R\'epartition par classe')
+
+sns.countplot(data=titanic, x='survived', ax=axes[1,0],
+              palette='Set2')
+axes[1,0].set_xticklabels(['Décédé', 'Survivant'])
+axes[1,0].set_title('Survie')
+
+sns.histplot(titanic['fare'], bins=40, ax=axes[1,1],
+             color='coral')
+axes[1,1].set_title('Distribution du tarif')
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Quatre graphiques : l'\^age suit approximativement une distribution normale centr\'ee vers 29 ans ; la troisi\`eme classe est la plus repr\'esent\'ee (491) ; 62\,\% des passagers n'ont pas surv\'ecu ; le tarif est tr\`es asym\'etrique avec une longue queue droite.
+\end{codeoutput}
+
+% ============================================================
+\section{Analyse bivari\'ee}
+\index{analyse bivari\'ee}
+
+\subsection{Survie par sexe et par classe}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+
+# Survie par sexe
+sns.barplot(data=titanic, x='sex', y='survived',
+            ax=axes[0], palette='coolwarm', ci=95)
+axes[0].set_title('Taux de survie par sexe')
+axes[0].set_ylabel('Taux de survie')
+
+# Survie par classe
+sns.barplot(data=titanic, x='pclass', y='survived',
+            ax=axes[1], palette='viridis', ci=95)
+axes[1].set_title('Taux de survie par classe')
+
+# Survie par sexe et classe
+sns.barplot(data=titanic, x='pclass', y='survived',
+            hue='sex', ax=axes[2], palette='Set1', ci=95)
+axes[2].set_title('Survie par classe et sexe')
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Les femmes ont un taux de survie de 74\,\% contre 19\,\% pour les hommes. La 1\`ere classe a 63\,\% de survie, la 2\`eme 47\,\% et la 3\`eme 24\,\%. La combinaison montre que les femmes de 1\`ere classe ont surv\'ecu \`a pr\`es de 97\,\%.
+\end{codeoutput}
+
+\subsection{Corr\'elations et table de contingence}
+\index{table de contingence}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Table de contingence
+ct = pd.crosstab(titanic['sex'], titanic['survived'],
+                 margins=True)
+ct.columns = ['Décédé', 'Survivant', 'Total']
+print(ct)
+
+# Corrélation numérique
+cols_num = ['survived', 'pclass', 'age', 'sibsp', 'parch', 'fare']
+corr = titanic[cols_num].corr()
+print("\nMatrice de corrélation :")
+print(corr.round(2))
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+         Décédé  Survivant  Total
+sex
+female       81        233    314
+male        468        109    577
+Total       549        342    891
+
+Matrice de corrélation :
+          survived  pclass    age  sibsp  parch   fare
+survived      1.00   -0.34  -0.08  -0.04   0.08   0.26
+pclass       -0.34    1.00  -0.37   0.08   0.02  -0.55
+age          -0.08   -0.37   1.00  -0.31  -0.19   0.10
+fare          0.26   -0.55   0.10  -0.24   0.22   1.00
+\end{minted}
+\end{codeoutput}
+
+% ============================================================
+\section{Analyse multivari\'ee}
+\index{analyse multivari\'ee}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+fig, ax = plt.subplots(figsize=(8, 6))
+sns.heatmap(corr, annot=True, fmt='.2f', cmap='RdBu_r',
+            center=0, ax=ax, square=True,
+            linewidths=0.5)
+ax.set_title('Heatmap des corr\'elations -- Titanic')
+plt.tight_layout()
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Heatmap montrant les corr\'elations : la survie est n\'egativement corr\'el\'ee avec la classe ($-0.34$) et positivement avec le tarif ($0.26$). La classe et le tarif sont fortement anti-corr\'el\'es ($-0.55$).
+\end{codeoutput}
+
+% ============================================================
+\section{D\'etection des valeurs aberrantes}
+\index{valeurs aberrantes}\index{IQR}
+
+\begin{definition}[M\'ethode IQR]
+Une observation est consid\'er\'ee comme aberrante si elle se trouve en dehors de l'intervalle :
+\[
+\bigl[Q_1 - 1.5 \times \text{IQR},\; Q_3 + 1.5 \times \text{IQR}\bigr]
+\]
+o\`u $\text{IQR} = Q_3 - Q_1$ est l'\'ecart interquartile\index{\'ecart interquartile}.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+def detecter_outliers_iqr(df, colonne):
+    Q1 = df[colonne].quantile(0.25)
+    Q3 = df[colonne].quantile(0.75)
+    IQR = Q3 - Q1
+    borne_inf = Q1 - 1.5 * IQR
+    borne_sup = Q3 + 1.5 * IQR
+    outliers = df[(df[colonne] < borne_inf) |
+                  (df[colonne] > borne_sup)]
+    return outliers, borne_inf, borne_sup
+
+outliers_fare, b_inf, b_sup = detecter_outliers_iqr(titanic, 'fare')
+print(f"Bornes : [{b_inf:.2f}, {b_sup:.2f}]")
+print(f"Nombre d'outliers (fare) : {len(outliers_fare)}")
+print(f"Tarif max : {titanic['fare'].max():.2f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Bornes : [-26.72, 65.63]
+Nombre d'outliers (fare) : 116
+Tarif max : 512.33
+\end{minted}
+\end{codeoutput}
+
+\begin{remarque}
+116 passagers (13\,\%) ont un tarif consid\'er\'e comme aberrant par la m\'ethode IQR. Ce sont principalement des passagers de premi\`ere classe. Il ne faut pas les supprimer automatiquement : ce sont des valeurs l\'egitimes qui refl\`etent la structure des donn\'ees.
+\end{remarque}
+
+% ============================================================
+\section{Exercices}
+
+\begin{exercice}[$\star$]
+Chargez le jeu \py{titanic} et affichez les 5 premi\`eres lignes, les dimensions, les types de colonnes et le nombre de valeurs manquantes par colonne.
+\end{exercice}
+
+\begin{exercice}[$\star$]
+Calculez le taux de survie global, puis le taux de survie par port d'embarquement (\py{embarked}). Quelle est la lettre du port avec le meilleur taux de survie ?
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Cr\'eez un graphique avec \py{sns.catplot} de type \py{'bar'} montrant le taux de survie par classe et par sexe. Ajoutez un titre informatif. Interpr\'etez les r\'esultats en termes de priorit\'e d'\'evacuation.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Cr\'eez un histogramme de l'\^age des passagers, s\'epar\'e par survie (\py{hue='survived'}). Les survivants sont-ils en moyenne plus jeunes ? V\'erifiez avec \py{groupby('survived')['age'].mean()}.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$]
+Appliquez la m\'ethode IQR pour d\'etecter les outliers dans la variable \py{age}. Combien sont-ils ? Cr\'eez un boxplot annot\'e montrant les bornes IQR et les outliers. Discutez de la pertinence de supprimer ces observations.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$]
+R\'ealisez une EDA compl\`ete du jeu \py{penguins} (\py{sns.load\_dataset('penguins')}). Votre analyse doit inclure : (a) inspection g\'en\'erale, (b) traitement des valeurs manquantes, (c) distributions univari\'ees, (d) analyse bivari\'ee par esp\`ece, (e) heatmap de corr\'elation. Concluez en formulant 3 hypoth\`eses testables.
+\end{exercice}
+
+% ============================================================
+\begin{formules}
+\textbf{R\'esum\'e du chapitre -- Analyse exploratoire des donn\'ees}
+\begin{itemize}
+    \item \textbf{Inspection} : \py{df.shape}, \py{df.dtypes}, \py{df.info()}, \py{df.head()}.
+    \item \textbf{Manquants} : \py{df.isnull().sum()}, \py{df.isnull().mean() * 100}.
+    \item \textbf{Descriptif} : \py{df.describe()}, \py{df['col'].value\_counts()}.
+    \item \textbf{Univari\'e} : \py{sns.histplot()}, \py{sns.countplot()}, \py{sns.boxplot()}.
+    \item \textbf{Bivari\'e} : \py{sns.barplot(x, y)}, \py{sns.scatterplot()}, \py{pd.crosstab()}.
+    \item \textbf{Multivari\'e} : \py{df.corr()}, \py{sns.heatmap()}, \py{sns.pairplot()}.
+    \item \textbf{Outliers (IQR)} : aberrant si $x < Q_1 - 1.5 \cdot \text{IQR}$ ou $x > Q_3 + 1.5 \cdot \text{IQR}$.
+    \item \textbf{Philosophie Tukey} : explorer d'abord, mod\'eliser ensuite.
+\end{itemize}
+\end{formules}

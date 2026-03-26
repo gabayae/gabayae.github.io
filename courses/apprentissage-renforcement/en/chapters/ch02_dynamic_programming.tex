@@ -1,0 +1,346 @@
+% =============================================================================
+\chapter{Dynamic Programming}
+\label{ch:dynamic_programming}
+% =============================================================================
+
+The name ``dynamic programming'' is one of the great misnomers in mathematics. Richard Bellman, who invented the framework in the 1950s at the RAND Corporation, later confessed that he chose the word ``dynamic'' to impress his Pentagon sponsors and ``programming'' because it sounded good---the actual content has nothing to do with computer programming in the modern sense. What Bellman discovered was something far deeper: a \emph{principle of optimality} stating that an optimal policy has the property that, whatever the initial state and decision, the remaining decisions must constitute an optimal policy from the resulting state onward.
+
+This recursive insight transforms an impossibly large optimisation problem---choosing the best action at every state for all time---into a sequence of local computations. When the environment is fully known (transition probabilities and rewards are given), dynamic programming solves Markov decision processes exactly, through two complementary algorithms: \emph{policy iteration} and \emph{value iteration}. These are not merely historical curiosities; they are the theoretical bedrock upon which all of reinforcement learning is built. Every modern RL algorithm, from Q-learning to policy gradient methods, can be understood as an approximation of the ideas in this chapter.
+
+\begin{intuition}
+Dynamic programming (DP) solves MDPs when the transition model $P(s'|s,a)$ and
+reward function $R(s,a,s')$ are perfectly known. It constitutes the theoretical
+foundation upon which all reinforcement learning methods rest.
+\end{intuition}
+
+% -----------------------------------------------------------------------------
+\section{Principle of Dynamic Programming}
+% -----------------------------------------------------------------------------
+
+Dynamic programming, introduced by Richard Bellman in the 1950s, exploits the
+recursive structure of the Bellman equations to iteratively compute value
+functions. The two fundamental algorithms are:
+\begin{enumerate}
+    \item \textbf{Policy evaluation}: computing $V^\pi$ for a given policy $\pi$.
+    \item \textbf{Policy improvement}: constructing a better policy from $V^\pi$.
+\end{enumerate}
+
+% -----------------------------------------------------------------------------
+\section{Policy Evaluation}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Iterative Policy Evaluation]
+Iterative policy evaluation computes $V^\pi$ by repeatedly applying the
+Bellman operator $\mathcal{T}^\pi$:
+\[
+    V_{k+1}(s) = \sum_{a} \pi(a|s) \sum_{s'} P(s'|s,a)[R(s,a,s') + \gamma V_k(s')]
+    \quad \forall s \in \mathcal{S}.
+\]
+\end{definition}
+
+\begin{theorem}[Convergence of Policy Evaluation]
+\label{thm:conv_eval}
+For any initialization $V_0$, the sequence $(V_k)_{k \geq 0}$ defined by
+$V_{k+1} = \mathcal{T}^\pi V_k$ converges to $V^\pi$ as $k \to \infty$.
+Moreover:
+\[
+    \norm{V_k - V^\pi}_\infty \leq \gamma^k \norm{V_0 - V^\pi}_\infty.
+\]
+\end{theorem}
+
+\begin{proof}
+This is a direct consequence of Theorem~\ref{thm:contraction}. The operator
+$\mathcal{T}^\pi$ is a $\gamma$-contraction in the infinity norm, so by
+Banach's fixed-point theorem, the sequence converges geometrically to the
+unique fixed point $V^\pi$.
+\end{proof}
+
+\begin{algorithme}[title=\textbf{Iterative Policy Evaluation}]
+\begin{enumerate}
+    \item Initialize $V(s) \leftarrow 0$ for all $s \in \mathcal{S}$
+    \item \textbf{Repeat} until convergence ($\Delta < \theta$):
+    \begin{enumerate}
+        \item $\Delta \leftarrow 0$
+        \item For each $s \in \mathcal{S}$:
+        \begin{enumerate}
+            \item $v \leftarrow V(s)$
+            \item $V(s) \leftarrow \sum_a \pi(a|s) \sum_{s'} P(s'|s,a)[R(s,a,s') + \gamma V(s')]$
+            \item $\Delta \leftarrow \max(\Delta, |v - V(s)|)$
+        \end{enumerate}
+    \end{enumerate}
+    \item Return $V \approx V^\pi$
+\end{enumerate}
+\end{algorithme}
+
+% -----------------------------------------------------------------------------
+\section{Policy Improvement}
+% -----------------------------------------------------------------------------
+
+\begin{theorem}[Policy Improvement Theorem]
+\label{thm:policy_improvement}
+Let $\pi$ be a policy and $\pi'$ the greedy policy with respect to $V^\pi$:
+\[
+    \pi'(s) = \argmax_{a \in \mathcal{A}} \sum_{s'} P(s'|s,a)[R(s,a,s') + \gamma V^\pi(s')].
+\]
+Then $V^{\pi'}(s) \geq V^\pi(s)$ for all $s \in \mathcal{S}$, with equality
+if and only if $\pi$ is already optimal.
+\end{theorem}
+
+\begin{proof}
+For any state $s$:
+\begin{align*}
+    V^\pi(s) &\leq \max_a Q^\pi(s,a) = Q^\pi(s, \pi'(s)) \\
+    &= \sum_{s'} P(s'|s,\pi'(s))[R(s,\pi'(s),s') + \gamma V^\pi(s')] \\
+    &\leq \sum_{s'} P(s'|s,\pi'(s))[R(s,\pi'(s),s') + \gamma Q^\pi(s',\pi'(s'))] \\
+    &\leq \cdots \leq V^{\pi'}(s).
+\end{align*}
+The result follows by recursive application of the inequality.
+\end{proof}
+
+% -----------------------------------------------------------------------------
+\section{Policy Iteration}
+% -----------------------------------------------------------------------------
+
+\begin{algorithme}[title=\textbf{Policy Iteration}]
+\begin{enumerate}
+    \item Initialize $\pi(s)$ arbitrarily for all $s$
+    \item \textbf{Repeat}:
+    \begin{enumerate}
+        \item \textbf{Evaluation}: compute $V^\pi$ via iterative policy evaluation
+        \item \textbf{Improvement}: for each $s$:
+        \[
+            \pi'(s) \leftarrow \argmax_a \sum_{s'} P(s'|s,a)[R(s,a,s') + \gamma V^\pi(s')]
+        \]
+        \item If $\pi' = \pi$, \textbf{stop} (optimal policy found)
+        \item $\pi \leftarrow \pi'$
+    \end{enumerate}
+    \item Return $\pi^* = \pi$
+\end{enumerate}
+\end{algorithme}
+
+\begin{theorem}[Convergence of Policy Iteration]
+Policy iteration converges to the optimal policy $\pi^*$ in a finite number
+of iterations (at most $|\mathcal{A}|^{|\mathcal{S}|}$ iterations, since
+the number of deterministic policies is finite and each iteration strictly
+improves the policy).
+\end{theorem}
+
+% -----------------------------------------------------------------------------
+\section{Value Iteration}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Value Iteration]
+Value iteration combines evaluation and improvement in a single update:
+\[
+    V_{k+1}(s) = \max_{a \in \mathcal{A}} \sum_{s'} P(s'|s,a)
+    [R(s,a,s') + \gamma V_k(s')] \quad \forall s \in \mathcal{S}.
+\]
+\end{definition}
+
+\begin{theorem}[Convergence of Value Iteration]
+The sequence $(V_k)$ defined by value iteration converges to $V^*$:
+\[
+    \norm{V_k - V^*}_\infty \leq \gamma^k \norm{V_0 - V^*}_\infty.
+\]
+The number of iterations to reach precision $\epsilon$ is:
+\[
+    k \geq \frac{\log(\norm{V_0 - V^*}_\infty / \epsilon)}{\log(1/\gamma)}.
+\]
+\end{theorem}
+
+\begin{algorithme}[title=\textbf{Value Iteration}]
+\begin{enumerate}
+    \item Initialize $V(s) \leftarrow 0$ for all $s \in \mathcal{S}$
+    \item \textbf{Repeat} until convergence ($\Delta < \theta$):
+    \begin{enumerate}
+        \item $\Delta \leftarrow 0$
+        \item For each $s \in \mathcal{S}$:
+        \begin{enumerate}
+            \item $v \leftarrow V(s)$
+            \item $V(s) \leftarrow \max_a \sum_{s'} P(s'|s,a)[R(s,a,s') + \gamma V(s')]$
+            \item $\Delta \leftarrow \max(\Delta, |v - V(s)|)$
+        \end{enumerate}
+    \end{enumerate}
+    \item Extract policy: $\pi^*(s) = \argmax_a \sum_{s'} P(s'|s,a)[R + \gamma V(s')]$
+    \item Return $V^*, \pi^*$
+\end{enumerate}
+\end{algorithme}
+
+% -----------------------------------------------------------------------------
+\section{Comparison of Methods}
+% -----------------------------------------------------------------------------
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lcc}
+    \toprule
+    & \textbf{Policy Iteration} & \textbf{Value Iteration} \\
+    \midrule
+    Cost per iteration & $O(|\mathcal{S}|^3 + |\mathcal{S}|^2 |\mathcal{A}|)$ &
+    $O(|\mathcal{S}|^2 |\mathcal{A}|)$ \\
+    Number of iterations & Few (often $< 10$) & More ($O(1/\log(1/\gamma))$) \\
+    Memory & $V + \pi$ & $V$ only \\
+    Convergence & Finite, exact & Asymptotic \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+\begin{remark}
+In practice, policy iteration often converges in very few iterations (5--10),
+even for large MDPs. Value iteration requires more iterations but each is
+less expensive since it avoids the full policy evaluation step.
+\end{remark}
+
+% -----------------------------------------------------------------------------
+\section{Generalized Policy Iteration (GPI)}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[GPI --- Generalized Policy Iteration]
+\textbf{Generalized Policy Iteration} refers to any alternation between
+(partial or complete) policy evaluation and policy improvement. Nearly all
+RL algorithms can be viewed as instances of GPI.
+\end{definition}
+
+\begin{remark}
+Value iteration is a limiting case of GPI where evaluation performs only a
+single Bellman backup before improvement.
+\end{remark}
+
+% -----------------------------------------------------------------------------
+\section{Python Implementation}
+% -----------------------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Policy Evaluation}]
+\begin{minted}{python}
+import numpy as np
+
+def policy_evaluation(P, R, pi, gamma=0.99, theta=1e-8):
+    """
+    Iterative policy evaluation.
+    P: transition matrix (nS, nA, nS)
+    R: reward matrix (nS, nA, nS)
+    pi: deterministic policy (nS,) -> action indices
+    """
+    nS = P.shape[0]
+    V = np.zeros(nS)
+
+    while True:
+        delta = 0.0
+        for s in range(nS):
+            a = pi[s]
+            v = V[s]
+            V[s] = np.sum(P[s, a, :] * (R[s, a, :] + gamma * V))
+            delta = max(delta, abs(v - V[s]))
+        if delta < theta:
+            break
+    return V
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Policy Iteration}]
+\begin{minted}{python}
+def policy_iteration(P, R, gamma=0.99, theta=1e-8):
+    """Complete policy iteration."""
+    nS, nA = P.shape[0], P.shape[1]
+    pi = np.zeros(nS, dtype=int)
+
+    while True:
+        V = policy_evaluation(P, R, pi, gamma, theta)
+        stable = True
+        for s in range(nS):
+            old_action = pi[s]
+            Q_s = np.array([
+                np.sum(P[s, a, :] * (R[s, a, :] + gamma * V))
+                for a in range(nA)
+            ])
+            pi[s] = np.argmax(Q_s)
+            if old_action != pi[s]:
+                stable = False
+        if stable:
+            break
+    return V, pi
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Value Iteration}]
+\begin{minted}{python}
+def value_iteration(P, R, gamma=0.99, theta=1e-8):
+    """Value iteration."""
+    nS, nA = P.shape[0], P.shape[1]
+    V = np.zeros(nS)
+
+    while True:
+        delta = 0.0
+        for s in range(nS):
+            v = V[s]
+            Q_s = np.array([
+                np.sum(P[s, a, :] * (R[s, a, :] + gamma * V))
+                for a in range(nA)
+            ])
+            V[s] = np.max(Q_s)
+            delta = max(delta, abs(v - V[s]))
+        if delta < theta:
+            break
+
+    pi = np.zeros(nS, dtype=int)
+    for s in range(nS):
+        Q_s = np.array([
+            np.sum(P[s, a, :] * (R[s, a, :] + gamma * V))
+            for a in range(nA)
+        ])
+        pi[s] = np.argmax(Q_s)
+    return V, pi
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Application to FrozenLake}]
+\begin{minted}{python}
+import gymnasium as gym
+
+env = gym.make("FrozenLake-v1", is_slippery=True)
+nS = env.observation_space.n  # 16
+nA = env.action_space.n       # 4
+P_mat = np.zeros((nS, nA, nS))
+R_mat = np.zeros((nS, nA, nS))
+
+for s in range(nS):
+    for a in range(nA):
+        for prob, next_s, reward, done in env.unwrapped.P[s][a]:
+            P_mat[s, a, next_s] += prob
+            R_mat[s, a, next_s] = reward
+
+V_star, pi_star = value_iteration(P_mat, R_mat, gamma=0.99)
+print("Optimal policy (4x4 grid):")
+actions = ['<', 'v', '>', '^']
+for i in range(4):
+    print([actions[pi_star[4*i + j]] for j in range(4)])
+\end{minted}
+\end{codeblock}
+
+% -----------------------------------------------------------------------------
+\section{Exercises}
+% -----------------------------------------------------------------------------
+
+\begin{exercise}[Value Iteration Convergence]
+Show that for the $4 \times 4$ gridworld from Chapter~\ref{ch:mdp} with
+$\gamma = 0.9$ and $V_0 = 0$, value iteration achieves precision
+$\epsilon = 10^{-6}$ in at most $k$ iterations. Compute $k$.
+\end{exercise}
+
+\begin{exercise}[Modified Policy Iteration]
+Implement a version of policy iteration where evaluation performs exactly $m$
+sweeps instead of converging. Study the effect of $m$ on overall convergence
+speed for $m \in \{1, 3, 10, 100\}$.
+\end{exercise}
+
+\begin{exercise}[Asynchronous Sweeps]
+Implement an asynchronous version of value iteration where states are updated
+in random order (one state per iteration). Compare convergence with the
+standard synchronous version.
+\end{exercise}
+
+\begin{exercise}[Matrix Solution]
+For a 3-state MDP with the uniform policy, compute $V^\pi$ by matrix inversion
+$(I - \gamma P^\pi)^{-1} r^\pi$ and verify that the result matches iterative
+evaluation.
+\end{exercise}

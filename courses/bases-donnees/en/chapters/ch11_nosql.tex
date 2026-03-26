@@ -1,0 +1,301 @@
+% ============================================================
+\chapter{NoSQL Databases}
+\label{ch:nosql}
+% ============================================================
+
+\begin{intuition}[title=\textbf{Central idea}]
+NoSQL (\emph{Not Only SQL}) databases abandon the strict relational model
+to gain horizontal scalability, schema flexibility, and performance on
+specific use cases. Four major families exist: key-value, document,
+column-family, and graph.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Motivation and context}
+% ------------------------------------------------------------
+
+Relational databases reach their limits when facing:
+\begin{itemize}
+  \item massive volumes (petabytes),
+  \item semi-structured or unstructured data,
+  \item high availability and geographic distribution requirements,
+  \item evolving schemas (agile development).
+\end{itemize}
+
+\begin{remark}
+NoSQL does not mean ``anti-SQL'' but ``Not Only SQL.'' Many NoSQL databases
+now offer a declarative query language (CQL for Cassandra, MQL for MongoDB,
+Cypher for Neo4j).
+\end{remark}
+
+% ------------------------------------------------------------
+\section{The CAP theorem}
+% ------------------------------------------------------------
+
+\begin{theorem}[CAP theorem (Brewer, 2000)]
+\index{CAP theorem}
+A distributed system can simultaneously guarantee at most two of the
+following three properties:
+\begin{enumerate}
+  \item \textbf{Consistency} --- every read returns the most recent write.
+  \item \textbf{Availability} --- every request receives a response (not
+        necessarily the most recent data).
+  \item \textbf{Partition tolerance} --- the system continues to operate
+        despite network partitions.
+\end{enumerate}
+\end{theorem}
+
+\begin{attention}
+In practice, network partitions are unavoidable in a distributed system.
+The real choice is therefore between \textbf{CP} (strong consistency,
+e.g., HBase, MongoDB with \texttt{readConcern: majority}) and \textbf{AP}
+(availability, e.g., Cassandra, DynamoDB in eventual mode).
+\end{attention}
+
+\begin{definition}[Eventual consistency]
+\index{eventual consistency}
+A system with \textbf{eventual consistency} guarantees that, in the absence
+of new writes, all replicas converge to the same value after a finite delay.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Key-value stores}
+% ------------------------------------------------------------
+
+\begin{definition}[Key-value store]
+\index{key-value store}
+A \textbf{key-value store} stores pairs $(k, v)$ where $k$ is a unique key
+and $v$ is an opaque value (string, blob, serialized object). Access is by
+key only: \texttt{GET}, \texttt{SET}, \texttt{DELETE}.
+\end{definition}
+
+\begin{example}
+Redis: in-memory cache and data structure server:
+\begin{minted}{python}
+import redis
+
+r = redis.Redis(host='localhost', port=6379, db=0)
+r.set('user:1001:name', 'Alice')
+r.set('user:1001:email', 'alice@example.com')
+r.expire('user:1001:name', 3600)  # 1-hour TTL
+
+name = r.get('user:1001:name')  # b'Alice'
+
+# Advanced data structures
+r.hset('user:1002', mapping={'name': 'Bob', 'age': '25'})
+r.lpush('queue:jobs', 'task_42')
+r.zadd('leaderboard', {'Alice': 1500, 'Bob': 1200})
+\end{minted}
+\end{example}
+
+\begin{remark}
+Typical use cases: application cache, user sessions, real-time counters,
+message queues.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Document stores}
+% ------------------------------------------------------------
+
+\begin{definition}[Document store]
+\index{document store}
+A \textbf{document store} stores semi-structured documents (JSON, BSON)
+grouped into \emph{collections}. Each document has a flexible schema: two
+documents in the same collection may have different fields.
+\end{definition}
+
+\begin{example}
+MongoDB:
+\begin{minted}{python}
+from pymongo import MongoClient
+
+client = MongoClient('mongodb://localhost:27017/')
+db = client['university']
+col = db['students']
+
+# Insertion
+col.insert_one({
+    'last_name': 'Smith',
+    'first_name': 'Alice',
+    'grades': [
+        {'course': 'Databases', 'grade': 92},
+        {'course': 'Algorithms', 'grade': 88}
+    ],
+    'address': {'city': 'New York', 'zip': '10001'}
+})
+
+# Query with filter and projection
+results = col.find(
+    {'grades.grade': {'$gte': 90}},
+    {'last_name': 1, 'first_name': 1, '_id': 0}
+)
+
+# Aggregation (equivalent to GROUP BY)
+pipeline = [
+    {'$unwind': '$grades'},
+    {'$group': {'_id': '$last_name', 'avg_grade': {'$avg': '$grades.grade'}}}
+]
+col.aggregate(pipeline)
+\end{minted}
+\end{example}
+
+\begin{remark}
+MongoDB offers secondary indexes, multi-document transactions (since
+version 4.0), and a rich aggregation language. It suits data with variable
+schemas (product catalogs, CMS, IoT).
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Column-family stores}
+% ------------------------------------------------------------
+
+\begin{definition}[Column-family store]
+\index{column-family store}
+A \textbf{column-family store} organizes data by column families rather
+than rows. Each row is identified by a partition key and can have a
+variable number of columns.
+\end{definition}
+
+\begin{example}
+Apache Cassandra:
+\begin{minted}{python}
+-- CQL (Cassandra Query Language)
+CREATE KEYSPACE university WITH replication = {
+    'class': 'SimpleStrategy', 'replication_factor': 3
+};
+
+CREATE TABLE university.grades (
+    student_id UUID,
+    course TEXT,
+    semester INT,
+    grade FLOAT,
+    PRIMARY KEY ((student_id), course, semester)
+) WITH CLUSTERING ORDER BY (course ASC, semester DESC);
+
+-- The partition key (student_id) determines the storage node
+-- Clustering columns order data within the partition
+\end{minted}
+\end{example}
+
+\begin{remark}
+Cassandra excels at massive distributed writes (logs, time series, IoT).
+Modeling is query-driven: tables are designed based on the \texttt{SELECT}
+queries you plan to execute.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Graph databases}
+% ------------------------------------------------------------
+
+\begin{definition}[Graph database]
+\index{graph database}
+A \textbf{graph database} stores \textbf{nodes} (entities) and
+\textbf{edges} (relationships) as first-class citizens. Graph traversals
+are native operations running in $O(1)$ per relationship (independent of
+graph size).
+\end{definition}
+
+\begin{example}
+Neo4j and the Cypher language:
+\begin{minted}{python}
+// Create nodes and relationships
+CREATE (a:Person {name: 'Alice', age: 30})
+CREATE (b:Person {name: 'Bob', age: 25})
+CREATE (a)-[:FRIENDS_WITH {since: 2020}]->(b)
+CREATE (a)-[:WORKS_AT]->(:Company {name: 'TechCorp'})
+
+// Find friends of friends (distance 2)
+MATCH (p:Person {name: 'Alice'})-[:FRIENDS_WITH*2]-(fof)
+WHERE fof <> p
+RETURN DISTINCT fof.name
+
+// Shortest path
+MATCH path = shortestPath(
+    (a:Person {name: 'Alice'})-[*..6]-(b:Person {name: 'Charlie'})
+)
+RETURN path
+\end{minted}
+\end{example}
+
+\begin{remark}
+Graph databases are ideal for social networks, fraud detection,
+recommendation systems, and knowledge graphs. They outperform relational
+databases when queries involve deep recursive joins.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Comparison and selection criteria}
+% ------------------------------------------------------------
+
+\begin{center}
+\begin{tabular}{lcccc}
+\hline
+& \textbf{Key-value} & \textbf{Document} & \textbf{Column} & \textbf{Graph} \\
+\hline
+Example     & Redis    & MongoDB    & Cassandra & Neo4j \\
+Schema      & None     & Flexible   & Semi-fixed & Flexible \\
+Queries     & By key   & Rich       & By partition & Traversals \\
+Scalability & Very high & High      & Very high & Moderate \\
+Typical use & Cache    & CMS, catalog & Time series & Social network \\
+\hline
+\end{tabular}
+\end{center}
+
+\begin{proposition}[Selection criteria]
+The choice of NoSQL database type depends on:
+\begin{enumerate}
+  \item the \textbf{structure} of the data (fixed vs.\ flexible schema),
+  \item \textbf{access patterns} (by key, complex queries, traversals),
+  \item \textbf{consistency} vs.\ \textbf{availability} requirements,
+  \item the \textbf{volume} and \textbf{velocity} of the data.
+\end{enumerate}
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Key formulas}
+% ------------------------------------------------------------
+
+\begin{keyformulas}
+\begin{itemize}
+  \item \textbf{CAP}: Consistency + Availability + Partition tolerance --- at most 2 out of 3
+  \item \textbf{Key-value}: $O(1)$ access by key, no queries on values
+  \item \textbf{Document}: flexible schema, secondary indexes, aggregation
+  \item \textbf{Column-family}: query-driven modeling, massive distributed writes
+  \item \textbf{Graph}: traversals in $O(k)$ where $k$ = number of edges traversed
+\end{itemize}
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+For each of the following use cases, recommend a NoSQL database type and
+justify: (a) web session cache, (b) product catalog with variable
+attributes, (c) IoT sensor tracking at 100,000 events/s, (d) community
+detection in a social network.
+\end{exercise}
+
+\begin{exercise}
+Write a Python script that inserts 10,000 documents into MongoDB, creates
+an index on a field, then compares the query time with and without the
+index.
+\end{exercise}
+
+\begin{exercise}
+Model a movie recommendation system in Neo4j. Create nodes (users, movies,
+genres) and relationships (WATCHED, RATED, HAS\_GENRE). Write a Cypher
+query to recommend movies to a user based on their friends' preferences.
+\end{exercise}
+
+\begin{exercise}
+Design a Cassandra schema for a messaging application (messages between
+users). The primary query is ``display the last $N$ messages in a
+conversation.'' Justify the choice of partition key and clustering columns.
+\end{exercise}
+
+\begin{exercise}
+Discuss the implications of the CAP theorem for a banking application
+distributed across multiple continents. What trade-off would you
+recommend? Why?
+\end{exercise}

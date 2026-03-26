@@ -1,0 +1,388 @@
+% ============================================================
+\chapter{Option Pricing}
+\label{ch:pricing}
+% ============================================================
+
+\section{Introduction}
+
+The Black-Scholes formula is elegant, but it only applies to European options on an underlying following a geometric Brownian motion. What about American options (early exercise), Asian options (depending on the average price), or exotic barrier products? Closed-form formulae no longer exist, and one must turn to numerical computation. Three great families of methods share the field: binomial trees, inherited from the Cox-Ross-Rubinstein model (1979), which discretise time and build the option price by backward recursion; Monte Carlo methods, which simulate thousands of underlying trajectories and average discounted payoffs; and finite differences, which solve the Black-Scholes PDE numerically on a grid.
+
+Each has its strengths and weaknesses, and the choice depends on the product, the dimension, and the required precision.
+
+\section{Binomial Trees}
+
+\subsection{CRR Algorithm}
+
+Recall the Cox--Ross--Rubinstein model (Chapter 1). The algorithm proceeds
+in two phases:
+\begin{enumerate}
+    \item \textbf{Forward phase}: build the price tree
+          $S_{n,j} = S_0 u^j d^{n-j}$ for $n = 0, \ldots, N$ and
+          $j = 0, \ldots, n$.
+    \item \textbf{Backward phase}: recursive computation of option values
+          from $n = N$ to $n = 0$.
+\end{enumerate}
+
+\begin{keyformulas}[title=\textbf{Backward Recursion}]
+For a European option:
+\[
+    V_{n,j} = e^{-r\Delta t}\bigl[q \cdot V_{n+1,j+1}
+              + (1-q) \cdot V_{n+1,j}\bigr],
+\]
+with terminal condition $V_{N,j} = h(S_{N,j})$.
+
+For an American option, we add the possibility of early exercise:
+\[
+    V_{n,j} = \max\!\bigl(h(S_{n,j}),\;
+              e^{-r\Delta t}[q V_{n+1,j+1} + (1-q) V_{n+1,j}]\bigr).
+\]
+\end{keyformulas}
+
+\subsection{Trinomial Tree}
+
+\begin{definition}[Trinomial Tree]
+The trinomial tree uses three possible movements:
+\[
+    S_{n+1} \in \{u S_n,\; S_n,\; d S_n\}
+\]
+with probabilities $(p_u, p_m, p_d)$ chosen to match the first two moments:
+\begin{align}
+    p_u &= \frac{1}{2}\left(\frac{\sigma^2\Delta t + \nu^2\Delta t^2}
+           {(\Delta x)^2} + \frac{\nu\Delta t}{\Delta x}\right), \\
+    p_d &= \frac{1}{2}\left(\frac{\sigma^2\Delta t + \nu^2\Delta t^2}
+           {(\Delta x)^2} - \frac{\nu\Delta t}{\Delta x}\right), \\
+    p_m &= 1 - p_u - p_d,
+\end{align}
+where $\nu = r - \sigma^2/2$ and $\Delta x = \sigma\sqrt{3\Delta t}$.
+\end{definition}
+
+\begin{remark}
+The trinomial tree converges faster than the binomial tree and exhibits
+fewer oscillations in the price as a function of $N$.
+\end{remark}
+
+\section{Monte Carlo Methods}
+
+\subsection{General Principle}
+
+\begin{theorem}[Monte Carlo Pricing]
+The price of a European derivative with payoff $h(S_T)$ is:
+\[
+    V_0 = e^{-rT}\E^\mathbb{Q}[h(S_T)]
+        \approx \frac{e^{-rT}}{M}\sum_{m=1}^{M} h(S_T^{(m)}),
+\]
+where the $S_T^{(m)}$ are independent realisations of $S_T$ under
+$\mathbb{Q}$.
+\end{theorem}
+
+Convergence is $O(1/\sqrt{M})$ by the Central Limit Theorem, regardless
+of the problem dimension. This is the major advantage of Monte Carlo for
+high-dimensional problems.
+
+\begin{proposition}[Confidence Interval]
+The Monte Carlo estimator $\hat{V}_M$ satisfies:
+\[
+    \PP\!\left(\abs{\hat{V}_M - V_0} \leq z_{\alpha/2}
+    \frac{\hat{\sigma}_{\text{MC}}}{\sqrt{M}}\right) \approx 1 - \alpha,
+\]
+where $\hat{\sigma}_{\text{MC}}$ is the empirical standard deviation of
+discounted payoffs and $z_{\alpha/2}$ the normal quantile.
+\end{proposition}
+
+\subsection{GBM Simulation}
+
+Under the risk-neutral measure:
+\[
+    S_T = S_0 \exp\!\left[\left(r - \frac{\sigma^2}{2}\right)T
+          + \sigma\sqrt{T}\,Z\right], \quad Z \sim \mathcal{N}(0,1).
+\]
+
+For simulation on a grid $0 = t_0 < t_1 < \cdots < t_N = T$ (necessary
+for path-dependent options):
+\[
+    S_{t_{i+1}} = S_{t_i} \exp\!\left[\left(r - \frac{\sigma^2}{2}\right)
+    \Delta t + \sigma\sqrt{\Delta t}\,Z_i\right].
+\]
+
+\begin{codeblock}[title=\textbf{Monte Carlo for a European Call}]
+\begin{minted}{python}
+import numpy as np
+
+def mc_european(S0, K, T, r, sigma, M=100000, option='call'):
+    """Monte Carlo price for a European option."""
+    Z = np.random.standard_normal(M)
+    ST = S0 * np.exp((r - 0.5*sigma**2)*T + sigma*np.sqrt(T)*Z)
+
+    if option == 'call':
+        payoffs = np.maximum(ST - K, 0)
+    else:
+        payoffs = np.maximum(K - ST, 0)
+
+    disc_payoffs = np.exp(-r*T) * payoffs
+    price = np.mean(disc_payoffs)
+    std_err = np.std(disc_payoffs) / np.sqrt(M)
+    ci_95 = (price - 1.96*std_err, price + 1.96*std_err)
+    return price, std_err, ci_95
+
+np.random.seed(42)
+price, se, ci = mc_european(100, 100, 1.0, 0.05, 0.20)
+print(f"MC price: {price:.4f} +/- {se:.4f}")
+print(f"95% CI: [{ci[0]:.4f}, {ci[1]:.4f}]")
+\end{minted}
+\end{codeblock}
+
+\subsection{Variance Reduction}
+
+\begin{definition}[Antithetic Variates]
+For each $Z_i$, we also compute the payoff with $-Z_i$, then average:
+\[
+    \hat{V} = \frac{e^{-rT}}{M}\sum_{m=1}^{M}
+    \frac{h(S_T^{(Z_m)}) + h(S_T^{(-Z_m)})}{2}.
+\]
+\end{definition}
+
+\begin{definition}[Control Variate]
+We use an estimator $Y$ with known mean $\E[Y]$ correlated with the
+payoff $X = h(S_T)$:
+\[
+    \hat{V}_{\text{CV}} = \frac{1}{M}\sum_{m=1}^{M}
+    \bigl[X^{(m)} - \beta(Y^{(m)} - \E[Y])\bigr],
+\]
+where $\beta = \Cov(X,Y)/\Var(Y)$ is the optimal coefficient.
+A classical choice is $Y = S_T$ with $\E^\mathbb{Q}[S_T] = S_0 e^{rT}$.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Monte Carlo with Variance Reduction}]
+\begin{minted}{python}
+def mc_antithetic(S0, K, T, r, sigma, M=100000):
+    """Monte Carlo with antithetic variates."""
+    Z = np.random.standard_normal(M)
+    ST_plus = S0 * np.exp((r - 0.5*sigma**2)*T + sigma*np.sqrt(T)*Z)
+    ST_minus = S0 * np.exp((r - 0.5*sigma**2)*T - sigma*np.sqrt(T)*Z)
+    payoffs = 0.5*(np.maximum(ST_plus - K, 0)
+                   + np.maximum(ST_minus - K, 0))
+    disc = np.exp(-r*T) * payoffs
+    return np.mean(disc), np.std(disc)/np.sqrt(M)
+
+def mc_control_variate(S0, K, T, r, sigma, M=100000):
+    """Monte Carlo with control variate (S_T)."""
+    Z = np.random.standard_normal(M)
+    ST = S0 * np.exp((r - 0.5*sigma**2)*T + sigma*np.sqrt(T)*Z)
+    X = np.exp(-r*T) * np.maximum(ST - K, 0)
+    Y = np.exp(-r*T) * ST
+    EY = S0  # E^Q[exp(-rT)*S_T] = S_0
+
+    beta = np.cov(X, Y)[0, 1] / np.var(Y)
+    X_cv = X - beta * (Y - EY)
+    return np.mean(X_cv), np.std(X_cv)/np.sqrt(M)
+
+np.random.seed(42)
+p1, s1 = mc_antithetic(100, 100, 1.0, 0.05, 0.20)
+p2, s2 = mc_control_variate(100, 100, 1.0, 0.05, 0.20)
+print(f"Antithetic:      {p1:.4f} (se={s1:.4f})")
+print(f"Control variate: {p2:.4f} (se={s2:.4f})")
+\end{minted}
+\end{codeblock}
+
+\section{Finite Differences}
+
+The Black--Scholes PDE can be solved numerically by the finite difference
+method.
+
+\subsection{Transformation and Discretisation}
+
+Setting $x = \ln(S/K)$, $\tau = T - t$, the PDE transforms to:
+\[
+    \frac{\partial u}{\partial\tau} = \frac{\sigma^2}{2}
+    \frac{\partial^2 u}{\partial x^2}
+    + \left(r - \frac{\sigma^2}{2}\right)\frac{\partial u}{\partial x} - ru.
+\]
+
+\begin{definition}[Explicit Scheme]
+Discretising on a grid $(x_i, \tau_j)$:
+\[
+    \frac{u_i^{j+1} - u_i^j}{\Delta\tau}
+    = \frac{\sigma^2}{2}\frac{u_{i+1}^j - 2u_i^j + u_{i-1}^j}{(\Delta x)^2}
+    + \nu\frac{u_{i+1}^j - u_{i-1}^j}{2\Delta x} - ru_i^j.
+\]
+This scheme is \textbf{explicit} (the next step is computed directly) but
+subject to a CFL stability condition.
+\end{definition}
+
+\begin{definition}[Implicit Scheme (Crank--Nicolson)]
+The Crank--Nicolson scheme averages explicit and implicit steps:
+\[
+    \frac{u_i^{j+1} - u_i^j}{\Delta\tau}
+    = \frac{1}{2}\bigl[\mathcal{L}u_i^j + \mathcal{L}u_i^{j+1}\bigr],
+\]
+where $\mathcal{L}$ is the spatial differential operator. This scheme is
+unconditionally stable and second-order in both time and space.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Finite Differences --- Crank--Nicolson}]
+\begin{minted}{python}
+import numpy as np
+from scipy.linalg import solve_banded
+
+def fd_crank_nicolson(S0, K, T, r, sigma, Nx=200, Nt=500):
+    """European call price via Crank-Nicolson."""
+    x_max = 5 * sigma * np.sqrt(T)
+    dx = 2 * x_max / Nx
+    dt = T / Nt
+    x = np.linspace(-x_max, x_max, Nx + 1)
+
+    nu = r - 0.5 * sigma**2
+    alpha = 0.5 * dt * sigma**2 / dx**2
+    beta_val = 0.5 * dt * nu / (2 * dx)
+
+    # Terminal condition (call)
+    u = np.maximum(K * (np.exp(x) - 1), 0)
+
+    # Tridiagonal coefficients
+    a = -0.5 * (alpha - beta_val)
+    b = 1 + alpha + 0.5 * r * dt
+    c = -0.5 * (alpha + beta_val)
+
+    a_e = 0.5 * (alpha - beta_val)
+    b_e = 1 - alpha - 0.5 * r * dt
+    c_e = 0.5 * (alpha + beta_val)
+
+    AB = np.zeros((3, Nx + 1))
+    AB[0, 1:] = c
+    AB[1, :] = b
+    AB[2, :-1] = a
+
+    for j in range(Nt):
+        rhs = a_e * np.roll(u, 1) + b_e * u + c_e * np.roll(u, -1)
+        rhs[0] = 0
+        rhs[-1] = K * (np.exp(x[-1]) - np.exp(-r * (j+1)*dt))
+        AB[1, 0] = 1; AB[0, 1] = 0
+        AB[1, -1] = 1; AB[2, -2] = 0
+        u = solve_banded((1, 1), AB, rhs)
+        AB[1, 0] = b; AB[0, 1] = c
+        AB[1, -1] = b; AB[2, -2] = a
+
+    x0 = np.log(S0 / K)
+    return np.interp(x0, x, u)
+
+price_fd = fd_crank_nicolson(100, 100, 1.0, 0.05, 0.20)
+print(f"Crank-Nicolson price: {price_fd:.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{Method Comparison}
+
+\begin{center}
+\begin{tabular}{lccc}
+    \toprule
+    \textbf{Criterion} & \textbf{Trees} & \textbf{Monte Carlo}
+    & \textbf{Finite Diff.} \\
+    \midrule
+    Dimension & low & high & low \\
+    American & yes & difficult & yes \\
+    Path-dependent & no & yes & difficult \\
+    Convergence & $O(1/N)$ & $O(1/\sqrt{M})$ & $O(h^2)$ \\
+    Greeks & finite diff. & bump-and-reprice & direct \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+\section{Longstaff--Schwartz Method (American Options)}
+
+\begin{theorem}[LSM Algorithm]
+For American options, the Longstaff--Schwartz algorithm (2001) estimates
+the continuation value by regression on polynomials of simulated prices.
+At each time step $t_n$ in backward:
+\begin{enumerate}
+    \item Compute the immediate exercise payoff $h(S_{t_n}^{(m)})$.
+    \item Regress discounted future cash flows on basis functions
+          $\psi_k(S_{t_n}^{(m)})$ (e.g., Laguerre polynomials).
+    \item Exercise if $h(S_{t_n}^{(m)}) > \hat{C}(S_{t_n}^{(m)})$
+          (estimated continuation).
+\end{enumerate}
+\end{theorem}
+
+\begin{codeblock}[title=\textbf{Longstaff--Schwartz for American Put}]
+\begin{minted}{python}
+def lsm_american_put(S0, K, T, r, sigma, M=50000, N=100):
+    """American put via Longstaff-Schwartz."""
+    dt = T / N
+    discount = np.exp(-r * dt)
+
+    # Simulate paths
+    Z = np.random.standard_normal((N, M))
+    S = np.zeros((N + 1, M))
+    S[0] = S0
+    for i in range(N):
+        S[i+1] = S[i] * np.exp((r - 0.5*sigma**2)*dt
+                                + sigma*np.sqrt(dt)*Z[i])
+
+    # Terminal payoff
+    cashflow = np.maximum(K - S[N], 0)
+    stopping = np.full(M, N)
+
+    # Backward induction
+    for n in range(N - 1, 0, -1):
+        exercise = np.maximum(K - S[n], 0)
+        itm = exercise > 0
+
+        if np.sum(itm) > 0:
+            X = S[n, itm]
+            Y = cashflow[itm] * discount**(stopping[itm] - n)
+            A = np.column_stack([np.ones_like(X), X, X**2, X**3])
+            coeffs = np.linalg.lstsq(A, Y, rcond=None)[0]
+            continuation = A @ coeffs
+
+            exercise_now = exercise[itm] > continuation
+            idx = np.where(itm)[0][exercise_now]
+            cashflow[idx] = exercise[idx]
+            stopping[idx] = n
+
+    price = np.mean(cashflow * discount**stopping)
+    return price
+
+np.random.seed(42)
+p_am = lsm_american_put(100, 100, 1.0, 0.05, 0.20)
+print(f"American put (LSM): {p_am:.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{Exercises}
+
+\begin{exercise}[Convergence of Methods]
+\begin{enumerate}
+    \item Compare CRR, Monte Carlo, and Crank--Nicolson prices for a
+          European call with $S_0=100$, $K=100$, $T=1$, $r=0.05$,
+          $\sigma=0.20$.
+    \item Plot the error relative to Black--Scholes as a function of the
+          discretisation parameter ($N$ or $M$).
+    \item Measure computation time for each method.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Variance Reduction]
+\begin{enumerate}
+    \item Implement antithetic variates and control variates.
+    \item Compare standard errors for $M = 10^4, 10^5, 10^6$.
+    \item Compute the variance reduction factor for each technique.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[American Options]
+\begin{enumerate}
+    \item Compare American put prices from CRR, Crank--Nicolson with early
+          exercise, and LSM.
+    \item Determine the early exercise premium
+          $P_{\text{am}} - P_{\text{eu}}$ as a function of $r$ and $\sigma$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Monte Carlo Greeks]
+\begin{enumerate}
+    \item Compute $\Delta$ and $\Gamma$ by bump-and-reprice:
+          $\Delta \approx (V(S+h) - V(S-h))/(2h)$.
+    \item Compute $\Delta$ by the likelihood ratio method:
+          $\Delta = e^{-rT}\E\bigl[h(S_T)\frac{Z}{\sigma S_0\sqrt{T}}\bigr]$.
+    \item Compare the standard deviations of the two estimators.
+\end{enumerate}
+\end{exercise}

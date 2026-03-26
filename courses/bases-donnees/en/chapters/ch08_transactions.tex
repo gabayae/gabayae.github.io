@@ -1,0 +1,303 @@
+% ============================================================
+\chapter{Transactions and Concurrency Control}
+\label{ch:transactions}
+% ============================================================
+
+Imagine a bank transfer: one account is debited and another is credited. What happens if the system crashes between the two operations? The money has vanished. It was to prevent such catastrophes that Jim Gray, in the 1970s at IBM, formalized the notion of a \emph{transaction} and the ACID properties (Atomicity, Consistency, Isolation, Durability). A transaction is a logical ``all or nothing'': either all its operations succeed, or none takes effect. When multiple transactions execute concurrently, concurrency control (locking, timestamping, MVCC) guarantees that the result is equivalent to a serial execution. Gray received the Turing Award in 1998 for this foundational work.
+
+\begin{intuition}[title=\textbf{Central idea}]
+A transaction is a logical unit of work that must be executed atomically,
+consistently, in isolation, and durably (ACID). Concurrency control ensures
+that the simultaneous execution of multiple transactions produces a correct
+result, as if they had been executed sequentially.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{The concept of a transaction}
+% ------------------------------------------------------------
+
+\begin{definition}[Transaction]
+\index{transaction}
+A \textbf{transaction} is a sequence of read and write operations on the
+database, delimited by a \texttt{BEGIN} and terminated by a \texttt{COMMIT}
+(validation) or a \texttt{ROLLBACK} (abort).
+\end{definition}
+
+\begin{minted}{python}
+# Example in Python with psycopg2
+import psycopg2
+
+conn = psycopg2.connect("dbname=bank")
+cur = conn.cursor()
+try:
+    cur.execute("UPDATE accounts SET balance = balance - 100 WHERE id = 1")
+    cur.execute("UPDATE accounts SET balance = balance + 100 WHERE id = 2")
+    conn.commit()   # Both operations are committed together
+except Exception:
+    conn.rollback()  # No modification is applied
+finally:
+    cur.close()
+    conn.close()
+\end{minted}
+
+% ------------------------------------------------------------
+\section{ACID properties}
+% ------------------------------------------------------------
+
+\begin{definition}[ACID properties]
+\index{ACID}
+The four fundamental properties of a transaction are:
+\begin{enumerate}
+  \item \textbf{Atomicity} --- All operations are executed or none.
+  \item \textbf{Consistency} --- The transaction brings the database from
+        one consistent state to another.
+  \item \textbf{Isolation} --- Concurrent transactions do not see each
+        other's intermediate modifications.
+  \item \textbf{Durability} --- Once committed, modifications survive any
+        crash.
+\end{enumerate}
+\end{definition}
+
+\begin{remark}
+Atomicity and durability are ensured by the \emph{Write-Ahead Log} (WAL).
+Consistency is ensured by integrity constraints. Isolation is ensured by
+concurrency control mechanisms.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Concurrency anomalies}
+% ------------------------------------------------------------
+
+Without control, concurrent execution can produce anomalies:
+
+\begin{definition}[Concurrency anomalies]
+\index{concurrency anomalies}
+\begin{itemize}
+  \item \textbf{Dirty read} --- $T_2$ reads data modified by $T_1$ that has
+        not yet committed.
+  \item \textbf{Non-repeatable read} --- $T_1$ reads the same data twice and
+        gets different values because $T_2$ modified it in between.
+  \item \textbf{Phantom read} --- $T_1$ executes a query twice and gets
+        different rows because $T_2$ inserted or deleted rows.
+  \item \textbf{Lost update} --- Two transactions read the same value,
+        modify it, and write it back: one modification is lost.
+\end{itemize}
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Isolation levels}
+% ------------------------------------------------------------
+
+\begin{definition}[SQL isolation levels]
+\index{isolation levels}
+The SQL standard defines four isolation levels:
+\begin{center}
+\begin{tabular}{lccc}
+\hline
+\textbf{Level} & \textbf{Dirty read} & \textbf{Non-repeatable} & \textbf{Phantom} \\
+\hline
+\texttt{READ UNCOMMITTED} & Possible & Possible & Possible \\
+\texttt{READ COMMITTED}   & No       & Possible & Possible \\
+\texttt{REPEATABLE READ}  & No       & No       & Possible \\
+\texttt{SERIALIZABLE}     & No       & No       & No \\
+\hline
+\end{tabular}
+\end{center}
+\end{definition}
+
+\begin{attention}
+The default level varies by DBMS: \texttt{READ COMMITTED} for PostgreSQL
+and Oracle, \texttt{REPEATABLE READ} for MySQL/InnoDB. Choosing too weak a
+level exposes you to anomalies; too strong a level reduces performance.
+\end{attention}
+
+\begin{minted}{python}
+-- Setting the isolation level in SQL
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+BEGIN;
+    SELECT balance FROM accounts WHERE id = 1;
+    UPDATE accounts SET balance = balance - 100 WHERE id = 1;
+COMMIT;
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Serializability theory}
+% ------------------------------------------------------------
+
+\begin{definition}[Schedule]
+\index{schedule}
+A \textbf{schedule} $S$ is a sequence of operations (reads, writes,
+commits, rollbacks) from multiple transactions that preserves the internal
+order of each transaction.
+\end{definition}
+
+\begin{definition}[Conflict serializability]
+\index{serializability}
+Two operations \textbf{conflict} if they operate on the same data item and
+at least one is a write. A schedule $S$ is \textbf{conflict-serializable}
+if it is conflict-equivalent to some serial schedule.
+\end{definition}
+
+\begin{theorem}[Precedence graph test]
+\index{precedence graph}
+Construct the \textbf{precedence graph} $G = (V, E)$ where $V$ is the set
+of transactions and $(T_i, T_j) \in E$ if an operation of $T_i$ conflicts
+with an operation of $T_j$ and precedes it. The schedule is conflict-serializable
+if and only if $G$ is acyclic.
+\end{theorem}
+
+\begin{example}
+Let $S : r_1(A),\, w_1(A),\, r_2(A),\, w_2(A),\, r_1(B),\, w_1(B),\, r_2(B),\, w_2(B)$.
+Conflicts: $w_1(A) \to r_2(A)$, $w_1(A) \to w_2(A)$,
+$w_1(B) \to r_2(B)$, $w_1(B) \to w_2(B)$. The graph has a single edge
+$T_1 \to T_2$, so $S$ is serializable (equivalent to $T_1, T_2$).
+\end{example}
+
+% ------------------------------------------------------------
+\section{Two-phase locking (2PL)}
+% ------------------------------------------------------------
+
+\begin{definition}[2PL protocol]
+\index{two-phase locking}
+The \textbf{two-phase locking} (2PL) protocol requires each transaction
+to go through two phases:
+\begin{enumerate}
+  \item \textbf{Growing phase}: the transaction acquires locks (shared for
+        reads, exclusive for writes) without releasing any.
+  \item \textbf{Shrinking phase}: the transaction releases locks without
+        acquiring new ones.
+\end{enumerate}
+\end{definition}
+
+\begin{theorem}[Correctness of 2PL]
+Every schedule produced by the 2PL protocol is conflict-serializable.
+\end{theorem}
+
+\begin{definition}[Strict and rigorous 2PL]
+\begin{itemize}
+  \item \textbf{Strict 2PL}: exclusive locks are released only at
+        \texttt{COMMIT}/\texttt{ROLLBACK}. Avoids cascading aborts.
+  \item \textbf{Rigorous 2PL}: \emph{all} locks are released at
+        \texttt{COMMIT}/\texttt{ROLLBACK}. Most commonly used mode.
+\end{itemize}
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Deadlock detection and prevention}
+% ------------------------------------------------------------
+
+\begin{definition}[Deadlock]
+\index{deadlock}
+A \textbf{deadlock} occurs when two or more transactions wait for each
+other, each holding a lock requested by the other.
+\end{definition}
+
+\begin{proposition}[Wait-for graph detection]
+Construct the \textbf{wait-for graph}: an edge $(T_i, T_j)$ means $T_i$
+is waiting for a lock held by $T_j$. A deadlock exists if and only if the
+graph contains a cycle.
+\end{proposition}
+
+Resolution strategies:
+\begin{itemize}
+  \item \textbf{Periodic detection}: check for cycles and abort the least
+        costly transaction (victim selection).
+  \item \textbf{Timestamp-based prevention}: Wait-Die or Wound-Wait schemes.
+  \item \textbf{Timeout}: abort any transaction that waits too long.
+\end{itemize}
+
+% ------------------------------------------------------------
+\section{Multi-Version Concurrency Control (MVCC)}
+% ------------------------------------------------------------
+
+\begin{definition}[MVCC]
+\index{MVCC}
+\textbf{MVCC} (Multi-Version Concurrency Control) maintains multiple
+versions of each row. Reads never block writes and vice versa:
+\begin{itemize}
+  \item Each transaction sees a consistent snapshot of the database at its
+        start time.
+  \item Writes create new versions without overwriting old ones.
+  \item A garbage collector (vacuum) removes obsolete versions.
+\end{itemize}
+\end{definition}
+
+\begin{remark}
+PostgreSQL uses MVCC for all isolation levels. MySQL/InnoDB uses MVCC for
+\texttt{READ COMMITTED} and \texttt{REPEATABLE READ}, adding additional
+locks for \texttt{SERIALIZABLE}.
+\end{remark}
+
+\begin{example}
+Under MVCC, transaction $T_1$ can read version $v_1$ of a row while $T_2$
+writes version $v_2$: no locking is needed for the read.
+\begin{minted}{python}
+-- PostgreSQL: observing MVCC
+BEGIN;
+SELECT xmin, xmax, * FROM accounts WHERE id = 1;
+-- xmin = ID of the transaction that created this version
+-- xmax = ID of the transaction that deleted it (0 if active)
+COMMIT;
+\end{minted}
+\end{example}
+
+% ------------------------------------------------------------
+\section{Write-Ahead Logging (WAL)}
+% ------------------------------------------------------------
+
+\begin{definition}[Write-Ahead Logging]
+\index{WAL}
+The \textbf{WAL} (Write-Ahead Log) is a sequential log where every
+modification is recorded \emph{before} being applied to the data pages.
+In case of a crash, the log enables:
+\begin{itemize}
+  \item \textbf{REDO}: replay modifications of committed transactions.
+  \item \textbf{UNDO}: reverse modifications of uncommitted transactions.
+\end{itemize}
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Key formulas}
+% ------------------------------------------------------------
+
+\begin{keyformulas}
+\begin{itemize}
+  \item \textbf{ACID}: Atomicity, Consistency, Isolation, Durability
+  \item \textbf{Serializability}: acyclic precedence graph $\Leftrightarrow$ serializable
+  \item \textbf{2PL}: growing phase $\to$ lock point $\to$ shrinking phase
+  \item \textbf{Deadlock}: cycle in the wait-for graph
+  \item \textbf{MVCC}: non-blocking reads via multi-version snapshots
+\end{itemize}
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+Given the schedule $S : r_1(A),\, r_2(B),\, w_1(B),\, w_2(A)$, construct
+the precedence graph. Is $S$ serializable?
+\end{exercise}
+
+\begin{exercise}
+Give an example of a deadlock between two transactions operating on two
+bank accounts. Propose a solution using a fixed lock acquisition order.
+\end{exercise}
+
+\begin{exercise}
+Write a Python script demonstrating a phantom read under \texttt{READ
+COMMITTED} in PostgreSQL, then show that it disappears under
+\texttt{SERIALIZABLE}.
+\end{exercise}
+
+\begin{exercise}
+Explain why strict 2PL prevents cascading aborts. Give a counterexample
+with basic 2PL.
+\end{exercise}
+
+\begin{exercise}
+In an MVCC system, transaction $T_1$ reads row $r$ (version $v_1$), then
+$T_2$ modifies $r$ and commits (version $v_2$), then $T_1$ re-reads $r$.
+Which version does $T_1$ see under \texttt{READ COMMITTED}? Under
+\texttt{REPEATABLE READ}? Justify.
+\end{exercise}

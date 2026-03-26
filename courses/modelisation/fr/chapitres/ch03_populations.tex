@@ -1,0 +1,409 @@
+% ============================================================
+\chapter{Mod\`eles de Dynamique des Populations}
+\label{ch:populations}
+% ============================================================
+
+\section{Introduction}
+
+En 1798, le r\'ev\'erend Thomas Malthus publie son c\'el\`ebre \emph{Essai sur le principe de population}, o\`u il affirme que la population cro\^it g\'eom\'etriquement tandis que les ressources ne croissent qu'arithm\'etiquement. Cette vision pessimiste --- la \og catastrophe malthusienne \fg --- allait inspirer Darwin et devenir le premier mod\`ele math\'ematique de dynamique des populations~: l'exponentielle. Mais Malthus avait tort sur un point crucial~: la croissance ne peut pas \^etre exponentielle ind\'efiniment. En 1838, Pierre-Fran\c{c}ois Verhulst introduit un terme de saturation qui m\`ene \`a la c\'el\`ebre \'equation logistique. Puis, dans les ann\'ees 1920, Alfred Lotka et Vito Volterra, travaillant ind\'ependamment --- l'un sur des r\'eactions chimiques, l'autre sur la p\^eche en Adriatique --- d\'ecouvrent le mod\`ele proie-pr\'edateur qui porte leurs noms.
+
+Ce chapitre retrace cette aventure intellectuelle et d\'eveloppe les
+mod\`eles fondamentaux --- Malthus, Verhulst, Lotka--Volterra --- en
+insistant sur la d\'erivation \`a partir de principes premiers,
+l'analyse qualitative (portraits de phase, stabilit\'e) et les
+simulations num\'eriques.
+
+% ------------------------------------------------------------
+\section{Croissance exponentielle : le mod\`ele de Malthus}
+\label{sec:malthus}
+% ------------------------------------------------------------
+
+\begin{definition}[Mod\`ele de Malthus]
+Soit $N(t)$ la taille d'une population au temps $t$.  Si le taux
+de naissance $b$ et le taux de mortalit\'e $d$ sont constants et
+proportionnels \`a la taille de la population :
+\[
+  \frac{dN}{dt} = rN, \qquad r = b - d, \qquad N(0) = N_0.
+\]
+\end{definition}
+
+\begin{theoreme}[Solution du mod\`ele de Malthus]
+La solution est $N(t) = N_0\,e^{rt}$.
+\begin{itemize}
+  \item Si $r > 0$ : croissance exponentielle (explosion).
+  \item Si $r = 0$ : population constante.
+  \item Si $r < 0$ : d\'ecroissance exponentielle (extinction).
+\end{itemize}
+\end{theoreme}
+
+\begin{remarque}
+Le mod\`ele de Malthus est r\'ealiste uniquement sur des p\'eriodes
+courtes.  Aucune population r\'eelle ne peut cro\^itre
+exponentiellement ind\'efiniment.
+\end{remarque}
+
+\begin{codeblock}[title=\textbf{Mod\`ele de Malthus en Python}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+t = np.linspace(0, 10, 200)
+N0 = 100
+
+for r in [-0.3, 0, 0.2, 0.5]:
+    N = N0 * np.exp(r * t)
+    plt.plot(t, N, label=f'$r = {r}$')
+
+plt.xlabel('Temps $t$'); plt.ylabel('Population $N(t)$')
+plt.legend(); plt.title('Modèle de Malthus')
+plt.ylim(0, 2000)
+plt.tight_layout(); plt.savefig('malthus.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Croissance logistique : le mod\`ele de Verhulst}
+\label{sec:verhulst}
+% ------------------------------------------------------------
+
+\begin{definition}[Mod\`ele logistique de Verhulst]
+Pour mod\'eliser la limitation des ressources, Verhulst (1838)
+propose :
+\[
+  \frac{dN}{dt} = rN\left(1 - \frac{N}{K}\right),
+  \qquad N(0) = N_0,
+\]
+o\`u $K > 0$ est la \textbf{capacit\'e de charge} de l'environnement.
+\end{definition}
+
+\begin{intuition}[title=\textbf{Interpr\'etation du terme logistique}]
+Le facteur $(1 - N/K)$ mod\'elise la comp\'etition intraspécifique :
+quand $N \ll K$, la croissance est presque exponentielle ; quand
+$N$ approche $K$, le taux de croissance effectif tend vers z\'ero.
+\end{intuition}
+
+\begin{theoreme}[Solution de l'\'equation logistique]
+L'EDO logistique est s\'eparable.  Sa solution est :
+\[
+  N(t) = \frac{K}{1 + \left(\frac{K}{N_0}-1\right)e^{-rt}}.
+\]
+On a $\lim_{t\to+\infty} N(t) = K$ pour tout $N_0 > 0$.
+\end{theoreme}
+
+\begin{proof}
+On s\'epare les variables :
+\[
+  \frac{dN}{N(1-N/K)} = r\,dt.
+\]
+D\'ecomposition en \'el\'ements simples :
+\[
+  \frac{1}{N(1-N/K)} = \frac{1}{N} + \frac{1/K}{1-N/K}.
+\]
+Int\'egration :
+\[
+  \ln N - \ln(1-N/K) = rt + C.
+\]
+En posant $C = \ln\frac{N_0}{1-N_0/K}$, on obtient le r\'esultat.
+\end{proof}
+
+\subsection{Analyse qualitative}
+
+Les points d'\'equilibre sont les solutions de $rN(1-N/K)=0$ :
+$N^*=0$ et $N^*=K$.
+
+\begin{proposition}[Stabilit\'e des \'equilibres logistiques]
+\begin{itemize}
+  \item $N^*=0$ est \textbf{instable} (pour $r>0$).
+  \item $N^*=K$ est \textbf{asymptotiquement stable}.
+\end{itemize}
+On le v\'erifie par lin\'earisation : $f'(N)=r(1-2N/K)$, d'o\`u
+$f'(0)=r>0$ (instable) et $f'(K)=-r<0$ (stable).
+\end{proposition}
+
+\begin{codeblock}[title=\textbf{Croissance logistique et portrait de phase}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import odeint
+
+r, K = 0.5, 1000
+
+def logistic(N, t):
+    return r * N * (1 - N / K)
+
+t = np.linspace(0, 30, 500)
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+
+for N0 in [10, 50, 200, 500, 1200, 1500]:
+    N = odeint(logistic, N0, t).flatten()
+    ax1.plot(t, N, label=f'$N_0={N0}$')
+
+ax1.axhline(K, color='gray', ls='--', label=f'$K={K}$')
+ax1.set_xlabel('$t$'); ax1.set_ylabel('$N(t)$')
+ax1.legend(fontsize=8); ax1.set_title('Trajectoires')
+
+# Portrait de phase (champ de direction 1D)
+N_vals = np.linspace(0, 1600, 300)
+dNdt = r * N_vals * (1 - N_vals / K)
+ax2.plot(N_vals, dNdt, 'b-')
+ax2.axhline(0, color='gray', ls='--')
+ax2.plot([0, K], [0, 0], 'ro', markersize=8)
+ax2.set_xlabel('$N$'); ax2.set_ylabel("$dN/dt$")
+ax2.set_title('Champ de vitesse')
+plt.tight_layout(); plt.savefig('logistique.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Le mod\`ele proie--pr\'edateur de Lotka--Volterra}
+\label{sec:lotka_volterra}
+% ------------------------------------------------------------
+
+\begin{definition}[Syst\`eme de Lotka--Volterra]
+Soient $x(t)$ la population de proies et $y(t)$ celle de pr\'edateurs.
+Le syst\`eme classique de Lotka--Volterra est :
+\begin{align}
+  \dot{x} &= ax - bxy, \label{eq:lv_prey} \\
+  \dot{y} &= -cy + dxy, \label{eq:lv_pred}
+\end{align}
+o\`u $a,b,c,d>0$.
+\begin{itemize}
+  \item $a$ : taux de croissance intrins\`eque des proies.
+  \item $b$ : taux de pr\'edation.
+  \item $c$ : taux de mortalit\'e des pr\'edateurs.
+  \item $d$ : efficacit\'e de conversion proie $\to$ pr\'edateur.
+\end{itemize}
+\end{definition}
+
+\subsection{Points d'\'equilibre}
+
+On annule le second membre :
+\[
+  x(a-by)=0, \qquad y(-c+dx)=0.
+\]
+
+\begin{proposition}[\'Equilibres de Lotka--Volterra]
+Il y a deux points d'\'equilibre :
+\begin{enumerate}
+  \item $E_0 = (0,0)$ : extinction totale.
+  \item $E^* = (c/d,\;a/b)$ : coexistence.
+\end{enumerate}
+\end{proposition}
+
+\subsection{Stabilit\'e lin\'eaire}
+
+La jacobienne du syst\`eme est :
+\[
+  J(x,y) = \begin{pmatrix}
+    a-by & -bx \\ dy & -c+dx
+  \end{pmatrix}.
+\]
+
+\begin{theoreme}[Stabilit\'e des \'equilibres de Lotka--Volterra]
+\begin{enumerate}
+  \item En $E_0=(0,0)$ : $J = \begin{pmatrix}a&0\\0&-c\end{pmatrix}$,
+    valeurs propres $\lambda_1=a>0$, $\lambda_2=-c<0$.
+    $E_0$ est un \textbf{point selle} (instable).
+  \item En $E^*=(c/d,a/b)$ : $J = \begin{pmatrix}0&-bc/d\\da/b&0\end{pmatrix}$,
+    valeurs propres $\lambda=\pm i\sqrt{ac}$.
+    $E^*$ est un \textbf{centre} (trajectoires p\'eriodiques).
+\end{enumerate}
+\end{theoreme}
+
+\subsection{Int\'egrale premi\`ere et trajectoires ferm\'ees}
+
+\begin{theoreme}[Int\'egrale premi\`ere]
+Le syst\`eme de Lotka--Volterra admet l'int\'egrale premi\`ere :
+\[
+  H(x,y) = dx - c\ln x + by - a\ln y = \text{constante}.
+\]
+Les trajectoires dans le plan de phase sont donc des courbes de
+niveau de $H$, qui sont des courbes ferm\'ees entourant $E^*$.
+\end{theoreme}
+
+\begin{proof}
+On calcule $\frac{dH}{dt}$:
+\begin{align*}
+  \frac{dH}{dt} &= d\dot{x} - \frac{c}{x}\dot{x} + b\dot{y} - \frac{a}{y}\dot{y} \\
+  &= d(ax-bxy) - \frac{c}{x}(ax-bxy) + b(-cy+dxy) - \frac{a}{y}(-cy+dxy) \\
+  &= dax - dbxy - ca + cby - bcy + bdxy + ac - adx = 0.
+\end{align*}
+\end{proof}
+
+\begin{codeblock}[title=\textbf{Simulation de Lotka--Volterra}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+
+a, b, c, d = 1.0, 0.1, 1.5, 0.075
+
+def lotka_volterra(t, z):
+    x, y = z
+    return [a*x - b*x*y, -c*y + d*x*y]
+
+t_span = (0, 40)
+z0 = [40, 9]
+sol = solve_ivp(lotka_volterra, t_span, z0,
+                t_eval=np.linspace(0, 40, 1000),
+                method='RK45', rtol=1e-10)
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
+
+ax1.plot(sol.t, sol.y[0], 'b-', label='Proies $x(t)$')
+ax1.plot(sol.t, sol.y[1], 'r-', label='Prédateurs $y(t)$')
+ax1.set_xlabel('$t$'); ax1.set_ylabel('Population')
+ax1.legend(); ax1.set_title('Séries temporelles')
+
+# Portrait de phase avec plusieurs conditions initiales
+for x0 in [10, 20, 30, 40, 60]:
+    sol_i = solve_ivp(lotka_volterra, (0, 50), [x0, 9],
+                      t_eval=np.linspace(0, 50, 2000),
+                      method='RK45', rtol=1e-10)
+    ax2.plot(sol_i.y[0], sol_i.y[1], 'b-', alpha=0.6)
+
+ax2.plot(c/d, a/b, 'ro', markersize=8, label="$E^*$")
+ax2.set_xlabel('Proies $x$'); ax2.set_ylabel('Prédateurs $y$')
+ax2.legend(); ax2.set_title('Portrait de phase')
+plt.tight_layout(); plt.savefig('lotka_volterra.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Extensions du mod\`ele de Lotka--Volterra}
+\label{sec:extensions}
+% ------------------------------------------------------------
+
+\subsection{R\'eponse fonctionnelle de Holling}
+
+\begin{definition}[R\'eponses fonctionnelles]
+La r\'eponse fonctionnelle $g(x)$ mod\'elise le taux de pr\'edation
+par pr\'edateur en fonction de la densit\'e de proies :
+\begin{itemize}
+  \item \textbf{Type I (lin\'eaire) :} $g(x) = bx$ (Lotka--Volterra classique).
+  \item \textbf{Type II (saturation) :} $g(x) = \frac{bx}{1+bhx}$
+    o\`u $h$ est le temps de manipulation.
+  \item \textbf{Type III (sigmo\"ide) :} $g(x) = \frac{bx^2}{1+bhx^2}$.
+\end{itemize}
+\end{definition}
+
+Le syst\`eme avec r\'eponse de type II (mod\`ele de Rosenzweig--MacArthur)
+est :
+\begin{align}
+  \dot{x} &= rx\left(1-\frac{x}{K}\right) - \frac{bxy}{1+bhx}, \\
+  \dot{y} &= y\left(\frac{dbx}{1+bhx} - c\right).
+\end{align}
+
+\begin{attention}[title=\textbf{Paradoxe de l'enrichissement}]
+Rosenzweig (1971) a montr\'e que l'augmentation de la capacit\'e de
+charge $K$ peut d\'estabiliser l'\'equilibre de coexistence par une
+bifurcation de Hopf, provoquant des oscillations de grande amplitude
+qui risquent de mener \`a l'extinction.
+\end{attention}
+
+\subsection{Comp\'etition intersp\'ecifique}
+
+\begin{definition}[Mod\`ele de comp\'etition de Lotka--Volterra]
+Pour deux esp\`eces en comp\'etition :
+\begin{align}
+  \dot{N}_1 &= r_1 N_1\left(1 - \frac{N_1 + \alpha_{12}N_2}{K_1}\right), \\
+  \dot{N}_2 &= r_2 N_2\left(1 - \frac{N_2 + \alpha_{21}N_1}{K_2}\right),
+\end{align}
+o\`u $\alpha_{ij}$ mesure l'effet comp\'etitif de l'esp\`ece $j$ sur
+l'esp\`ece $i$.
+\end{definition}
+
+\begin{proposition}[Principe d'exclusion comp\'etitive]
+Si $\alpha_{12}K_2/K_1 > 1$ et $\alpha_{21}K_1/K_2 > 1$, les deux
+esp\`eces ne peuvent pas coexister de fa\c{c}on stable (exclusion
+comp\'etitive de Gause).  L'issue d\'epend des conditions initiales.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Mod\`eles discrets : l'\'equation de Beverton--Holt}
+% ------------------------------------------------------------
+
+\begin{definition}[Mod\`ele de Beverton--Holt]
+Pour des populations \`a g\'en\'erations non chevauchantes :
+\[
+  N_{t+1} = \frac{RN_t}{1 + (R-1)N_t/K},
+\]
+o\`u $R>1$ est le taux de reproduction et $K$ la capacit\'e de charge.
+\end{definition}
+
+\begin{proposition}
+L'\'equilibre non trivial $N^*=K$ est globalement stable pour $R>1$.
+Le mod\`ele de Beverton--Holt est l'analogue discret de l'\'equation
+logistique et ne pr\'esente \emph{pas} de chaos, contrairement \`a
+l'application logistique $N_{t+1}=RN_t(1-N_t/K)$ \'etudi\'ee au
+chapitre~\ref{ch:chaos}.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Limites des mod\`eles de populations}
+% ------------------------------------------------------------
+
+\begin{attention}[title=\textbf{Hypoth\`eses et limites}]
+\begin{itemize}
+  \item \textbf{Homog\'en\'eit\'e spatiale :} les mod\`eles pr\'ec\'edents
+    ignorent la structure spatiale. En r\'ealit\'e, les populations sont
+    distribu\'ees dans l'espace (voir chapitre~\ref{ch:diffusion}).
+  \item \textbf{D\'eterminisme :} pour de petites populations,
+    les fluctuations stochastiques deviennent importantes
+    (chapitre~\ref{ch:stochastiques}).
+  \item \textbf{Structure d'\^age :} les mod\`eles de Leslie introduisent
+    une structure par classes d'\^age.
+  \item \textbf{Param\`etres constants :} en r\'ealit\'e, $r$ et $K$
+    peuvent d\'ependre du temps (saisonnalit\'e, changement climatique).
+\end{itemize}
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}
+Montrer que la population logistique atteint la moiti\'e de sa
+capacit\'e de charge au temps $t_{1/2} = \frac{1}{r}\ln\frac{K-N_0}{N_0}$.
+\end{exercice}
+
+\begin{exercice}
+Ajouter un terme de r\'ecolte constante $h$ au mod\`ele logistique :
+$\dot{N} = rN(1-N/K) - h$.
+\begin{enumerate}
+  \item Trouver les \'equilibres en fonction de $h$.
+  \item D\'eterminer la r\'ecolte maximale soutenable $h_{\max}$.
+  \item Tracer le diagramme de bifurcation $N^*$ vs.\ $h$.
+  \item Simuler en Python pour $h < h_{\max}$, $h = h_{\max}$,
+    $h > h_{\max}$.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}
+Pour le syst\`eme de Lotka--Volterra, v\'erifier num\'eriquement
+que $H(x,y)$ est conserv\'ee au cours du temps.  Comparer les
+r\'esultats obtenus avec les m\'ethodes \texttt{RK45} et
+\texttt{RK23} de \texttt{solve\_ivp} pour diff\'erentes tol\'erances.
+\end{exercice}
+
+\begin{exercice}
+\'Etudier le mod\`ele de Rosenzweig--MacArthur avec les param\`etres
+$r=1$, $b=0.5$, $h=0.5$, $d=0.5$, $c=0.3$ pour $K\in\{5,10,20,50\}$.
+\begin{enumerate}
+  \item D\'eterminer les \'equilibres et leur stabilit\'e.
+  \item Tracer les portraits de phase.
+  \item Identifier la valeur critique de $K$ pour la bifurcation de Hopf.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}
+Deux esp\`eces de bact\'eries sont en comp\'etition dans un
+environnement confin\'e, avec $r_1=0.8$, $r_2=0.6$, $K_1=500$,
+$K_2=400$, $\alpha_{12}=0.7$, $\alpha_{21}=1.2$.
+\begin{enumerate}
+  \item D\'eterminer les \'equilibres et analyser leur stabilit\'e.
+  \item Simuler le syst\`eme pour diff\'erentes conditions initiales.
+  \item Conclure : y a-t-il coexistence ou exclusion ?
+\end{enumerate}
+\end{exercice}

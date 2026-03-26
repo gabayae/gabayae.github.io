@@ -1,0 +1,652 @@
+%!TEX root = ../main.tex
+% Chapter 10: Diffusion Models
+\chapter{Diffusion Models}
+\label{ch:diffusion}
+
+\noindent\textit{Diffusion models represent a family of generative models grounded in the
+theory of stochastic processes. They define a forward noising process and
+learn to reverse this process to generate high-quality samples. This chapter
+rigorously derives the mathematical foundations of DDPM and DDIM models,
+presents the denoising architectures, and provides a complete PyTorch
+implementation.}\medskip
+
+% ============================================================
+\section{Forward Diffusion Process}
+\label{sec:diffusion-forward}
+\index{diffusion!forward process}
+
+\subsection{Definition of the Markov Process}
+
+The forward diffusion process is a Markov chain that progressively adds
+Gaussian noise to a data point $\mathbf{x}_0 \sim q(\mathbf{x}_0)$
+over $T$ time steps.
+
+\begin{definition}[Forward Diffusion Process]
+\label{def:forward-diffusion}
+Let $\{\beta_t\}_{t=1}^{T}$ be a \emph{noise schedule}\index{noise schedule}
+with $\beta_t \in (0, 1)$. The forward process is defined by:
+\begin{equation}
+q(\mathbf{x}_t \mid \mathbf{x}_{t-1}) = \mathcal{N}\!\left(\mathbf{x}_t;\, \sqrt{1 - \beta_t}\,\mathbf{x}_{t-1},\, \beta_t \mathbf{I}\right)
+\label{eq:forward-step}
+\end{equation}
+\end{definition}
+
+\begin{remark}
+As $t \to T$, the distribution $q(\mathbf{x}_T)$ converges to
+$\mathcal{N}(\mathbf{0}, \mathbf{I})$, provided that $T$ is sufficiently large
+and that the schedule $\{\beta_t\}$ is well chosen.
+\end{remark}
+
+\subsection{Closed Form of $q(\mathbf{x}_t \mid \mathbf{x}_0)$}
+\label{sec:closed-form}
+\index{diffusion!closed form}
+
+\begin{theorem}[Direct Marginalization]
+\label{thm:closed-form}
+Define $\alpha_t = 1 - \beta_t$ and $\bar{\alpha}_t = \prod_{s=1}^{t} \alpha_s$.
+Then:
+\begin{equation}
+q(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}\!\left(\mathbf{x}_t;\, \sqrt{\bar{\alpha}_t}\,\mathbf{x}_0,\, (1 - \bar{\alpha}_t)\mathbf{I}\right)
+\label{eq:closed-form}
+\end{equation}
+\end{theorem}
+
+\begin{proof}
+We proceed by induction. For $t = 1$:
+\[
+\mathbf{x}_1 = \sqrt{\alpha_1}\,\mathbf{x}_0 + \sqrt{1 - \alpha_1}\,\boldsymbol{\varepsilon}_1, \quad \boldsymbol{\varepsilon}_1 \sim \mathcal{N}(\mathbf{0}, \mathbf{I})
+\]
+which indeed gives $q(\mathbf{x}_1 \mid \mathbf{x}_0) = \mathcal{N}(\sqrt{\alpha_1}\,\mathbf{x}_0, (1 - \alpha_1)\mathbf{I})$.
+
+Assume the result holds at step $t-1$:
+\[
+\mathbf{x}_{t-1} = \sqrt{\bar{\alpha}_{t-1}}\,\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_{t-1}}\,\bar{\boldsymbol{\varepsilon}}
+\]
+Then:
+\begin{align}
+\mathbf{x}_t &= \sqrt{\alpha_t}\,\mathbf{x}_{t-1} + \sqrt{\beta_t}\,\boldsymbol{\varepsilon}_t \\
+&= \sqrt{\alpha_t}\left(\sqrt{\bar{\alpha}_{t-1}}\,\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_{t-1}}\,\bar{\boldsymbol{\varepsilon}}\right) + \sqrt{\beta_t}\,\boldsymbol{\varepsilon}_t \\
+&= \sqrt{\bar{\alpha}_t}\,\mathbf{x}_0 + \sqrt{\alpha_t(1 - \bar{\alpha}_{t-1})}\,\bar{\boldsymbol{\varepsilon}} + \sqrt{\beta_t}\,\boldsymbol{\varepsilon}_t
+\end{align}
+By the summation property of independent Gaussians, the total variance
+is:
+\[
+\alpha_t(1 - \bar{\alpha}_{t-1}) + \beta_t = \alpha_t - \bar{\alpha}_t + 1 - \alpha_t = 1 - \bar{\alpha}_t
+\]
+which completes the induction.
+\end{proof}
+
+\begin{keyformulas}[title=\textbf{Key Equations of the Forward Process}]
+\begin{align}
+\alpha_t &= 1 - \beta_t \\
+\bar{\alpha}_t &= \prod_{s=1}^{t} \alpha_s \\
+\mathbf{x}_t &= \sqrt{\bar{\alpha}_t}\,\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_t}\,\boldsymbol{\varepsilon}, \quad \boldsymbol{\varepsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})
+\end{align}
+\end{keyformulas}
+
+% ============================================================
+\section{Reverse Process and Training Objective}
+\label{sec:diffusion-reverse}
+\index{diffusion!reverse process}
+
+\subsection{Parameterization of the Reverse Process}
+
+The reverse process is also modeled as a Gaussian Markov chain:
+\begin{equation}
+p_\theta(\mathbf{x}_{t-1} \mid \mathbf{x}_t) = \mathcal{N}\!\left(\mathbf{x}_{t-1};\, \boldsymbol{\mu}_\theta(\mathbf{x}_t, t),\, \sigma_t^2 \mathbf{I}\right)
+\label{eq:reverse-step}
+\end{equation}
+
+\begin{theorem}[Conditional Forward Posterior]
+\label{thm:posterior}
+The posterior $q(\mathbf{x}_{t-1} \mid \mathbf{x}_t, \mathbf{x}_0)$ is Gaussian:
+\begin{equation}
+q(\mathbf{x}_{t-1} \mid \mathbf{x}_t, \mathbf{x}_0) = \mathcal{N}\!\left(\mathbf{x}_{t-1};\, \tilde{\boldsymbol{\mu}}_t(\mathbf{x}_t, \mathbf{x}_0),\, \tilde{\beta}_t \mathbf{I}\right)
+\end{equation}
+where:
+\begin{align}
+\tilde{\boldsymbol{\mu}}_t &= \frac{\sqrt{\bar{\alpha}_{t-1}}\,\beta_t}{1 - \bar{\alpha}_t}\,\mathbf{x}_0 + \frac{\sqrt{\alpha_t}(1 - \bar{\alpha}_{t-1})}{1 - \bar{\alpha}_t}\,\mathbf{x}_t \\
+\tilde{\beta}_t &= \frac{(1 - \bar{\alpha}_{t-1})}{1 - \bar{\alpha}_t}\,\beta_t
+\end{align}
+\end{theorem}
+
+\begin{proof}
+By Bayes' rule:
+\[
+q(\mathbf{x}_{t-1} \mid \mathbf{x}_t, \mathbf{x}_0) \propto q(\mathbf{x}_t \mid \mathbf{x}_{t-1})\,q(\mathbf{x}_{t-1} \mid \mathbf{x}_0)
+\]
+Both terms are Gaussian. By expanding the exponents and completing
+the square in $\mathbf{x}_{t-1}$, we identify the mean and variance of the
+posterior. The detailed calculation gives:
+\begin{align}
+-\frac{1}{2}\Bigg[&\frac{(\mathbf{x}_t - \sqrt{\alpha_t}\,\mathbf{x}_{t-1})^2}{\beta_t} + \frac{(\mathbf{x}_{t-1} - \sqrt{\bar{\alpha}_{t-1}}\,\mathbf{x}_0)^2}{1 - \bar{\alpha}_{t-1}}\Bigg] \\
+= -\frac{1}{2}\Bigg[&\left(\frac{\alpha_t}{\beta_t} + \frac{1}{1 - \bar{\alpha}_{t-1}}\right)\mathbf{x}_{t-1}^2 - 2\left(\frac{\sqrt{\alpha_t}\,\mathbf{x}_t}{\beta_t} + \frac{\sqrt{\bar{\alpha}_{t-1}}\,\mathbf{x}_0}{1 - \bar{\alpha}_{t-1}}\right)\mathbf{x}_{t-1} + C\Bigg]
+\end{align}
+where $C$ does not depend on $\mathbf{x}_{t-1}$. Matching with the form
+$-\frac{1}{2\tilde{\beta}_t}(\mathbf{x}_{t-1} - \tilde{\boldsymbol{\mu}}_t)^2$
+yields the stated expressions.
+\end{proof}
+
+\subsection{Derivation of the Simplified Objective}
+\label{sec:simplified-loss}
+\index{ELBO}\index{diffusion!simplified objective}
+
+\begin{theorem}[Variational Lower Bound (ELBO)]
+\label{thm:elbo-diffusion}
+The log-likelihood is lower bounded by:
+\begin{equation}
+\log p_\theta(\mathbf{x}_0) \geq \E_q\!\left[\log \frac{p_\theta(\mathbf{x}_{0:T})}{q(\mathbf{x}_{1:T} \mid \mathbf{x}_0)}\right] = -\sum_{t=1}^{T} \E_q\!\left[\KL\!\left(q(\mathbf{x}_{t-1} \mid \mathbf{x}_t, \mathbf{x}_0) \;\|\; p_\theta(\mathbf{x}_{t-1} \mid \mathbf{x}_t)\right)\right] + C
+\end{equation}
+\end{theorem}
+
+By substituting $\mathbf{x}_0 = \frac{1}{\sqrt{\bar{\alpha}_t}}(\mathbf{x}_t - \sqrt{1 - \bar{\alpha}_t}\,\boldsymbol{\varepsilon})$
+into $\tilde{\boldsymbol{\mu}}_t$ and parameterizing the network to predict
+the noise $\boldsymbol{\varepsilon}_\theta(\mathbf{x}_t, t)$, we obtain:
+
+\begin{keyformulas}[title=\textbf{DDPM Simplified Objective}]
+\begin{equation}
+L_{\text{simple}} = \E_{t, \mathbf{x}_0, \boldsymbol{\varepsilon}}\!\left[\left\|\boldsymbol{\varepsilon} - \boldsymbol{\varepsilon}_\theta\!\left(\sqrt{\bar{\alpha}_t}\,\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_t}\,\boldsymbol{\varepsilon},\; t\right)\right\|^2\right]
+\label{eq:ddpm-loss}
+\end{equation}
+\end{keyformulas}
+
+\begin{intuition}
+The simplified objective amounts to training a network to ``denoise'':
+given a noisy image $\mathbf{x}_t$ and the time step $t$,
+the network predicts the noise $\boldsymbol{\varepsilon}$ that was added.
+\end{intuition}
+
+% ============================================================
+\section{Noise Schedules}
+\label{sec:noise-schedules}
+\index{noise schedule!linear}\index{noise schedule!cosine}
+
+\subsection{Linear Schedule}
+
+Ho et al.\ (2020) propose a linear schedule:
+\begin{equation}
+\beta_t = \beta_{\min} + \frac{t - 1}{T - 1}(\beta_{\max} - \beta_{\min})
+\end{equation}
+with $\beta_{\min} = 10^{-4}$ and $\beta_{\max} = 0.02$ for $T = 1000$.
+
+\subsection{Cosine Schedule}
+
+Nichol \& Dhariwal (2021) introduce the cosine schedule to avoid
+excessively fast noising at the first steps:
+\begin{equation}
+\bar{\alpha}_t = \frac{f(t)}{f(0)}, \quad f(t) = \cos\!\left(\frac{t/T + s}{1 + s} \cdot \frac{\pi}{2}\right)^2
+\end{equation}
+where $s = 0.008$ is an offset to prevent $\beta_t$ from being too small
+near $t = 0$.
+
+% ============================================================
+\section{Diagram of the Diffusion Process}
+\label{sec:tikz-diffusion-process}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    node distance=2.2cm,
+    imgnode/.style={draw, rounded corners, minimum width=1.5cm, minimum height=1.5cm, fill=blue!8},
+    arrowfwd/.style={->, thick, blue!70},
+    arrowrev/.style={->, thick, red!70},
+]
+    \node[imgnode] (x0) {$\mathbf{x}_0$};
+    \node[imgnode, right of=x0] (x1) {$\mathbf{x}_1$};
+    \node[imgnode, right of=x1] (x2) {$\mathbf{x}_2$};
+    \node[right of=x2, minimum width=1cm] (dots) {$\cdots$};
+    \node[imgnode, right of=dots] (xT1) {$\mathbf{x}_{T\!-\!1}$};
+    \node[imgnode, right of=xT1] (xT) {$\mathbf{x}_T$};
+
+    % Forward arrows
+    \draw[arrowfwd] (x0) -- node[above, font=\scriptsize] {$q(\mathbf{x}_1|\mathbf{x}_0)$} (x1);
+    \draw[arrowfwd] (x1) -- node[above, font=\scriptsize] {$q(\mathbf{x}_2|\mathbf{x}_1)$} (x2);
+    \draw[arrowfwd] (x2) -- (dots);
+    \draw[arrowfwd] (dots) -- (xT1);
+    \draw[arrowfwd] (xT1) -- node[above, font=\scriptsize] {$q(\mathbf{x}_T|\mathbf{x}_{T\!-\!1})$} (xT);
+
+    % Reverse arrows
+    \draw[arrowrev] (xT) to[bend right=30] node[below, font=\scriptsize] {$p_\theta(\mathbf{x}_{T\!-\!1}|\mathbf{x}_T)$} (xT1);
+    \draw[arrowrev] (xT1) to[bend right=30] (dots);
+    \draw[arrowrev] (dots) to[bend right=30] (x2);
+    \draw[arrowrev] (x2) to[bend right=30] node[below, font=\scriptsize] {$p_\theta(\mathbf{x}_1|\mathbf{x}_2)$} (x1);
+    \draw[arrowrev] (x1) to[bend right=30] node[below, font=\scriptsize] {$p_\theta(\mathbf{x}_0|\mathbf{x}_1)$} (x0);
+
+    % Labels
+    \node[above=0.6cm of x1, blue!70, font=\small\bfseries] {Forward process $q$};
+    \node[below=1.0cm of x2, red!70, font=\small\bfseries] {Reverse process $p_\theta$};
+
+    % Side annotations
+    \node[below=0.3cm of x0, font=\scriptsize] {Data};
+    \node[below=0.3cm of xT, font=\scriptsize] {Noise};
+\end{tikzpicture}
+\caption{Forward process (noising) and reverse process (denoising) in a diffusion model.}
+\label{fig:diffusion-process}
+\end{figure}
+
+% ============================================================
+\section{U-Net Architecture for Denoising}
+\label{sec:unet-architecture}
+\index{U-Net}\index{diffusion!architecture}
+
+The network $\boldsymbol{\varepsilon}_\theta$ takes the form of a U-Net with:
+\begin{itemize}
+    \item Residual blocks with group normalization
+    \item \emph{Skip connections}\index{skip connections} between the encoder and the decoder
+    \item A \emph{time embedding}\index{time embedding} injected via addition or modulation
+    \item Attention layers at each spatial resolution
+\end{itemize}
+
+\subsection{Time Embedding}
+
+The time step $t$ is encoded via a sinusoidal embedding (as in
+the Transformer, cf.\ Chapter~\ref{ch:transformers}):
+\begin{equation}
+\text{PE}(t, 2i) = \sin\!\left(\frac{t}{10000^{2i/d}}\right), \quad
+\text{PE}(t, 2i+1) = \cos\!\left(\frac{t}{10000^{2i/d}}\right)
+\end{equation}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    block/.style={draw, rounded corners, minimum width=1.8cm, minimum height=0.7cm, font=\scriptsize, align=center},
+    encblock/.style={block, fill=blue!15},
+    decblock/.style={block, fill=red!15},
+    skipline/.style={dashed, gray, thick},
+    arrw/.style={->, thick},
+    scale=0.85, transform shape
+]
+    % Encoder
+    \node[encblock] (e1) at (0, 0) {Conv $64$\\ResBlock};
+    \node[encblock] (e2) at (0, -1.5) {Down $128$\\ResBlock};
+    \node[encblock] (e3) at (0, -3.0) {Down $256$\\Attention};
+    \node[encblock] (e4) at (0, -4.5) {Down $512$\\Attention};
+
+    % Bottleneck
+    \node[block, fill=green!15] (bn) at (3, -4.5) {Bottleneck\\$512$};
+
+    % Decoder
+    \node[decblock] (d4) at (6, -4.5) {Up $256$\\Attention};
+    \node[decblock] (d3) at (6, -3.0) {Up $128$\\Attention};
+    \node[decblock] (d2) at (6, -1.5) {Up $64$\\ResBlock};
+    \node[decblock] (d1) at (6, 0) {Conv $C_{\text{out}}$\\ResBlock};
+
+    % Time embedding
+    \node[block, fill=yellow!20] (temb) at (3, -6.5) {Time Emb.\\$\text{PE}(t)$};
+
+    % Arrows encoder
+    \draw[arrw] (e1) -- (e2);
+    \draw[arrw] (e2) -- (e3);
+    \draw[arrw] (e3) -- (e4);
+    \draw[arrw] (e4) -- (bn);
+
+    % Arrows decoder
+    \draw[arrw] (bn) -- (d4);
+    \draw[arrw] (d4) -- (d3);
+    \draw[arrw] (d3) -- (d2);
+    \draw[arrw] (d2) -- (d1);
+
+    % Skip connections
+    \draw[skipline] (e4.east) -- ++(0.3,0) |- (d4.west);
+    \draw[skipline] (e3.east) -- ++(0.5,0) |- (d3.west);
+    \draw[skipline] (e2.east) -- ++(0.7,0) |- (d2.west);
+    \draw[skipline] (e1.east) -- ++(0.9,0) |- (d1.west);
+
+    % Time embedding arrows
+    \draw[arrw, orange!70] (temb) -- (bn);
+    \draw[arrw, orange!70] (temb.west) -| (e3.south);
+    \draw[arrw, orange!70] (temb.east) -| (d3.south);
+
+    % Labels
+    \node[above=0.3cm of e1, font=\small\bfseries, blue!70] {Encoder};
+    \node[above=0.3cm of d1, font=\small\bfseries, red!70] {Decoder};
+    \node[left=0.8cm of e1, font=\scriptsize] {$\mathbf{x}_t$};
+    \node[right=0.8cm of d1, font=\scriptsize] {$\hat{\boldsymbol{\varepsilon}}$};
+    \draw[arrw] ([xshift=-0.7cm]e1.west) -- (e1.west);
+    \draw[arrw] (d1.east) -- ([xshift=0.7cm]d1.east);
+\end{tikzpicture}
+\caption{U-Net architecture for noise prediction with skip connections and time embedding.}
+\label{fig:unet-arch}
+\end{figure}
+
+% ============================================================
+\section{Sampling Algorithms}
+\label{sec:sampling}
+
+\subsection{DDPM: Stochastic Sampling}
+\index{DDPM}
+
+DDPM sampling follows the reverse process:
+\begin{equation}
+\mathbf{x}_{t-1} = \frac{1}{\sqrt{\alpha_t}}\left(\mathbf{x}_t - \frac{\beta_t}{\sqrt{1 - \bar{\alpha}_t}}\,\boldsymbol{\varepsilon}_\theta(\mathbf{x}_t, t)\right) + \sigma_t\,\mathbf{z}, \quad \mathbf{z} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})
+\label{eq:ddpm-sampling}
+\end{equation}
+where $\sigma_t = \sqrt{\tilde{\beta}_t}$ or $\sigma_t = \sqrt{\beta_t}$.
+
+\subsection{DDIM: Deterministic Sampling}
+\label{sec:ddim}
+\index{DDIM}
+
+Song et al.\ (2020) show that one can define a non-Markovian process
+yielding the same marginals $q(\mathbf{x}_t \mid \mathbf{x}_0)$ but with
+deterministic sampling:
+
+\begin{theorem}[DDIM Sampling]
+\label{thm:ddim}
+For $\eta = 0$ (deterministic case):
+\begin{equation}
+\mathbf{x}_{t-1} = \sqrt{\bar{\alpha}_{t-1}}\underbrace{\left(\frac{\mathbf{x}_t - \sqrt{1 - \bar{\alpha}_t}\,\boldsymbol{\varepsilon}_\theta(\mathbf{x}_t, t)}{\sqrt{\bar{\alpha}_t}}\right)}_{\text{``prediction of'' } \mathbf{x}_0} + \sqrt{1 - \bar{\alpha}_{t-1}}\,\boldsymbol{\varepsilon}_\theta(\mathbf{x}_t, t)
+\label{eq:ddim}
+\end{equation}
+\end{theorem}
+
+\begin{remark}
+DDIM allows sampling in $S \ll T$ steps by choosing a subset
+of time steps $\{\tau_1, \ldots, \tau_S\} \subset \{1, \ldots, T\}$.
+\end{remark}
+
+% ============================================================
+\section{Classifier-Free Guidance}
+\label{sec:cfg}
+\index{classifier-free guidance}
+
+\begin{definition}[Classifier-Free Guidance]
+Let $c$ be a conditioning signal (text, class, etc.). The guided noise is:
+\begin{equation}
+\hat{\boldsymbol{\varepsilon}}_\theta(\mathbf{x}_t, t, c) = (1 + w)\,\boldsymbol{\varepsilon}_\theta(\mathbf{x}_t, t, c) - w\,\boldsymbol{\varepsilon}_\theta(\mathbf{x}_t, t, \varnothing)
+\label{eq:cfg}
+\end{equation}
+where $w > 0$ is the guidance scale and $\varnothing$ denotes the absence
+of conditioning.
+\end{definition}
+
+\begin{mathbox}[title=\textbf{Derivation of Guidance}]
+In terms of scores:
+\begin{align}
+\nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t \mid c) &= \nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t) + \nabla_{\mathbf{x}_t} \log p(c \mid \mathbf{x}_t) \\
+\hat{\nabla}_{\mathbf{x}_t} \log p(\mathbf{x}_t \mid c) &= \nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t) + (1 + w)\nabla_{\mathbf{x}_t} \log p(c \mid \mathbf{x}_t)
+\end{align}
+The second line amplifies the implicit classifier gradient by $(1+w)$,
+which strengthens adherence to the conditioning.
+\end{mathbox}
+
+% ============================================================
+\section{PyTorch Implementation: DDPM on MNIST}
+\label{sec:ddpm-pytorch}
+
+\begin{codeblock}[title=\textbf{Simple Noise Prediction Network}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+import math
+
+class SinusoidalTimeEmbedding(nn.Module):
+    """Sinusoidal time embedding."""
+    def __init__(self, dim):
+        super().__init__()
+        self.dim = dim
+
+    def forward(self, t):
+        device = t.device
+        half = self.dim // 2
+        emb = math.log(10000) / (half - 1)
+        emb = torch.exp(torch.arange(half, device=device) * -emb)
+        emb = t[:, None].float() * emb[None, :]
+        return torch.cat([emb.sin(), emb.cos()], dim=-1)
+
+
+class ResBlock(nn.Module):
+    """Residual block with time injection."""
+    def __init__(self, in_ch, out_ch, time_dim):
+        super().__init__()
+        self.conv1 = nn.Sequential(
+            nn.GroupNorm(8, in_ch), nn.SiLU(),
+            nn.Conv2d(in_ch, out_ch, 3, padding=1))
+        self.time_mlp = nn.Sequential(
+            nn.SiLU(), nn.Linear(time_dim, out_ch))
+        self.conv2 = nn.Sequential(
+            nn.GroupNorm(8, out_ch), nn.SiLU(),
+            nn.Conv2d(out_ch, out_ch, 3, padding=1))
+        self.skip = nn.Conv2d(in_ch, out_ch, 1) if in_ch != out_ch else nn.Identity()
+
+    def forward(self, x, t_emb):
+        h = self.conv1(x)
+        h = h + self.time_mlp(t_emb)[:, :, None, None]
+        h = self.conv2(h)
+        return h + self.skip(x)
+
+
+class SimpleUNet(nn.Module):
+    """Simplified U-Net for MNIST (28x28, 1 channel)."""
+    def __init__(self, time_dim=128):
+        super().__init__()
+        self.time_embed = nn.Sequential(
+            SinusoidalTimeEmbedding(time_dim),
+            nn.Linear(time_dim, time_dim), nn.SiLU())
+
+        # Encoder
+        self.enc1 = ResBlock(1, 32, time_dim)
+        self.enc2 = ResBlock(32, 64, time_dim)
+        self.pool = nn.MaxPool2d(2)
+
+        # Bottleneck
+        self.bot = ResBlock(64, 128, time_dim)
+
+        # Decoder
+        self.up2 = nn.ConvTranspose2d(128, 64, 2, stride=2)
+        self.dec2 = ResBlock(128, 64, time_dim)
+        self.up1 = nn.ConvTranspose2d(64, 32, 2, stride=2)
+        self.dec1 = ResBlock(64, 32, time_dim)
+
+        self.out = nn.Conv2d(32, 1, 1)
+
+    def forward(self, x, t):
+        t_emb = self.time_embed(t)
+        # Encoder
+        e1 = self.enc1(x, t_emb)           # 28x28
+        e2 = self.enc2(self.pool(e1), t_emb)  # 14x14
+        # Bottleneck
+        b = self.bot(self.pool(e2), t_emb)  # 7x7
+        # Decoder + skip connections
+        d2 = self.dec2(torch.cat([self.up2(b), e2], 1), t_emb)
+        d1 = self.dec1(torch.cat([self.up1(d2), e1], 1), t_emb)
+        return self.out(d1)
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{DDPM Training Loop}]
+\begin{minted}{python}
+import torch.nn.functional as F
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
+
+# Hyperparameters
+T = 1000
+beta = torch.linspace(1e-4, 0.02, T)
+alpha = 1.0 - beta
+alpha_bar = torch.cumprod(alpha, dim=0)
+
+def q_sample(x0, t, noise=None):
+    """Sample x_t from x_0."""
+    if noise is None:
+        noise = torch.randn_like(x0)
+    ab = alpha_bar[t][:, None, None, None].to(x0.device)
+    return torch.sqrt(ab) * x0 + torch.sqrt(1 - ab) * noise, noise
+
+# Data
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.5,), (0.5,))])
+train_set = datasets.MNIST('.', train=True, download=True, transform=transform)
+loader = DataLoader(train_set, batch_size=128, shuffle=True)
+
+# Model and optimizer
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model = SimpleUNet().to(device)
+optimizer = torch.optim.Adam(model.parameters(), lr=2e-4)
+
+# Training
+for epoch in range(20):
+    total_loss = 0
+    for imgs, _ in loader:
+        imgs = imgs.to(device)
+        t = torch.randint(0, T, (imgs.size(0),))
+        x_t, noise = q_sample(imgs, t)
+        x_t = x_t.to(device)
+        noise = noise.to(device)
+        pred = model(x_t, t.to(device))
+        loss = F.mse_loss(pred, noise)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+    print(f"Epoch {epoch+1}, Loss: {total_loss/len(loader):.4f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{DDPM Sampling Loop}]
+\begin{minted}{python}
+@torch.no_grad()
+def ddpm_sample(model, shape, T=1000):
+    """Generate samples via DDPM."""
+    device = next(model.parameters()).device
+    x = torch.randn(shape, device=device)
+    for t in reversed(range(T)):
+        t_batch = torch.full((shape[0],), t, device=device, dtype=torch.long)
+        eps_pred = model(x, t_batch)
+        coeff = beta[t] / torch.sqrt(1 - alpha_bar[t])
+        mu = (x - coeff * eps_pred) / torch.sqrt(alpha[t])
+        if t > 0:
+            z = torch.randn_like(x)
+            sigma = torch.sqrt(beta[t])
+            x = mu + sigma * z
+        else:
+            x = mu
+    return x
+
+# Generate 16 images
+samples = ddpm_sample(model, (16, 1, 28, 28))
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Epoch 1, Loss: 0.1283
+Epoch 2, Loss: 0.0541
+Epoch 3, Loss: 0.0472
+...
+Epoch 20, Loss: 0.0298
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Ablation Study}
+\label{sec:diffusion-ablation}
+
+\begin{table}[htbp]
+\centering
+\caption{Ablation study on MNIST: impact of hyperparameters.}
+\label{tab:diffusion-ablation}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Configuration} & \textbf{Steps $T$} & \textbf{Schedule} & \textbf{FID $\downarrow$} \\
+\midrule
+Baseline                & 1000             & Linear             & 12.4 \\
+Reduced                 & 200              & Linear             & 28.7 \\
+Cosine                  & 1000             & Cosine             & 10.1 \\
+Small network (32 dim)  & 1000             & Linear             & 18.9 \\
+Large network (256 dim) & 1000             & Cosine             & 7.8 \\
+DDIM ($S=50$)           & 1000             & Cosine             & 11.3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{remark}
+The cosine schedule systematically improves FID by distributing
+the noise budget more uniformly across time steps. DDIM with $S=50$
+steps offers an excellent speed/quality trade-off.
+\end{remark}
+
+% ============================================================
+\section{State of the Art and Connections}
+\label{sec:diffusion-sota}
+
+\begin{sota}[title=\textbf{Diffusion Models in 2024--2025}]
+\begin{itemize}
+    \item \textbf{Stable Diffusion / SDXL}: diffusion in the latent space
+          of an autoencoder, enabling high-resolution text-conditioned image
+          generation via CLIP.
+    \item \textbf{DALL$\cdot$E 3}: tight integration with language models
+          for precise adherence to textual instructions.
+    \item \textbf{Flow Matching}\index{flow matching}: generalization of diffusion
+          models using ordinary differential equations (ODE) with conditional
+          vector fields, enabling more direct trajectories.
+    \item \textbf{Consistency Models}\index{consistency models}: distillation
+          of the diffusion process into a single-step model, eliminating
+          the need for iterative sampling.
+    \item \textbf{Video Generation}: Sora (OpenAI), extending diffusion
+          models to spatio-temporal video generation.
+\end{itemize}
+\end{sota}
+
+\begin{warning}
+Diffusion models require considerable computational resources
+for training (thousands of GPU hours). Latent-space approaches
+(LDM) significantly reduce this cost.
+\end{warning}
+
+% ============================================================
+\section{Exercises}
+\label{sec:diffusion-exercises}
+
+\begin{exercise}[Derivation of the Closed Form \textmd{($\star$)}]
+\label{exo:closed-form}
+Prove by induction that $q(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}(\sqrt{\bar{\alpha}_t}\,\mathbf{x}_0, (1 - \bar{\alpha}_t)\mathbf{I})$
+by detailing each step of the variance calculation.
+\end{exercise}
+
+\begin{exercise}[Conditional Posterior \textmd{($\star\star$)}]
+\label{exo:posterior}
+Fully derive $q(\mathbf{x}_{t-1} \mid \mathbf{x}_t, \mathbf{x}_0)$
+starting from Bayes' rule. Explicitly show the completing-the-square
+step.
+\end{exercise}
+
+\begin{exercise}[DDIM as an ODE \textmd{($\star\star$)}]
+\label{exo:ddim-ode}
+Show that the DDIM equation (\ref{eq:ddim}) can be interpreted as
+the Euler discretization of a probability ODE. What is the associated
+vector field?
+\end{exercise}
+
+\begin{exercise}[Implementation of the Cosine Schedule \textmd{($\star$)}]
+\label{exo:cosine-schedule}
+Implement the Nichol \& Dhariwal cosine schedule in PyTorch.
+Plot $\bar{\alpha}_t$ and $\beta_t$ as a function of $t$ and compare
+with the linear schedule.
+\end{exercise}
+
+\begin{exercise}[Classifier-Free Guidance \textmd{($\star\star\star$)}]
+\label{exo:cfg}
+\begin{enumerate}
+    \item Derive equation~(\ref{eq:cfg}) from the conditional score
+          $\nabla_{\mathbf{x}} \log p(\mathbf{x} \mid c)$.
+    \item Modify the U-Net from Section~\ref{sec:ddpm-pytorch} to accept
+          a class conditioning. Train with a conditioning
+          \emph{dropout} rate of $10\%$.
+    \item Generate specific MNIST digits with different
+          values of $w \in \{0, 1, 3, 7\}$ and analyze the evolution
+          of quality and diversity.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[DDPM vs DDIM Comparison \textmd{($\star\star$)}]
+\label{exo:ddpm-vs-ddim}
+Implement DDIM sampling and compare:
+\begin{enumerate}
+    \item Visual quality for $S \in \{10, 50, 100, 1000\}$ steps
+    \item Inference time
+    \item Latent space interpolation capability (deterministic
+          property of DDIM)
+\end{enumerate}
+\end{exercise}

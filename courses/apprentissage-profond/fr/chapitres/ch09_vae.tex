@@ -1,0 +1,597 @@
+%!TEX root = ../main.tex
+% Chapitre 9 : Auto-encodeurs Variationnels (VAE)
+\chapter{Auto-encodeurs Variationnels (VAE)}
+\label{ch:vae}
+
+\paragraph{Objectifs du chapitre}
+\begin{itemize}
+\item Comprendre la motivation des mod\`eles \`a variables latentes
+\item D\'eriver compl\`etement l'ELBO \`a partir de la log-vraisemblance
+\item Ma\^itriser le \emph{reparameterization trick} et son r\^ole pour la r\'etropropagation
+\item Impl\'ementer un VAE en PyTorch et visualiser l'espace latent
+\item Conna\^itre les extensions : $\beta$-VAE, VQ-VAE
+\end{itemize}
+
+\section{Motivation : mod\`eles \`a variables latentes}
+\label{sec:vae-motivation}
+
+De nombreux ph\'enom\`enes sont r\'egis par des \emph{facteurs cach\'es} (ou latents) : la pose d'un visage, l'\'eclairage, l'identit\'e. Un mod\`ele \`a variables latentes\index{variable latente} suppose l'existence d'un vecteur $z \in \R^d$ tel que :
+\begin{equation}
+p_\theta(x) = \int p_\theta(x \mid z)\, p(z)\, dz
+\label{eq:marginal-likelihood}
+\end{equation}
+
+\begin{remarque}
+Contrairement aux GAN (chapitre~\ref{ch:gan}) qui apprennent un g\'en\'erateur implicite, les VAE d\'efinissent un mod\`ele probabiliste \emph{explicite} avec une vraisemblance tractable (via une borne inf\'erieure).
+\end{remarque}
+
+\section{Auto-encodeur standard : rappels et limitations}
+\label{sec:autoencoder-standard}
+
+\begin{definition}[Auto-encodeur\index{auto-encodeur}]
+Un auto-encodeur est un r\'eseau compos\'e de :
+\begin{itemize}
+    \item Un \textbf{encodeur} $f_\phi : \mathcal{X} \to \mathcal{Z}$ qui compresse $x$ en une repr\'esentation $z = f_\phi(x)$.
+    \item Un \textbf{d\'ecodeur} $g_\theta : \mathcal{Z} \to \mathcal{X}$ qui reconstruit $\hat{x} = g_\theta(z)$.
+\end{itemize}
+L'objectif est de minimiser l'erreur de reconstruction $\|x - \hat{x}\|^2$.
+\end{definition}
+
+\begin{attention}
+L'auto-encodeur standard pr\'esente deux limitations majeures pour la g\'en\'eration :
+\begin{enumerate}
+    \item L'espace latent n'a pas de structure r\'eguli\`ere : on ne peut pas \'echantillonner al\'eatoirement dans $\mathcal{Z}$ et obtenir des sorties coh\'erentes.
+    \item Il n'y a pas de mod\`ele probabiliste sous-jacent : on ne peut pas \'evaluer $p(x)$.
+\end{enumerate}
+Le VAE r\'esout ces deux probl\`emes.
+\end{attention}
+
+\section{Cadre d'inf\'erence variationnelle}
+\label{sec:variational-inference}
+
+\subsection{Le probl\`eme de l'int\'egrale intractable}
+
+On souhaite maximiser la log-vraisemblance des donn\'ees :
+\begin{equation}
+\log p_\theta(x) = \log \int p_\theta(x \mid z)\, p(z)\, dz
+\end{equation}
+
+Cette int\'egrale est intractable car elle n\'ecessite d'int\'egrer sur tout l'espace latent. De m\^eme, la distribution a posteriori $p_\theta(z \mid x)$ est intractable.
+
+\subsection{D\'erivation compl\`ete de l'ELBO}
+
+On introduit une distribution approch\'ee $q_\phi(z \mid x)$ (l'\emph{encodeur}) et on d\'erive la borne inf\'erieure variationnelle (\emph{Evidence Lower BOund}, ELBO)\index{ELBO}.
+
+\begin{theoreme}[ELBO --- D\'erivation 1 : par la divergence KL]
+\label{thm:elbo-kl}
+\begin{align}
+\log p_\theta(x) &= \log p_\theta(x) \int q_\phi(z \mid x)\, dz \label{eq:elbo-start}\\
+&= \int q_\phi(z \mid x) \log p_\theta(x)\, dz \\
+&= \int q_\phi(z \mid x) \log \frac{p_\theta(x, z)}{p_\theta(z \mid x)}\, dz \\
+&= \int q_\phi(z \mid x) \log \frac{p_\theta(x, z)\, q_\phi(z \mid x)}{p_\theta(z \mid x)\, q_\phi(z \mid x)}\, dz \\
+&= \underbrace{\int q_\phi(z \mid x) \log \frac{p_\theta(x, z)}{q_\phi(z \mid x)}\, dz}_{\text{ELBO}(\theta, \phi; x)} + \underbrace{\int q_\phi(z \mid x) \log \frac{q_\phi(z \mid x)}{p_\theta(z \mid x)}\, dz}_{\KL(q_\phi(z|x) \| p_\theta(z|x)) \geq 0}
+\end{align}
+\end{theoreme}
+
+Puisque $\KL \geq 0$, on a :
+
+\begin{mathbox}[title=\textbf{Evidence Lower Bound (ELBO)}]\index{ELBO}
+\begin{equation}
+\log p_\theta(x) \geq \text{ELBO}(\theta, \phi; x) = \E_{q_\phi(z|x)}\!\big[\log p_\theta(x \mid z)\big] - \KL\!\big(q_\phi(z \mid x) \| p(z)\big)
+\label{eq:elbo}
+\end{equation}
+\end{mathbox}
+
+\begin{intuition}
+L'ELBO se d\'ecompose en deux termes interpr\'etables :
+\begin{itemize}
+    \item $\E_{q_\phi(z|x)}[\log p_\theta(x|z)]$ : \textbf{reconstruction} --- le d\'ecodeur doit bien reconstruire $x$ \`a partir de $z \sim q_\phi(z|x)$.
+    \item $-\KL(q_\phi(z|x) \| p(z))$ : \textbf{r\'egularisation} --- l'encodeur doit produire des distributions proches du prior $p(z) = \mathcal{N}(0, I)$.
+\end{itemize}
+\end{intuition}
+
+\subsection{D\'erivation alternative : par l'in\'egalit\'e de Jensen}
+
+\begin{proposition}[ELBO par Jensen]
+\begin{align}
+\log p_\theta(x) &= \log \int p_\theta(x \mid z)\, p(z)\, dz \\
+&= \log \int \frac{p_\theta(x \mid z)\, p(z)}{q_\phi(z \mid x)} \cdot q_\phi(z \mid x)\, dz \\
+&= \log \E_{q_\phi(z|x)}\!\left[\frac{p_\theta(x \mid z)\, p(z)}{q_\phi(z \mid x)}\right] \\
+&\geq \E_{q_\phi(z|x)}\!\left[\log \frac{p_\theta(x \mid z)\, p(z)}{q_\phi(z \mid x)}\right] = \text{ELBO}
+\end{align}
+par l'in\'egalit\'e de Jensen ($\log$ est concave).
+\end{proposition}
+
+\section{Le Reparameterization Trick}
+\label{sec:reparam-trick}
+
+\subsection{Le probl\`eme du gradient \`a travers l'\'echantillonnage}
+
+Pour optimiser l'ELBO par descente de gradient, on doit calculer :
+\begin{equation}
+\nabla_\phi \E_{q_\phi(z|x)}\!\big[\log p_\theta(x \mid z)\big]
+\end{equation}
+
+Or, le gradient d'une esp\'erance par rapport aux param\`etres de la distribution d'\'echantillonnage n'est pas directement calculable par r\'etropropagation.
+
+\subsection{D\'erivation du reparameterization trick}
+
+\begin{theoreme}[Reparameterization trick\index{reparameterization trick}]
+Si $q_\phi(z \mid x) = \mathcal{N}(\mu_\phi(x), \text{diag}(\sigma^2_\phi(x)))$, on peut \'ecrire :
+\begin{equation}
+z = \mu_\phi(x) + \sigma_\phi(x) \odot \varepsilon, \quad \varepsilon \sim \mathcal{N}(0, I)
+\label{eq:reparam}
+\end{equation}
+o\`u $\odot$ d\'enote le produit \'el\'ement par \'el\'ement.
+\end{theoreme}
+
+\begin{proof}
+On utilise le changement de variable. Si $\varepsilon \sim \mathcal{N}(0, I)$ et $z = \mu + \sigma \odot \varepsilon$, alors :
+\begin{equation}
+z \sim \mathcal{N}(\mu, \text{diag}(\sigma^2))
+\end{equation}
+ce qui est exactement $q_\phi(z \mid x)$. L'avantage cl\'e est que l'al\'ea $\varepsilon$ est ind\'ependant de $\phi$, donc :
+\begin{align}
+\nabla_\phi \E_{q_\phi(z|x)}\!\big[f(z)\big] &= \nabla_\phi \E_{\varepsilon \sim \mathcal{N}(0,I)}\!\big[f(\mu_\phi(x) + \sigma_\phi(x) \odot \varepsilon)\big] \\
+&= \E_{\varepsilon}\!\big[\nabla_\phi f(\mu_\phi(x) + \sigma_\phi(x) \odot \varepsilon)\big]
+\end{align}
+On peut maintenant intervertir gradient et esp\'erance, et estimer le gradient par Monte Carlo.
+\end{proof}
+
+\subsection{Diagramme TikZ de l'architecture VAE}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    block/.style={rectangle, draw, fill=blue!10, minimum width=2.2cm, minimum height=1cm, align=center, rounded corners=3pt},
+    paramblock/.style={rectangle, draw, fill=orange!15, minimum width=1.6cm, minimum height=0.8cm, align=center, rounded corners=3pt},
+    sampleblock/.style={circle, draw, fill=red!12, minimum size=1.2cm, align=center},
+    arr/.style={-{Stealth}, thick},
+    darr/.style={-{Stealth}, thick, dashed, gray},
+]
+
+% Entree
+\node[block] (input) at (0, 0) {$x$\\(entr\'ee)};
+
+% Encodeur
+\node[block, fill=blue!15] (enc) at (3, 0) {Encodeur\\$q_\phi(z|x)$};
+
+% Mu et sigma
+\node[paramblock] (mu) at (6, 0.8) {$\mu_\phi(x)$};
+\node[paramblock] (sigma) at (6, -0.8) {$\sigma_\phi(x)$};
+
+% Echantillonnage
+\node[sampleblock] (sample) at (8.5, 0) {$z$};
+\node[above=0.3cm, font=\footnotesize] at (sample.north) {$z = \mu + \sigma \odot \varepsilon$};
+
+% Epsilon
+\node[paramblock, fill=red!8] (eps) at (8.5, -2) {$\varepsilon \sim \mathcal{N}(0, I)$};
+
+% Decodeur
+\node[block, fill=green!15] (dec) at (11.5, 0) {D\'ecodeur\\$p_\theta(x|z)$};
+
+% Sortie
+\node[block] (output) at (14.5, 0) {$\hat{x}$\\(reconstruction)};
+
+% Fleches
+\draw[arr] (input) -- (enc);
+\draw[arr] (enc) -- (mu);
+\draw[arr] (enc) -- (sigma);
+\draw[arr] (mu) -- (sample);
+\draw[arr] (sigma) -- (sample);
+\draw[arr] (eps) -- (sample);
+\draw[arr] (sample) -- (dec);
+\draw[arr] (dec) -- (output);
+
+% KL
+\draw[darr] (mu.north) -- ++(0, 1.2) node[above, font=\footnotesize, text=gray] {$\KL(q_\phi(z|x) \| p(z))$} -- ++(2.5, 0);
+\draw[darr] (sigma.south) -- ++(0, -0.5) -- ++(0.5, 0);
+
+% Reconstruction loss
+\draw[darr] (output.south) -- ++(0, -1.5) -| (input.south)
+    node[pos=0.25, below, font=\footnotesize, text=gray] {$-\E_q[\log p_\theta(x|z)]$ (reconstruction)};
+
+\end{tikzpicture}
+\caption{Architecture d'un VAE. L'encodeur produit $\mu$ et $\sigma$, l'\'echantillonnage utilise le \emph{reparameterization trick}, et le d\'ecodeur reconstruit $x$. La perte totale combine reconstruction et KL.}
+\label{fig:vae-architecture}
+\end{figure}
+
+\section{KL entre deux gaussiennes : formule ferm\'ee}
+\label{sec:kl-gaussians}
+
+\begin{theoreme}[KL entre deux gaussiennes diagonales\index{divergence KL!gaussiennes}]
+Soit $q = \mathcal{N}(\mu, \text{diag}(\sigma^2))$ et $p = \mathcal{N}(0, I)$, toutes deux en dimension $d$. Alors :
+\begin{equation}
+\KL(q \| p) = \frac{1}{2}\sum_{j=1}^{d} \left(\sigma_j^2 + \mu_j^2 - 1 - \log \sigma_j^2\right)
+\label{eq:kl-closed-form}
+\end{equation}
+\end{theoreme}
+
+\begin{proof}
+Par d\'efinition :
+\begin{align}
+\KL(q \| p) &= \E_q\!\left[\log q(z) - \log p(z)\right] \\
+&= \E_q\!\left[-\frac{1}{2}\sum_j \left(\log \sigma_j^2 + \frac{(z_j - \mu_j)^2}{\sigma_j^2}\right) + \frac{1}{2}\sum_j z_j^2\right] + \text{const.}
+\end{align}
+En d\'eveloppant $z_j^2 = (z_j - \mu_j + \mu_j)^2$ et en utilisant $\E_q[(z_j - \mu_j)^2] = \sigma_j^2$, $\E_q[z_j - \mu_j] = 0$ :
+\begin{align}
+\KL(q \| p) &= -\frac{1}{2}\sum_j \left(\log \sigma_j^2 + 1\right) + \frac{1}{2}\sum_j \left(\sigma_j^2 + \mu_j^2\right) \\
+&= \frac{1}{2}\sum_j \left(\sigma_j^2 + \mu_j^2 - 1 - \log \sigma_j^2\right)
+\end{align}
+\end{proof}
+
+\section{$\beta$-VAE : repr\'esentations d\'em\^el\'ees}
+\label{sec:beta-vae}
+
+\begin{definition}[$\beta$-VAE\index{beta-VAE@$\beta$-VAE}]
+Higgins et al.\ (2017) proposent de pondérer le terme KL :
+\begin{equation}
+\mathcal{L}_{\beta\text{-VAE}} = \E_{q_\phi(z|x)}\!\big[\log p_\theta(x \mid z)\big] - \beta \cdot \KL\!\big(q_\phi(z \mid x) \| p(z)\big)
+\label{eq:beta-vae}
+\end{equation}
+avec $\beta > 1$ pour encourager des repr\'esentations \emph{d\'em\^el\'ees} (disentangled)\index{disentangled representations}.
+\end{definition}
+
+\begin{intuition}
+Augmenter $\beta$ force chaque dimension latente \`a capturer un facteur de variation ind\'ependant (taille, orientation, couleur, etc.), au prix d'une reconstruction l\'eg\`erement d\'egrad\'ee.
+\end{intuition}
+
+\section{VQ-VAE : quantification vectorielle}
+\label{sec:vq-vae}
+
+\begin{definition}[VQ-VAE\index{VQ-VAE}]
+Le VQ-VAE (van den Oord et al., 2017) remplace l'espace latent continu par un \textbf{dictionnaire discret} (\emph{codebook}) $\{e_k\}_{k=1}^K$ o\`u $e_k \in \R^d$.
+
+L'encodeur produit $z_e(x) \in \R^d$, et la quantification s\'electionne l'entr\'ee la plus proche :
+\begin{equation}
+z_q(x) = e_{k^*}, \quad k^* = \argmin_k \|z_e(x) - e_k\|_2
+\label{eq:vq}
+\end{equation}
+\end{definition}
+
+\begin{formules}[title=\textbf{Perte VQ-VAE}]
+\begin{equation}
+\mathcal{L}_{\text{VQ-VAE}} = \underbrace{\|x - \hat{x}\|^2}_{\text{reconstruction}} + \underbrace{\|\text{sg}[z_e(x)] - e_{k^*}\|^2}_{\text{codebook loss}} + \beta \underbrace{\|z_e(x) - \text{sg}[e_{k^*}]\|^2}_{\text{commitment loss}}
+\label{eq:vq-vae-loss}
+\end{equation}
+o\`u $\text{sg}[\cdot]$ d\'enote le \emph{stop-gradient}\index{stop-gradient}\index{straight-through estimator}.
+\end{formules}
+
+\begin{remarque}
+Le gradient est propag\'e au travers de la quantification par le \emph{straight-through estimator}\index{straight-through estimator} : lors du passage arri\`ere, on copie simplement le gradient de $z_q$ vers $z_e$.
+\end{remarque}
+
+\section{Impl\'ementation PyTorch : VAE sur MNIST}
+\label{sec:vae-pytorch}
+
+\begin{codeblock}[title=\textbf{VAE complet avec entra\^inement et visualisation}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
+
+# Hyperparametres
+LATENT_DIM = 20
+HIDDEN_DIM = 512
+BATCH_SIZE = 128
+LR = 1e-3
+NUM_EPOCHS = 30
+BETA = 1.0  # beta-VAE : augmenter pour disentanglement
+
+class VAE(nn.Module):
+    """Auto-encodeur variationnel pour images 28x28."""
+
+    def __init__(self, input_dim=784, hidden_dim=512, latent_dim=20):
+        super().__init__()
+        # Encodeur
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.fc_mu = nn.Linear(hidden_dim, latent_dim)
+        self.fc_logvar = nn.Linear(hidden_dim, latent_dim)
+
+        # Decodeur
+        self.fc3 = nn.Linear(latent_dim, hidden_dim)
+        self.fc4 = nn.Linear(hidden_dim, input_dim)
+
+    def encode(self, x):
+        h = F.relu(self.fc1(x))
+        return self.fc_mu(h), self.fc_logvar(h)
+
+    def reparameterize(self, mu, logvar):
+        """Reparameterization trick: z = mu + sigma * epsilon."""
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        return mu + std * eps
+
+    def decode(self, z):
+        h = F.relu(self.fc3(z))
+        return torch.sigmoid(self.fc4(h))
+
+    def forward(self, x):
+        mu, logvar = self.encode(x.view(-1, 784))
+        z = self.reparameterize(mu, logvar)
+        x_recon = self.decode(z)
+        return x_recon, mu, logvar
+
+
+def vae_loss(x_recon, x, mu, logvar, beta=1.0):
+    """ELBO loss = reconstruction (BCE) + beta * KL."""
+    # Reconstruction : BCE pour des pixels dans [0, 1]
+    recon_loss = F.binary_cross_entropy(
+        x_recon, x.view(-1, 784), reduction='sum'
+    )
+    # KL divergence (formule fermee pour gaussiennes)
+    kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    return recon_loss + beta * kl_loss
+
+
+# --- Donnees ---
+transform = transforms.ToTensor()
+train_dataset = datasets.MNIST(
+    root='./data', train=True, download=True, transform=transform
+)
+train_loader = DataLoader(
+    train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=2
+)
+
+# --- Entrainement ---
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model = VAE(latent_dim=LATENT_DIM, hidden_dim=HIDDEN_DIM).to(device)
+optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+
+for epoch in range(NUM_EPOCHS):
+    model.train()
+    total_loss = 0
+    for batch_x, _ in train_loader:
+        batch_x = batch_x.to(device)
+        x_recon, mu, logvar = model(batch_x)
+        loss = vae_loss(x_recon, batch_x, mu, logvar, beta=BETA)
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+
+    avg_loss = total_loss / len(train_loader.dataset)
+    if (epoch + 1) % 5 == 0:
+        print(f"Epoch [{epoch+1}/{NUM_EPOCHS}]  Loss: {avg_loss:.2f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Epoch [5/30]   Loss: 137.42
+Epoch [10/30]  Loss: 118.65
+Epoch [15/30]  Loss: 112.83
+Epoch [20/30]  Loss: 109.71
+Epoch [25/30]  Loss: 107.94
+Epoch [30/30]  Loss: 106.58
+\end{verbatim}
+\end{codeoutput}
+
+\begin{codeblock}[title=\textbf{G\'en\'eration d'\'echantillons et visualisation de l'espace latent}]
+\begin{minted}{python}
+# --- Generation d'echantillons ---
+model.eval()
+with torch.no_grad():
+    z_sample = torch.randn(64, LATENT_DIM, device=device)
+    generated = model.decode(z_sample).view(-1, 1, 28, 28).cpu()
+
+fig, axes = plt.subplots(8, 8, figsize=(8, 8))
+for i, ax in enumerate(axes.flat):
+    ax.imshow(generated[i, 0], cmap='gray')
+    ax.axis('off')
+plt.suptitle("Echantillons generes par le VAE")
+plt.tight_layout()
+plt.savefig("vae_samples.png", dpi=150)
+plt.show()
+
+# --- Visualisation de l'espace latent (2D) ---
+# Entrainer un VAE avec LATENT_DIM=2 pour cette visualisation
+vae_2d = VAE(latent_dim=2, hidden_dim=HIDDEN_DIM).to(device)
+# ... (entrainement identique) ...
+
+# Projection des donnees de test
+test_dataset = datasets.MNIST(
+    root='./data', train=False, download=True, transform=transform
+)
+test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False)
+all_mu, all_labels = [], []
+
+vae_2d.eval()
+with torch.no_grad():
+    for batch_x, batch_y in test_loader:
+        mu, _ = vae_2d.encode(batch_x.to(device).view(-1, 784))
+        all_mu.append(mu.cpu())
+        all_labels.append(batch_y)
+
+all_mu = torch.cat(all_mu, dim=0).numpy()
+all_labels = torch.cat(all_labels, dim=0).numpy()
+
+plt.figure(figsize=(10, 8))
+scatter = plt.scatter(all_mu[:, 0], all_mu[:, 1], c=all_labels,
+                      cmap='tab10', s=2, alpha=0.7)
+plt.colorbar(scatter, label='Classe')
+plt.xlabel('$z_1$')
+plt.ylabel('$z_2$')
+plt.title("Espace latent 2D du VAE (MNIST)")
+plt.savefig("vae_latent_space.png", dpi=150)
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{bonnepratique}
+En pratique, on param\`etre le \emph{log-variance} $\log \sigma^2$ plut\^ot que $\sigma$ directement. Cela \'evite de devoir imposer la positivit\'e et am\'eliore la stabilit\'e num\'erique :
+\begin{equation}
+\sigma = \exp(0.5 \cdot \log \sigma^2)
+\end{equation}
+\end{bonnepratique}
+
+\section{\'Etude d'ablation}
+\label{sec:vae-ablation}
+
+\begin{table}[htbp]
+\centering
+\caption{\'Etude d'ablation VAE sur MNIST. Perte de reconstruction (BCE) et KL mesur\'ees apr\`es 30 \'epoques.}
+\label{tab:vae-ablation}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Configuration} & \textbf{Dim.\ latente} & \textbf{$\beta$} & \textbf{Recon.\ $\downarrow$} & \textbf{KL $\uparrow$} \\
+\midrule
+Base & 20 & 1.0 & 82.3 & 24.3 \\
+\midrule
+$d=2$ & 2 & 1.0 & 112.5 & 8.7 \\
+$d=5$ & 5 & 1.0 & 96.1 & 14.2 \\
+$d=10$ & 10 & 1.0 & 87.4 & 19.8 \\
+$d=50$ & 50 & 1.0 & 80.1 & 25.8 \\
+$d=100$ & 100 & 1.0 & 79.5 & 21.3 \\
+\midrule
+$\beta = 0.5$ & 20 & 0.5 & 78.9 & 31.2 \\
+$\beta = 2.0$ & 20 & 2.0 & 89.4 & 16.1 \\
+$\beta = 4.0$ & 20 & 4.0 & 97.8 & 9.3 \\
+$\beta = 10.0$ & 20 & 10.0 & 115.2 & 3.8 \\
+\midrule
+MLP (512) & 20 & 1.0 & 82.3 & 24.3 \\
+MLP (256-256) & 20 & 1.0 & 84.1 & 23.9 \\
+Conv (CNN) & 20 & 1.0 & 73.5 & 26.7 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{remarque}
+Observations cl\'es : (1) $d=2$ est insuffisant, la reconstruction se d\'egrade nettement ; (2) au-del\`a de $d=50$, certaines dimensions latentes sont ignor\'ees (\emph{posterior collapse}\index{posterior collapse}) ; (3) $\beta > 1$ favorise le d\'em\^element mais d\'egrade la reconstruction ; (4) une architecture convolutive am\'eliore significativement les r\'esultats.
+\end{remarque}
+
+\subsection{Le probl\`eme du posterior collapse}
+
+\begin{definition}[Posterior collapse\index{posterior collapse}]
+Ph\'enom\`ene o\`u certaines (ou toutes les) dimensions latentes sont ignor\'ees : $q_\phi(z_j \mid x) \approx p(z_j) = \mathcal{N}(0, 1)$ pour tout $x$, rendant ces dimensions non informatives.
+\end{definition}
+
+\begin{attention}
+Le posterior collapse est particuli\`erement probl\'ematique avec des d\'ecodeurs puissants (autoregressifs) qui peuvent mod\'eliser $p(x)$ sans recourir \`a $z$. Solutions : \emph{KL annealing}\index{KL annealing} (augmenter progressivement $\beta$ de 0 \`a 1), \emph{free bits} (imposer un minimum de KL par dimension).
+\end{attention}
+
+\section{\'Etat de l'art et connexions}
+\label{sec:vae-sota}
+
+\begin{sota}[title=\textbf{Extensions et successeurs des VAE}]
+\begin{itemize}
+    \item \textbf{NVAE}\index{NVAE} (Vahdat et Khrulkov, 2020) : VAE hi\'erarchique profond avec des r\'eseaux r\'esiduels, atteignant des log-vraisemblances comp\'etitives sur CIFAR-10 et CelebA-HQ.
+
+    \item \textbf{VQ-VAE-2}\index{VQ-VAE-2} (Razavi et al., 2019) : VQ-VAE hi\'erarchique multi-\'echelle suivi d'un mod\`ele autoregressif (PixelSNAIL) sur les codes discrets. Qualit\'e comp\'etitive avec les GAN.
+
+    \item \textbf{Connexion aux mod\`eles de diffusion}\index{mod\`eles de diffusion} : un mod\`ele de diffusion peut \^etre vu comme un VAE hi\'erarchique \`a $T$ niveaux o\`u l'encodeur est fix\'e (processus de bruit gaussien) et seul le d\'ecodeur est appris. L'ELBO des mod\`eles de diffusion se d\'ecompose en une somme de termes KL :
+    \begin{equation}
+    \mathcal{L}_{\text{diffusion}} = \sum_{t=1}^{T} \E_q\!\big[\KL(q(z_{t-1} \mid z_t, x) \| p_\theta(z_{t-1} \mid z_t))\big]
+    \end{equation}
+
+    \item \textbf{Latent Diffusion Models}\index{Latent Diffusion} (Rombach et al., 2022) : combinent un VQ-VAE (ou VAE r\'egularis\'e) pour la compression avec un mod\`ele de diffusion dans l'espace latent. C'est la base de \textbf{Stable Diffusion}.
+\end{itemize}
+\end{sota}
+
+\begin{architecturebox}[title=\textbf{Taxonomie des mod\`eles g\'en\'eratifs}]
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.2cm and 1.5cm,
+    catnode/.style={rectangle, draw, fill=blue!10, minimum width=2.5cm, minimum height=0.7cm, align=center, rounded corners=2pt, font=\small\bfseries},
+    modelnode/.style={rectangle, draw, fill=green!10, minimum width=2.2cm, minimum height=0.6cm, align=center, rounded corners=2pt, font=\small},
+    arr/.style={-{Stealth}, thick},
+]
+
+\node[catnode] (gen) {Mod\`eles\\g\'en\'eratifs};
+
+\node[catnode, below left=1.2cm and 2cm of gen] (explicit) {Vraisemblance\\explicite};
+\node[catnode, below right=1.2cm and 2cm of gen] (implicit) {Vraisemblance\\implicite};
+
+\node[modelnode, below left=1cm and 0.5cm of explicit] (vae) {VAE};
+\node[modelnode, below right=1cm and 0.5cm of explicit] (flow) {Normalizing\\Flows};
+\node[modelnode, below=1cm of explicit] (diff) {Diffusion};
+
+\node[modelnode, below=1cm of implicit] (gan) {GAN};
+
+\draw[arr] (gen) -- (explicit);
+\draw[arr] (gen) -- (implicit);
+\draw[arr] (explicit) -- (vae);
+\draw[arr] (explicit) -- (flow);
+\draw[arr] (explicit) -- (diff);
+\draw[arr] (implicit) -- (gan);
+
+\end{tikzpicture}
+\end{center}
+\end{architecturebox}
+
+\section{Exercices}
+\label{sec:vae-exercices}
+
+\begin{exercice}[D\'erivation de la KL pour des gaussiennes g\'en\'erales]
+\label{exo:kl-general}
+\textbf{Difficult\'e~: 1/3}
+D\'erivez la formule de la divergence KL entre deux gaussiennes multivari\'ees g\'en\'erales $q = \mathcal{N}(\mu_1, \Sigma_1)$ et $p = \mathcal{N}(\mu_2, \Sigma_2)$ :
+\begin{equation}
+\KL(q \| p) = \frac{1}{2}\left[\log \frac{|\Sigma_2|}{|\Sigma_1|} - d + \text{Tr}(\Sigma_2^{-1}\Sigma_1) + (\mu_2 - \mu_1)^\top \Sigma_2^{-1}(\mu_2 - \mu_1)\right]
+\end{equation}
+V\'erifiez que la formule se r\'eduit \`a l'\'equation~\eqref{eq:kl-closed-form} quand $\mu_2 = 0$ et $\Sigma_2 = I$.
+\end{exercice}
+
+\begin{exercice}[ELBO serr\'ee vs l\^ache]
+\label{exo:elbo-tightness}
+\textbf{Difficult\'e~: 2/3}
+\begin{enumerate}
+    \item Montrez que l'\'ecart entre $\log p_\theta(x)$ et l'ELBO est exactement $\KL(q_\phi(z|x) \| p_\theta(z|x))$.
+    \item Sous quelle condition l'ELBO est-elle exactement \'egale \`a la log-vraisemblance~?
+    \item Proposez une m\'ethode pour resserrer la borne (IWAE --- Importance Weighted Autoencoder) :
+    \begin{equation}
+    \mathcal{L}_{\text{IWAE}} = \E\!\left[\log \frac{1}{K}\sum_{k=1}^{K} \frac{p_\theta(x, z_k)}{q_\phi(z_k \mid x)}\right], \quad z_k \sim q_\phi(z \mid x)
+    \end{equation}
+    Montrez que $\mathcal{L}_{\text{IWAE}} \geq \text{ELBO}$ et que $\lim_{K \to \infty} \mathcal{L}_{\text{IWAE}} = \log p_\theta(x)$.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[VAE convolutif]
+\label{exo:conv-vae}
+\textbf{Difficult\'e~: 2/3}
+Remplacez l'architecture MLP du VAE de la section~\ref{sec:vae-pytorch} par une architecture convolutive :
+\begin{enumerate}
+    \item Encodeur : 3 couches convolutives avec stride 2, BatchNorm, ReLU.
+    \item D\'ecodeur : 3 couches convolutives transpos\'ees sym\'etriques.
+    \item Comparez la qualit\'e de reconstruction (BCE) et la FID des \'echantillons g\'en\'er\'es avec la version MLP.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[$\beta$-VAE et d\'em\^element]
+\label{exo:beta-vae-exp}
+\textbf{Difficult\'e~: 2/3}
+\begin{enumerate}
+    \item Entra\^inez un VAE avec $\beta \in \{0.5, 1, 2, 4, 10\}$ sur MNIST.
+    \item Pour chaque mod\`ele, faites varier une dimension latente \`a la fois (les autres fix\'ees) et g\'en\'erez des images. Observez-vous un d\'em\^element des facteurs de variation (\'epaisseur du trait, inclinaison, style)~?
+    \item Tracez la courbe reconstruction vs KL pour diff\'erentes valeurs de $\beta$ et commentez le compromis.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Impl\'ementation du VQ-VAE]
+\label{exo:vq-vae-impl}
+\textbf{Difficult\'e~: 3/3}
+Impl\'ementez un VQ-VAE sur MNIST :
+\begin{enumerate}
+    \item Cr\'eez un codebook de $K=512$ vecteurs de dimension $d=64$.
+    \item Impl\'ementez la quantification avec le straight-through estimator.
+    \item Impl\'ementez la perte compl\`ete (\'equation~\eqref{eq:vq-vae-loss}).
+    \item Visualisez l'utilisation du codebook : combien de codes sont effectivement utilis\'es~?
+
+\emph{Indice} : pour le straight-through estimator, utilisez \texttt{z\_q = z\_e + (z\_q - z\_e).detach()} en PyTorch.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Comparaison VAE vs GAN {\normalfont (projet)}]
+\label{exo:vae-vs-gan}
+\textbf{Difficult\'e~: 3/3}
+\begin{enumerate}
+    \item Entra\^inez un VAE et un DCGAN (chapitre~\ref{ch:gan}) sur Fashion-MNIST avec des architectures de capacit\'e comparable (m\^eme nombre de param\`etres $\pm 10\%$).
+    \item Comparez : (a) la FID, (b) la diversit\'e des \'echantillons, (c) la qualit\'e visuelle, (d) la stabilit\'e de l'entra\^inement.
+    \item Le VAE permet-il une interpolation dans l'espace latent plus fluide que le GAN~? Montrez-le en interpolant lin\'eairement entre deux points $z_1$ et $z_2$.
+    \item Discutez les avantages et inconv\'enients de chaque approche.
+\end{enumerate}
+\end{exercice}

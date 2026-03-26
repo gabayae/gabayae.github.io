@@ -1,0 +1,454 @@
+% ============================================================
+\chapter{SQL --- Joins and Subqueries}
+\label{ch:joins}
+% ============================================================
+
+The power of the relational model lies in its ability to link tables together. A student is enrolled in a department, which belongs to a university; each enrolment references a course, taught by a professor. To extract complete information---for example, ``which students take Professor Smith's courses?''---one must \emph{join} several tables. The join is the queen of SQL operations, and mastering it distinguishes the beginner from the expert. Subqueries, meanwhile, allow nesting questions within one another, offering considerable expressivity.
+
+\section{Introduction}
+
+\emph{Joins} combine data from multiple tables by exploiting the relationships
+between them (foreign keys). \emph{Subqueries} (nested queries) allow using
+the result of one query as input to another.
+
+\section{Inner Join (INNER JOIN)}
+
+\begin{definition}[Inner Join]
+An \emph{inner join} combines rows from two tables where the join condition
+is satisfied. Rows without a match are eliminated.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Equivalent Inner Join Syntaxes}]
+\begin{minted}{sql}
+-- Explicit syntax (recommended)
+SELECT s.last_name, c.title, e.grade
+FROM Students s
+INNER JOIN Enrollments e ON s.student_id = e.student_id
+INNER JOIN Courses c ON e.course_id = c.course_id;
+
+-- Implicit syntax (old style, avoid)
+SELECT s.last_name, c.title, e.grade
+FROM Students s, Enrollments e, Courses c
+WHERE s.student_id = e.student_id
+  AND e.course_id = c.course_id;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+last_name | title      | grade
+----------+------------+------
+Brown     | Databases  | 88.5
+Brown     | Algorithms | 76.0
+Davis     | Databases  | 72.0
+Davis     | Networks   | 91.0
+Miller    | Algorithms | 95.5
+Miller    | Statistics | 82.0
+Wilson    | Databases  | 55.0
+Taylor    | Statistics | 97.0
+\end{verbatim}
+\end{codeoutput}
+
+\begin{bestpractice}[title=\textbf{Always Use Explicit JOIN Syntax}]
+The implicit syntax (comma in \texttt{FROM}) is error-prone: forgetting a
+condition in \texttt{WHERE} produces an accidental Cartesian product.
+The \texttt{JOIN ... ON} syntax is clearer and separates join logic from filtering.
+\end{bestpractice}
+
+\section{Natural Join (NATURAL JOIN)}
+
+\begin{codeblock}[title=\textbf{Natural Join}]
+\begin{minted}{sql}
+-- Joins on columns with the same name
+SELECT * FROM Students NATURAL JOIN Enrollments;
+\end{minted}
+\end{codeblock}
+
+\begin{warning}[title=\textbf{Danger of NATURAL JOIN}]
+Natural join automatically determines common columns. If two tables share a
+column name by coincidence (e.g., \texttt{last\_name} in both \texttt{Students}
+and \texttt{Professors}), the result will be incorrect. Always prefer explicit
+joins with \texttt{ON}.
+\end{warning}
+
+\section{Outer Joins (OUTER JOIN)}
+
+\begin{definition}[Outer Join]
+An \emph{outer join} preserves all rows from one table (or both), even those
+without a match in the other table. Missing columns are filled with \texttt{NULL}.
+\end{definition}
+
+\subsection{LEFT JOIN}
+
+\begin{codeblock}[title=\textbf{LEFT JOIN --- All Students, Even Without Enrollments}]
+\begin{minted}{sql}
+SELECT s.last_name, s.first_name, c.title, e.grade
+FROM Students s
+LEFT JOIN Enrollments e ON s.student_id = e.student_id
+LEFT JOIN Courses c ON e.course_id = c.course_id
+ORDER BY s.last_name;
+\end{minted}
+\end{codeblock}
+
+If a student is not enrolled in any course, they still appear with
+\texttt{NULL} for \texttt{title} and \texttt{grade}.
+
+\subsection{RIGHT JOIN}
+
+\begin{codeblock}[title=\textbf{RIGHT JOIN --- All Courses, Even Without Enrollments}]
+\begin{minted}{sql}
+SELECT c.title, s.last_name, e.grade
+FROM Enrollments e
+RIGHT JOIN Courses c ON e.course_id = c.course_id
+LEFT JOIN Students s ON e.student_id = s.student_id;
+\end{minted}
+\end{codeblock}
+
+\begin{remark}
+\texttt{RIGHT JOIN} is less commonly used because it can always be rewritten
+as a \texttt{LEFT JOIN} by reversing the table order.
+SQLite does not support \texttt{RIGHT JOIN} (before version 3.39).
+\end{remark}
+
+\subsection{FULL OUTER JOIN}
+
+\begin{codeblock}[title=\textbf{FULL OUTER JOIN}]
+\begin{minted}{sql}
+-- All students and all courses (PostgreSQL)
+SELECT s.last_name, c.title
+FROM Students s
+FULL OUTER JOIN Enrollments e ON s.student_id = e.student_id
+FULL OUTER JOIN Courses c ON e.course_id = c.course_id;
+\end{minted}
+\end{codeblock}
+
+\begin{keyformulas}[title=\textbf{Join Types Summary}]
+\begin{center}
+\begin{tabular}{lp{8cm}}
+\toprule
+\textbf{Type} & \textbf{Description} \\
+\midrule
+\texttt{INNER JOIN} & Rows with matches in both tables \\
+\texttt{LEFT JOIN} & All rows from the left table + matches \\
+\texttt{RIGHT JOIN} & All rows from the right table + matches \\
+\texttt{FULL OUTER JOIN} & All rows from both tables \\
+\texttt{CROSS JOIN} & Cartesian product (all combinations) \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{keyformulas}
+
+\section{Cross Join (CROSS JOIN)}
+
+\begin{codeblock}[title=\textbf{Cartesian Product}]
+\begin{minted}{sql}
+-- All student-course combinations
+SELECT s.last_name, c.title
+FROM Students s
+CROSS JOIN Courses c;
+-- 5 students x 4 courses = 20 rows
+\end{minted}
+\end{codeblock}
+
+\section{Self Join}
+
+\begin{definition}[Self Join]
+A \emph{self join} is a join of a table with itself. It requires aliases
+to distinguish the two ``copies'' of the table.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Finding Pairs of Students in the Same Major}]
+\begin{minted}{sql}
+SELECT s1.last_name AS student1, s2.last_name AS student2, s1.major
+FROM Students s1
+JOIN Students s2 ON s1.major = s2.major
+                 AND s1.student_id < s2.student_id;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+student1 | student2 | major
+---------+----------+------
+Brown    | Davis    | CS
+Brown    | Wilson   | CS
+Davis    | Wilson   | CS
+Miller   | Taylor   | Math
+\end{verbatim}
+\end{codeoutput}
+
+\section{Subqueries}
+
+\begin{definition}[Subquery]
+A \emph{subquery} is a \texttt{SELECT} statement nested inside another query.
+It can appear in the \texttt{WHERE}, \texttt{FROM}, or \texttt{SELECT} clauses.
+\end{definition}
+
+\subsection{Scalar Subquery}
+
+A subquery that returns exactly one value:
+
+\begin{codeblock}[title=\textbf{Scalar Subquery}]
+\begin{minted}{sql}
+-- Students with a grade above the average
+SELECT s.last_name, e.grade
+FROM Students s
+JOIN Enrollments e ON s.student_id = e.student_id
+WHERE e.grade > (SELECT AVG(grade) FROM Enrollments);
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+-- Average = 83.4375
+last_name | grade
+----------+------
+Brown     | 88.5
+Davis     | 91.0
+Miller    | 95.5
+Taylor    | 97.0
+\end{verbatim}
+\end{codeoutput}
+
+\subsection{Subquery with IN}
+
+\begin{codeblock}[title=\textbf{Subquery with IN}]
+\begin{minted}{sql}
+-- Students enrolled in a course taught by Prof. Smith
+SELECT last_name, first_name
+FROM Students
+WHERE student_id IN (
+    SELECT student_id
+    FROM Enrollments
+    WHERE course_id IN (
+        SELECT course_id FROM Courses WHERE prof_id = 1
+    )
+);
+\end{minted}
+\end{codeblock}
+
+\subsection{Correlated Subquery}
+
+\begin{definition}[Correlated Subquery]
+A subquery is \emph{correlated} when it references a column from the outer
+query. It is re-evaluated for each row of the outer query.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Correlated Subquery with EXISTS}]
+\begin{minted}{sql}
+-- Students enrolled in at least one course
+SELECT s.last_name, s.first_name
+FROM Students s
+WHERE EXISTS (
+    SELECT 1
+    FROM Enrollments e
+    WHERE e.student_id = s.student_id
+);
+
+-- Students NOT enrolled in any course
+SELECT s.last_name, s.first_name
+FROM Students s
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM Enrollments e
+    WHERE e.student_id = s.student_id
+);
+\end{minted}
+\end{codeblock}
+
+\begin{warning}[title=\textbf{Performance of Correlated Subqueries}]
+Correlated subqueries are re-evaluated for each row. On large tables,
+they can be slow. Modern optimizers often transform them into joins, but
+it is good to know the alternative with \texttt{JOIN}:
+\begin{minted}{sql}
+-- Equivalent with LEFT JOIN + IS NULL
+SELECT s.last_name FROM Students s
+LEFT JOIN Enrollments e ON s.student_id = e.student_id
+WHERE e.student_id IS NULL;
+\end{minted}
+\end{warning}
+
+\subsection{Subquery in FROM (Derived Table)}
+
+\begin{codeblock}[title=\textbf{Subquery in FROM}]
+\begin{minted}{sql}
+-- Average per student, then filter
+SELECT sub.last_name, sub.avg_grade
+FROM (
+    SELECT s.last_name, AVG(e.grade) AS avg_grade
+    FROM Students s
+    JOIN Enrollments e ON s.student_id = e.student_id
+    GROUP BY s.student_id, s.last_name
+) AS sub
+WHERE sub.avg_grade > 80;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+last_name | avg_grade
+----------+----------
+Brown     | 82.25
+Davis     | 81.5
+Miller    | 88.75
+Taylor    | 97.0
+\end{verbatim}
+\end{codeoutput}
+
+\subsection{Subquery in SELECT}
+
+\begin{codeblock}[title=\textbf{Subquery in SELECT}]
+\begin{minted}{sql}
+SELECT s.last_name,
+       (SELECT COUNT(*) FROM Enrollments e
+        WHERE e.student_id = s.student_id) AS num_courses
+FROM Students s;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+last_name | num_courses
+----------+------------
+Brown     | 2
+Davis     | 2
+Miller    | 2
+Wilson    | 1
+Taylor    | 1
+\end{verbatim}
+\end{codeoutput}
+
+\section{ALL, ANY/SOME Operators}
+
+\begin{codeblock}[title=\textbf{Comparison with ALL and ANY}]
+\begin{minted}{sql}
+-- Grade higher than ALL grades in course 101
+SELECT s.last_name, e.grade
+FROM Students s
+JOIN Enrollments e ON s.student_id = e.student_id
+WHERE e.grade > ALL (
+    SELECT grade FROM Enrollments WHERE course_id = 101
+);
+
+-- Grade higher than at least ONE grade in course 101
+SELECT s.last_name, e.grade
+FROM Students s
+JOIN Enrollments e ON s.student_id = e.student_id
+WHERE e.grade > ANY (
+    SELECT grade FROM Enrollments WHERE course_id = 101
+);
+\end{minted}
+\end{codeblock}
+
+\section{Common Table Expressions (CTE)}
+
+\begin{definition}[CTE (Common Table Expression)]
+A \emph{CTE} is a temporary named query, defined with the \texttt{WITH}
+keyword, that can be referenced in the main query. It improves readability
+and enables recursion.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Simple CTE}]
+\begin{minted}{sql}
+WITH Averages AS (
+    SELECT student_id, AVG(grade) AS avg_grade
+    FROM Enrollments
+    GROUP BY student_id
+)
+SELECT s.last_name, a.avg_grade
+FROM Students s
+JOIN Averages a ON s.student_id = a.student_id
+WHERE a.avg_grade > 80
+ORDER BY a.avg_grade DESC;
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Recursive CTE --- Hierarchy}]
+\begin{minted}{sql}
+-- Categories table with parent reference
+CREATE TABLE Categories (
+    id INTEGER PRIMARY KEY,
+    name TEXT,
+    parent_id INTEGER REFERENCES Categories(id)
+);
+
+-- Recursive hierarchy traversal
+WITH RECURSIVE Tree AS (
+    -- Base case: roots
+    SELECT id, name, parent_id, 0 AS depth
+    FROM Categories WHERE parent_id IS NULL
+
+    UNION ALL
+
+    -- Recursive case
+    SELECT c.id, c.name, c.parent_id, t.depth + 1
+    FROM Categories c
+    JOIN Tree t ON c.parent_id = t.id
+)
+SELECT * FROM Tree ORDER BY depth, name;
+\end{minted}
+\end{codeblock}
+
+\section{Python Integration}
+
+\begin{codeblock}[title=\textbf{Joins and Subqueries with Python}]
+\begin{minted}{python}
+import sqlite3
+
+conn = sqlite3.connect('university.db')
+cur = conn.cursor()
+
+# Join: students and their courses
+cur.execute('''
+    SELECT s.last_name, c.title, e.grade
+    FROM Students s
+    JOIN Enrollments e ON s.student_id = e.student_id
+    JOIN Courses c ON e.course_id = c.course_id
+    WHERE e.grade > ?
+    ORDER BY e.grade DESC
+''', (80,))
+
+print("Students with grade > 80:")
+for name, course, grade in cur.fetchall():
+    print(f"  {name:10} | {course:20} | {grade:.1f}")
+
+# Subquery: students above average
+cur.execute('''
+    SELECT last_name, first_name FROM Students
+    WHERE student_id IN (
+        SELECT student_id FROM Enrollments
+        WHERE grade > (SELECT AVG(grade) FROM Enrollments)
+    )
+''')
+print("\nAbove average:", cur.fetchall())
+
+conn.close()
+\end{minted}
+\end{codeblock}
+
+\section*{Exercises}
+
+\begin{exercise}
+Write a query that displays each professor's name and the number of courses
+they teach. Include professors who teach no courses.
+\end{exercise}
+
+\begin{exercise}
+Find students enrolled in all courses taught by the professor with
+\texttt{prof\_id} = 2. Use a subquery with \texttt{NOT EXISTS}.
+\end{exercise}
+
+\begin{exercise}
+Write the same query as the previous exercise using \texttt{GROUP BY} and
+\texttt{HAVING} with \texttt{COUNT}. Compare the two approaches.
+\end{exercise}
+
+\begin{exercise}
+Find pairs of students who share at least two courses. Display the names
+of both students and the number of shared courses.
+\end{exercise}
+
+\begin{exercise}
+Using a recursive CTE, generate a table of numbers from 1 to 20 and
+display their factorial.
+\end{exercise}
