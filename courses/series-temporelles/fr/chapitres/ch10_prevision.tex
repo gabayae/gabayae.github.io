@@ -1,0 +1,167 @@
+% ============================================================
+\chapter{Pr\'evision et Intervalles de Confiance}
+\label{ch:prevision}
+% ============================================================
+
+\section{Exemple motivant}
+Pr\'evoir la demande d'\'electricit\'e pour le lendemain, avec un intervalle de confiance, est essentiel pour la gestion du r\'eseau. La qualit\'e de la pr\'evision d\'etermine les co\^uts \'economiques.
+
+\section{Pr\'evision optimale}\index{prevision@pr\'evision}
+
+\begin{definition}[Pr\'evision optimale]
+La \textbf{pr\'evision optimale} de $X_{n+h}$ sachant $X_1,\ldots,X_n$ au sens des moindres carr\'es est :
+\[
+\hat{X}_{n+h|n} = \E[X_{n+h}|X_1,\ldots,X_n].
+\]
+L'erreur de pr\'evision est $e_{n+h|n}=X_{n+h}-\hat{X}_{n+h|n}$.
+\end{definition}
+
+\begin{theoreme}[Erreur quadratique moyenne]
+L'esp\'erance conditionnelle minimise l'EQM :
+\[
+\hat{X}_{n+h|n} = \arg\min_{g(X_1,\ldots,X_n)}\E\left[(X_{n+h}-g)^2\right].
+\]
+\end{theoreme}
+
+\section{Pr\'evision ARMA}
+
+\begin{theoreme}[Pr\'evision d'un ARMA$(p,q)$]
+En utilisant la repr\'esentation MA$(\infty)$ : $X_t=\sum_{j=0}^{\infty}\psi_j\eps_{t-j}$, la pr\'evision \`a $h$ pas est :
+\[
+\hat{X}_{n+h|n} = \sum_{j=h}^{\infty}\psi_j\eps_{n+h-j}.
+\]
+L'erreur de pr\'evision est $e_{n+h|n}=\sum_{j=0}^{h-1}\psi_j\eps_{n+h-j}$, de variance :
+\[
+\sigma_h^2 = \sigma^2\sum_{j=0}^{h-1}\psi_j^2.
+\]
+\end{theoreme}
+
+\begin{corollaire}
+Pour un ARMA stationnaire, $\sigma_h^2\to\gamma(0)=\Var(X_t)$ quand $h\to\infty$ : la pr\'evision converge vers la moyenne inconditionnelle et l'intervalle de confiance s'\'elargit vers l'intervalle inconditionnel.
+\end{corollaire}
+
+\section{Intervalles de pr\'evision}\index{intervalle de prevision@intervalle de pr\'evision}
+
+\begin{definition}
+Sous l'hypoth\`ese gaussienne, un intervalle de pr\'evision \`a $(1-\alpha)$ pour $X_{n+h}$ est :
+\[
+\hat{X}_{n+h|n} \pm z_{1-\alpha/2}\,\sigma_h,
+\]
+o\`u $z_{1-\alpha/2}$ est le quantile de la loi normale.
+\end{definition}
+
+\begin{attention}
+Les intervalles de pr\'evision ne tiennent pas compte de l'incertitude sur les param\`etres estim\'es. Des m\'ethodes de bootstrap ou de simulation peuvent \^etre utilis\'ees pour des intervalles plus r\'ealistes.
+\end{attention}
+
+\section{Pr\'evision ARIMA}
+
+\begin{theoreme}
+Pour un ARIMA$(p,d,q)$, la pr\'evision \`a long terme du \emph{niveau} $X_{n+h}$ cro\^it lin\'eairement (si $d=1$) ou quadratiquement (si $d=2$) : l'intervalle de pr\'evision s'\'elargit sans borne.
+\end{theoreme}
+
+\section{Crit\`eres d'\'evaluation}\index{evaluation@\'evaluation}
+
+\begin{definition}[M\'etriques de pr\'evision]
+\begin{align}
+\text{MAE} &= \frac{1}{H}\sum_{h=1}^H|e_{n+h|n}|, \\
+\text{RMSE} &= \sqrt{\frac{1}{H}\sum_{h=1}^H e_{n+h|n}^2}, \\
+\text{MAPE} &= \frac{100}{H}\sum_{h=1}^H\frac{|e_{n+h|n}|}{|X_{n+h}|}\%.
+\end{align}
+\end{definition}
+
+\begin{definition}[Validation crois\'ee temporelle]\index{validation croisee@validation crois\'ee}
+Pour \'evaluer la capacit\'e pr\'edictive, on utilise un d\'ecoupage \textbf{train/test} respectant l'ordre temporel (pas de shuffling). La m\'ethode \textbf{rolling window} ou \textbf{expanding window} est standard.
+\end{definition}
+
+\section{Test de Diebold--Mariano}\index{test!Diebold--Mariano}
+
+\begin{definition}
+Pour comparer deux mod\`eles de pr\'evision, soit $d_t = L(e_{1,t})-L(e_{2,t})$ la diff\'erence de perte. Sous $H_0$ (\'egalit\'e) :
+\[
+\text{DM} = \frac{\bar{d}}{\sqrt{\hat\sigma_d^2/H}} \dto \mathcal{N}(0,1).
+\]
+\end{definition}
+
+\section{Impl\'ementation}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from statsmodels.tsa.arima.model import ARIMA
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+
+# Simuler un ARMA(1,1)
+np.random.seed(42)
+from statsmodels.tsa.arima_process import ArmaProcess
+ar = np.array([1, -0.7])
+ma = np.array([1, 0.3])
+data = ArmaProcess(ar, ma).generate_sample(nsample=300)
+
+# Train/test split
+train, test = data[:250], data[250:]
+
+# Ajuster et prévoir
+model = ARIMA(train, order=(1, 0, 1))
+results = model.fit()
+
+forecast = results.get_forecast(steps=50)
+pred = forecast.predicted_mean
+ci = forecast.conf_int(alpha=0.05)
+
+# Métriques
+mae = mean_absolute_error(test, pred)
+rmse = np.sqrt(mean_squared_error(test, pred))
+print(f"MAE  = {mae:.4f}")
+print(f"RMSE = {rmse:.4f}")
+
+# Graphique
+fig, ax = plt.subplots(figsize=(12, 5))
+ax.plot(range(250), train, 'b-', lw=0.7, label='Train')
+ax.plot(range(250, 300), test, 'g-', lw=1, label='Test')
+ax.plot(range(250, 300), pred, 'r--', lw=1.5, label='Prévision')
+ax.fill_between(range(250, 300), ci[:, 0], ci[:, 1],
+                alpha=0.2, color='red')
+ax.legend()
+ax.set_title('Prévision ARMA(1,1)')
+plt.savefig('ch10_forecast.pdf')
+plt.show()
+
+# Rolling forecast
+rolling_preds = []
+for i in range(len(test)):
+    train_i = data[:250+i]
+    model_i = ARIMA(train_i, order=(1,0,1)).fit()
+    rolling_preds.append(model_i.forecast(steps=1)[0])
+rmse_roll = np.sqrt(mean_squared_error(test, rolling_preds))
+print(f"RMSE rolling: {rmse_roll:.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{Exercices}
+
+\begin{exercice}[$\star$]
+Pour un AR(1) avec $\phi=0{,}8$ et $\sigma^2=1$, calculer $\hat{X}_{n+1|n}$, $\hat{X}_{n+2|n}$ et les variances de pr\'evision correspondantes.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Montrer que la variance de pr\'evision \`a $h$ pas d'un AR(1) est $\sigma^2\frac{1-\phi^{2h}}{1-\phi^2}$.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Expliquer pourquoi le MAPE est probl\'ematique quand $X_t$ prend des valeurs proches de z\'ero.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Projet]
+Comparer les pr\'evisions hors \'echantillon d'un ARIMA, d'un lissage exponentiel et d'un mod\`ele na\"if ($\hat{X}_{n+h}=X_n$) sur 5 s\'eries r\'eelles. Utiliser le test de Diebold--Mariano.
+\end{exercice}
+
+\begin{formules}
+\begin{align*}
+\hat{X}_{n+h|n} &= \sum_{j=h}^{\infty}\psi_j\eps_{n+h-j}, \quad \sigma_h^2=\sigma^2\sum_{j=0}^{h-1}\psi_j^2 \\
+\text{IC}_{95\%} &: \hat{X}_{n+h|n}\pm 1{,}96\,\sigma_h \\
+\text{RMSE} &= \sqrt{\frac{1}{H}\sum e_{n+h}^2}
+\end{align*}
+\end{formules}

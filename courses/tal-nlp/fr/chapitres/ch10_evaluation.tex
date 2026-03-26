@@ -1,0 +1,345 @@
+% ============================================================
+\chapter{\'Evaluation des Mod\`eles de Langage}
+\label{ch:evaluation}
+% ============================================================
+
+Comment savoir si un mod\`ele de langage est ``bon''~? La question est plus \'epineuse qu'il n'y para\^it. Contrairement \`a la classification d'images (o\`u la pr\'ecision est sans ambigu\"it\'e), le langage est subjectif, contextuel et multidimensionnel. Une traduction peut \^etre fid\`ele mais maladroite~; un r\'esum\'e peut \^etre fluide mais infid\`ele~; une r\'eponse peut \^etre factuelle mais inutile. Les m\'etriques automatiques --- BLEU (Papineni et al., 2002), ROUGE, perplexité --- capturent certains aspects mais \'echouent \`a mesurer la qualit\'e per\c{c}ue par les humains. Les benchmarks (GLUE, SuperGLUE, MMLU) fournissent des comparaisons standardis\'ees, mais saturent rapidement. L'\'evaluation humaine reste l'\'etalon-or, mais elle est co\^uteuse et peu reproductible. Ce chapitre explore cet \'ecosyst\`eme de m\'etriques, ses forces et ses limites.
+
+\begin{intuition}[title=\textbf{Pourquoi \'evaluer est difficile}]
+\'Evaluer un syst\`eme de TAL est fondamentalement difficile car le
+langage est ambigu, subjectif et d\'ependant du contexte. Une traduction
+peut \^etre fid\`ele mais maladroite, un r\'esum\'e peut \^etre fluide
+mais infid\`ele. Chaque t\^ache n\'ecessite des m\'etriques adapt\'ees,
+et aucune m\'etrique automatique ne capture parfaitement la qualit\'e
+per\c{c}ue par les humains.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{\'Evaluation intrins\`eque vs extrins\`eque}
+\label{sec:eval:types}
+% ------------------------------------------------------------
+
+\begin{definition}[\'Evaluation intrins\`eque]
+\index{\'evaluation intrins\`eque}
+L'\textbf{\'evaluation intrins\`eque} mesure la qualit\'e d'un composant
+isol\'e, ind\'ependamment de son application finale. Exemples~:
+perplexit\'e d'un mod\`ele de langue, pr\'ecision d'un \'etiqueteur POS.
+\end{definition}
+
+\begin{definition}[\'Evaluation extrins\`eque]
+\index{\'evaluation extrins\`eque}
+L'\textbf{\'evaluation extrins\`eque} mesure l'impact d'un composant
+sur une t\^ache applicative compl\`ete. Exemple~: l'impact d'un meilleur
+mod\`ele de langue sur la qualit\'e d'un syst\`eme de dialogue.
+\end{definition}
+
+\begin{remarque}
+L'\'evaluation intrins\`eque est reproductible et peu co\^uteuse mais ne
+garantit pas l'utilit\'e pratique. L'\'evaluation extrins\`eque est plus
+pertinente mais plus co\^uteuse et difficult \`a isoler.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Perplexit\'e}
+\label{sec:eval:perplexite}
+% ------------------------------------------------------------
+
+\begin{definition}[Perplexit\'e]
+\index{perplexit\'e}
+La \textbf{perplexit\'e} d'un mod\`ele de langue $P$ sur un corpus de
+test $w_1, \ldots, w_N$ est~:
+\[
+    \text{PPL} = \exp\left(-\frac{1}{N} \sum_{i=1}^{N}
+    \log P(w_i | w_{<i})\right)
+    = \exp(H_{\text{cross}})
+\]
+o\`u $H_{\text{cross}}$ est l'entropie crois\'ee entre la distribution
+r\'eelle et le mod\`ele.
+\end{definition}
+
+\begin{proposition}[Interpr\'etation de la perplexit\'e]
+\begin{itemize}
+    \item PPL $= \abs{\mathcal{V}}$~: le mod\`ele est uniforme (aucune
+    pr\'ediction).
+    \item PPL $= 1$~: pr\'ediction parfaite.
+    \item En pratique, GPT-2 atteint PPL $\approx 22$ sur WikiText-103.
+\end{itemize}
+\end{proposition}
+
+\begin{attention}[title=\textbf{Limites de la perplexit\'e}]
+La perplexit\'e ne mesure que la capacit\'e pr\'edictive du mod\`ele sur
+le corpus de test. Elle ne capture pas la coh\'erence, la fid\'elit\'e
+factuelle, ou la qualit\'e stylistique. Deux mod\`eles avec la m\^eme
+perplexit\'e peuvent g\'en\'erer du texte de qualit\'es tr\`es diff\'erentes.
+\end{attention}
+
+% ------------------------------------------------------------
+\section{BLEU}
+\label{sec:eval:bleu}
+% ------------------------------------------------------------
+
+\begin{definition}[BLEU]
+\index{BLEU}
+BLEU (Bilingual Evaluation Understudy, Papineni et al., 2002) mesure
+la qualit\'e d'une traduction en comparant les $n$-grammes entre la
+sortie candidate $c$ et les r\'ef\'erences $\{r\}$~:
+\[
+    \text{BLEU} = \text{BP} \cdot \exp\left(\sum_{n=1}^{N}
+    \frac{1}{N} \log p_n\right)
+\]
+o\`u $p_n$ est la pr\'ecision modifi\'ee des $n$-grammes et BP est la
+p\'enalit\'e de bri\`evet\'e.
+\end{definition}
+
+\begin{formules}[title=\textbf{Composantes de BLEU}]
+\textbf{Pr\'ecision $n$-gramme}~:
+\[
+    p_n = \frac{\sum_{\text{$n$-gram} \in c}
+    \min(\text{count}(c), \max_r \text{count}(r))}
+    {\sum_{\text{$n$-gram} \in c} \text{count}(c)}
+\]
+\textbf{P\'enalit\'e de bri\`evet\'e}~:
+\[
+    \text{BP} = \begin{cases}
+        1 & \text{si } \abs{c} > \abs{r} \\
+        \exp(1 - \abs{r}/\abs{c}) & \text{sinon}
+    \end{cases}
+\]
+\end{formules}
+
+\begin{remarque}
+BLEU-4 (avec $N=4$) est le standard en traduction automatique. Il
+corr\`ele raisonnablement avec le jugement humain au niveau du corpus
+mais pas au niveau de la phrase individuelle.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{ROUGE}
+\label{sec:eval:rouge}
+% ------------------------------------------------------------
+
+\begin{definition}[ROUGE]
+\index{ROUGE}
+ROUGE (Recall-Oriented Understudy for Gisting Evaluation, Lin, 2004)
+mesure la qualit\'e des r\'esum\'es en se concentrant sur le rappel~:
+\begin{itemize}
+    \item \textbf{ROUGE-N}~: rappel des $n$-grammes~:
+    $\text{ROUGE-N} = \frac{\sum_{\text{$n$-gram} \in r}
+    \min(\text{count}(c), \text{count}(r))}
+    {\sum_{\text{$n$-gram} \in r} \text{count}(r)}$
+    \item \textbf{ROUGE-L}~: plus longue sous-s\'equence commune (LCS).
+\end{itemize}
+\end{definition}
+
+\begin{proposition}[BLEU vs ROUGE]
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lcc}
+    \toprule
+    & \textbf{BLEU} & \textbf{ROUGE} \\
+    \midrule
+    Orientation & Pr\'ecision & Rappel \\
+    Usage principal & Traduction & R\'esum\'e \\
+    Granularit\'e & Corpus & Document \\
+    \bottomrule
+\end{tabular}
+\end{center}
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{BERTScore}
+\label{sec:eval:bertscore}
+% ------------------------------------------------------------
+
+\begin{definition}[BERTScore]
+\index{BERTScore}
+BERTScore (Zhang et al., 2020) utilise les embeddings contextuels de
+BERT pour calculer la similarit\'e entre tokens de la r\'ef\'erence et
+du candidat~:
+\[
+    P_{\text{BERT}} = \frac{1}{\abs{c}} \sum_{c_i \in c}
+    \max_{r_j \in r} \mathbf{c}_i^\top \mathbf{r}_j,
+    \qquad
+    R_{\text{BERT}} = \frac{1}{\abs{r}} \sum_{r_j \in r}
+    \max_{c_i \in c} \mathbf{r}_j^\top \mathbf{c}_i
+\]
+\[
+    F_{\text{BERT}} = 2 \cdot \frac{P_{\text{BERT}} \cdot R_{\text{BERT}}}
+    {P_{\text{BERT}} + R_{\text{BERT}}}
+\]
+\end{definition}
+
+\begin{remarque}
+BERTScore capture la similarit\'e s\'emantique plut\^ot que la
+correspondance exacte des mots, ce qui le rend plus robuste aux
+paraphrases. Il corr\`ele mieux avec le jugement humain que BLEU
+et ROUGE sur de nombreuses t\^aches.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{\'Evaluation humaine}
+\label{sec:eval:humaine}
+% ------------------------------------------------------------
+
+\begin{definition}[Protocoles d'\'evaluation humaine]
+\index{\'evaluation humaine}
+L'\'evaluation humaine reste le gold standard. Les protocoles courants~:
+\begin{enumerate}
+    \item \textbf{\'Echelle de Likert}~: les annotateurs notent de 1 \`a 5
+    selon des crit\`eres (fluence, coh\'erence, pertinence).
+    \item \textbf{Comparaison par paires}~: ``Quelle r\'eponse est
+    meilleure~? A ou B~?'' (plus fiable que l'\'echelle absolue).
+    \item \textbf{Classement}~: ordonner $n$ sorties de la meilleure \`a
+    la pire.
+    \item \textbf{Elo rating}~: classement dynamique par comparaisons
+    it\'eratives (utilis\'e par Chatbot Arena).
+\end{enumerate}
+\end{definition}
+
+\begin{definition}[Accord inter-annotateurs]
+\index{accord inter-annotateurs}
+Le \textbf{kappa de Cohen} mesure l'accord entre deux annotateurs
+corrig\'e du hasard~:
+\[
+    \kappa = \frac{P_o - P_e}{1 - P_e}
+\]
+o\`u $P_o$ est l'accord observ\'e et $P_e$ l'accord attendu par hasard.
+$\kappa > 0.8$ indique un excellent accord.
+\end{definition}
+
+\begin{attention}[title=\textbf{Biais de l'\'evaluation humaine}]
+L'\'evaluation humaine souffre de biais~: pr\'ef\'erence pour les
+r\'eponses longues, biais de position (la premi\`ere option est souvent
+pr\'ef\'er\'ee), fatigue des annotateurs, et variabilit\'e culturelle.
+Des protocoles rigoureux (randomisation, crit\`eres explicites,
+calibration) sont essentiels.
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Benchmarks~: GLUE et SuperGLUE}
+\label{sec:eval:benchmarks}
+% ------------------------------------------------------------
+
+\begin{definition}[GLUE]
+\index{GLUE}
+Le benchmark \textbf{GLUE} (General Language Understanding Evaluation,
+Wang et al., 2018) regroupe 9 t\^aches de compr\'ehension du langage~:
+\begin{itemize}
+    \item Inf\'erence textuelle~: MNLI, RTE, WNLI
+    \item Similarit\'e~: STS-B, MRPC, QQP
+    \item Sentiment~: SST-2
+    \item Acceptabilit\'e~: CoLA
+    \item Question-r\'eponse~: QNLI
+\end{itemize}
+Le score GLUE est la moyenne des performances sur toutes les t\^aches.
+\end{definition}
+
+\begin{definition}[SuperGLUE]
+\index{SuperGLUE}
+\textbf{SuperGLUE} (Wang et al., 2019) succ\`ede \`a GLUE avec des
+t\^aches plus difficiles~: BoolQ, CB, COPA, MultiRC, ReCoRD, RTE, WiC,
+WSC. Les mod\`eles actuels d\'epassent la performance humaine sur
+SuperGLUE.
+\end{definition}
+
+\begin{remarque}
+Depuis que les LLM ont satur\'e GLUE et SuperGLUE, de nouveaux
+benchmarks plus exigeants sont apparus~: MMLU (connaissances
+multi-domaines), BIG-Bench (t\^aches \'emergentes), HELM (\'evaluation
+holistique), et LMSYS Chatbot Arena (\'evaluation par les utilisateurs).
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{LLM comme juge}
+\label{sec:eval:llm_judge}
+% ------------------------------------------------------------
+
+\begin{definition}[LLM-as-a-Judge]
+\index{LLM-as-a-Judge}
+L'approche \textbf{LLM-as-a-Judge} utilise un mod\`ele de langue puissant
+(GPT-4, Claude) pour \'evaluer les sorties d'autres mod\`eles. Le juge
+re\c{c}oit un prompt structur\'e avec les crit\`eres d'\'evaluation et
+fournit un score ou un classement.
+\end{definition}
+
+\begin{attention}[title=\textbf{Pi\`eges des classements}]
+Les classements (leaderboards) peuvent \^etre trompeurs~:
+\begin{enumerate}
+    \item \textbf{Overfitting au benchmark}~: les mod\`eles sont optimis\'es
+    sp\'ecifiquement pour les tests.
+    \item \textbf{Contamination des donn\'ees}~: les donn\'ees de test
+    peuvent appara\^itre dans les corpus d'entra\^inement.
+    \item \textbf{M\'etriques inappropri\'ees}~: un score unique masque
+    les forces et faiblesses.
+    \item \textbf{Manque de diversit\'e}~: les benchmarks sous-repr\'esentent
+    certaines langues et cultures.
+\end{enumerate}
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Impl\'ementation Python}
+\label{sec:eval:code}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Calcul de BLEU et ROUGE}]
+\begin{minted}{python}
+from nltk.translate.bleu_score import sentence_bleu
+from rouge_score import rouge_scorer
+
+# BLEU
+reference = [["le", "chat", "est", "sur", "le", "tapis"]]
+candidate = ["le", "chat", "est", "assis", "sur", "le", "tapis"]
+bleu = sentence_bleu(reference, candidate)
+print(f"BLEU: {bleu:.4f}")
+
+# ROUGE
+scorer = rouge_scorer.RougeScorer(
+    ['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
+ref = "le chat est sur le tapis"
+hyp = "le chat est assis sur le tapis"
+scores = scorer.score(ref, hyp)
+for key, val in scores.items():
+    print(f"{key}: P={val.precision:.3f} R={val.recall:.3f} "
+          f"F={val.fmeasure:.3f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{BERTScore}]
+\begin{minted}{python}
+from bert_score import score as bert_score
+
+refs = ["Le chat est sur le tapis."]
+hyps = ["Le chat est assis sur le tapis."]
+P, R, F1 = bert_score(hyps, refs, lang="fr")
+print(f"BERTScore F1: {F1.mean():.4f}")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercices}
+\label{sec:eval:exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}[BLEU manuel]
+Calculer manuellement le score BLEU-2 (bigrammes) pour la r\'ef\'erence
+\og le petit chat noir dort \fg et le candidat \og le chat noir dort
+bien \fg. D\'etailler le calcul de $p_1$, $p_2$ et BP.
+\end{exercice}
+
+\begin{exercice}[BERTScore vs BLEU]
+Sur un corpus de 100 paires (r\'ef\'erence, candidat) contenant des
+paraphrases, comparer les scores BLEU et BERTScore. Identifier les cas
+o\`u les deux m\'etriques divergent et expliquer pourquoi.
+\end{exercice}
+
+\begin{exercice}[Protocole d'\'evaluation humaine]
+Concevoir un protocole d'\'evaluation humaine pour un chatbot de service
+client. D\'efinir les crit\`eres, l'\'echelle, le nombre d'annotateurs
+n\'ecessaire, et comment mesurer l'accord inter-annotateurs.
+\end{exercice}
+
+\begin{exercice}[Contamination des benchmarks]
+Expliquer comment la contamination des donn\'ees de test dans le corpus
+d'entra\^inement d'un LLM peut fausser les r\'esultats sur MMLU.
+Proposer des m\'ethodes pour d\'etecter et att\'enuer ce probl\`eme.
+\end{exercice}

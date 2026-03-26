@@ -1,0 +1,324 @@
+% ============================================================
+\chapter{Introduction to Markov Chains}
+\label{ch:markov}
+% ============================================================
+
+\section{Introduction}
+
+Markov chains\index{Markov chain} are one of the most fundamental stochastic models.
+They describe the random evolution of a system whose future depends on the past only
+through the present (the Markov property). Their applications span physics (random
+walks), biology (population dynamics), computer science (Monte Carlo algorithms,
+PageRank), and finance.
+
+\begin{intuition}[title=\textbf{The Markov property: memorylessness}]
+Imagine a token on a board that moves randomly. At each step, the probability of
+moving to a neighboring cell depends only on the current position, not on the past
+trajectory. This is the Markov property: ``the future is independent of the past,
+given the present.''
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Definitions}
+% ------------------------------------------------------------
+
+\begin{definition}[Markov chain]
+\label{def:markov_chain}
+\index{Markov chain}
+Let $E$ be a countable set (the \emph{state space}). A stochastic process
+$(X_n)_{n \geq 0}$ taking values in $E$ is a \emph{Markov chain} if for all
+$n \geq 0$ and all states $i_0, \ldots, i_{n-1}, i, j \in E$:
+\[
+    \PP(X_{n+1} = j \mid X_n = i, X_{n-1} = i_{n-1}, \ldots, X_0 = i_0)
+    = \PP(X_{n+1} = j \mid X_n = i),
+\]
+whenever the conditioning is well-defined ($\PP(X_n = i, \ldots) > 0$).
+\end{definition}
+
+\begin{definition}[Homogeneous chain and transition matrix]
+\label{def:transition_matrix}
+\index{transition matrix}
+The chain is \emph{homogeneous} (or \emph{time-homogeneous}) if the transition
+probabilities do not depend on $n$:
+\[
+    p_{ij} = \PP(X_{n+1} = j \mid X_n = i), \qquad \forall n \geq 0.
+\]
+The matrix $P = (p_{ij})_{i,j \in E}$ is called the \emph{transition matrix}. It
+satisfies:
+\begin{enumerate}
+    \item[(i)] $p_{ij} \geq 0$ for all $i, j$;
+    \item[(ii)] $\sum_{j \in E} p_{ij} = 1$ for all $i$ (stochastic matrix).
+\end{enumerate}
+\end{definition}
+
+\begin{definition}[Initial distribution]
+The \emph{initial distribution} is the law of $X_0$, i.e.\ the vector
+$\mu_0 = (\PP(X_0 = i))_{i \in E}$. The law of the chain is entirely determined
+by $\mu_0$ and $P$.
+\end{definition}
+
+\begin{proposition}[Joint distribution]
+For all $i_0, i_1, \ldots, i_n \in E$:
+\[
+    \PP(X_0 = i_0, X_1 = i_1, \ldots, X_n = i_n)
+    = \mu_0(i_0)\, p_{i_0 i_1}\, p_{i_1 i_2} \cdots p_{i_{n-1} i_n}.
+\]
+\end{proposition}
+
+\begin{example}[Random walk on $\Z$]
+\index{random walk}
+Let $X_0 = 0$ and $X_{n+1} = X_n + \xi_{n+1}$ where the $(\xi_n)$ are i.i.d.\ with
+$\PP(\xi = +1) = p$ and $\PP(\xi = -1) = 1 - p$. This is a Markov chain on $E = \Z$
+with $p_{i,i+1} = p$ and $p_{i,i-1} = 1 - p$.
+\end{example}
+
+\begin{example}[Ehrenfest model]
+$2N$ particles are distributed between two boxes. At each step, a particle is chosen
+uniformly at random and moved to the other box. If $X_n$ is the number of particles
+in the first box, $(X_n)$ is a Markov chain on $\{0, 1, \ldots, 2N\}$ with
+$p_{k,k-1} = k/(2N)$ and $p_{k,k+1} = 1 - k/(2N)$.
+\end{example}
+
+% ------------------------------------------------------------
+\section{$n$-step transition probabilities}
+% ------------------------------------------------------------
+
+\begin{definition}
+The \emph{$n$-step transition probabilities} are:
+\[
+    p_{ij}^{(n)} = \PP(X_n = j \mid X_0 = i).
+\]
+\end{definition}
+
+\begin{theorem}[Chapman-Kolmogorov equation]
+\label{thm:chapman_kolmogorov}
+\index{Chapman-Kolmogorov equation}
+For all $m, n \geq 0$ and all $i, j \in E$:
+\[
+    p_{ij}^{(m+n)} = \sum_{k \in E} p_{ik}^{(m)}\, p_{kj}^{(n)}.
+\]
+In matrix notation: $P^{(m+n)} = P^m \cdot P^n$, i.e.\ $P^{(n)} = P^n$.
+\end{theorem}
+
+\begin{proof}
+By the law of total probability:
+\begin{align*}
+    p_{ij}^{(m+n)} &= \PP(X_{m+n} = j \mid X_0 = i)
+    = \sum_{k \in E} \PP(X_{m+n} = j \mid X_m = k)\, \PP(X_m = k \mid X_0 = i) \\
+    &= \sum_{k \in E} p_{kj}^{(n)}\, p_{ik}^{(m)}.
+\end{align*}
+\end{proof}
+
+% ------------------------------------------------------------
+\section{Classification of states}
+% ------------------------------------------------------------
+
+\begin{definition}[Accessibility and communication]
+\index{communication}
+\begin{itemize}
+    \item State $j$ is \emph{accessible} from $i$, written $i \to j$, if there
+    exists $n \geq 0$ such that $p_{ij}^{(n)} > 0$.
+    \item States $i$ and $j$ \emph{communicate}, written $i \leftrightarrow j$, if
+    $i \to j$ and $j \to i$.
+\end{itemize}
+The relation $\leftrightarrow$ is an equivalence relation. Its classes are called
+\emph{communicating classes}.
+\end{definition}
+
+\begin{definition}[Irreducible chain]
+\index{irreducible}
+The chain is \emph{irreducible} if all states communicate, i.e.\ there is a single
+communicating class.
+\end{definition}
+
+\begin{definition}[Return time and recurrence]
+\index{recurrence}\index{transience}
+The \emph{first return time} to $i$ is $T_i = \inf\{n \geq 1 : X_n = i\}$.
+\begin{itemize}
+    \item State $i$ is \emph{recurrent} if $\PP_i(T_i < \infty) = 1$.
+    \item State $i$ is \emph{transient} if $\PP_i(T_i < \infty) < 1$.
+\end{itemize}
+\end{definition}
+
+\begin{theorem}[Characterization of recurrence]
+\label{thm:recurrence}
+State $i$ is recurrent if and only if $\sum_{n=0}^{\infty} p_{ii}^{(n)} = +\infty$.
+State $i$ is transient if and only if $\sum_{n=0}^{\infty} p_{ii}^{(n)} < +\infty$.
+\end{theorem}
+
+\begin{proof}
+Let $N_i = \sum_{n=1}^{\infty} \ind_{\{X_n = i\}}$ be the number of returns to $i$.
+Then $\E_i[N_i] = \sum_{n=1}^{\infty} p_{ii}^{(n)}$. Moreover,
+$\PP_i(N_i \geq k) = \PP_i(T_i < \infty)^k$, so $N_i$ has a geometric distribution.
+If $i$ is recurrent, $\PP_i(T_i < \infty) = 1$, so $\E_i[N_i] = +\infty$.
+If $i$ is transient, $\PP_i(T_i < \infty) < 1$, so
+$\E_i[N_i] = \PP_i(T_i < \infty)/(1 - \PP_i(T_i < \infty)) < +\infty$.
+\end{proof}
+
+\begin{proposition}[Class property]
+Recurrence and transience are class properties: if $i$ communicates with $j$, then
+$i$ is recurrent if and only if $j$ is recurrent.
+\end{proposition}
+
+\begin{definition}[Absorbing state]
+\index{absorbing state}
+A state $i$ is \emph{absorbing} if $p_{ii} = 1$. An absorbing state is recurrent.
+\end{definition}
+
+\begin{definition}[Period]
+\index{period}
+The \emph{period} of state $i$ is $d(i) = \gcd\{n \geq 1 : p_{ii}^{(n)} > 0\}$.
+State $i$ is \emph{aperiodic} if $d(i) = 1$. The period is a class property.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Stationary distributions}
+% ------------------------------------------------------------
+
+\begin{definition}[Stationary distribution]
+\label{def:stationary}
+\index{stationary distribution}
+A probability vector $\pi = (\pi_i)_{i \in E}$ (with $\pi_i \geq 0$ and
+$\sum_i \pi_i = 1$) is a \emph{stationary distribution} (or \emph{invariant
+distribution}) for $P$ if:
+\[
+    \pi P = \pi, \qquad \text{i.e.} \quad
+    \pi_j = \sum_{i \in E} \pi_i\, p_{ij}, \quad \forall j \in E.
+\]
+\end{definition}
+
+\begin{theorem}[Existence for irreducible positive recurrent chains]
+\label{thm:existence_stationary}
+Let $(X_n)$ be an irreducible recurrent Markov chain. Then:
+\begin{enumerate}
+    \item There exists an invariant measure $\pi$ (unique up to a multiplicative
+    constant) given by $\pi_j = 1/\E_j[T_j]$.
+    \item $\pi$ is a probability distribution (i.e.\ $\sum_j \pi_j = 1$) if and only
+    if the chain is \emph{positive recurrent}, i.e.\ $\E_i[T_i] < \infty$ for every
+    (equivalently, for some) state $i$.
+\end{enumerate}
+\end{theorem}
+
+\begin{remark}
+If the state space $E$ is finite and the chain is irreducible, then it is
+automatically positive recurrent and admits a unique stationary distribution.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Ergodic theorem}
+% ------------------------------------------------------------
+
+\begin{theorem}[Ergodic theorem for Markov chains]
+\label{thm:ergodic}
+\index{ergodic theorem}
+Let $(X_n)$ be an irreducible, positive recurrent, aperiodic Markov chain with
+stationary distribution $\pi$. Then for every initial state $i$ and every state $j$:
+\[
+    \lim_{n \to \infty} p_{ij}^{(n)} = \pi_j.
+\]
+Moreover, for every bounded function $f : E \to \R$:
+\[
+    \frac{1}{n} \sum_{k=0}^{n-1} f(X_k)
+    \xrightarrow[n \to \infty]{\text{a.s.}} \sum_{j \in E} f(j)\, \pi_j.
+\]
+\end{theorem}
+
+\begin{keyformulas}[title=\textbf{Key Markov chain formulas}]
+\begin{itemize}
+    \item \textbf{Chapman-Kolmogorov:} $P^{(m+n)} = P^m \cdot P^n$
+    \item \textbf{Distribution at time $n$:} $\mu_n = \mu_0 P^n$
+    \item \textbf{Stationarity:} $\pi P = \pi$
+    \item \textbf{Link with return time:} $\pi_j = 1/\E_j[T_j]$
+    \item \textbf{Convergence:} $\lim_{n \to \infty} P^n = \mathbf{1} \pi^T$
+    (if irreducible, positive recurrent, aperiodic)
+\end{itemize}
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Reversibility and detailed balance}
+% ------------------------------------------------------------
+
+\begin{definition}[Reversibility]
+\index{reversibility}\index{detailed balance}
+A Markov chain with transition matrix $P$ and stationary distribution $\pi$ is
+\emph{reversible} if the \emph{detailed balance equations} are satisfied:
+\[
+    \pi_i\, p_{ij} = \pi_j\, p_{ji}, \qquad \forall i, j \in E.
+\]
+\end{definition}
+
+\begin{proposition}
+If $\pi$ satisfies the detailed balance equations, then $\pi$ is a stationary
+distribution.
+\end{proposition}
+
+\begin{proof}
+Summing over $i$:
+$\sum_i \pi_i\, p_{ij} = \sum_i \pi_j\, p_{ji} = \pi_j \sum_i p_{ji} = \pi_j$,
+since $\sum_i p_{ji} = 1$.
+\end{proof}
+
+\begin{example}[Random walk on a graph]
+Let $G = (V, E)$ be a connected finite undirected graph. The simple random walk on $G$
+has transition matrix $p_{ij} = 1/\mathrm{deg}(i)$ if $(i,j)$ is an edge. The
+stationary distribution is $\pi_i = \mathrm{deg}(i)/(2\abs{E})$, and the detailed
+balance equations are satisfied.
+\end{example}
+
+\begin{attention}[title=\textbf{Detailed balance $\neq$ stationarity}]
+Detailed balance is a \emph{sufficient} but not necessary condition for stationarity.
+There exist Markov chains with a stationary distribution that does not satisfy detailed
+balance (e.g.\ chains with a directed cycle).
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+Let $(X_n)$ be the symmetric random walk on $\Z$ ($p = 1/2$). Show that every state
+is recurrent.
+\emph{Hint}: use $p_{00}^{(2n)} = \binom{2n}{n} 2^{-2n} \sim (\pi n)^{-1/2}$.
+\end{exercise}
+
+\begin{exercise}
+Show that the symmetric random walk on $\Z^3$ is transient.
+\emph{Hint}: show that $\sum_n p_{00}^{(n)} < \infty$.
+\end{exercise}
+
+\begin{exercise}
+Let $E = \{1, 2, 3\}$ and
+$P = \begin{pmatrix} 0 & 1/2 & 1/2 \\ 1/3 & 1/3 & 1/3 \\ 1/2 & 0 & 1/2 \end{pmatrix}$.
+\begin{enumerate}
+    \item Verify that the chain is irreducible and aperiodic.
+    \item Compute the stationary distribution $\pi$.
+    \item Is the chain reversible?
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Queueing model]
+\index{queue}
+Let $N \geq 1$ be the capacity of a queue. At each step, a customer arrives with
+probability $\lambda$ and a customer is served with probability $\mu$ (if the queue
+is non-empty), independently. Let $X_n$ be the number of customers at time $n$.
+Show that $(X_n)$ is a Markov chain, write its transition matrix, and find its
+stationary distribution when $\lambda < \mu$.
+\end{exercise}
+
+\begin{exercise}[Metropolis-Hastings algorithm]
+\index{Metropolis-Hastings}
+Let $\pi$ be a target probability distribution on a finite set $E$ and let $Q$ be an
+irreducible transition matrix (the \emph{proposal}). Define the transition matrix:
+\[
+    p_{ij} = q_{ij} \min\!\left(1, \frac{\pi_j q_{ji}}{\pi_i q_{ij}}\right)
+    \quad (i \neq j), \qquad
+    p_{ii} = 1 - \sum_{j \neq i} p_{ij}.
+\]
+Show that $\pi$ is a stationary distribution for $P$ and that detailed balance holds.
+\end{exercise}
+
+\begin{exercise}
+Let $(X_n)$ be an irreducible Markov chain on a finite state space $E$ with
+$\abs{E} = N$. Show that there exists a unique stationary vector $\pi$ and that
+$\pi_i > 0$ for all $i$.
+\end{exercise}

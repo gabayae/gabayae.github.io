@@ -1,0 +1,164 @@
+% ============================================================
+\chapter{Multivariate Time Series --- VAR and Cointegration}
+\label{ch:var}
+% ============================================================
+
+\section{Motivating Example}
+Interest rates and inflation evolve jointly: a rise in one influences the other. A \textbf{VAR} model captures these dynamic interdependencies. \textbf{Cointegration} reveals long-run equilibrium relationships between nonstationary variables.
+
+\section{Stationary Vector Processes}
+
+\begin{definition}[Stationary Vector Process]
+$(\bm{Y}_t)_{t\in\Z}$ with $\bm{Y}_t\in\R^k$ is \textbf{weakly stationary} if:
+\begin{enumerate}
+\item $\E[\|\bm{Y}_t\|^2]<\infty$,
+\item $\bm\mu = \E[\bm{Y}_t]$ does not depend on $t$,
+\item $\Gamma(h) = \Cov(\bm{Y}_t,\bm{Y}_{t+h}) = \E[(\bm{Y}_t-\bm\mu)(\bm{Y}_{t+h}-\bm\mu)^\top]$ depends only on $h$.
+\end{enumerate}
+Note: $\Gamma(h)=\Gamma(-h)^\top$ (but $\Gamma(h)\neq\Gamma(h)^\top$ in general).
+\end{definition}
+
+\section{VAR$(p)$ Model}\index{VAR}
+
+\begin{definition}[VAR$(p)$]
+\[
+\bm{Y}_t = \bm{c} + A_1\bm{Y}_{t-1} + A_2\bm{Y}_{t-2} + \cdots + A_p\bm{Y}_{t-p} + \bm{u}_t,
+\]
+where $\bm{u}_t\sim\mathrm{WN}(\bm{0},\Sigma_u)$ ($k$-dimensional) and $A_i\in\R^{k\times k}$.
+\end{definition}
+
+\begin{theorem}[Stationarity of a VAR$(p)$]
+The VAR$(p)$ is stationary if and only if all roots of
+\[
+\det(I_k - A_1 z - \cdots - A_p z^p) = 0
+\]
+lie outside the unit disk.
+\end{theorem}
+
+\subsection{Estimation}
+
+\begin{theorem}
+The parameters of a VAR$(p)$ can be estimated equation by equation by OLS. The estimator is consistent and asymptotically normal.
+\end{theorem}
+
+\section{Granger Causality}\index{Granger causality}
+
+\begin{definition}[Granger Causality]
+$Y_{2,t}$ \textbf{Granger-causes} $Y_{1,t}$ if the past values of $Y_2$ improve the forecast of $Y_1$, i.e.\ if in the VAR, the coefficients associated with the lags of $Y_2$ in the equation for $Y_1$ are jointly significant.
+
+Test: $H_0 : A_1^{(12)}=\cdots=A_p^{(12)}=0$ via a Wald test ($F$-test).
+\end{definition}
+
+\section{Impulse Response Functions}\index{impulse response function}
+
+\begin{definition}[IRF]
+The \textbf{impulse response function} measures the effect of a unit shock to $u_{j,t}$ on $Y_{i,t+h}$:
+\[
+\Psi_h = \frac{\partial\bm{Y}_{t+h}}{\partial\bm{u}_t^\top},
+\]
+where $\bm{Y}_t = \sum_{h=0}^{\infty}\Psi_h\bm{u}_{t-h}$ is the MA$(\infty)$ representation.
+\end{definition}
+
+\section{Cointegration}\index{cointegration}
+
+\begin{definition}[Cointegration]
+$I(1)$ series $Y_{1,t},\ldots,Y_{k,t}$ are \textbf{cointegrated} if there exists $\bm\beta\neq\bm{0}$ such that $\bm\beta^\top\bm{Y}_t\sim I(0)$. The vector $\bm\beta$ is a \textbf{cointegrating vector} and $\bm\beta^\top\bm{Y}_t$ represents a long-run equilibrium relationship.
+\end{definition}
+
+\begin{example}
+The spot and futures prices of a commodity are each $I(1)$, but their difference (the basis) is $I(0)$: they are cointegrated with $\bm\beta=(1,-1)^\top$.
+\end{example}
+
+\begin{definition}[Vector Error Correction Model (VECM)]\index{VECM}
+\[
+\nabla\bm{Y}_t = \Pi\bm{Y}_{t-1} + \sum_{i=1}^{p-1}\Gamma_i\nabla\bm{Y}_{t-i} + \bm{u}_t,
+\]
+where $\Pi=\alpha\beta^\top$ with $\alpha\in\R^{k\times r}$ (adjustment speeds) and $\beta\in\R^{k\times r}$ (cointegrating vectors), $r=\mathrm{rank}(\Pi)$ is the number of cointegrating relationships.
+\end{definition}
+
+\begin{theorem}[Granger Representation Theorem]
+If $\bm{Y}_t\sim I(1)$ and cointegrated of rank $r$:
+\begin{itemize}
+\item $0<r<k$: cointegration. The VECM is the appropriate specification.
+\item $r=0$: no cointegration, VAR in differences.
+\item $r=k$: all series are $I(0)$, VAR in levels.
+\end{itemize}
+\end{theorem}
+
+\subsection{Johansen Test}\index{test!Johansen}
+
+\begin{definition}
+The Johansen test determines the cointegration rank $r$ through sequential maximum eigenvalue or trace tests.
+\end{definition}
+
+\section{Implementation}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from statsmodels.tsa.api import VAR
+from statsmodels.tsa.vector_ar.vecm import coint_johansen
+
+# Simuler un VAR(1) bivarié
+np.random.seed(42)
+n = 500
+A = np.array([[0.5, 0.3], [-0.2, 0.6]])
+Y = np.zeros((n, 2))
+for t in range(1, n):
+    Y[t] = A @ Y[t-1] + np.random.multivariate_normal([0,0],
+                                      [[1, 0.3],[0.3, 1]])
+
+df = pd.DataFrame(Y, columns=['Y1', 'Y2'])
+
+# Ajuster VAR
+model = VAR(df)
+results = model.fit(maxlags=5, ic='bic')
+print(results.summary())
+
+# Causalité de Granger
+granger = results.test_causality('Y1', 'Y2', kind='f')
+print(f"\nGranger Y2 -> Y1: p-value = {granger.pvalue:.4f}")
+
+# IRF
+irf = results.irf(20)
+irf.plot(orth=True)
+plt.savefig('ch09_irf.pdf')
+plt.show()
+
+# Coïntégration (Johansen) sur données simulées I(1)
+rw1 = np.cumsum(np.random.normal(0, 1, n))
+rw2 = 0.5 * rw1 + np.cumsum(np.random.normal(0, 0.3, n))
+data_coint = np.column_stack([rw1, rw2])
+joh = coint_johansen(data_coint, det_order=0, k_ar_diff=1)
+print("\nJohansen trace stats:", joh.lr1)
+print("Critical values (90%, 95%, 99%):", joh.cvt)
+\end{minted}
+\end{codeblock}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+Verify that the VAR(1) $\bm{Y}_t = A\bm{Y}_{t-1}+\bm{u}_t$ with $A=\begin{pmatrix}0.5&0\\0&0.3\end{pmatrix}$ is stationary. Compute $\Gamma(0)$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Show that in a VAR(1), $\Gamma(h)=A^h\Gamma(0)$ for $h\geq 0$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Show that if $Y_{1,t}$ and $Y_{2,t}$ are independent random walks, they are not cointegrated.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Project]
+Estimate a VAR for the pair (interest rate, inflation) of a country. Test Granger causality in both directions and interpret the impulse response functions.
+\end{exercise}
+
+\begin{keyformulas}
+\begin{align*}
+\text{VAR}(p) &: \bm{Y}_t = \bm{c}+A_1\bm{Y}_{t-1}+\cdots+A_p\bm{Y}_{t-p}+\bm{u}_t \\
+\text{VECM} &: \nabla\bm{Y}_t=\alpha\beta^\top\bm{Y}_{t-1}+\sum\Gamma_i\nabla\bm{Y}_{t-i}+\bm{u}_t \\
+\text{Cointegration} &: \bm\beta^\top\bm{Y}_t\sim I(0)\text{ with }\bm{Y}_t\sim I(1)
+\end{align*}
+\end{keyformulas}

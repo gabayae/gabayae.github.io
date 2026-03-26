@@ -1,0 +1,151 @@
+% ============================================================
+\chapter{Mod\`eles \`a Espace d'\'Etats et Filtre de Kalman}
+\label{ch:kalman}
+% ============================================================
+
+\section{Exemple motivant}
+Le PIB <<~vrai~>> d'une \'economie est inobservable ; on n'observe que des estimations bruit\'ees et r\'evis\'ees. Un mod\`ele \`a espace d'\'etats s\'epare l'\textbf{\'etat latent} de l'\textbf{observation bruit\'ee} et le filtre de Kalman fournit l'estimation optimale de l'\'etat.
+
+\section{Mod\`ele lin\'eaire gaussien \`a espace d'\'etats}\index{espace d'etats@espace d'\'etats}
+
+\begin{definition}[Mod\`ele \`a espace d'\'etats]
+\begin{align}
+\bm{x}_{t+1} &= F\bm{x}_t + G\bm{w}_t && \text{(\'equation d'\'etat)} \label{eq:state}\\
+\bm{y}_t &= H\bm{x}_t + \bm{v}_t && \text{(\'equation d'observation)} \label{eq:obs}
+\end{align}
+o\`u $\bm{x}_t\in\R^p$ est l'\'etat (latent), $\bm{y}_t\in\R^m$ l'observation, $\bm{w}_t\sim\mathcal{N}(0,Q)$ et $\bm{v}_t\sim\mathcal{N}(0,R)$ sont ind\'ependants.
+\end{definition}
+
+\begin{exemple}[Tendance locale (local level)]
+$x_{t+1}=x_t+w_t$, $y_t=x_t+v_t$. L'\'etat est la <<~vraie valeur~>> liss\'ee.
+\end{exemple}
+
+\begin{exemple}[ARMA comme espace d'\'etats]
+Tout ARMA$(p,q)$ peut se mettre sous forme espace d'\'etats. Par exemple, l'AR(1) $X_t=\phi X_{t-1}+\eps_t$ correspond \`a $F=\phi$, $H=1$, $G=1$, $Q=\sigma^2$, $R=0$.
+\end{exemple}
+
+\section{Filtre de Kalman}\index{filtre de Kalman}
+
+\begin{definition}[Filtre de Kalman]
+Notations : $\hat{\bm{x}}_{t|s}=\E[\bm{x}_t|\bm{y}_1,\ldots,\bm{y}_s]$ et $P_{t|s}=\Cov(\bm{x}_t-\hat{\bm{x}}_{t|s})$.
+
+\medskip
+\textbf{Pr\'ediction :}
+\begin{align}
+\hat{\bm{x}}_{t+1|t} &= F\hat{\bm{x}}_{t|t}, \\
+P_{t+1|t} &= FP_{t|t}F^\top + GQG^\top.
+\end{align}
+
+\textbf{Mise \`a jour :}
+\begin{align}
+K_t &= P_{t|t-1}H^\top(HP_{t|t-1}H^\top+R)^{-1} && \text{(gain de Kalman)},\\
+\hat{\bm{x}}_{t|t} &= \hat{\bm{x}}_{t|t-1} + K_t(\bm{y}_t - H\hat{\bm{x}}_{t|t-1}), \\
+P_{t|t} &= (I-K_tH)P_{t|t-1}.
+\end{align}
+\end{definition}
+
+\begin{theoreme}[Optimalit\'e du filtre de Kalman]
+Dans le mod\`ele lin\'eaire gaussien, le filtre de Kalman donne l'estimateur MMSE (minimum mean square error) de $\bm{x}_t$ sachant $\bm{y}_1,\ldots,\bm{y}_t$. C'est l'estimateur \textbf{optimal} parmi tous les estimateurs (pas seulement lin\'eaires).
+\end{theoreme}
+
+\begin{proof}[Esquisse]
+Par r\'ecurrence. \`A chaque pas, la distribution conditionnelle $\bm{x}_t|\bm{y}_{1:t}$ est gaussienne (par fermeture de la loi gaussienne par conditionnement lin\'eaire). L'esp\'erance conditionnelle est l'estimateur MMSE pour les distributions gaussiennes.
+\end{proof}
+
+\section{Lisseur de Kalman}\index{lisseur de Kalman}
+
+\begin{definition}[Lisseur de Rauch--Tung--Striebel]
+Pour calculer $\hat{\bm{x}}_{t|n}$ (estimation de l'\'etat pass\'e avec \emph{toutes} les observations) :
+\begin{align}
+J_t &= P_{t|t}F^\top P_{t+1|t}^{-1}, \\
+\hat{\bm{x}}_{t|n} &= \hat{\bm{x}}_{t|t} + J_t(\hat{\bm{x}}_{t+1|n}-\hat{\bm{x}}_{t+1|t}), \\
+P_{t|n} &= P_{t|t} + J_t(P_{t+1|n}-P_{t+1|t})J_t^\top.
+\end{align}
+On it\`ere en arri\`ere de $t=n-1$ \`a $t=1$.
+\end{definition}
+
+\section{Vraisemblance par le filtre de Kalman}
+
+\begin{theoreme}[D\'ecomposition de l'innovation]
+La log-vraisemblance se d\'ecompose :
+\[
+\ln L = -\frac{nm}{2}\ln(2\pi) - \frac{1}{2}\sum_{t=1}^n\left[\ln|S_t| + \bm{e}_t^\top S_t^{-1}\bm{e}_t\right],
+\]
+o\`u $\bm{e}_t = \bm{y}_t-H\hat{\bm{x}}_{t|t-1}$ est l'\textbf{innovation} et $S_t = HP_{t|t-1}H^\top+R$.
+\end{theoreme}
+
+\section{Impl\'ementation}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from statsmodels.tsa.statespace.structural import UnobservedComponents
+
+# Simuler un modèle local level
+np.random.seed(42)
+n = 200
+sigma_w, sigma_v = 0.5, 1.0
+x = np.zeros(n)
+y = np.zeros(n)
+for t in range(1, n):
+    x[t] = x[t-1] + sigma_w * np.random.normal()
+    y[t] = x[t] + sigma_v * np.random.normal()
+
+# Filtre de Kalman manuel
+F, H, Q, R = 1.0, 1.0, sigma_w**2, sigma_v**2
+x_filt = np.zeros(n)
+P_filt = np.zeros(n)
+P_filt[0] = 1.0
+for t in range(1, n):
+    # Prédiction
+    x_pred = F * x_filt[t-1]
+    P_pred = F * P_filt[t-1] * F + Q
+    # Mise à jour
+    S = H * P_pred * H + R
+    K = P_pred * H / S
+    x_filt[t] = x_pred + K * (y[t] - H * x_pred)
+    P_filt[t] = (1 - K * H) * P_pred
+
+fig, ax = plt.subplots(figsize=(12, 5))
+ax.plot(y, 'o', ms=2, alpha=0.5, label='Observations $y_t$')
+ax.plot(x, 'g-', lw=1.5, label='État vrai $x_t$')
+ax.plot(x_filt, 'r--', lw=1.5, label='Filtre de Kalman $\\hat{x}_{t|t}$')
+ax.legend()
+ax.set_title('Filtre de Kalman — Local Level Model')
+plt.savefig('ch08_kalman.pdf')
+plt.show()
+
+# Avec statsmodels
+model = UnobservedComponents(y, 'local level')
+results = model.fit(disp=False)
+print(results.summary())
+\end{minted}
+\end{codeblock}
+
+\section{Exercices}
+
+\begin{exercice}[$\star$]
+\'Ecrire l'AR(2) sous forme espace d'\'etats.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+D\'emontrer que le gain de Kalman $K_t$ minimise $\tr(P_{t|t})$.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Montrer que dans le mod\`ele local level stationnaire ($\sigma_w,\sigma_v$ constants), le gain de Kalman converge vers une constante $K_\infty$.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Projet]
+Impl\'ementer un filtre de Kalman \'etendu (EKF) pour un mod\`ele de volatilit\'e stochastique : $\ln\sigma_t^2 = \phi\ln\sigma_{t-1}^2+w_t$, $r_t=\sigma_t z_t$.
+\end{exercice}
+
+\begin{formules}
+\begin{align*}
+\hat{\bm{x}}_{t+1|t} &= F\hat{\bm{x}}_{t|t}, \quad P_{t+1|t}=FP_{t|t}F^\top+GQG^\top \\
+K_t &= P_{t|t-1}H^\top(HP_{t|t-1}H^\top+R)^{-1} \\
+\hat{\bm{x}}_{t|t} &= \hat{\bm{x}}_{t|t-1}+K_t(\bm{y}_t-H\hat{\bm{x}}_{t|t-1}) \\
+\ln L &= -\tfrac{1}{2}\sum[\ln|S_t|+\bm{e}_t^\top S_t^{-1}\bm{e}_t]
+\end{align*}
+\end{formules}

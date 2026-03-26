@@ -1,0 +1,321 @@
+% !TEX root = ../main.tex
+\chapter{Visualisation des Donn\'ees}
+\label{ch:visualisation}
+
+\begin{intuition}
+La visualisation est le premier outil du data scientist. Un bon graphique r\'ev\`ele des structures, des anomalies et des relations qu'aucun tableau de chiffres ne peut montrer aussi clairement. Comme le disait John Tukey : <<~The greatest value of a picture is when it forces us to notice what we never expected to see. ~>>
+\end{intuition}
+
+% ============================================================
+\section{La grammaire des graphiques}
+\index{grammaire des graphiques}
+
+La \textbf{grammaire des graphiques}\index{grammar of graphics}, propos\'ee par Leland Wilkinson, d\'ecompose tout graphique en couches :
+\begin{enumerate}
+    \item \textbf{Donn\'ees} : le jeu de donn\'ees source.
+    \item \textbf{Esth\'etiques} (\emph{aesthetics}) : les variables mapp\'ees sur les axes, couleurs, tailles.
+    \item \textbf{G\'eom\'etries} : le type de repr\'esentation (points, barres, lignes).
+    \item \textbf{Facettes} : le d\'ecoupage en sous-graphiques.
+    \item \textbf{Statistiques} : les transformations appliqu\'ees (comptage, moyenne).
+    \item \textbf{Coordonn\'ees} : le syst\`eme de coordonn\'ees (cart\'esien, polaire).
+    \item \textbf{Th\`eme} : l'apparence g\'en\'erale (polices, grille, fond).
+\end{enumerate}
+
+Seaborn et Matplotlib impl\'ementent ces concepts en Python.
+
+% ============================================================
+\section{Matplotlib : les fondamentaux}
+\index{Matplotlib}
+
+\subsection{Graphique en ligne}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import matplotlib.pyplot as plt
+import numpy as np
+
+x = np.linspace(0, 2 * np.pi, 100)
+y_sin = np.sin(x)
+y_cos = np.cos(x)
+
+fig, ax = plt.subplots(figsize=(7, 4))
+ax.plot(x, y_sin, label='sin(x)', color='steelblue', linewidth=2)
+ax.plot(x, y_cos, label='cos(x)', color='coral', linestyle='--')
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+ax.set_title('Fonctions trigonom\'etriques')
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.savefig('trigo.pdf', dpi=150)
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Un graphique avec deux courbes (sinus en bleu, cosinus en tirets corail) sur $[0, 2\pi]$, avec l\'egende, grille et titres.
+\end{codeoutput}
+
+\subsection{Nuage de points et histogramme}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import seaborn as sns
+
+tips = sns.load_dataset('tips')
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+# Nuage de points
+axes[0].scatter(tips['total_bill'], tips['tip'],
+                alpha=0.6, c='teal', edgecolors='white')
+axes[0].set_xlabel('Addition totale (\$)')
+axes[0].set_ylabel('Pourboire (\$)')
+axes[0].set_title('Pourboire vs Addition')
+
+# Histogramme
+axes[1].hist(tips['total_bill'], bins=20, color='steelblue',
+             edgecolor='white')
+axes[1].set_xlabel('Addition totale (\$)')
+axes[1].set_ylabel('Fr\'equence')
+axes[1].set_title('Distribution des additions')
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Deux sous-graphiques : \`a gauche un nuage de points montrant une relation positive entre addition et pourboire ; \`a droite un histogramme l\'eg\`erement asym\'etrique (queue droite) des additions.
+\end{codeoutput}
+
+\subsection{Diagramme en barres}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+moyenne_jour = tips.groupby('day')['tip'].mean().sort_values()
+
+fig, ax = plt.subplots(figsize=(6, 4))
+ax.bar(moyenne_jour.index, moyenne_jour.values,
+       color=['#4c72b0', '#55a868', '#c44e52', '#8172b2'])
+ax.set_xlabel('Jour')
+ax.set_ylabel('Pourboire moyen (\$)')
+ax.set_title('Pourboire moyen par jour')
+for i, v in enumerate(moyenne_jour.values):
+    ax.text(i, v + 0.05, f'{v:.2f}', ha='center', fontsize=10)
+plt.tight_layout()
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Diagramme en barres color\'ees avec les valeurs annot\'ees : Fri~2.73, Thur~2.77, Sat~2.99, Sun~3.26.
+\end{codeoutput}
+
+% ============================================================
+\section{Seaborn : visualisation statistique}
+\index{Seaborn}
+
+\subsection{Distributions : histplot et violinplot}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+sns.histplot(data=tips, x='total_bill', hue='sex', kde=True,
+             ax=axes[0], palette='Set2')
+axes[0].set_title('Distribution par sexe')
+
+sns.violinplot(data=tips, x='day', y='total_bill',
+               hue='sex', split=True, ax=axes[1],
+               palette='pastel')
+axes[1].set_title('Violin plot par jour et sexe')
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\`A gauche : histogrammes superpos\'es avec courbes KDE pour homme et femme. \`A droite : violin plots s\'epar\'es par sexe pour chaque jour, montrant que les hommes ont des additions l\'eg\`erement plus \'elev\'ees.
+\end{codeoutput}
+
+\subsection{Bo\^ites \`a moustaches et heatmap}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+
+sns.boxplot(data=tips, x='day', y='tip', hue='smoker',
+            ax=axes[0], palette='coolwarm')
+axes[0].set_title('Pourboires par jour et statut fumeur')
+
+corr = tips[['total_bill', 'tip', 'size']].corr()
+sns.heatmap(corr, annot=True, fmt='.2f', cmap='YlOrRd',
+            ax=axes[1], vmin=0, vmax=1)
+axes[1].set_title('Matrice de corr\'elation')
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Boxplots montrant des distributions similaires entre fumeurs et non-fumeurs. Heatmap : corr\'elation total\_bill/tip = 0.68, total\_bill/size = 0.60, tip/size = 0.49.
+\end{codeoutput}
+
+\subsection{Pairplot et relplot}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+iris = sns.load_dataset('iris')
+
+g = sns.pairplot(iris, hue='species', palette='husl',
+                 diag_kind='kde', height=2.2)
+g.figure.suptitle('Pairplot du jeu Iris', y=1.02)
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Matrice $4 \times 4$ de graphiques : diagonale = densit\'es KDE par esp\`ece, hors-diagonale = nuages de points. On distingue clairement \emph{setosa} des deux autres esp\`eces.
+\end{codeoutput}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+sns.relplot(data=tips, x='total_bill', y='tip',
+            hue='smoker', style='sex', col='time',
+            height=4, aspect=1.2, palette='Set1')
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Deux panneaux (Lunch / Dinner) avec nuages de points color\'es par statut fumeur et diff\'erenci\'es par forme selon le sexe.
+\end{codeoutput}
+
+\subsection{catplot}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+sns.catplot(data=tips, x='day', y='total_bill', hue='sex',
+            kind='box', col='time', palette='muted',
+            height=4, aspect=1)
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Quatre groupes de boxplots organis\'es en deux colonnes (Lunch, Dinner), compar\'es par sexe et par jour.
+\end{codeoutput}
+
+% ============================================================
+\section{Choisir le bon type de graphique}
+\index{choix de graphique}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.4cm and 2.2cm,
+    decision/.style={diamond, draw=teal!80, fill=teal!10, text width=2.8cm, align=center, inner sep=2pt, font=\small},
+    block/.style={rectangle, draw=steelblue!80, fill=steelblue!10, rounded corners, text width=2.8cm, align=center, minimum height=0.9cm, font=\small},
+    arrow/.style={->, thick, >=stealth, color=gray!70}
+]
+\node[decision] (start) {Type de variable ?};
+\node[decision, below left=1.5cm and 2.5cm of start] (cat) {Objectif ?};
+\node[decision, below right=1.5cm and 2.5cm of start] (num) {Objectif ?};
+
+\node[align=center,block, below left=1.3cm and 0.8cm of cat] (bar) {Barres\\Comptage};
+\node[align=center,block, below right=1.3cm and 0.8cm of cat] (catcomp) {Boxplot\\Violin};
+
+\node[align=center,block, below left=1.3cm and 0.8cm of num] (dist) {Histogramme\\KDE};
+\node[align=center,block, below=1.3cm of num] (rel) {Scatter\\Ligne};
+\node[align=center,block, below right=1.3cm and 0.8cm of num] (multi) {Heatmap\\Pairplot};
+
+\draw[arrow] (start) -- node[above left, font=\scriptsize] {Cat\'egorielle} (cat);
+\draw[arrow] (start) -- node[above right, font=\scriptsize] {Num\'erique} (num);
+\draw[arrow] (cat) -- node[left, font=\scriptsize] {Comptage} (bar);
+\draw[arrow] (cat) -- node[right, font=\scriptsize] {Comparaison} (catcomp);
+\draw[arrow] (num) -- node[left, font=\scriptsize] {Distribution} (dist);
+\draw[arrow] (num) -- node[right, font=\scriptsize] {Relation} (rel);
+\draw[arrow] (num) -- node[right, font=\scriptsize] {Multivari\'e} (multi);
+\end{tikzpicture}
+\end{center}
+
+% ============================================================
+\section{Palettes de couleurs et sauvegarde}
+\index{palette de couleurs}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Palettes disponibles dans Seaborn
+palettes = ['deep', 'muted', 'pastel', 'bright',
+            'dark', 'colorblind']
+sns.set_palette('colorblind')  # recommandé pour l'accessibilité
+
+# Sauvegarde haute résolution
+fig, ax = plt.subplots()
+sns.histplot(tips['tip'], bins=15, ax=ax, color='steelblue')
+fig.savefig('distribution_tip.png', dpi=300, bbox_inches='tight')
+fig.savefig('distribution_tip.pdf', bbox_inches='tight')
+\end{minted}
+\end{codeblock}
+
+\begin{bonnepratique}
+Utilisez toujours la palette \py{'colorblind'} pour garantir l'accessibilit\'e de vos graphiques. Sauvegardez en PDF pour les rapports et en PNG (300 dpi) pour les pr\'esentations.
+\end{bonnepratique}
+
+% ============================================================
+\section{Erreurs courantes en visualisation}
+\index{erreurs de visualisation}
+
+\begin{attention}
+\begin{itemize}
+    \item \textbf{Axes tronqu\'es} : ne pas commencer l'axe $y$ \`a z\'ero dans un diagramme en barres exag\`ere les diff\'erences.
+    \item \textbf{\'Echelles trompeuses} : utiliser deux axes $y$ avec des \'echelles diff\'erentes peut sugg\'erer de fausses corr\'elations.
+    \item \textbf{Graphiques 3D} : les perspectives d\'eforment la perception des valeurs. Pr\'ef\'erez le 2D.
+    \item \textbf{Trop de cat\'egories} : un camembert avec 15 parts est illisible. Utilisez un diagramme en barres.
+    \item \textbf{Absence de l\'egende et de titres} : tout graphique doit \^etre compr\'ehensible seul.
+\end{itemize}
+\end{attention}
+
+% ============================================================
+\section{Exercices}
+
+\begin{exercice}[$\star$]
+Chargez le jeu \py{tips} et cr\'eez un histogramme de la variable \py{tip} avec 20 intervalles. Ajoutez un titre, des labels d'axes et une courbe KDE superpos\'ee avec Seaborn.
+\end{exercice}
+
+\begin{exercice}[$\star$]
+Cr\'eez un diagramme en barres horizontales montrant le nombre de repas par jour dans le jeu \py{tips}. Triez les barres par ordre d\'ecroissant.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+\`A l'aide du jeu \py{iris}, cr\'eez une figure avec 4 sous-graphiques ($2 \times 2$) montrant la distribution de chaque variable num\'erique, color\'ee par esp\`ece. Utilisez \py{sns.histplot} avec \py{hue='species'}.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Cr\'eez un \py{sns.catplot} de type \py{'violin'} montrant la distribution de \py{total\_bill} par \py{day}, facett\'e par \py{time}, avec la couleur d\'etermin\'ee par \py{sex}. Interpr\'etez les diff\'erences observ\'ees.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$]
+Reproduisez le graphique suivant : une figure \`a deux panneaux. Le panneau gauche montre un scatter plot de \py{total\_bill} vs \py{tip} avec une droite de r\'egression (\py{sns.regplot}). Le panneau droit montre les r\'esidus de cette r\'egression (calculez-les avec NumPy : \py{np.polyfit} et \py{np.polyval}). Commentez la qualit\'e de l'ajustement.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$]
+Prenez le jeu \py{iris} et cr\'eez une heatmap de la matrice de corr\'elation \emph{par esp\`ece} (trois heatmaps dans une figure $1 \times 3$). Comparez les structures de corr\'elation entre esp\`eces.
+\end{exercice}
+
+% ============================================================
+\begin{formules}
+\textbf{R\'esum\'e du chapitre -- Visualisation des donn\'ees}
+\begin{itemize}
+    \item \textbf{Matplotlib} : \py{plt.subplots()}, \py{ax.plot()}, \py{ax.scatter()}, \py{ax.hist()}, \py{ax.bar()}.
+    \item \textbf{Seaborn (distributions)} : \py{sns.histplot()}, \py{sns.boxplot()}, \py{sns.violinplot()}.
+    \item \textbf{Seaborn (relations)} : \py{sns.scatterplot()}, \py{sns.relplot()}, \py{sns.heatmap()}.
+    \item \textbf{Seaborn (cat\'egoriel)} : \py{sns.catplot()}, \py{sns.countplot()}, \py{sns.barplot()}.
+    \item \textbf{Seaborn (multivari\'e)} : \py{sns.pairplot()}.
+    \item \textbf{Personnalisation} : \py{set\_xlabel()}, \py{set\_title()}, \py{legend()}, \py{grid()}.
+    \item \textbf{Sauvegarde} : \py{fig.savefig('nom.pdf', dpi=300, bbox\_inches='tight')}.
+    \item \textbf{R\`egle d'or} : choisir le graphique adapt\'e au type de variable et \`a l'objectif d'analyse.
+\end{itemize}
+\end{formules}

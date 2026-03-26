@@ -1,0 +1,465 @@
+% !TEX root = ../main.tex
+\chapter{Statistiques Appliqu\'ees}
+\label{ch:statistiques}
+
+\begin{intuition}
+Les statistiques fournissent le cadre math\'ematique qui permet de passer de l'observation \`a l'inf\'erence. En science des donn\'ees, elles servent \`a quantifier l'incertitude, tester des hypoth\`eses et mesurer les relations entre variables.
+\end{intuition}
+
+% ============================================================
+\section{Statistiques descriptives}
+\index{statistiques descriptives}
+
+\subsection{Mesures de tendance centrale et de dispersion}
+
+\begin{definition}[Mesures fondamentales]
+Pour un \'echantillon $(x_1, x_2, \ldots, x_n)$ :
+\begin{itemize}
+    \item \textbf{Moyenne}\index{moyenne} : $\bar{x} = \dfrac{1}{n}\displaystyle\sum_{i=1}^{n} x_i$
+    \item \textbf{M\'ediane}\index{m\'ediane} : valeur telle que 50\,\% des observations sont inf\'erieures.
+    \item \textbf{Mode}\index{mode} : valeur la plus fr\'equente.
+    \item \textbf{Variance}\index{variance} : $s^2 = \dfrac{1}{n-1}\displaystyle\sum_{i=1}^{n}(x_i - \bar{x})^2$
+    \item \textbf{\'Ecart-type}\index{\'ecart-type} : $s = \sqrt{s^2}$
+    \item \textbf{Quantiles}\index{quantile} : $Q_1$ (25\,\%), $Q_2$ (50\,\%), $Q_3$ (75\,\%).
+\end{itemize}
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+import seaborn as sns
+from scipy import stats
+
+tips = sns.load_dataset('tips')
+
+col = tips['total_bill']
+print(f"Moyenne     : {col.mean():.2f}")
+print(f"Médiane     : {col.median():.2f}")
+print(f"Mode        : {col.mode()[0]:.2f}")
+print(f"Variance    : {col.var():.2f}")
+print(f"Écart-type  : {col.std():.2f}")
+print(f"Q1, Q3      : {col.quantile(0.25):.2f}, "
+      f"{col.quantile(0.75):.2f}")
+print(f"Asymétrie   : {col.skew():.2f}")
+print(f"Kurtosis    : {col.kurtosis():.2f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Moyenne     : 19.79
+Médiane     : 17.80
+Mode        : 13.42
+Variance    : 79.25
+Écart-type  : 8.90
+Q1, Q3      : 13.35, 24.13
+Asymétrie   : 1.13
+Kurtosis    : 1.22
+\end{minted}
+\end{codeoutput}
+
+\begin{remarque}
+L'asym\'etrie positive (1.13) et la moyenne sup\'erieure \`a la m\'ediane confirment une distribution \'etir\'ee vers la droite. Le kurtosis positif indique des queues plus lourdes que la loi normale.
+\end{remarque}
+
+% ============================================================
+\section{Distributions de probabilit\'e}
+\index{distribution de probabilit\'e}
+
+\subsection{Loi normale}
+\index{loi normale}
+
+\begin{definition}[Loi normale]
+Une variable al\'eatoire $X$ suit une loi normale $\mathcal{N}(\mu, \sigma^2)$ si sa densit\'e est :
+\[
+f(x) = \frac{1}{\sigma\sqrt{2\pi}} \exp\!\left(-\frac{(x-\mu)^2}{2\sigma^2}\right)
+\]
+\end{definition}
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+    width=10cm, height=6cm,
+    domain=-4:4, samples=100,
+    xlabel={$x$}, ylabel={$f(x)$},
+    title={Distribution normale $\mathcal{N}(0,1)$ avec r\'egions critiques},
+    axis lines=middle,
+    every axis x label/.style={at={(ticklabel* cs:1)}, anchor=west},
+    every axis y label/.style={at={(ticklabel* cs:1)}, anchor=south},
+    ymin=0, ymax=0.45,
+    xtick={-3,-1.96,-1,0,1,1.96,3},
+    xticklabels={$-3$,$-1.96$,$-1$,$0$,$1$,$1.96$,$3$},
+    xticklabel style={font=\scriptsize},
+]
+% Courbe principale
+\addplot[thick, steelblue, smooth] {exp(-x^2/2)/sqrt(2*pi)};
+
+% Régions critiques (alpha = 0.05)
+\addplot[fill=red!30, draw=none, domain=-4:-1.96, samples=50]
+    {exp(-x^2/2)/sqrt(2*pi)} \closedcycle;
+\addplot[fill=red!30, draw=none, domain=1.96:4, samples=50]
+    {exp(-x^2/2)/sqrt(2*pi)} \closedcycle;
+
+% Annotations
+\node[font=\scriptsize, color=red!70!black] at (axis cs:-2.8,0.06) {$\alpha/2$};
+\node[font=\scriptsize, color=red!70!black] at (axis cs:2.8,0.06) {$\alpha/2$};
+\node[font=\scriptsize, color=steelblue!70!black] at (axis cs:0,0.25) {$1-\alpha = 95\,\%$};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+from scipy.stats import norm
+import matplotlib.pyplot as plt
+
+# Loi normale : probabilités et quantiles
+print(f"P(X < 1.96) = {norm.cdf(1.96):.4f}")
+print(f"P(-1.96 < X < 1.96) = {norm.cdf(1.96) - norm.cdf(-1.96):.4f}")
+print(f"Quantile 97.5% = {norm.ppf(0.975):.4f}")
+
+# Visualisation
+x = np.linspace(-4, 4, 200)
+fig, ax = plt.subplots(figsize=(7, 4))
+ax.plot(x, norm.pdf(x), 'steelblue', lw=2, label='$\mathcal{N}(0,1)$')
+ax.fill_between(x, norm.pdf(x), where=(x > 1.96) | (x < -1.96),
+                color='red', alpha=0.3, label='Régions critiques')
+ax.legend()
+ax.set_title('Distribution normale standard')
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+P(X < 1.96) = 0.9750
+P(-1.96 < X < 1.96) = 0.9500
+Quantile 97.5% = 1.9600
+\end{minted}
+\end{codeoutput}
+
+\subsection{Lois binomiale et de Poisson}
+\index{loi binomiale}\index{loi de Poisson}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+from scipy.stats import binom, poisson
+
+# Binomiale : n=20 lancers, p=0.5
+print("--- Loi binomiale B(20, 0.5) ---")
+print(f"P(X = 10) = {binom.pmf(10, n=20, p=0.5):.4f}")
+print(f"P(X <= 10) = {binom.cdf(10, n=20, p=0.5):.4f}")
+print(f"Espérance = {binom.mean(n=20, p=0.5):.1f}")
+print(f"Variance = {binom.var(n=20, p=0.5):.1f}")
+
+# Poisson : lambda=5 événements par intervalle
+print("\n--- Loi de Poisson P(5) ---")
+print(f"P(X = 3) = {poisson.pmf(3, mu=5):.4f}")
+print(f"P(X <= 3) = {poisson.cdf(3, mu=5):.4f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+--- Loi binomiale B(20, 0.5) ---
+P(X = 10) = 0.1762
+P(X <= 10) = 0.5881
+Espérance = 10.0
+Variance = 5.0
+
+--- Loi de Poisson P(5) ---
+P(X = 3) = 0.1404
+P(X <= 3) = 0.2650
+\end{minted}
+\end{codeoutput}
+
+% ============================================================
+\section{Intervalles de confiance}
+\index{intervalle de confiance}
+
+\begin{definition}[Intervalle de confiance]
+Un intervalle de confiance \`a $(1-\alpha)\times 100\,\%$ pour la moyenne $\mu$ est :
+\[
+\text{IC} = \left[\bar{x} - z_{\alpha/2}\,\frac{s}{\sqrt{n}},\; \bar{x} + z_{\alpha/2}\,\frac{s}{\sqrt{n}}\right]
+\]
+o\`u $z_{\alpha/2}$ est le quantile de la loi normale (1.96 pour 95\,\%).
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# IC à 95% pour la moyenne du pourboire
+tip = tips['tip']
+n = len(tip)
+mean = tip.mean()
+se = tip.std() / np.sqrt(n)
+
+ci_low = mean - 1.96 * se
+ci_high = mean + 1.96 * se
+print(f"Moyenne : {mean:.3f}")
+print(f"IC 95% : [{ci_low:.3f}, {ci_high:.3f}]")
+
+# Avec scipy (méthode exacte, distribution t)
+ci = stats.t.interval(confidence=0.95, df=n-1,
+                      loc=mean, scale=se)
+print(f"IC 95% (t-Student) : [{ci[0]:.3f}, {ci[1]:.3f}]")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Moyenne : 2.998
+IC 95% : [2.823, 3.173]
+IC 95% (t-Student) : [2.822, 3.175]
+\end{minted}
+\end{codeoutput}
+
+% ============================================================
+\section{Tests d'hypoth\`eses}
+\index{test d'hypoth\`ese}
+
+\begin{definition}[Test d'hypoth\`ese]
+Un test d'hypoth\`ese oppose :
+\begin{itemize}
+    \item $H_0$ (hypoth\`ese nulle) : pas d'effet, pas de diff\'erence.
+    \item $H_1$ (hypoth\`ese alternative) : il existe un effet ou une diff\'erence.
+\end{itemize}
+La \textbf{p-valeur}\index{p-valeur} est la probabilit\'e d'observer un r\'esultat au moins aussi extr\^eme que celui observ\'e, sous $H_0$. On rejette $H_0$ si $p < \alpha$ (g\'en\'eralement $\alpha = 0.05$).
+\end{definition}
+
+\subsection{Test $t$ de Student}
+\index{test t de Student}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Les hommes donnent-ils des pourboires différents des femmes ?
+tip_male = tips[tips['sex'] == 'Male']['tip']
+tip_female = tips[tips['sex'] == 'Female']['tip']
+
+t_stat, p_value = stats.ttest_ind(tip_male, tip_female)
+print(f"Statistique t : {t_stat:.4f}")
+print(f"p-valeur : {p_value:.4f}")
+print(f"Moyenne hommes : {tip_male.mean():.3f}")
+print(f"Moyenne femmes : {tip_female.mean():.3f}")
+
+if p_value < 0.05:
+    print("=> Différence significative (rejet de H0)")
+else:
+    print("=> Pas de différence significative")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Statistique t : 1.3879
+p-valeur : 0.1665
+Moyenne hommes : 3.090
+Moyenne femmes : 2.833
+=> Pas de différence significative
+\end{minted}
+\end{codeoutput}
+
+\subsection{Test du $\chi^2$ d'ind\'ependance}
+\index{test du chi-deux}\index{chi2\_contingency}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Le statut fumeur est-il lié au moment du repas ?
+titanic = sns.load_dataset('titanic')
+
+# Test sur le Titanic : survie vs sexe
+ct = pd.crosstab(titanic['sex'], titanic['survived'])
+print("Table de contingence :")
+print(ct)
+
+chi2, p_value, dof, expected = stats.chi2_contingency(ct)
+print(f"\nChi² = {chi2:.2f}")
+print(f"p-valeur = {p_value:.2e}")
+print(f"Degrés de liberté = {dof}")
+print(f"=> {'Dépendance significative' if p_value < 0.05 else 'Indépendance'}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Table de contingence :
+survived    0    1
+sex
+female     81  233
+male      468  109
+
+Chi² = 260.72
+p-valeur = 1.20e-58
+Degrés de liberté = 1
+=> Dépendance significative
+\end{minted}
+\end{codeoutput}
+
+\begin{remarque}
+Le test du $\chi^2$ confirme avec une \'enorme significativit\'e statistique ($p \approx 10^{-58}$) que la survie d\'ependait fortement du sexe. C'est le r\'esultat le plus marquant du Titanic : <<~Women and children first. ~>>
+\end{remarque}
+
+% ============================================================
+\section{Corr\'elations}
+\index{corr\'elation}\index{Pearson}\index{Spearman}
+
+\begin{definition}[Coefficients de corr\'elation]
+\begin{itemize}
+    \item \textbf{Pearson}\index{Pearson} : mesure la corr\'elation \emph{lin\'eaire} :
+    $r = \dfrac{\sum(x_i - \bar{x})(y_i - \bar{y})}{\sqrt{\sum(x_i - \bar{x})^2 \cdot \sum(y_i - \bar{y})^2}}$
+    \item \textbf{Spearman}\index{Spearman} : mesure la corr\'elation \emph{monotone} (bas\'ee sur les rangs).
+\end{itemize}
+Les deux coefficients sont dans $[-1, 1]$. $|r| > 0.7$ indique une corr\'elation forte.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Corrélation entre addition et pourboire
+r_pearson, p_pearson = stats.pearsonr(tips['total_bill'],
+                                       tips['tip'])
+r_spearman, p_spearman = stats.spearmanr(tips['total_bill'],
+                                          tips['tip'])
+
+print(f"Pearson  : r = {r_pearson:.4f}, p = {p_pearson:.2e}")
+print(f"Spearman : r = {r_spearman:.4f}, p = {p_spearman:.2e}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Pearson  : r = 0.6757, p = 6.69e-34
+Spearman : r = 0.6787, p = 2.83e-34
+\end{minted}
+\end{codeoutput}
+
+\begin{attention}
+Corr\'elation n'implique pas causalit\'e. Une forte corr\'elation entre deux variables peut \^etre due \`a une variable confondante. Toujours compl\'eter par une analyse th\'eorique et, si possible, un plan exp\'erimental.
+\end{attention}
+
+% ============================================================
+\section{ANOVA \`a un facteur}
+\index{ANOVA}
+
+\begin{definition}[ANOVA]
+L'analyse de la variance (ANOVA\index{ANOVA}) teste si les moyennes de $k$ groupes sont \'egales :
+\begin{itemize}
+    \item $H_0$ : $\mu_1 = \mu_2 = \cdots = \mu_k$
+    \item $H_1$ : au moins deux moyennes diff\`erent.
+\end{itemize}
+La statistique $F$ compare la variance inter-groupes \`a la variance intra-groupes.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Le pourboire diffère-t-il selon le jour ?
+jours = tips['day'].unique()
+groupes = [tips[tips['day'] == j]['tip'] for j in jours]
+
+f_stat, p_value = stats.f_oneway(*groupes)
+print(f"Statistique F : {f_stat:.4f}")
+print(f"p-valeur : {p_value:.4f}")
+
+# Moyennes par jour
+print("\nMoyenne du pourboire par jour :")
+print(tips.groupby('day')['tip'].agg(['mean', 'std', 'count'])
+      .round(3))
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Statistique F : 1.6724
+p-valeur : 0.1736
+
+Moyenne du pourboire par jour :
+       mean    std  count
+day
+Thur  2.771  1.240     62
+Fri   2.735  1.018     19
+Sat   2.993  1.631     87
+Sun   3.256  1.227     76
+
+\end{minted}
+\end{codeoutput}
+
+\begin{remarque}
+L'ANOVA ne d\'etecte pas de diff\'erence significative ($p = 0.17$). Bien que le dimanche ait la moyenne la plus \'elev\'ee, la variabilit\'e intra-groupe est trop importante pour conclure.
+\end{remarque}
+
+% ============================================================
+\section{Exemple int\'egrateur : analyse du Titanic}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# 1. Le tarif diffère-t-il selon la classe ? (ANOVA)
+groupes_fare = [titanic[titanic['pclass'] == c]['fare']
+                for c in [1, 2, 3]]
+f, p = stats.f_oneway(*groupes_fare)
+print(f"ANOVA tarif ~ classe : F={f:.2f}, p={p:.2e}")
+
+# 2. Survie vs classe ? (Chi²)
+ct2 = pd.crosstab(titanic['pclass'], titanic['survived'])
+chi2, p2, _, _ = stats.chi2_contingency(ct2)
+print(f"Chi² survie ~ classe : χ²={chi2:.2f}, p={p2:.2e}")
+
+# 3. Corrélation âge-tarif
+age_clean = titanic.dropna(subset=['age'])
+r, p3 = stats.pearsonr(age_clean['age'], age_clean['fare'])
+print(f"Pearson âge ~ tarif : r={r:.3f}, p={p3:.4f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+ANOVA tarif ~ classe : F=242.34, p=2.00e-84
+Chi² survie ~ classe : χ²=102.89, p=4.55e-23
+Pearson âge ~ tarif : r=0.096, p=0.0101
+\end{minted}
+\end{codeoutput}
+
+\begin{proposition}
+Les r\'esultats montrent que (1) le tarif diff\`ere tr\`es significativement entre classes, (2) la survie d\'epend fortement de la classe, et (3) l'\^age et le tarif ont une corr\'elation tr\`es faible bien que significative (l'effectif \'elev\'e rend de petits effets significatifs).
+\end{proposition}
+
+% ============================================================
+\section{Exercices}
+
+\begin{exercice}[$\star$]
+Calculez la moyenne, la m\'ediane, l'\'ecart-type et les quartiles de la variable \py{tip} du jeu \py{tips}. La distribution est-elle sym\'etrique ? Justifiez avec le coefficient d'asym\'etrie.
+\end{exercice}
+
+\begin{exercice}[$\star$]
+G\'en\'erez 1000 \'echantillons de taille 30 \`a partir d'une loi $\mathcal{N}(50, 10^2)$. Pour chaque \'echantillon, calculez l'IC \`a 95\,\%. Combien d'intervalles contiennent effectivement $\mu = 50$ ? Le r\'esultat est-il conforme \`a la th\'eorie ?
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Testez avec un test $t$ si le pourboire moyen diff\`ere entre les repas du midi (\py{time='Lunch'}) et du soir (\py{time='Dinner'}). Interpr\'etez la p-valeur et calculez la taille d'effet (diff\'erence des moyennes divis\'ee par l'\'ecart-type pool\'e).
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+R\'ealisez un test du $\chi^2$ pour tester l'ind\'ependance entre \py{smoker} et \py{time} dans le jeu \py{tips}. Affichez la table de contingence, les effectifs th\'eoriques et concluez.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$]
+Sur le jeu \py{titanic}, r\'ealisez les tests suivants et synth\'etisez les r\'esultats dans un tableau : (a) $t$-test sur l'\^age entre survivants et non-survivants, (b) $\chi^2$ sur la survie vs le port d'embarquement, (c) ANOVA sur le tarif par port d'embarquement, (d) corr\'elation de Spearman entre \py{pclass} et \py{survived}. Appliquez la correction de Bonferroni ($\alpha_{\text{corrig\'e}} = 0.05 / 4 = 0.0125$) et concluez.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$]
+Simulez la puissance d'un test $t$ : g\'en\'erez deux groupes de taille $n$ \`a partir de $\mathcal{N}(0, 1)$ et $\mathcal{N}(\delta, 1)$ avec $\delta \in \{0.2, 0.5, 0.8\}$ et $n \in \{10, 30, 100, 300\}$. Pour chaque combinaison, r\'ep\'etez 1000 fois et calculez le pourcentage de rejets de $H_0$. Tracez un graphique de la puissance en fonction de $n$ pour chaque $\delta$.
+\end{exercice}
+
+% ============================================================
+\begin{formules}
+\textbf{R\'esum\'e du chapitre -- Statistiques appliqu\'ees}
+\begin{itemize}
+    \item \textbf{Descriptif} : \py{mean()}, \py{median()}, \py{std()}, \py{var()}, \py{quantile()}, \py{skew()}.
+    \item \textbf{Lois} : \py{norm}, \py{binom}, \py{poisson} de \py{scipy.stats} ; m\'ethodes \py{.pdf()}, \py{.cdf()}, \py{.ppf()}.
+    \item \textbf{IC \`a 95\,\%} : $\bar{x} \pm 1.96 \cdot \dfrac{s}{\sqrt{n}}$ ; exact avec \py{stats.t.interval()}.
+    \item \textbf{Test $t$} : \py{stats.ttest\_ind(a, b)} -- compare deux moyennes ind\'ependantes.
+    \item \textbf{Test $\chi^2$} : \py{stats.chi2\_contingency(ct)} -- ind\'ependance de deux variables cat\'egorielles.
+    \item \textbf{Corr\'elation} : \py{stats.pearsonr(x, y)}, \py{stats.spearmanr(x, y)}, $r \in [-1, 1]$.
+    \item \textbf{ANOVA} : \py{stats.f\_oneway(*groupes)} -- compare $k \geq 3$ moyennes.
+    \item \textbf{D\'ecision} : rejeter $H_0$ si $p < \alpha$ (souvent $\alpha = 0.05$).
+    \item \textbf{Attention} : corr\'elation $\neq$ causalit\'e ; significativit\'e statistique $\neq$ importance pratique.
+\end{itemize}
+\end{formules}

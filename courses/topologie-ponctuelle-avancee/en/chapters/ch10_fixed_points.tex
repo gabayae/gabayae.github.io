@@ -1,0 +1,303 @@
+% ============================================================
+\chapter{Fixed Point Theory in Advanced Topology}
+\label{ch:fixed_points}
+% ============================================================
+
+\begin{intuition}
+Fixed point theorems play a central role in theoretical computer science and domain theory.
+Unlike the classical theorems of Banach or Brouwer, which rely on metric or classical
+topological structures, the theorems presented here exploit order and directed completeness.
+Tarski's theorem guarantees the existence of fixed points in complete lattices, Kleene's
+theorem constructs them effectively by iteration, and Pataraia's theorem extends these
+results to dcpos without any countability hypothesis.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Tarski's Theorem for Complete Lattices}
+% ------------------------------------------------------------
+
+\begin{definition}[Complete lattice]
+\index{complete lattice}
+A partially ordered set $(L, \leq)$ is a \emph{complete lattice} if every subset
+$S \subseteq L$ has a supremum $\bigvee S$ and an infimum $\bigwedge S$. In particular,
+$L$ has a least element $\bot = \bigvee \emptyset$ and a greatest element
+$\top = \bigwedge \emptyset$.
+\end{definition}
+
+\begin{theorem}[Knaster--Tarski]
+\label{thm:knaster-tarski}
+\index{Knaster--Tarski theorem}
+Let $(L, \leq)$ be a complete lattice and $f\colon L \to L$ a monotone function. Then:
+\begin{enumerate}
+  \item $f$ has a least fixed point
+    $\mathrm{lfp}(f) = \bigwedge \{x \in L : f(x) \leq x\}$.
+  \item $f$ has a greatest fixed point
+    $\mathrm{gfp}(f) = \bigvee \{x \in L : x \leq f(x)\}$.
+  \item The set of fixed points $\mathrm{Fix}(f)$ is a complete lattice.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(1) Let $P = \{x \in L : f(x) \leq x\}$ and $a = \bigwedge P$. For every $x \in P$,
+$a \leq x$, so $f(a) \leq f(x) \leq x$ by monotonicity. Thus $f(a)$ is a lower bound
+of $P$, hence $f(a) \leq a$. This shows $a \in P$.
+
+By monotonicity, $f(f(a)) \leq f(a)$, so $f(a) \in P$, hence $a \leq f(a)$. Combined
+with $f(a) \leq a$, we get $f(a) = a$.
+
+If $b$ is another fixed point, then $b \in P$ so $a \leq b$: $a$ is indeed the least
+fixed point.
+
+(2) Dual of (1).
+
+(3) Let $S \subseteq \mathrm{Fix}(f)$. The set
+$\{x \in L : x \geq s \; \forall s \in S, \; f(x) \leq x\}$ is nonempty (it contains
+$\top$). Its infimum is a fixed point of $f$ that is the supremum of $S$ in
+$\mathrm{Fix}(f)$.
+\end{proof}
+
+\begin{remark}
+The Knaster--Tarski theorem requires no continuity hypothesis: monotonicity alone suffices.
+However, it does not provide a constructive method for computing the fixed point.
+\end{remark}
+
+\begin{example}[Application to language equations]
+Let $\Sigma$ be an alphabet and $\mathcal{P}(\Sigma^*)$ the lattice of languages over
+$\Sigma$. A system of language equations $X_i = f_i(X_1, \ldots, X_n)$ where the $f_i$
+are monotone has a least solution, by Tarski's theorem applied to the lattice
+$\mathcal{P}(\Sigma^*)^n$.
+\end{example}
+
+% ------------------------------------------------------------
+\section{Kleene's Fixed Point Theorem}
+% ------------------------------------------------------------
+
+\begin{definition}[Pointed dcpo]
+\index{pointed dcpo}
+A \emph{pointed dcpo} is a dcpo $(D, \leq)$ that has a least element $\bot$.
+\end{definition}
+
+\begin{theorem}[Kleene]
+\label{thm:kleene}
+\index{Kleene's theorem}
+Let $(D, \leq)$ be a pointed dcpo and $f\colon D \to D$ a Scott-continuous function. Then
+$f$ has a least fixed point, given by:
+\[
+  \mathrm{lfp}(f) = \bigvee_{n \geq 0} f^n(\bot).
+\]
+\end{theorem}
+
+\begin{proof}
+First we show that the sequence $(f^n(\bot))_{n \geq 0}$ is increasing. We have
+$\bot \leq f(\bot)$ since $\bot$ is the least element. By induction, if
+$f^n(\bot) \leq f^{n+1}(\bot)$, then by monotonicity,
+$f^{n+1}(\bot) \leq f^{n+2}(\bot)$.
+
+The set $\{f^n(\bot) : n \geq 0\}$ is directed (it is a chain), so its supremum
+$a = \bigvee_n f^n(\bot)$ exists in $D$.
+
+By Scott-continuity:
+\[
+  f(a) = f\!\left(\bigvee_{n \geq 0} f^n(\bot)\right) = \bigvee_{n \geq 0} f^{n+1}(\bot) = a.
+\]
+Hence $a$ is a fixed point.
+
+If $b$ is another fixed point, then $\bot \leq b$ and by induction $f^n(\bot) \leq b$
+for all $n$, whence $a = \bigvee_n f^n(\bot) \leq b$.
+\end{proof}
+
+\begin{attention}
+Kleene's theorem requires Scott-continuity (not merely monotonicity). A monotone function
+on a pointed dcpo may not have a least fixed point obtained by iteration from $\bot$.
+\end{attention}
+
+\begin{corollary}[Transfinite iteration]
+If $f\colon L \to L$ is a monotone function on a complete lattice, the least fixed point
+is reached by transfinite iteration:
+\[
+  f^\alpha(\bot) = \begin{cases}
+    f(f^{\alpha-1}(\bot)) & \text{if } \alpha \text{ is a successor ordinal}, \\
+    \bigvee_{\beta < \alpha} f^\beta(\bot) & \text{if } \alpha \text{ is a limit ordinal}.
+  \end{cases}
+\]
+There exists an ordinal $\alpha_0$ such that $f^{\alpha_0}(\bot) = \mathrm{lfp}(f)$.
+\end{corollary}
+
+\begin{example}[Semantics of loops]
+The semantics of a \texttt{while b do c} loop is the least fixed point of the operator
+$\Phi\colon [S \to S_\bot] \to [S \to S_\bot]$ defined by:
+\[
+  \Phi(g)(s) = \begin{cases}
+    g(\llbracket c \rrbracket(s)) & \text{if } \llbracket b \rrbracket(s) = \mathtt{true}, \\
+    s & \text{if } \llbracket b \rrbracket(s) = \mathtt{false}, \\
+    \bot & \text{otherwise}.
+  \end{cases}
+\]
+By Kleene's theorem, $\mathrm{lfp}(\Phi) = \bigvee_n \Phi^n(\bot_{S \to S_\bot})$.
+\end{example}
+
+% ------------------------------------------------------------
+\section{Pataraia's Theorem}
+% ------------------------------------------------------------
+
+\begin{theorem}[Pataraia]
+\label{thm:pataraia}
+\index{Pataraia's theorem}
+Let $(D, \leq)$ be a pointed dcpo and $f\colon D \to D$ a monotone function (not
+necessarily continuous) such that $f(x) \geq x$ for all $x$ (\emph{inflationary}). Then
+$f$ has a fixed point.
+\end{theorem}
+
+\begin{proof}
+Define the collection $\mathcal{I}$ of all subsets $S$ of $D$ such that:
+\begin{enumerate}
+  \item $\bot \in S$;
+  \item $S$ is closed under $f$;
+  \item $S$ is closed under directed suprema (in $D$).
+\end{enumerate}
+Let $C = \bigcap \mathcal{I}$ be the smallest such set. One shows that $C$ is a chain (by
+verifying that the set of elements comparable to every element of $C$ satisfies the three
+conditions). The supremum $c = \bigvee C$ exists in $D$ and satisfies $f(c) \leq c$ (since
+$f(c) \in C$ by closure, whence $f(c) \leq c$). Since $f$ is inflationary, $c \leq f(c)$,
+hence $f(c) = c$.
+\end{proof}
+
+\begin{remark}
+Pataraia's theorem generalizes the Bourbaki--Witt theorem (which assumes that every chain
+has a supremum). The advantage of Pataraia's theorem is that it requires only directed
+completeness, not chain completeness.
+\end{remark}
+
+\begin{corollary}
+Every pointed dcpo in which every monotone inflationary function has a fixed point is a
+complete lattice.
+\end{corollary}
+
+% ------------------------------------------------------------
+\section{Least Fixed Points in Domain Theory}
+% ------------------------------------------------------------
+
+\begin{theorem}[Existence of the least fixed point]
+\label{thm:lfp-domain}
+Let $D$ be a pointed continuous domain and $f\colon D \to D$ a Scott-continuous function.
+Then:
+\begin{enumerate}
+  \item The least fixed point $\mathrm{lfp}(f)$ exists and is given by Kleene's formula
+    $\mathrm{lfp}(f) = \bigvee_n f^n(\bot)$.
+  \item If moreover $D$ is an effectively presented algebraic domain and $f$ is
+    effectively given, then $\mathrm{lfp}(f)$ is computable.
+  \item The operator $\mathrm{lfp}\colon [D \to D] \to D$ is itself Scott-continuous.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(1) This is Kleene's theorem (Theorem~\ref{thm:kleene}).
+
+(2) The finite approximations $f^n(\bot)$ are computable, and the compact elements below
+$\mathrm{lfp}(f)$ are enumerable.
+
+(3) Let $(f_i)_{i \in I}$ be a directed family in $[D \to D]$ and $g = \bigvee_i f_i$.
+Then:
+\[
+  \mathrm{lfp}(g) = \bigvee_n g^n(\bot) = \bigvee_n \left(\bigvee_i f_i\right)^n(\bot)
+  = \bigvee_i \bigvee_n f_i^n(\bot) = \bigvee_i \mathrm{lfp}(f_i).
+\]
+The interchange of suprema is justified by the Scott-continuity of composition and
+application.
+\end{proof}
+
+% ------------------------------------------------------------
+\section{Applications to Recursive Definitions}
+% ------------------------------------------------------------
+
+\begin{proposition}[Recursive function definitions]
+Let $D$ be a pointed dcpo. A recursive definition of the form
+\[
+  f(x) = \Phi(f, x)
+\]
+where $\Phi\colon [D \to D] \times D \to D$ is Scott-continuous, has a least solution
+$f^* \in [D \to D]$, given by
+$f^* = \mathrm{lfp}(\lambda g.\, \lambda x.\, \Phi(g,x))$.
+\end{proposition}
+
+\begin{example}[Factorial]
+The recursive definition
+\[
+  \mathtt{fact}(n) = \begin{cases} 1 & \text{if } n = 0, \\ n \cdot \mathtt{fact}(n-1) & \text{otherwise} \end{cases}
+\]
+corresponds to $\mathtt{fact} = \mathrm{lfp}(\Phi)$ where
+$\Phi(g)(n) = \text{if } n = 0 \text{ then } 1 \text{ else } n \cdot g(n-1)$. The
+operator $\Phi$ is Scott-continuous on $[\N_\bot \to \N_\bot]$.
+\end{example}
+
+\begin{theorem}[Recursive domain equations]
+\index{domain equations}
+If $F$ is a locally continuous functor on the category of continuous domains with
+retraction pairs, then the domain equation
+\[
+  D \cong F(D)
+\]
+has a solution, obtained as a projective limit (and also inductive colimit) of the
+sequence $D_0 \leftarrow D_1 \leftarrow \cdots$ where $D_{n+1} = F(D_n)$.
+\end{theorem}
+
+\begin{keyformulas}[title=\textbf{Summary of fixed point theorems}]
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|l|l|l|l|}
+\hline
+\textbf{Theorem} & \textbf{Structure} & \textbf{Hypothesis on $f$} & \textbf{Result} \\
+\hline
+Knaster--Tarski & Complete lattice & Monotone & $\mathrm{Fix}(f)$ complete lattice \\
+Kleene & Pointed dcpo & Scott-continuous & $\mathrm{lfp}(f) = \bigvee f^n(\bot)$ \\
+Pataraia & Pointed dcpo & Monotone inflat. & Existence of fixed point \\
+Bourbaki--Witt & Chain-complete & Inflationary & Existence of fixed point \\
+\hline
+\end{tabular}
+\end{center}
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+Let $L = \mathcal{P}(\N)$ be the lattice of subsets of $\N$. Determine the least and
+greatest fixed points of $f(A) = \N \setminus A$.
+\end{exercise}
+
+\begin{exercise}
+Show that in Kleene's theorem, the sequence $(f^n(\bot))$ can stabilize after finitely
+many steps if and only if the least fixed point is a compact element of the dcpo.
+\end{exercise}
+
+\begin{exercise}
+Give an example of a pointed dcpo $D$ and a monotone function $f\colon D \to D$ such that
+the sequence $(f^n(\bot))$ does not converge to the least fixed point of $f$ (i.e., such
+that $\bigvee_n f^n(\bot) < \mathrm{lfp}(f)$).
+\end{exercise}
+
+\begin{exercise}
+Let $D$ be a pointed dcpo and $f, g\colon D \to D$ two Scott-continuous functions with
+$f \leq g$ pointwise. Show that $\mathrm{lfp}(f) \leq \mathrm{lfp}(g)$.
+\end{exercise}
+
+\begin{exercise}[Bekic's theorem]
+Let $D, E$ be pointed dcpos and $f\colon D \times E \to D$, $g\colon D \times E \to E$
+Scott-continuous functions. Show that the least fixed point of
+$(f,g)\colon D \times E \to D \times E$ is given by
+$(\mathrm{lfp}(\hat{f}), \mathrm{lfp}(\hat{g}))$ where $\hat{f}$ and $\hat{g}$ are
+defined by mutual substitution.
+\end{exercise}
+
+\begin{exercise}
+Let $\Sigma = \{a, b\}$ and $\mathcal{P}(\Sigma^*)$ the lattice of languages. The
+operator $\Phi(X) = \{\varepsilon\} \cup \{a\} \cdot X \cdot \{b\}$ is monotone. Compute
+$\mathrm{lfp}(\Phi)$ using Kleene's theorem.
+\end{exercise}
+
+\begin{exercise}
+Show that Pataraia's theorem implies Zorn's lemma: every inductive partially ordered set
+(every chain is bounded) has a maximal element.
+\emph{Hint: consider a pointed dcpo and a choice function.}
+\end{exercise}

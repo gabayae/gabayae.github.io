@@ -1,0 +1,356 @@
+% =============================================================================
+\chapter{Algorithmes d'\'Etat de l'Art}
+\label{ch:etat_art}
+% =============================================================================
+
+En 2015, Timothy Lillicrap et ses coll\`egues de DeepMind publient DDPG (Deep Deterministic Policy Gradient), le premier algorithme capable d'apprendre des politiques dans des espaces d'actions continus directement \`a partir de pixels. L'id\'ee~: combiner l'architecture acteur-critique avec les techniques de stabilisation de DQN (replay buffer, r\'eseau cible) et une politique d\'eterministe. Deux ans plus tard, Scott Fujimoto propose TD3, qui corrige les biais de surestimation de DDPG par le ``twin'' critics et le lissage de la cible. Puis, en 2018, Tuomas Haarnoja introduit SAC (Soft Actor-Critic), qui int\`egre un terme d'entropie dans l'objectif, encourageant l'exploration tout en maximisant le rendement. Ces trois algorithmes forment aujourd'hui le trio de r\'ef\'erence pour le contr\^ole continu en apprentissage par renforcement profond.
+
+\begin{intuition}
+Ce chapitre pr\'esente les algorithmes modernes pour les espaces d'action continus~:
+DDPG, TD3 et SAC. Ces m\'ethodes acteur-critique hors-politique combinent
+des id\'ees de DQN (replay buffer, r\'eseau cible) avec l'optimisation directe
+de la politique, atteignant des performances remarquables en contr\^ole robotique.
+\end{intuition}
+
+% -----------------------------------------------------------------------------
+\section{DDPG --- Deep Deterministic Policy Gradient}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Th\'eor\`eme du gradient de politique d\'eterministe]
+Pour une politique d\'eterministe $\mu_\theta : \mathcal{S} \to \mathcal{A}$,
+le gradient de la performance est (Silver et al., 2014)~:
+\[
+    \nabla_\theta J(\theta) = \E_{s \sim d^{\mu_\theta}}\left[
+    \nabla_\theta \mu_\theta(s) \, \nabla_a Q^{\mu_\theta}(s, a)\big|_{a=\mu_\theta(s)}
+    \right].
+\]
+\end{definition}
+
+\begin{definition}[DDPG]
+\textbf{DDPG} (Lillicrap et al., 2016) est un algorithme acteur-critique
+hors-politique qui applique le gradient de politique d\'eterministe avec~:
+\begin{itemize}
+    \item Un \textbf{acteur} $\mu_\theta(s)$ (politique d\'eterministe).
+    \item Un \textbf{critique} $Q_\phi(s, a)$.
+    \item Une \textbf{m\'emoire de rejeu} $\mathcal{D}$.
+    \item Des \textbf{r\'eseaux cibles} $\mu_{\theta^-}$ et $Q_{\phi^-}$ avec
+    mise \`a jour douce~: $\theta^- \leftarrow \tau \theta + (1-\tau)\theta^-$.
+    \item Du \textbf{bruit d'exploration}~: $a = \mu_\theta(s) + \mathcal{N}(0, \sigma^2)$.
+\end{itemize}
+\end{definition}
+
+\begin{formules}[title=\textbf{Mises \`a jour DDPG}]
+\textbf{Critique}~: minimiser la perte de Bellman~:
+\[
+    L(\phi) = \E_{(s,a,r,s') \sim \mathcal{D}}\left[
+    \left(r + \gamma Q_{\phi^-}(s', \mu_{\theta^-}(s')) - Q_\phi(s, a)\right)^2
+    \right]
+\]
+\textbf{Acteur}~: maximiser $Q$~:
+\[
+    \nabla_\theta J = \E_{s \sim \mathcal{D}}\left[
+    \nabla_a Q_\phi(s, a)\big|_{a=\mu_\theta(s)} \nabla_\theta \mu_\theta(s)
+    \right]
+\]
+\textbf{Cibles douces}~:
+$\theta^- \leftarrow \tau \theta + (1-\tau)\theta^-$, $\phi^- \leftarrow \tau \phi + (1-\tau)\phi^-$
+\end{formules}
+
+\begin{algorithme}[title=\textbf{DDPG}]
+\begin{enumerate}
+    \item Initialiser $\mu_\theta$, $Q_\phi$, copier vers $\mu_{\theta^-}$, $Q_{\phi^-}$
+    \item Initialiser $\mathcal{D}$
+    \item Pour chaque \'episode~:
+    \begin{enumerate}
+        \item Observer $s_0$
+        \item Pour chaque pas $t$~:
+        \begin{enumerate}
+            \item $a_t = \mu_\theta(s_t) + \epsilon_t$, $\epsilon_t \sim \mathcal{N}(0, \sigma^2)$
+            \item Observer $r_{t+1}, s_{t+1}$
+            \item Stocker $(s_t, a_t, r_{t+1}, s_{t+1})$ dans $\mathcal{D}$
+            \item \'Echantillonner un mini-lot de $\mathcal{D}$
+            \item Mettre \`a jour $\phi$ (critique) et $\theta$ (acteur)
+            \item Mise \`a jour douce~: $\theta^- \leftarrow \tau\theta + (1-\tau)\theta^-$
+        \end{enumerate}
+    \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+% -----------------------------------------------------------------------------
+\section{TD3 --- Twin Delayed DDPG}
+% -----------------------------------------------------------------------------
+
+\begin{attention}[title=\textbf{Probl\`emes de DDPG}]
+DDPG souffre de surestimation du critique (biais de maximisation) et
+d'instabilit\'e due aux mises \`a jour coupl\'ees acteur-critique.
+\end{attention}
+
+\begin{definition}[TD3]
+\textbf{TD3} (Fujimoto et al., 2018) corrige DDPG avec trois innovations~:
+\begin{enumerate}
+    \item \textbf{Double critique}~: deux r\'eseaux $Q_{\phi_1}$ et $Q_{\phi_2}$~;
+    on utilise le minimum pour la cible~:
+    \[
+        y = r + \gamma \min_{i=1,2} Q_{\phi_i^-}(s', \tilde{a}').
+    \]
+    \item \textbf{Bruit r\'egularis\'e sur la cible}~:
+    \[
+        \tilde{a}' = \mu_{\theta^-}(s') + \text{clip}(\epsilon, -c, c), \quad
+        \epsilon \sim \mathcal{N}(0, \sigma^2).
+    \]
+    \item \textbf{Mise \`a jour retard\'ee de l'acteur}~: l'acteur et les r\'eseaux
+    cibles ne sont mis \`a jour que tous les $d$ pas du critique.
+\end{enumerate}
+\end{definition}
+
+\begin{formules}[title=\textbf{Cible TD3}]
+\[
+    y = r + \gamma \min_{i=1,2} Q_{\phi_i^-}\!\left(s', \;
+    \text{clip}\!\left(\mu_{\theta^-}(s') + \text{clip}(\epsilon, -c, c),\;
+    a_{\min}, a_{\max}\right)\right)
+\]
+\end{formules}
+
+% -----------------------------------------------------------------------------
+\section{SAC --- Soft Actor-Critic}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[RL \`a entropie maximale]
+Le cadre \`a \textbf{entropie maximale} (\emph{maximum entropy RL}) ajoute
+un bonus d'entropie \`a l'objectif~:
+\[
+    J(\pi) = \sum_{t=0}^{\infty} \gamma^t \E_{\pi}\left[
+    R_{t+1} + \alpha_{\text{temp}} H[\pi(\cdot | S_t)]
+    \right]
+\]
+o\`u $\alpha_{\text{temp}}$ est le coefficient de temp\'erature et
+$H[\pi(\cdot|s)] = -\sum_a \pi(a|s) \log \pi(a|s)$.
+\end{definition}
+
+\begin{definition}[\'Equation de Bellman douce]
+L'\'equation de Bellman \textbf{douce} (\emph{soft}) est~:
+\[
+    Q^*(s,a) = R(s,a) + \gamma \E_{s'}\left[V^*(s')\right]
+\]
+avec $V^*(s) = \E_{a \sim \pi^*}\left[Q^*(s,a) - \alpha_{\text{temp}} \log \pi^*(a|s)\right]$.
+\end{definition}
+
+\begin{definition}[SAC]
+\textbf{SAC} (Haarnoja et al., 2018) est un algorithme acteur-critique hors-politique
+\`a entropie maximale~:
+\begin{itemize}
+    \item \textbf{Politique stochastique}~: $a \sim \pi_\theta(\cdot|s)$ param\'etr\'ee
+    par une distribution gaussienne avec \emph{reparameterization trick}~:
+    $a = \tanh(\mu_\theta(s) + \sigma_\theta(s) \odot \xi)$, $\xi \sim \mathcal{N}(0,I)$.
+    \item \textbf{Double critique}~: $Q_{\phi_1}, Q_{\phi_2}$ (comme TD3).
+    \item \textbf{Ajustement automatique de $\alpha$}~: minimisation de~:
+    $J(\alpha) = \E_{a \sim \pi}\left[-\alpha \log \pi(a|s) - \alpha \bar{H}\right]$
+    o\`u $\bar{H}$ est l'entropie cible.
+\end{itemize}
+\end{definition}
+
+\begin{formules}[title=\textbf{Mises \`a jour SAC}]
+\textbf{Critique}~:
+\[
+    y = r + \gamma \left(\min_{i=1,2} Q_{\phi_i^-}(s', \tilde{a}')
+    - \alpha_{\text{temp}} \log \pi_\theta(\tilde{a}'|s')\right), \quad
+    \tilde{a}' \sim \pi_\theta(\cdot|s')
+\]
+\textbf{Acteur}~:
+\[
+    \theta \leftarrow \theta - \alpha_\theta \nabla_\theta \E_{a \sim \pi_\theta}\left[
+    \alpha_{\text{temp}} \log \pi_\theta(a|s) - \min_{i=1,2} Q_{\phi_i}(s, a)
+    \right]
+\]
+\end{formules}
+
+% -----------------------------------------------------------------------------
+\section{Comparaison des algorithmes}
+% -----------------------------------------------------------------------------
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lccc}
+    \toprule
+    & \textbf{DDPG} & \textbf{TD3} & \textbf{SAC} \\
+    \midrule
+    Politique & D\'eterministe & D\'eterministe & Stochastique \\
+    Nombre de critiques & 1 & 2 & 2 \\
+    Bruit d'exploration & Explicite & Explicite + cible & Entropie \\
+    Ajustement de temp\'erature & --- & --- & Automatique \\
+    Robustesse aux hyperp. & Faible & Moyenne & \'Elev\'ee \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+% -----------------------------------------------------------------------------
+\section{Impl\'ementation PyTorch de SAC}
+% -----------------------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{SAC --- R\'eseaux}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.distributions import Normal
+import numpy as np
+
+class SoftQNetwork(nn.Module):
+    def __init__(self, obs_dim, act_dim, hidden=256):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(obs_dim + act_dim, hidden), nn.ReLU(),
+            nn.Linear(hidden, hidden), nn.ReLU(),
+            nn.Linear(hidden, 1)
+        )
+
+    def forward(self, state, action):
+        return self.net(torch.cat([state, action], dim=-1)).squeeze(-1)
+
+LOG_STD_MIN, LOG_STD_MAX = -20, 2
+
+class GaussianActor(nn.Module):
+    def __init__(self, obs_dim, act_dim, hidden=256):
+        super().__init__()
+        self.shared = nn.Sequential(
+            nn.Linear(obs_dim, hidden), nn.ReLU(),
+            nn.Linear(hidden, hidden), nn.ReLU()
+        )
+        self.mu = nn.Linear(hidden, act_dim)
+        self.log_std = nn.Linear(hidden, act_dim)
+
+    def forward(self, state):
+        h = self.shared(state)
+        mu = self.mu(h)
+        log_std = self.log_std(h).clamp(LOG_STD_MIN, LOG_STD_MAX)
+        return mu, log_std
+
+    def sample(self, state):
+        mu, log_std = self(state)
+        std = log_std.exp()
+        dist = Normal(mu, std)
+        x = dist.rsample()  # reparameterization trick
+        action = torch.tanh(x)
+        # Correction log-prob pour tanh
+        log_prob = dist.log_prob(x) - torch.log(1 - action.pow(2) + 1e-6)
+        log_prob = log_prob.sum(dim=-1)
+        return action, log_prob
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{SAC --- Entra\^inement}]
+\begin{minted}{python}
+def train_sac(env_name="Pendulum-v1", total_steps=100000,
+              gamma=0.99, tau=0.005, lr=3e-4, batch_size=256,
+              buffer_size=1000000, start_steps=1000):
+    import gymnasium as gym
+    from collections import deque
+    import random
+
+    env = gym.make(env_name)
+    obs_dim = env.observation_space.shape[0]
+    act_dim = env.action_space.shape[0]
+    act_scale = torch.FloatTensor(env.action_space.high)
+
+    actor = GaussianActor(obs_dim, act_dim)
+    q1 = SoftQNetwork(obs_dim, act_dim)
+    q2 = SoftQNetwork(obs_dim, act_dim)
+    q1_target = SoftQNetwork(obs_dim, act_dim)
+    q2_target = SoftQNetwork(obs_dim, act_dim)
+    q1_target.load_state_dict(q1.state_dict())
+    q2_target.load_state_dict(q2.state_dict())
+
+    # Temperature automatique
+    target_entropy = -act_dim
+    log_alpha = torch.zeros(1, requires_grad=True)
+    alpha = log_alpha.exp().item()
+
+    opt_actor = torch.optim.Adam(actor.parameters(), lr=lr)
+    opt_q = torch.optim.Adam(
+        list(q1.parameters()) + list(q2.parameters()), lr=lr)
+    opt_alpha = torch.optim.Adam([log_alpha], lr=lr)
+
+    buffer = deque(maxlen=buffer_size)
+    obs, _ = env.reset()
+
+    for step in range(total_steps):
+        if step < start_steps:
+            action = env.action_space.sample()
+        else:
+            with torch.no_grad():
+                a, _ = actor.sample(torch.FloatTensor(obs))
+                action = (a * act_scale).numpy()
+
+        next_obs, reward, terminated, truncated, _ = env.step(action)
+        buffer.append((obs, action, reward, next_obs, float(terminated)))
+        obs = next_obs if not (terminated or truncated) else env.reset()[0]
+
+        if len(buffer) < batch_size:
+            continue
+
+        batch = random.sample(list(buffer), batch_size)
+        s, a, r, s2, d = [torch.FloatTensor(np.array(x)) for x in zip(*batch)]
+
+        # Mise a jour du critique
+        with torch.no_grad():
+            a2, lp2 = actor.sample(s2)
+            q_target = torch.min(q1_target(s2, a2), q2_target(s2, a2))
+            y = r + gamma * (1 - d) * (q_target - alpha * lp2)
+
+        q1_loss = F.mse_loss(q1(s, a), y)
+        q2_loss = F.mse_loss(q2(s, a), y)
+        opt_q.zero_grad()
+        (q1_loss + q2_loss).backward()
+        opt_q.step()
+
+        # Mise a jour de l'acteur
+        a_new, lp_new = actor.sample(s)
+        q_new = torch.min(q1(s, a_new), q2(s, a_new))
+        actor_loss = (alpha * lp_new - q_new).mean()
+        opt_actor.zero_grad()
+        actor_loss.backward()
+        opt_actor.step()
+
+        # Mise a jour de alpha
+        alpha_loss = -(log_alpha.exp() * (lp_new.detach() + target_entropy)).mean()
+        opt_alpha.zero_grad()
+        alpha_loss.backward()
+        opt_alpha.step()
+        alpha = log_alpha.exp().item()
+
+        # Mise a jour douce des cibles
+        for p, pt in zip(q1.parameters(), q1_target.parameters()):
+            pt.data.copy_(tau * p.data + (1 - tau) * pt.data)
+        for p, pt in zip(q2.parameters(), q2_target.parameters()):
+            pt.data.copy_(tau * p.data + (1 - tau) * pt.data)
+
+    return actor
+\end{minted}
+\end{codeblock}
+
+% -----------------------------------------------------------------------------
+\section{Exercices}
+% -----------------------------------------------------------------------------
+
+\begin{exercice}[TD3 vs DDPG]
+Impl\'ementez TD3 et DDPG et comparez-les sur \texttt{Pendulum-v1} et
+\texttt{HalfCheetah-v5}. Mesurez l'effet de chacune des trois innovations
+de TD3 par ablation.
+\end{exercice}
+
+\begin{exercice}[Ajustement de temp\'erature]
+Comparez SAC avec $\alpha$ fixe ($\alpha \in \{0.01, 0.1, 0.2, 1.0\}$)
+et SAC avec ajustement automatique. Tracez l'\'evolution de $\alpha$ et
+de l'entropie au cours de l'entra\^inement.
+\end{exercice}
+
+\begin{exercice}[Mise \`a jour douce vs dure]
+Comparez la mise \`a jour douce ($\tau = 0.005$) et la mise \`a jour dure
+(copie tous les $C$ pas) dans DDPG. \'Etudiez l'effet de $\tau$ sur la stabilit\'e.
+\end{exercice}
+
+\begin{exercice}[Analyse th\'eorique]
+D\'emontrez que l'op\'erateur de Bellman doux (\emph{soft Bellman operator})
+$\mathcal{T}^\pi_{\text{soft}}$ est une $\gamma$-contraction et admet donc
+un unique point fixe.
+\end{exercice}

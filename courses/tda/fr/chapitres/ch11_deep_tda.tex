@@ -1,0 +1,317 @@
+% ============================================================
+\chapter{TDA et Apprentissage Profond}
+\label{ch:deep_tda}
+% ============================================================
+
+\begin{intuition}
+L'int\'egration de la TDA dans l'apprentissage profond pose un
+d\'efi fondamental~: le calcul de la persistance n'est a priori
+\textbf{pas diff\'erentiable}. Les travaux r\'ecents ont montr\'e
+comment rendre la persistance diff\'erentiable, permettant
+d'entra\^\i ner des r\'eseaux de neurones de bout en bout avec
+des objectifs topologiques.
+\end{intuition}
+
+% ============================================================
+\section{Persistance diff\'erentiable}
+\label{sec:persistance_diff}
+% ============================================================
+
+\begin{definition}[Persistance comme fonction des filtrations]
+\index{persistance diff\'erentiable}
+Consid\'erons un complexe simplicial $K$ avec une filtration
+param\'etrique $f_\theta : K \to \R$ d\'ependant de param\`etres
+$\theta \in \R^p$. Le diagramme de persistance
+$\mathrm{Dgm}(f_\theta)$ est une fonction de $\theta$.
+\end{definition}
+
+\begin{theoreme}[Diff\'erentiabilit\'e --- Gameiro et al.\ 2016, Poulenard et al.\ 2018]
+\label{thm:diff_persistance}
+\index{diff\'erentiabilit\'e de la persistance}
+Soit $K$ un complexe simplicial fini et $f : K \to \R$ une
+filtration g\'en\'erique (valeurs de filtration distinctes).
+Les coordonn\'ees de naissance $b_i(\theta)$ et de mort
+$d_i(\theta)$ dans le diagramme de persistance sont des fonctions
+diff\'erentiables de $\theta$ presque partout. Plus pr\'ecis\'ement~:
+\[
+  \frac{\partial b_i}{\partial \theta_j} =
+  \frac{\partial f_\theta(\sigma_{b_i})}{\partial \theta_j}, \qquad
+  \frac{\partial d_i}{\partial \theta_j} =
+  \frac{\partial f_\theta(\sigma_{d_i})}{\partial \theta_j}
+\]
+o\`u $\sigma_{b_i}$ et $\sigma_{d_i}$ sont les simplexes qui
+cr\'eent et tuent la classe $i$.
+\end{theoreme}
+
+\begin{attention}[title=\textbf{Points de non-diff\'erentiabilit\'e}]
+La diff\'erentiabilit\'e \'echoue quand deux valeurs de filtration
+co\"\i ncident (les simplexes de naissance et de mort peuvent
+changer). En pratique, on ajoute une petite perturbation ou on
+utilise des sous-gradients.
+\end{attention}
+
+\begin{formules}[title=\textbf{Gradient de la persistance}]
+\[
+  \frac{\partial \mathrm{pers}_i}{\partial \theta}
+  = \frac{\partial d_i}{\partial \theta}
+  - \frac{\partial b_i}{\partial \theta}
+  = \nabla_\theta f(\sigma_{d_i}) - \nabla_\theta f(\sigma_{b_i})
+\]
+\end{formules}
+
+\begin{minted}{python}
+import torch
+from topologylayer.nn import RipsLayer
+
+# Nuage de points differentiable
+X = torch.randn(50, 2, requires_grad=True)
+
+# Couche de persistance differentiable
+rips_layer = RipsLayer(maxdim=1, sublevel=False)
+dgm = rips_layer(X)
+
+# Loss basee sur la persistance H1
+loss = -dgm[1][:, 1].sum()  # maximiser les persistances H1
+loss.backward()
+print(f"Gradient shape: {X.grad.shape}")
+\end{minted}
+
+% ============================================================
+\section{PersLay~: couche de persistance g\'en\'erique}
+\label{sec:perslay}
+% ============================================================
+
+\begin{definition}[PersLay --- Carri\`ere et al.\ 2020]
+\index{PersLay}
+\textbf{PersLay} est une couche neuronale qui transforme un
+diagramme de persistance $D = \{(b_i, d_i)\}_{i=1}^n$ en un
+vecteur de dimension fixe via~:
+\[
+  \mathrm{PersLay}(D) = \mathrm{op}\!\left(
+  w(p_i) \cdot \phi(p_i)\right)_{i=1}^n
+\]
+o\`u~:
+\begin{itemize}
+  \item $w : \R^2 \to \R_+$ est une fonction de poids
+        (att\'enuation des points proches de la diagonale).
+  \item $\phi : \R^2 \to \R^q$ est une fonction de
+        repr\'esentation point par point (apprise ou fix\'ee).
+  \item $\mathrm{op}$ est une op\'eration d'agr\'egation
+        (somme, max, top-$k$, attention).
+\end{itemize}
+\end{definition}
+
+\begin{proposition}[Universalit\'e de PersLay]
+Avec des choix ad\'equats de $w$, $\phi$ et $\mathrm{op}$,
+PersLay peut approcher uniform\'ement toute fonction continue
+et invariante par permutation sur les diagrammes de persistance.
+\end{proposition}
+
+\begin{remarque}
+PersLay unifie les repr\'esentations classiques~:
+\begin{itemize}
+  \item \textbf{Paysages}~: $\phi$ est la fonction tente,
+        $\mathrm{op}$ est top-$k$.
+  \item \textbf{Images}~: $\phi$ est une gaussienne,
+        $\mathrm{op}$ est la somme.
+  \item \textbf{Silhouettes}~: $\phi$ est la fonction tente,
+        $\mathrm{op}$ est la moyenne pond\'er\'ee.
+\end{itemize}
+\end{remarque}
+
+% ============================================================
+\section{R\'egularisation topologique}
+\label{sec:regularisation}
+% ============================================================
+
+\begin{definition}[Perte topologique]
+\index{r\'egularisation topologique}
+Une \textbf{perte topologique} est un terme ajout\'e \`a la
+fonction de co\^ut pour encourager ou p\'enaliser certaines
+structures topologiques. Formellement~:
+\[
+  \mathcal{L}_{\mathrm{total}} = \mathcal{L}_{\mathrm{task}}
+  + \lambda \cdot \mathcal{L}_{\mathrm{topo}}
+\]
+o\`u $\mathcal{L}_{\mathrm{topo}}$ est calcul\'ee \`a partir
+du diagramme de persistance.
+\end{definition}
+
+\begin{exemple}[Perte topologique pour la segmentation]
+En segmentation d'images, on peut p\'enaliser les petits trous
+parasites dans la pr\'ediction~:
+\[
+  \mathcal{L}_{\mathrm{topo}} = \sum_{(b_i, d_i) \in H_1}
+  (d_i - b_i)^2
+\]
+qui force le r\'eseau \`a produire des r\'egions simplement connexes.
+\end{exemple}
+
+\begin{theoreme}[Convergence de la r\'egularisation topologique]
+\label{thm:convergence_topo}
+Sous des conditions de r\'egularit\'e (filtration g\'en\'erique,
+Lipschitz), la descente de gradient stochastique avec perte
+topologique converge vers un point critique de
+$\mathcal{L}_{\mathrm{total}}$.
+\end{theoreme}
+
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+
+class TopologicalLoss(nn.Module):
+    """Penalise les trous parasites en segmentation."""
+    def __init__(self, lam=1.0):
+        super().__init__()
+        self.lam = lam
+        # rips_layer defini avec une couche differentiable
+
+    def forward(self, pred, target, dgm_h1):
+        ce_loss = nn.functional.cross_entropy(pred, target)
+        # Persistances H1 = d - b
+        pers = dgm_h1[:, 1] - dgm_h1[:, 0]
+        topo_loss = (pers ** 2).sum()
+        return ce_loss + self.lam * topo_loss
+\end{minted}
+
+% ============================================================
+\section{Auto-encodeurs topologiques}
+\label{sec:autoencodeurs_topo}
+% ============================================================
+
+\begin{definition}[Auto-encodeur topologique --- Moor et al.\ 2020]
+\index{auto-encodeur topologique}
+Un \textbf{auto-encodeur topologique} est un auto-encodeur
+$(\mathrm{Enc}, \mathrm{Dec})$ dont la perte inclut un terme
+topologique~:
+\[
+  \mathcal{L} = \norm{x - \mathrm{Dec}(\mathrm{Enc}(x))}^2
+  + \lambda \cdot d_W\!\left(\mathrm{Dgm}(X),\;
+  \mathrm{Dgm}(\mathrm{Enc}(X))\right)^2
+\]
+o\`u $d_W$ est une distance de Wasserstein entre les diagrammes
+de persistance de l'espace d'entr\'ee $X$ et de l'espace latent
+$\mathrm{Enc}(X)$.
+\end{definition}
+
+\begin{intuition}
+L'id\'ee est de pr\'eserver la \textbf{topologie} des donn\'ees
+lors de la r\'eduction de dimension. Un auto-encodeur classique (ou
+un VAE) peut \'ecraser des boucles ou fusionner des composantes
+connexes. Le terme topologique p\'enalise ces distorsions.
+\end{intuition}
+
+\begin{proposition}[Pr\'eservation topologique]
+Si $\mathcal{L}_{\mathrm{topo}} = 0$, alors les nombres de Betti
+de $X$ et de $\mathrm{Enc}(X)$ co\"\i ncident pour la filtration
+de Rips utilis\'ee.
+\end{proposition}
+
+% ============================================================
+\section{R\'eseaux de neurones sur graphes et homologie persistante}
+\label{sec:gnn_persistance}
+% ============================================================
+
+\begin{definition}[Filtration apprise sur un graphe]
+\index{filtration apprise}
+Soit $G = (V, E)$ un graphe avec des features de n\oe uds
+$h_v \in \R^d$. On d\'efinit une filtration apprise~:
+\[
+  f_\theta(v) = g_\theta(h_v), \qquad
+  f_\theta(e_{uv}) = \max(f_\theta(u), f_\theta(v))
+\]
+o\`u $g_\theta : \R^d \to \R$ est un r\'eseau de neurones.
+Le diagramme de persistance de cette filtration fournit des
+features topologiques du graphe.
+\end{definition}
+
+\begin{exemple}[Classification de graphes]
+Pour la classification de graphes mol\'eculaires~:
+\begin{enumerate}
+  \item Un GNN produit des embeddings de n\oe uds $h_v$.
+  \item Une filtration apprise $f_\theta$ est calcul\'ee.
+  \item Le diagramme de persistance est vectoris\'e via PersLay.
+  \item Le vecteur r\'esultant est concat\'en\'e au readout du GNN.
+\end{enumerate}
+Cette combinaison am\'eliore l'expressivit\'e au-del\`a du test
+de Weisfeiler-Leman.
+\end{exemple}
+
+\begin{theoreme}[Expressivit\'e topologique --- Horn et al.\ 2022]
+\index{expressivit\'e}
+Il existe des paires de graphes non distinguables par le test de
+Weisfeiler-Leman de niveau $k$ mais distinguables par la
+persistance de la filtration induite par un GNN de message passing.
+\end{theoreme}
+
+% ============================================================
+\section{Impl\'ementation avec PyTorch}
+\label{sec:implementation}
+% ============================================================
+
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+from torch_geometric.nn import GCNConv, global_mean_pool
+
+class TopoGNN(nn.Module):
+    """GNN avec features topologiques."""
+    def __init__(self, in_dim, hidden_dim, out_dim):
+        super().__init__()
+        self.conv1 = GCNConv(in_dim, hidden_dim)
+        self.conv2 = GCNConv(hidden_dim, hidden_dim)
+        self.filtration = nn.Linear(hidden_dim, 1)
+        self.classifier = nn.Linear(hidden_dim + 16, out_dim)
+        # perslay: couche de vectorisation apprise
+        # self.perslay = PersLay(...)
+
+    def forward(self, x, edge_index, batch):
+        h = torch.relu(self.conv1(x, edge_index))
+        h = torch.relu(self.conv2(h, edge_index))
+        # Readout classique
+        graph_emb = global_mean_pool(h, batch)
+        # Filtration apprise
+        filt_vals = self.filtration(h).squeeze()
+        # ... calcul de persistance et PersLay ...
+        # topo_features = self.perslay(dgm)
+        # out = self.classifier(
+        #     torch.cat([graph_emb, topo_features], dim=-1)
+        # )
+        return graph_emb  # simplifie
+\end{minted}
+
+% ============================================================
+\section{Exercices}
+% ============================================================
+
+\begin{exercice}
+Calculer \`a la main le gradient de la persistance totale
+$\sum_i (d_i - b_i)$ par rapport aux valeurs de filtration pour
+le complexe $\{a, b, c, ab, bc\}$ avec $f(a) = 0, f(b) = 1,
+f(c) = 2, f(ab) = 1, f(bc) = 2$.
+\end{exercice}
+
+\begin{exercice}
+Montrer que PersLay avec $\phi(b, d) = (b, d-b)$,
+$w \equiv 1$ et $\mathrm{op} = \mathrm{sum}$ revient \`a
+calculer $(\sum b_i, \sum(d_i - b_i))$.
+\end{exercice}
+
+\begin{exercice}[Impl\'ementation]
+Impl\'ementer un auto-encodeur topologique simple sur un jeu de
+donn\'ees en forme de cercle. Comparer l'espace latent avec et
+sans le terme topologique.
+\end{exercice}
+
+\begin{exercice}
+Donner un exemple de deux graphes non isomorphes indistinguables
+par $1$-WL mais distinguables par la persistance $H_0$ d'une
+filtration par degr\'e.
+\end{exercice}
+
+\begin{exercice}[Projet]
+Entra\^\i ner un r\'eseau de segmentation d'image (U-Net) avec
+et sans r\'egularisation topologique sur un jeu de donn\'ees de
+vaisseaux sanguins. Comparer les nombres de Betti des
+pr\'edictions.
+\end{exercice}

@@ -1,0 +1,313 @@
+% ============================================================
+\chapter{\'Etudes de Cas et Projets}
+\label{ch:etudes_cas}
+% ============================================================
+
+\begin{center}
+\textit{<<\,Tous les mod\`eles sont faux, mais certains sont utiles.\,>>}\\[4pt]
+--- George E.\ P.\ Box
+\end{center}
+
+\bigskip
+
+Cette maxime de George Box r\'esume \`a elle seule la philosophie de la mod\'elisation math\'ematique. Un mod\`ele n'est pas la r\'ealit\'e~: c'est une simplification d\'elib\'er\'ee, con\c{c}ue pour capturer l'essentiel d'un ph\'enom\`ene tout en ignorant les d\'etails non pertinents. Mais un bon mod\`ele est \emph{utile}~: il pr\'edit, il explique, il guide la d\'ecision. Ce chapitre final met en pratique l'ensemble des outils d\'evelopp\'es dans les chapitres pr\'ec\'edents \`a travers des \'etudes de cas compl\`etes~: de la formulation du probl\`eme \`a l'analyse de sensibilit\'e, en passant par le choix du mod\`ele, sa calibration et sa validation.
+
+Ce chapitre met en \oe uvre les outils d\'evelopp\'es dans les chapitres
+pr\'ec\'edents \`a travers cinq \'etudes de cas concr\`etes. Chaque \'etude
+illustre le cycle complet de mod\'elisation~: formulation, analyse
+math\'ematique, calibration sur donn\'ees et validation.
+
+% ------------------------------------------------------------
+\section{Mod\'elisation \'epid\'emiologique~: SIR et SEIR}
+\label{sec:sir_seir}
+% ------------------------------------------------------------
+
+\begin{definition}[Mod\`ele SIR]
+\index{mod\`ele SIR}
+Le mod\`ele \textbf{SIR} (Susceptible--Infect\'e--R\'etabli) de
+Kermack--McKendrick\index{Kermack--McKendrick} d\'ecrit la propagation
+d'une maladie dans une population de taille $N$~:
+\[
+  \frac{dS}{dt} = -\beta\, \frac{SI}{N}, \quad
+  \frac{dI}{dt} = \beta\, \frac{SI}{N} - \gamma\, I, \quad
+  \frac{dR}{dt} = \gamma\, I,
+\]
+o\`u $\beta > 0$ est le taux de transmission et $\gamma > 0$ le taux
+de gu\'erison.
+\end{definition}
+
+\begin{theoreme}[Seuil \'epid\'emique]
+\label{thm:seuil_sir}
+Soit $R_0 = \beta / \gamma$\index{nombre de reproduction de base} le
+\emph{nombre de reproduction de base}. Si $R_0 > 1$ et $S(0) \approx N$,
+alors $I(t)$ cro\^it initialement (\'epid\'emie). Si $R_0 < 1$,
+le nombre d'infect\'es d\'ecro\^it monotonement.
+\end{theoreme}
+
+\begin{proof}
+Au d\'ebut de l'\'epid\'emie, $S \approx N$, donc
+$dI/dt \approx (\beta - \gamma)\,I = \gamma(R_0 - 1)\,I$.
+Si $R_0 > 1$, cette \'equation lin\'earis\'ee donne une croissance
+exponentielle de $I$. Si $R_0 < 1$, $I$ d\'ecro\^it exponentiellement.
+\end{proof}
+
+\begin{intuition}
+Le nombre $R_0$ repr\'esente le nombre moyen de personnes qu'un individu
+infect\'e contamine durant toute sa p\'eriode infectieuse (de dur\'ee
+moyenne $1/\gamma$). L'\'epid\'emie se propage uniquement si chaque
+malade contamine en moyenne plus d'une personne ($R_0 > 1$).
+\end{intuition}
+
+\begin{definition}[Mod\`ele SEIR]
+\index{mod\`ele SEIR}
+Le mod\`ele \textbf{SEIR} ajoute un compartiment <<\,Expos\'e\,>> (incubation)~:
+\[
+  \frac{dS}{dt} = -\beta\, \frac{SI}{N}, \quad
+  \frac{dE}{dt} = \beta\, \frac{SI}{N} - \sigma\, E, \quad
+  \frac{dI}{dt} = \sigma\, E - \gamma\, I, \quad
+  \frac{dR}{dt} = \gamma\, I,
+\]
+o\`u $1/\sigma$ est la dur\'ee moyenne d'incubation.
+\end{definition}
+
+\begin{formules}
+\textbf{Param\`etres \'epid\'emiologiques cl\'es}
+\begin{align*}
+  R_0 &= \frac{\beta}{\gamma} \quad \text{(SIR)}, \qquad
+  R_0 = \frac{\beta}{\gamma} \quad \text{(SEIR, m\^eme formule)} \\[4pt]
+  R_{\text{eff}}(t) &= R_0 \cdot \frac{S(t)}{N}
+    \quad \text{(nombre de reproduction effectif)} \\[4pt]
+  \text{Taille finale :}\quad & S_\infty \text{ est solution de }
+    S_\infty = S_0\, e^{-R_0(N - S_\infty)/N}
+\end{align*}
+\end{formules}
+
+\begin{exemple}
+Calibration du mod\`ele SIR sur les donn\'ees de la grippe dans un
+pensionnat anglais (1978)~: 763 \'el\`eves, donn\'ees journali\`eres
+sur 14 jours. Par moindres carr\'es, on estime $\beta \approx 1.66$ et
+$\gamma \approx 0.44$, soit $R_0 \approx 3.78$.
+\end{exemple}
+
+\begin{minted}{python}
+import numpy as np
+from scipy.integrate import odeint
+from scipy.optimize import minimize
+
+def sir_model(y, t, beta, gamma, N):
+    S, I, R = y
+    dSdt = -beta * S * I / N
+    dIdt = beta * S * I / N - gamma * I
+    dRdt = gamma * I
+    return [dSdt, dIdt, dRdt]
+
+# Donnees observees (infectes par jour)
+data_I = np.array([1, 3, 8, 28, 76, 222, 293, 257, 237,
+                   192, 126, 70, 28, 12])
+t_data = np.arange(len(data_I))
+N = 763
+
+def objective(params):
+    beta, gamma = params
+    y0 = [N - 1, 1, 0]
+    sol = odeint(sir_model, y0, t_data, args=(beta, gamma, N))
+    return np.sum((sol[:, 1] - data_I)**2)
+
+result = minimize(objective, [1.5, 0.5], method='Nelder-Mead')
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Dynamique des populations~: Lotka--Volterra}
+\label{sec:lotka_volterra}
+% ------------------------------------------------------------
+
+\begin{definition}[Mod\`ele de Lotka--Volterra]
+\index{Lotka--Volterra}
+Le mod\`ele proies--pr\'edateurs de Lotka--Volterra s'\'ecrit~:
+\[
+  \frac{dx}{dt} = \alpha\, x - \beta\, x\, y, \qquad
+  \frac{dy}{dt} = \delta\, x\, y - \gamma\, y,
+\]
+o\`u $x(t)$ est la population de proies, $y(t)$ celle de pr\'edateurs,
+et $\alpha, \beta, \gamma, \delta > 0$.
+\end{definition}
+
+\begin{proposition}[Int\'egrale premi\`ere]
+Le syst\`eme de Lotka--Volterra admet l'int\'egrale premi\`ere~:
+\[
+  H(x,y) = \delta\, x - \gamma\,\ln x + \beta\, y - \alpha\,\ln y.
+\]
+Les trajectoires dans le plan de phase sont donc des courbes ferm\'ees
+entourant le point d'\'equilibre $(\gamma/\delta,\, \alpha/\beta)$.
+\end{proposition}
+
+\begin{proof}
+On calcule $\frac{dH}{dt} = \delta\,\dot{x} - \frac{\gamma}{x}\,\dot{x}
++ \beta\,\dot{y} - \frac{\alpha}{y}\,\dot{y}$. En substituant les
+\'equations du syst\`eme, tous les termes s'annulent~: $dH/dt = 0$.
+\end{proof}
+
+\begin{exemple}
+Les donn\'ees historiques de la Compagnie de la Baie d'Hudson (fourrures
+de li\`evres et de lynx, 1845--1935) montrent des oscillations
+d\'ephas\'ees caract\'eristiques du mod\`ele de Lotka--Volterra. La
+calibration par moindres carr\'es donne des p\'eriodes d'environ 10 ans.
+\end{exemple}
+
+\begin{attention}
+Le mod\`ele de Lotka--Volterra classique est structurellement instable~:
+il ne poss\`ede pas de cycle limite attractif. Toute perturbation modifie
+l'amplitude des oscillations. Pour un mod\`ele plus r\'ealiste, on
+ajoute une capacit\'e de charge (logistique) ou une r\'eponse fonctionnelle
+de type Holling\index{r\'eponse de Holling}.
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Mod\`eles de trafic routier}
+\label{sec:trafic}
+% ------------------------------------------------------------
+
+\begin{definition}[Mod\`ele LWR]
+\index{mod\`ele LWR}
+Le mod\`ele de \textbf{Lighthill--Whitham--Richards} (LWR) est une loi de
+conservation scalaire pour la densit\'e de v\'ehicules $\rho(x,t)$~:
+\[
+  \frac{\partial \rho}{\partial t} +
+  \frac{\partial}{\partial x}\bigl[Q(\rho)\bigr] = 0,
+\]
+o\`u $Q(\rho) = \rho\, v(\rho)$ est le flux et $v(\rho)$ est la vitesse
+en fonction de la densit\'e.
+\end{definition}
+
+\begin{proposition}[Relation de Greenshields]
+\index{Greenshields}
+Le mod\`ele de Greenshields suppose $v(\rho) = v_{\max}(1 - \rho/\rho_{\max})$,
+ce qui donne un flux parabolique~:
+\[
+  Q(\rho) = v_{\max}\,\rho\left(1 - \frac{\rho}{\rho_{\max}}\right).
+\]
+Le flux maximal (capacit\'e) est $Q_{\max} = v_{\max}\,\rho_{\max}/4$
+atteint en $\rho = \rho_{\max}/2$.
+\end{proposition}
+
+\begin{remarque}
+Les solutions du mod\`ele LWR peuvent d\'evelopper des discontinuit\'es
+(\emph{chocs}), qui correspondent physiquement \`a la formation de
+bouchons. La condition de Rankine--Hugoniot\index{Rankine--Hugoniot}
+donne la vitesse du choc~:
+$s = \dfrac{Q(\rho_R) - Q(\rho_L)}{\rho_R - \rho_L}$.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Introduction \`a la mod\'elisation climatique}
+\label{sec:climat}
+% ------------------------------------------------------------
+
+\begin{definition}[Mod\`ele de bilan \'energ\'etique]
+\index{bilan \'energ\'etique}
+Le mod\`ele de \textbf{bilan \'energ\'etique} de Budyko--Sellers\index{Budyko}
+d\'ecrit la temp\'erature moyenne $T$ de la Terre~:
+\[
+  C\,\frac{dT}{dt} = (1 - \alpha(T))\, Q - \varepsilon\,\sigma\, T^4,
+\]
+o\`u $C$ est la capacit\'e thermique, $Q$ le flux solaire incident,
+$\alpha(T)$ l'alb\'edo (d\'ependant de la temp\'erature via la couverture
+de glace) et $\varepsilon\,\sigma\,T^4$ le rayonnement infrarouge \'emis.
+\end{definition}
+
+\begin{theoreme}[Bifurcation et <<\,Terre boule de neige\,>>]
+Le mod\`ele de Budyko--Sellers admet g\'en\'eriquement trois \'equilibres~:
+un \'etat chaud (peu de glace), un \'etat <<\,boule de neige\,>>
+(Terre enti\`erement glac\'ee) et un \'equilibre instable interm\'ediaire.
+Lorsque le flux solaire $Q$ diminue, une bifurcation noeud-selle
+conduit \`a une transition brutale vers l'\'etat glac\'e.
+\end{theoreme}
+
+\begin{intuition}
+L'alb\'edo de la glace est \'elev\'e ($\sim 0.7$) tandis que celui de
+l'oc\'ean est faible ($\sim 0.06$). Plus il fait froid, plus la glace
+s'\'etend, plus la Terre refl\'echit le soleil, plus il fait froid\ldots{}
+C'est une r\'etroaction positive qui peut mener \`a un emballement.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Comparaison et validation de mod\`eles}
+\label{sec:validation}
+% ------------------------------------------------------------
+
+\begin{definition}[Crit\`ere d'information d'Akaike (AIC)]
+\index{AIC}
+Soit $\hat{L}$ la vraisemblance maximale d'un mod\`ele \`a $k$ param\`etres.
+Le \textbf{crit\`ere d'information d'Akaike} est~:
+\[
+  \text{AIC} = -2\,\ln \hat{L} + 2k.
+\]
+On privil\'egie le mod\`ele avec l'AIC le plus faible.
+\end{definition}
+
+\begin{definition}[Crit\`ere d'information bay\'esien (BIC)]
+\index{BIC}
+Le \textbf{crit\`ere BIC} (ou crit\`ere de Schwarz) est~:
+\[
+  \text{BIC} = -2\,\ln \hat{L} + k\,\ln n,
+\]
+o\`u $n$ est le nombre d'observations. Le BIC p\'enalise davantage la
+complexit\'e que l'AIC pour $n \geq 8$.
+\end{definition}
+
+\begin{proposition}[Validation crois\'ee]
+\index{validation crois\'ee}
+La \textbf{validation crois\'ee} $k$-fold estime l'erreur de pr\'ediction
+en d\'ecoupant les donn\'ees en $k$ parties. L'erreur estim\'ee est~:
+\[
+  \text{CV}(k) = \frac{1}{k} \sum_{j=1}^k \text{Erreur}_j,
+\]
+o\`u $\text{Erreur}_j$ est l'erreur du mod\`ele ajust\'e sur les $k-1$
+autres parties et \'evalu\'e sur la partie $j$.
+\end{proposition}
+
+\begin{attention}
+Un bon ajustement aux donn\'ees d'entra\^inement ne garantit pas un bon
+pouvoir pr\'edictif. Le \emph{surapprentissage}\index{surapprentissage}
+(overfitting) se produit lorsque le mod\`ele capture le bruit plut\^ot
+que le signal. Toujours valider sur des donn\'ees ind\'ependantes.
+\end{attention}
+
+\begin{formules}
+\textbf{R\'esum\'e des crit\`eres de comparaison}
+\begin{align*}
+  R^2 &= 1 - \frac{\sum_i (y_i - \hat{y}_i)^2}{\sum_i (y_i - \bar{y})^2}
+    \quad \text{(coefficient de d\'etermination)} \\[4pt]
+  \text{RMSE} &= \sqrt{\frac{1}{n}\sum_{i=1}^n (y_i - \hat{y}_i)^2}
+    \quad \text{(erreur quadratique moyenne)} \\[4pt]
+  \text{AIC} &= -2\ln\hat{L} + 2k, \qquad
+  \text{BIC} = -2\ln\hat{L} + k\ln n
+\end{align*}
+\end{formules}
+
+\begin{exercice}
+Impl\'ementer le mod\`ele SEIR avec les param\`etres de la COVID-19
+($\sigma^{-1} \approx 5{,}2$ jours, $\gamma^{-1} \approx 10$ jours,
+$R_0 \approx 2{,}5$). Simuler la dynamique pour une ville de
+$100\,000$ habitants et \'etudier l'effet du confinement ($R_0$ r\'eduit).
+\end{exercice}
+
+\begin{exercice}
+Calibrer un mod\`ele de Lotka--Volterra sur les donn\'ees
+li\`evres--lynx de la Compagnie de la Baie d'Hudson. Estimer
+les param\`etres par moindres carr\'es non lin\'eaires et \'evaluer
+la qualit\'e de l'ajustement par $R^2$ et RMSE.
+\end{exercice}
+
+\begin{exercice}
+Comparer les mod\`eles SIR, SEIR et SIR avec vaccination sur un jeu
+de donn\'ees \'epid\'emiques. Utiliser l'AIC et le BIC pour d\'eterminer
+quel mod\`ele est le plus parcimonieux.
+\end{exercice}
+
+\begin{exercice}
+R\'esoudre num\'eriquement le mod\`ele LWR avec la relation de
+Greenshields pour simuler la formation d'un bouchon \`a un feu rouge.
+Utiliser un sch\'ema de Godunov\index{sch\'ema de Godunov} et
+visualiser l'\'evolution de la densit\'e $\rho(x,t)$ en espace et en temps.
+\end{exercice}

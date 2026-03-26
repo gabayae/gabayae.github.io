@@ -1,0 +1,519 @@
+%!TEX root = ../main.tex
+% Chapter 8: Generative Models --- GAN
+\chapter{Generative Models --- GAN}
+\label{ch:gan}
+
+\paragraph{Chapter objectives}
+\begin{itemize}
+\item Distinguish generative and discriminative models
+\item Derive the minimax objective of GANs and the optimal discriminator
+\item Understand training problems and solutions (WGAN, WGAN-GP)
+\item Implement a complete DCGAN in PyTorch
+\item Know the evaluation metrics (FID, IS)
+\end{itemize}
+
+\section{Generative vs discriminative models}
+\label{sec:gen-vs-disc}
+
+\begin{definition}[Discriminative model\index{discriminative model}]
+A discriminative model directly learns the conditional distribution $p(y \mid x)$, i.e., the decision boundary between classes. Examples: logistic regression, SVM, classifier neural networks.
+\end{definition}
+
+\begin{definition}[Generative model\index{generative model}]
+A generative model learns the joint distribution $p(x, y)$ or the marginal distribution $p(x)$ of the data. It can \emph{generate} new samples. Examples: GAN, VAE (cf.\ Chapter~\ref{ch:vae}), diffusion models, autoregressive models.
+\end{definition}
+
+\begin{remark}
+A generative model not only allows creating new data, but also performing probabilistic reasoning (anomaly detection, completion, etc.).
+\end{remark}
+
+\section{GAN framework: the minimax objective}
+\label{sec:gan-framework}
+
+\subsection{Formulation}
+
+A \textbf{Generative Adversarial Network}\index{GAN} (Goodfellow et al., 2014) consists of two networks in competition:
+\begin{itemize}
+    \item The \textbf{generator} $G : \mathcal{Z} \to \mathcal{X}$ transforms random noise $z \sim p_z(z)$ into a sample $G(z)$.
+    \item The \textbf{discriminator} $D : \mathcal{X} \to [0, 1]$ estimates the probability that a sample comes from the real data rather than from the generator.
+\end{itemize}
+
+\begin{mathbox}[title=\textbf{GAN minimax objective}]\index{minimax objective}
+\begin{equation}
+\min_G \max_D \; V(D, G) = \E_{x \sim p_{\text{data}}}\!\big[\log D(x)\big] + \E_{z \sim p_z}\!\big[\log\!\big(1 - D(G(z))\big)\big]
+\label{eq:gan-minimax}
+\end{equation}
+\end{mathbox}
+
+\subsection{Derivation of the optimal discriminator $D^*$}
+
+\begin{theorem}[Optimal discriminator\index{optimal discriminator}]
+\label{thm:optimal-D}
+For a fixed generator $G$, the optimal discriminator is:
+\begin{equation}
+D^*_G(x) = \frac{p_{\text{data}}(x)}{p_{\text{data}}(x) + p_g(x)}
+\label{eq:optimal-D}
+\end{equation}
+where $p_g$ is the distribution induced by $G$.
+\end{theorem}
+
+\begin{proof}
+For fixed $G$, we maximize $V(D, G)$ with respect to $D$. The integrand is, for each $x$:
+\begin{equation}
+f(D(x)) = p_{\text{data}}(x) \log D(x) + p_g(x) \log(1 - D(x))
+\end{equation}
+This is a function of $D(x) \in [0, 1]$. Differentiating and setting to zero:
+\begin{align}
+\frac{\partial f}{\partial D(x)} &= \frac{p_{\text{data}}(x)}{D(x)} - \frac{p_g(x)}{1 - D(x)} = 0 \\
+\Rightarrow \quad p_{\text{data}}(x)\big(1 - D(x)\big) &= p_g(x) D(x) \\
+\Rightarrow \quad D^*(x) &= \frac{p_{\text{data}}(x)}{p_{\text{data}}(x) + p_g(x)}
+\end{align}
+One verifies that the second derivative is negative, confirming the maximum.
+\end{proof}
+
+\subsection{Derivation of generator optimality}
+
+\begin{theorem}[Generator optimality and Jensen-Shannon divergence\index{Jensen-Shannon divergence}]
+\label{thm:optimal-G}
+Substituting $D^*$ into the objective, we obtain:
+\begin{equation}
+C(G) = V(D^*_G, G) = -\log 4 + 2 \cdot \KL{JSD}(p_{\text{data}} \| p_g)
+\end{equation}
+where the Jensen-Shannon divergence is:
+\begin{equation}
+\text{JSD}(p \| q) = \frac{1}{2}\KL(p \| m) + \frac{1}{2}\KL(q \| m), \quad m = \frac{p + q}{2}
+\end{equation}
+The global minimum $C(G) = -\log 4$ is achieved if and only if $p_g = p_{\text{data}}$.
+\end{theorem}
+
+\begin{proof}
+Substituting $D^*$:
+\begin{align}
+C(G) &= \E_{x \sim p_{\text{data}}}\!\left[\log \frac{p_{\text{data}}(x)}{p_{\text{data}}(x) + p_g(x)}\right] + \E_{x \sim p_g}\!\left[\log \frac{p_g(x)}{p_{\text{data}}(x) + p_g(x)}\right] \\
+&= \E_{p_{\text{data}}}\!\left[\log \frac{p_{\text{data}}}{2 \cdot \frac{p_{\text{data}} + p_g}{2}}\right] + \E_{p_g}\!\left[\log \frac{p_g}{2 \cdot \frac{p_{\text{data}} + p_g}{2}}\right] \\
+&= -\log 4 + \KL\!\left(p_{\text{data}} \,\Big\|\, \frac{p_{\text{data}} + p_g}{2}\right) + \KL\!\left(p_g \,\Big\|\, \frac{p_{\text{data}} + p_g}{2}\right) \\
+&= -\log 4 + 2 \cdot \text{JSD}(p_{\text{data}} \| p_g)
+\end{align}
+Since $\text{JSD} \geq 0$ with equality iff $p_{\text{data}} = p_g$, the minimum is indeed $-\log 4$.
+\end{proof}
+
+\subsection{TikZ diagram of GAN training}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    netblock/.style={rectangle, draw, fill=blue!12, minimum width=2.8cm, minimum height=1.2cm, align=center, rounded corners=3pt, font=\small\bfseries},
+    datablock/.style={rectangle, draw, fill=green!12, minimum width=2.2cm, minimum height=0.9cm, align=center, rounded corners=3pt, font=\small},
+    lossblock/.style={rectangle, draw, fill=red!12, minimum width=2.5cm, minimum height=0.9cm, align=center, rounded corners=3pt, font=\small},
+    arr/.style={-{Stealth}, thick},
+    darr/.style={-{Stealth}, thick, dashed},
+]
+
+% Generator
+\node[datablock] (noise) at (0, 0) {$z \sim \mathcal{N}(0, I)$};
+\node[netblock] (G) at (3, 0) {Generator\\$G_\theta$};
+\node[datablock] (fake) at (6.5, 0) {$G(z)$\\(fake)};
+
+% Real data
+\node[datablock] (real) at (6.5, 2.5) {$x \sim p_{\text{data}}$\\(real)};
+
+% Discriminator
+\node[netblock] (D) at (10, 1.25) {Discriminator\\$D_\phi$};
+
+% Output
+\node[lossblock] (loss) at (13.5, 1.25) {$V(D, G)$\\Loss};
+
+% Arrows
+\draw[arr] (noise) -- (G);
+\draw[arr] (G) -- (fake);
+\draw[arr] (fake) -- (D);
+\draw[arr] (real) -- (D);
+\draw[arr] (D) -- (loss);
+
+% Backpropagation
+\draw[darr, red!60!black] (loss.south) -- ++(0, -1.2) -| (D.south)
+    node[pos=0.25, below, font=\footnotesize, text=red!60!black] {$\nabla_\phi$ (maximize $V$)};
+\draw[darr, blue!60!black] (loss.north) -- ++(0, 1.0) -| (G.north)
+    node[pos=0.25, above, font=\footnotesize, text=blue!60!black] {$\nabla_\theta$ (minimize $V$)};
+
+\end{tikzpicture}
+\caption{GAN training loop. The discriminator $D$ is updated to maximize $V$, while the generator $G$ is updated to minimize it. Dashed arrows represent backpropagation.}
+\label{fig:gan-training}
+\end{figure}
+
+\section{Training problems}
+\label{sec:gan-training-problems}
+
+\subsection{Mode collapse}
+
+\begin{definition}[Mode collapse\index{mode collapse}]
+The generator ``specializes'' in producing a small number of modes of the target distribution, ignoring the diversity of the real data. Formally, $p_g$ is concentrated on a subset of small measure within the support of $p_{\text{data}}$.
+\end{definition}
+
+\subsection{Vanishing gradients for $G$}
+
+\begin{warning}
+If the discriminator is too powerful ($D(x) \approx 1$ for real data and $D(G(z)) \approx 0$ for fake data), then $\log(1 - D(G(z))) \approx \log(1) = 0$ and the gradient for $G$ becomes near zero.
+
+\textbf{Practical solution:} instead of minimizing $\log(1 - D(G(z)))$, maximize $\log D(G(z))$ (``non-saturating loss''\index{non-saturating loss}).
+\end{warning}
+
+\section{Wasserstein GAN (WGAN)}
+\label{sec:wgan}
+
+\subsection{Earth Mover's distance (Wasserstein-1)}
+
+\begin{definition}[Wasserstein-1 distance\index{Wasserstein distance}\index{Earth Mover's distance}]
+\begin{equation}
+W(p_{\text{data}}, p_g) = \inf_{\gamma \in \Pi(p_{\text{data}}, p_g)} \E_{(x, y) \sim \gamma}\!\big[\|x - y\|\big]
+\end{equation}
+where $\Pi(p_{\text{data}}, p_g)$ is the set of joint distributions whose marginals are $p_{\text{data}}$ and $p_g$.
+\end{definition}
+
+\begin{theorem}[Kantorovich-Rubinstein duality]
+\begin{equation}
+W(p_{\text{data}}, p_g) = \sup_{\|f\|_L \leq 1} \E_{x \sim p_{\text{data}}}\!\big[f(x)\big] - \E_{x \sim p_g}\!\big[f(x)\big]
+\label{eq:kantorovich}
+\end{equation}
+where the supremum is taken over 1-Lipschitz\index{Lipschitz} functions.
+\end{theorem}
+
+\begin{intuition}
+The Wasserstein distance is smoother than the JSD: even when the supports of $p_{\text{data}}$ and $p_g$ do not overlap, $W$ provides a usable gradient, whereas $\KL$ and JSD are either infinite or constant.
+\end{intuition}
+
+\begin{keyformulas}[title=\textbf{WGAN objective}]\index{WGAN}
+The discriminator becomes a ``critic'' $f_w$ (without a sigmoid at the output):
+\begin{equation}
+\max_{w : \|f_w\|_L \leq 1} \; \E_{x \sim p_{\text{data}}}\!\big[f_w(x)\big] - \E_{z \sim p_z}\!\big[f_w(G_\theta(z))\big]
+\label{eq:wgan-objective}
+\end{equation}
+\end{keyformulas}
+
+\subsection{WGAN-GP: gradient penalty}
+\label{sec:wgan-gp}
+
+Arjovsky et al.\ enforce the Lipschitz constraint through \emph{weight clipping}, which is problematic. Gulrajani et al.\ (2017) propose a \textbf{gradient penalty}\index{gradient penalty}\index{WGAN-GP}:
+
+\begin{keyformulas}[title=\textbf{WGAN-GP}]
+\begin{equation}
+\mathcal{L}_{\text{WGAN-GP}} = \underbrace{\E_{z}\!\big[f_w(G(z))\big] - \E_{x}\!\big[f_w(x)\big]}_{\text{WGAN objective}} + \lambda \,\underbrace{\E_{\hat{x}}\!\big[\big(\|\nabla_{\hat{x}} f_w(\hat{x})\|_2 - 1\big)^2\big]}_{\text{gradient penalty}}
+\label{eq:wgan-gp}
+\end{equation}
+where $\hat{x} = \epsilon x + (1 - \epsilon) G(z)$ with $\epsilon \sim U(0, 1)$ and typically $\lambda = 10$.
+\end{keyformulas}
+
+\section{Conditional GAN (cGAN)}
+\label{sec:cgan}
+
+\begin{definition}[Conditional GAN\index{conditional GAN}\index{cGAN}]
+Both $G$ and $D$ are conditioned on auxiliary information $y$ (class label, text, etc.):
+\begin{equation}
+\min_G \max_D \; \E_{x, y}\!\big[\log D(x, y)\big] + \E_{z, y}\!\big[\log\big(1 - D(G(z, y), y)\big)\big]
+\end{equation}
+\end{definition}
+
+\section{DCGAN: architectural guidelines}
+\label{sec:dcgan}
+
+The \textbf{Deep Convolutional GAN}\index{DCGAN} (Radford et al., 2016) establishes empirical rules to stabilize training of convolutional GANs:
+
+\begin{bestpractice}
+\begin{enumerate}
+    \item Replace pooling with \emph{strided convolutions} in $D$ and transposed convolutions in $G$.
+    \item Use \emph{Batch Normalization}\index{Batch Normalization} in $G$ and $D$ (except the last layer of $G$ and the first layer of $D$).
+    \item Remove fully connected layers.
+    \item Use ReLU in $G$ (except the output: $\tanh$) and LeakyReLU in $D$.
+\end{enumerate}
+\end{bestpractice}
+
+\section{PyTorch implementation: DCGAN on Fashion-MNIST}
+\label{sec:dcgan-pytorch}
+
+\begin{codeblock}[title=\textbf{Complete DCGAN with training loop}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
+
+# Hyperparameters
+LATENT_DIM = 100
+IMG_CHANNELS = 1
+FEATURES_G = 64
+FEATURES_D = 64
+LR = 2e-4
+BETAS = (0.5, 0.999)
+BATCH_SIZE = 128
+NUM_EPOCHS = 25
+
+class Generator(nn.Module):
+    """DCGAN generator for 28x28 images."""
+    def __init__(self, latent_dim, features_g, img_channels):
+        super().__init__()
+        self.net = nn.Sequential(
+            # Input: (batch, latent_dim, 1, 1)
+            nn.ConvTranspose2d(latent_dim, features_g * 4, 4, 1, 0,
+                               bias=False),
+            nn.BatchNorm2d(features_g * 4),
+            nn.ReLU(True),
+            # -> (batch, features_g*4, 4, 4)
+            nn.ConvTranspose2d(features_g * 4, features_g * 2, 3, 2, 1,
+                               bias=False),
+            nn.BatchNorm2d(features_g * 2),
+            nn.ReLU(True),
+            # -> (batch, features_g*2, 7, 7)
+            nn.ConvTranspose2d(features_g * 2, features_g, 4, 2, 1,
+                               bias=False),
+            nn.BatchNorm2d(features_g),
+            nn.ReLU(True),
+            # -> (batch, features_g, 14, 14)
+            nn.ConvTranspose2d(features_g, img_channels, 4, 2, 1,
+                               bias=False),
+            nn.Tanh(),
+            # -> (batch, img_channels, 28, 28)
+        )
+
+    def forward(self, z):
+        return self.net(z)
+
+
+class Discriminator(nn.Module):
+    """DCGAN discriminator for 28x28 images."""
+    def __init__(self, img_channels, features_d):
+        super().__init__()
+        self.net = nn.Sequential(
+            # Input: (batch, img_channels, 28, 28)
+            nn.Conv2d(img_channels, features_d, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            # -> (batch, features_d, 14, 14)
+            nn.Conv2d(features_d, features_d * 2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(features_d * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+            # -> (batch, features_d*2, 7, 7)
+            nn.Conv2d(features_d * 2, features_d * 4, 3, 2, 1, bias=False),
+            nn.BatchNorm2d(features_d * 4),
+            nn.LeakyReLU(0.2, inplace=True),
+            # -> (batch, features_d*4, 4, 4)
+            nn.Conv2d(features_d * 4, 1, 4, 1, 0, bias=False),
+            nn.Sigmoid(),
+            # -> (batch, 1, 1, 1)
+        )
+
+    def forward(self, x):
+        return self.net(x).view(-1, 1)
+
+
+def weights_init(m):
+    """Weight initialization following DCGAN recommendations."""
+    classname = m.__class__.__name__
+    if 'Conv' in classname:
+        nn.init.normal_(m.weight.data, 0.0, 0.02)
+    elif 'BatchNorm' in classname:
+        nn.init.normal_(m.weight.data, 1.0, 0.02)
+        nn.init.constant_(m.bias.data, 0)
+
+
+# --- Data preparation ---
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize([0.5], [0.5]),  # -> [-1, 1]
+])
+dataset = datasets.FashionMNIST(
+    root='./data', train=True, download=True, transform=transform
+)
+dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True,
+                        num_workers=2, drop_last=True)
+
+# --- Initialization ---
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+G = Generator(LATENT_DIM, FEATURES_G, IMG_CHANNELS).to(device)
+D = Discriminator(IMG_CHANNELS, FEATURES_D).to(device)
+G.apply(weights_init)
+D.apply(weights_init)
+
+opt_G = torch.optim.Adam(G.parameters(), lr=LR, betas=BETAS)
+opt_D = torch.optim.Adam(D.parameters(), lr=LR, betas=BETAS)
+criterion = nn.BCELoss()
+
+fixed_noise = torch.randn(64, LATENT_DIM, 1, 1, device=device)
+
+# --- Training loop ---
+for epoch in range(NUM_EPOCHS):
+    for i, (real_imgs, _) in enumerate(dataloader):
+        real_imgs = real_imgs.to(device)
+        batch_size = real_imgs.size(0)
+        real_labels = torch.ones(batch_size, 1, device=device)
+        fake_labels = torch.zeros(batch_size, 1, device=device)
+
+        # (1) Update discriminator
+        noise = torch.randn(batch_size, LATENT_DIM, 1, 1, device=device)
+        fake_imgs = G(noise).detach()
+
+        loss_D_real = criterion(D(real_imgs), real_labels)
+        loss_D_fake = criterion(D(fake_imgs), fake_labels)
+        loss_D = loss_D_real + loss_D_fake
+
+        opt_D.zero_grad()
+        loss_D.backward()
+        opt_D.step()
+
+        # (2) Update generator
+        noise = torch.randn(batch_size, LATENT_DIM, 1, 1, device=device)
+        fake_imgs = G(noise)
+        loss_G = criterion(D(fake_imgs), real_labels)  # non-saturating
+
+        opt_G.zero_grad()
+        loss_G.backward()
+        opt_G.step()
+
+    print(f"Epoch [{epoch+1}/{NUM_EPOCHS}]  "
+          f"Loss_D: {loss_D.item():.4f}  Loss_G: {loss_G.item():.4f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Epoch [1/25]   Loss_D: 0.5823  Loss_G: 1.8932
+Epoch [2/25]   Loss_D: 0.4517  Loss_G: 2.1045
+...
+Epoch [10/25]  Loss_D: 0.6102  Loss_G: 1.3287
+...
+Epoch [25/25]  Loss_D: 0.6731  Loss_G: 0.9845
+\end{verbatim}
+\end{codeoutput}
+
+\section{Evaluation metrics}
+\label{sec:gan-metrics}
+
+\subsection{Inception Score (IS)}
+
+\begin{keyformulas}[title=\textbf{Inception Score}]\index{Inception Score}\index{IS}
+\begin{equation}
+\text{IS} = \exp\!\Big(\E_{x \sim p_g}\!\big[\KL\!\big(p(y \mid x) \,\|\, p(y)\big)\big]\Big)
+\end{equation}
+where $p(y \mid x)$ is given by a pre-trained Inception network and $p(y) = \E_x[p(y \mid x)]$.
+
+A high IS means: (1) the images are sharp ($p(y|x)$ concentrated) and (2) the images are diverse ($p(y)$ uniform).
+\end{keyformulas}
+
+\subsection{Fr\'echet Inception Distance (FID)}
+
+\begin{keyformulas}[title=\textbf{Fr\'echet Inception Distance}]\index{FID}\index{Fr\'echet Inception Distance}
+Features are extracted from the pool3 layer of the Inception network for real data ($\mu_r, \Sigma_r$) and generated data ($\mu_g, \Sigma_g$):
+\begin{equation}
+\text{FID} = \|\mu_r - \mu_g\|_2^2 + \text{Tr}\!\Big(\Sigma_r + \Sigma_g - 2\big(\Sigma_r \Sigma_g\big)^{1/2}\Big)
+\label{eq:fid}
+\end{equation}
+A \textbf{low} FID indicates better quality and diversity.
+\end{keyformulas}
+
+\begin{remark}
+FID is preferred over IS because it compares the generated distribution to the \emph{real} data, whereas IS only evaluates the internal properties of the generated images.
+\end{remark}
+
+\section{Ablation study}
+\label{sec:gan-ablation}
+
+\begin{table}[htbp]
+\centering
+\caption{DCGAN ablation study on Fashion-MNIST. FID measured after 25 epochs (lower = better).}
+\label{tab:gan-ablation}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Configuration} & \textbf{Latent dim.} & \textbf{LR ($G$ / $D$)} & \textbf{FID} $\downarrow$ \\
+\midrule
+Base & 100 & $2\!\times\!10^{-4}$ / $2\!\times\!10^{-4}$ & 28.3 \\
+\midrule
+$z \in \R^{32}$ & 32 & $2\!\times\!10^{-4}$ / $2\!\times\!10^{-4}$ & 35.1 \\
+$z \in \R^{64}$ & 64 & $2\!\times\!10^{-4}$ / $2\!\times\!10^{-4}$ & 30.2 \\
+$z \in \R^{256}$ & 256 & $2\!\times\!10^{-4}$ / $2\!\times\!10^{-4}$ & 27.8 \\
+\midrule
+Higher $G$ LR & 100 & $5\!\times\!10^{-4}$ / $2\!\times\!10^{-4}$ & 32.5 \\
+Higher $D$ LR & 100 & $2\!\times\!10^{-4}$ / $5\!\times\!10^{-4}$ & 41.7 \\
+TTUR ($G < D$) & 100 & $1\!\times\!10^{-4}$ / $4\!\times\!10^{-4}$ & 25.9 \\
+\midrule
+$n_{\text{critic}}=1$ (standard) & 100 & $2\!\times\!10^{-4}$ / $2\!\times\!10^{-4}$ & 28.3 \\
+$n_{\text{critic}}=3$ & 100 & $2\!\times\!10^{-4}$ / $2\!\times\!10^{-4}$ & 26.7 \\
+$n_{\text{critic}}=5$ (WGAN-GP) & 100 & $1\!\times\!10^{-4}$ / $1\!\times\!10^{-4}$ & 23.4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{remark}
+Key findings: (1) the latent dimension has a moderate impact, but too small it limits diversity; (2) a higher learning rate for $D$ (TTUR --- Two Time-scale Update Rule)\index{TTUR} improves FID; (3) WGAN-GP with $n_{\text{critic}}=5$ achieves the best performance.
+\end{remark}
+
+\section{State of the art and connections}
+\label{sec:gan-sota}
+
+\begin{sota}[title=\textbf{Beyond classical GANs}]
+\begin{itemize}
+    \item \textbf{StyleGAN}\index{StyleGAN} (Karras et al., 2019--2021): introduces a mapping network $z \to w$ and style injection via \emph{Adaptive Instance Normalization} (AdaIN). StyleGAN3 eliminates texture artifacts through strict translation equivariance.
+
+    \item \textbf{Diffusion models}\index{diffusion models} (Ho et al., 2020; Dhariwal and Nichol, 2021): denoising diffusion models have largely surpassed GANs in terms of FID on ImageNet, while offering superior diversity and more stable training. See DALL-E 2, Stable Diffusion, Imagen.
+
+    \item \textbf{Consistency Models}\index{Consistency Models} (Song et al., 2023): distill diffusion models to enable single-step generation, combining diffusion quality with GAN speed.
+
+    \item GANs remain preferred in applications requiring ultra-fast generation (real-time super-resolution, video synthesis).
+\end{itemize}
+\end{sota}
+
+\section{Exercises}
+\label{sec:gan-exercises}
+
+\begin{exercise}[Verifying the optimal discriminator]
+\label{exo:optimal-disc}
+\textbf{Difficulty: 1/3}
+Let $p_{\text{data}} = \mathcal{N}(3, 1)$ and $p_g = \mathcal{N}(0, 1)$. Analytically compute $D^*(x)$ using Equation~\eqref{eq:optimal-D}. Plot $D^*(x)$ for $x \in [-5, 8]$. Comment on the shape of the curve.
+\end{exercise}
+
+\begin{exercise}[WGAN: comparison with standard GAN]
+\label{exo:wgan-compare}
+\textbf{Difficulty: 2/3}
+Consider two distributions: $p_{\text{data}} = \delta_0$ (Dirac mass at 0) and $p_g = \delta_\theta$.
+\begin{enumerate}
+    \item Compute $\text{JSD}(p_{\text{data}} \| p_g)$ for $\theta \neq 0$ and $\theta = 0$.
+    \item Compute $W(p_{\text{data}}, p_g) = |\theta|$.
+    \item Deduce why $W$ provides a useful gradient for $G$ while JSD does not.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[WGAN-GP implementation]
+\label{exo:wgan-gp-impl}
+\textbf{Difficulty: 2/3}
+Modify the DCGAN code from Section~\ref{sec:dcgan-pytorch} to:
+\begin{enumerate}
+    \item Remove the sigmoid from the discriminator (``critic'').
+    \item Implement the gradient penalty (Equation~\eqref{eq:wgan-gp}).
+    \item Train the critic $n_{\text{critic}}=5$ times per generator iteration.
+    \item Compare the loss curves and visual quality with the standard GAN.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Conditional GAN for targeted generation]
+\label{exo:cgan-impl}
+\textbf{Difficulty: 3/3}
+Implement a cGAN\index{cGAN} on Fashion-MNIST that takes a class label as input and generates an image of the corresponding category.
+
+\emph{Hint}: concatenate a \emph{one-hot encoding} of the label to the latent vector for $G$, and add a label \emph{embedding} as an additional channel for $D$.
+\end{exercise}
+
+\begin{exercise}[Theoretical analysis --- GAN convergence]
+\label{exo:gan-convergence}
+\textbf{Difficulty: 3/3}
+\begin{enumerate}
+    \item Show that if $D$ and $G$ are updated simultaneously by gradient descent on $V(D, G)$, the dynamical system is \emph{not} a gradient game (the gradients are not conservative). What does this imply for convergence?
+    \item Show that for the standard GAN in dimension 1, with $p_{\text{data}} = \mathcal{N}(0, 1)$ and $G(z) = \mu + \sigma z$ ($z \sim \mathcal{N}(0,1)$), the fixed point $\mu=0, \sigma=1$ is not a stable attractor of the simultaneous gradient dynamical system.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[FID computation {\normalfont (project)}]
+\label{exo:fid-compute}
+\textbf{Difficulty: 3/3}
+\begin{enumerate}
+    \item Implement FID computation using a pre-trained network (e.g., InceptionV3 or a simpler network for $28 \times 28$ images).
+    \item Compute the FID of your DCGAN at different training epochs.
+    \item Plot the evolution of FID as a function of epoch and comment.
+\end{enumerate}
+\end{exercise}

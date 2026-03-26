@@ -1,0 +1,390 @@
+% ============================================================
+\chapter{Epidemiological Models}
+\label{ch:epidemiology}
+% ============================================================
+
+\section{Introduction}
+
+In 1927, William Ogilvy Kermack and Anderson Gray McKendrick published a paper that would found mathematical epidemiology: their SIR model divides the population into three compartments---Susceptible, Infectious, Recovered---and predicts, with remarkable simplicity, the course of an epidemic. The basic reproduction number $R_0$ emerges naturally: if $R_0 > 1$, the epidemic spreads; if $R_0 < 1$, it dies out. This threshold, which became famous during the COVID-19 pandemic, is a purely mathematical result that guides public health policy.
+
+Compartmental epidemiological models allow us to understand the spread
+of infectious diseases and evaluate the impact of interventions
+(vaccination, quarantine).  This chapter develops the SIR and SEIR
+models from first principles, analyses the basic reproduction number
+$\mathcal{R}_0$, and provides Python simulations.
+
+% ------------------------------------------------------------
+\section{The Kermack--McKendrick SIR Model}
+\label{sec:sir}
+% ------------------------------------------------------------
+
+\begin{definition}[SIR compartments]
+The total population $N$ (constant) is divided into three compartments:
+\begin{itemize}
+  \item $S(t)$: \textbf{Susceptible} (individuals who can be infected).
+  \item $I(t)$: \textbf{Infectious} (contagious individuals).
+  \item $R(t)$: \textbf{Recovered} (immunised or deceased).
+\end{itemize}
+Conservation constraint: $S(t)+I(t)+R(t)=N$.
+\end{definition}
+
+\subsection{Model Derivation}
+
+\begin{intuition}[title=\textbf{SIR assumptions}]
+\begin{itemize}
+  \item The population is homogeneous and well-mixed.
+  \item The transmission rate is proportional to the product $SI$
+    (mass action).
+  \item Infectious individuals recover at constant rate $\gamma$.
+  \item No births, natural deaths, or demography.
+\end{itemize}
+\end{intuition}
+
+The SIR equations are:
+\begin{align}
+  \frac{dS}{dt} &= -\beta\frac{SI}{N}, \label{eq:sir_s}\\
+  \frac{dI}{dt} &= \beta\frac{SI}{N} - \gamma I, \label{eq:sir_i}\\
+  \frac{dR}{dt} &= \gamma I, \label{eq:sir_r}
+\end{align}
+where $\beta>0$ is the transmission rate and $\gamma>0$ the recovery
+rate.
+
+\begin{keyformulas}[title=\textbf{SIR model parameters}]
+\begin{center}
+\begin{tabular}{ccc}
+\toprule
+Parameter & Meaning & Unit \\
+\midrule
+$\beta$ & Transmission rate & $\text{time}^{-1}$ \\
+$\gamma$ & Recovery rate & $\text{time}^{-1}$ \\
+$1/\gamma$ & Mean infectious period & time \\
+$\mathcal{R}_0 = \beta/\gamma$ & Basic reproduction number & dimensionless \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{The Basic Reproduction Number $\mathcal{R}_0$}
+\label{sec:r0}
+% ------------------------------------------------------------
+
+\begin{definition}[Basic reproduction number]
+The \textbf{basic reproduction number} $\mathcal{R}_0$ is the average
+number of secondary cases produced by one infectious individual in a
+fully susceptible population:
+\[
+  \mathcal{R}_0 = \frac{\beta}{\gamma}.
+\]
+\end{definition}
+
+\begin{theorem}[Epidemic threshold]
+An epidemic occurs if and only if $\mathcal{R}_0 > 1$.  More
+precisely, $dI/dt > 0$ at the start of the epidemic if and only if
+$\mathcal{R}_0 S(0)/N > 1$.
+\end{theorem}
+
+\begin{proof}
+At the start, $S\approx N$.  Equation~\eqref{eq:sir_i} gives:
+\[
+  \frac{dI}{dt}\bigg|_{t=0} \approx (\beta-\gamma)I_0
+  = \gamma(\mathcal{R}_0-1)I_0.
+\]
+Thus $dI/dt > 0$ if and only if $\mathcal{R}_0 > 1$.
+\end{proof}
+
+\begin{remark}
+Typical values of $\mathcal{R}_0$: measles $\approx 12$--$18$,
+influenza $\approx 1.5$--$3$, COVID-19 (original strain)
+$\approx 2.5$--$3.5$, Ebola $\approx 1.5$--$2.5$.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Qualitative Analysis of the SIR Model}
+% ------------------------------------------------------------
+
+\subsection{Reduction to Two Equations}
+
+Since $R=N-S-I$, it suffices to study the $(S,I)$ system in the
+triangle $\{S\geq 0,\;I\geq 0,\;S+I\leq N\}$.
+
+\subsection{Final Size of the Epidemic}
+
+\begin{theorem}[Final size equation]
+If $I(0)=I_0\ll N$ and $S(0)\approx N$, the final fraction of
+susceptibles $s_\infty = S(\infty)/N$ satisfies the transcendental
+equation:
+\[
+  \ln s_\infty = \mathcal{R}_0(s_\infty - 1).
+\]
+\end{theorem}
+
+\begin{proof}
+Dividing $dS/dI$:
+\[
+  \frac{dS}{dI} = \frac{-\beta SI/N}{\beta SI/N - \gamma I}
+  = \frac{-\beta S/N}{\beta S/N - \gamma}.
+\]
+Setting $s = S/N$:
+\[
+  \frac{ds}{dI} = \frac{-\mathcal{R}_0 s}{\mathcal{R}_0 s - 1}\cdot\frac{1}{N}.
+\]
+Integrating and using $I(\infty)=0$ yields the final size relation.
+\end{proof}
+
+\begin{codeblock}[title=\textbf{SIR model simulation}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+
+N = 10000
+beta, gamma = 0.3, 0.1  # R0 = 3
+S0, I0, R0_init = N - 10, 10, 0
+
+def sir(t, y):
+    S, I, R = y
+    dS = -beta * S * I / N
+    dI = beta * S * I / N - gamma * I
+    dR = gamma * I
+    return [dS, dI, dR]
+
+sol = solve_ivp(sir, [0, 200], [S0, I0, R0_init],
+                t_eval=np.linspace(0, 200, 1000))
+
+plt.figure(figsize=(10, 5))
+plt.plot(sol.t, sol.y[0], 'b-', label='$S(t)$')
+plt.plot(sol.t, sol.y[1], 'r-', label='$I(t)$')
+plt.plot(sol.t, sol.y[2], 'g-', label='$R(t)$')
+plt.xlabel('Time (days)'); plt.ylabel('Number of individuals')
+plt.legend(); plt.title(f'SIR Model ($\\mathcal{{R}}_0 = {beta/gamma:.1f}$)')
+plt.tight_layout(); plt.savefig('sir.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Vaccination and Herd Immunity}
+\label{sec:vaccination}
+% ------------------------------------------------------------
+
+\begin{theorem}[Herd immunity threshold]
+If a fraction $p$ of the population is vaccinated (and immunised),
+the fraction of susceptibles is $S(0)/N = 1-p$.  The epidemic does
+not start if $(1-p)\mathcal{R}_0 < 1$, i.e.:
+\[
+  p > p_c = 1 - \frac{1}{\mathcal{R}_0}.
+\]
+\end{theorem}
+
+\begin{example}
+For measles ($\mathcal{R}_0\approx 15$):
+$p_c = 1 - 1/15 \approx 93.3\%$.
+Over 93\% of the population must be vaccinated.
+\end{example}
+
+\begin{codeblock}[title=\textbf{Effect of vaccination}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+
+N = 10000
+beta, gamma = 0.3, 0.1
+
+def sir_vacc(t, y):
+    S, I, R = y
+    return [-beta*S*I/N, beta*S*I/N - gamma*I, gamma*I]
+
+fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+vaccination_rates = [0, 0.3, 0.6, 0.75]
+
+for ax, p in zip(axes.flat, vaccination_rates):
+    S0 = N * (1 - p) - 10
+    R0_init = N * p
+    I0 = 10
+    sol = solve_ivp(sir_vacc, [0, 200], [S0, I0, R0_init],
+                    t_eval=np.linspace(0, 200, 500))
+    ax.plot(sol.t, sol.y[1], 'r-', lw=2)
+    ax.set_title(f'$p = {p:.0%}$, $I_{{\\max}} = {max(sol.y[1]):.0f}$')
+    ax.set_xlabel('Time'); ax.set_ylabel('$I(t)$')
+
+plt.suptitle(f'Effect of Vaccination ($\\mathcal{{R}}_0 = {beta/gamma:.1f}$)')
+plt.tight_layout(); plt.savefig('vaccination.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{The SEIR Model}
+\label{sec:seir}
+% ------------------------------------------------------------
+
+\begin{definition}[SEIR model]
+A compartment \textbf{Exposed} ($E$) is added for individuals
+infected but not yet contagious (latency period $1/\sigma$):
+\begin{align}
+  \frac{dS}{dt} &= -\beta\frac{SI}{N}, \\
+  \frac{dE}{dt} &= \beta\frac{SI}{N} - \sigma E, \\
+  \frac{dI}{dt} &= \sigma E - \gamma I, \\
+  \frac{dR}{dt} &= \gamma I.
+\end{align}
+The basic reproduction number remains $\mathcal{R}_0 = \beta/\gamma$.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{SEIR model simulation}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+
+N = 10000
+beta, sigma, gamma = 0.5, 0.2, 0.1
+S0, E0, I0, R0_init = N - 10, 0, 10, 0
+
+def seir(t, y):
+    S, E, I, R = y
+    dS = -beta * S * I / N
+    dE = beta * S * I / N - sigma * E
+    dI = sigma * E - gamma * I
+    dR = gamma * I
+    return [dS, dE, dI, dR]
+
+sol = solve_ivp(seir, [0, 200], [S0, E0, I0, R0_init],
+                t_eval=np.linspace(0, 200, 1000))
+
+plt.figure(figsize=(10, 5))
+plt.plot(sol.t, sol.y[0], 'b-', label='$S$')
+plt.plot(sol.t, sol.y[1], color='orange', label='$E$')
+plt.plot(sol.t, sol.y[2], 'r-', label='$I$')
+plt.plot(sol.t, sol.y[3], 'g-', label='$R$')
+plt.xlabel('Time'); plt.ylabel('Population')
+plt.legend(); plt.title(f'SEIR Model ($\\mathcal{{R}}_0 = {beta/gamma}$)')
+plt.tight_layout(); plt.savefig('seir.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Extensions and Advanced Models}
+% ------------------------------------------------------------
+
+\subsection{SIR with Demography}
+
+\begin{definition}[SIR with demography]
+Adding births and natural deaths at rate $\mu$:
+\begin{align}
+  \frac{dS}{dt} &= \mu N - \beta\frac{SI}{N} - \mu S, \\
+  \frac{dI}{dt} &= \beta\frac{SI}{N} - (\gamma+\mu) I, \\
+  \frac{dR}{dt} &= \gamma I - \mu R.
+\end{align}
+The basic reproduction number becomes
+$\mathcal{R}_0 = \beta/(\gamma+\mu)$.
+\end{definition}
+
+\begin{proposition}[Endemic equilibrium]
+For $\mathcal{R}_0 > 1$, there exists an endemic equilibrium
+(disease permanently present):
+\[
+  S^* = \frac{N}{\mathcal{R}_0}, \qquad
+  I^* = \frac{\mu N}{\gamma+\mu}\left(1-\frac{1}{\mathcal{R}_0}\right).
+\]
+\end{proposition}
+
+\subsection{SIRS Model (Waning Immunity)}
+
+If immunity is temporary (mean duration $1/\delta$), recovered
+individuals become susceptible again:
+\[
+  \frac{dR}{dt} = \gamma I - \delta R, \qquad
+  \frac{dS}{dt} = -\beta\frac{SI}{N} + \delta R.
+\]
+This model can produce oscillations.
+
+% ------------------------------------------------------------
+\section{Fitting to Real Data}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{SIR fitting to data}]
+\begin{minted}{python}
+import numpy as np
+from scipy.integrate import solve_ivp
+from scipy.optimize import minimize
+
+np.random.seed(42)
+N = 10000; beta_true, gamma_true = 0.3, 0.1
+sol_true = solve_ivp(lambda t, y: [-beta_true*y[0]*y[1]/N,
+                     beta_true*y[0]*y[1]/N - gamma_true*y[1],
+                     gamma_true*y[1]],
+                     [0, 100], [N-10, 10, 0],
+                     t_eval=np.arange(0, 100, 7))
+I_obs = sol_true.y[1] + np.random.normal(0, 50, len(sol_true.t))
+I_obs = np.maximum(I_obs, 0)
+
+def cost(params):
+    b, g = params
+    if b <= 0 or g <= 0: return 1e10
+    sol = solve_ivp(lambda t, y: [-b*y[0]*y[1]/N,
+                    b*y[0]*y[1]/N - g*y[1], g*y[1]],
+                    [0, 100], [N-10, 10, 0],
+                    t_eval=np.arange(0, 100, 7))
+    return np.sum((sol.y[1] - I_obs)**2)
+
+result = minimize(cost, [0.2, 0.05], method='Nelder-Mead')
+print(f"beta = {result.x[0]:.4f}, gamma = {result.x[1]:.4f}")
+print(f"Estimated R0 = {result.x[0]/result.x[1]:.2f}")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Limitations of Compartmental Models}
+% ------------------------------------------------------------
+
+\begin{warning}[title=\textbf{Key limitations}]
+\begin{itemize}
+  \item \textbf{Homogeneity:} the population is assumed well-mixed;
+    in reality, contacts are structured (social networks).
+  \item \textbf{Constant parameters:} $\beta$ may vary with seasons,
+    public health measures, and behaviour.
+  \item \textbf{Determinism:} for small case numbers, stochastic
+    models are more appropriate.
+  \item \textbf{Heterogeneity:} age, geography, and comorbidities
+    affect transmission and severity.
+\end{itemize}
+\end{warning}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+For the SIR model with $N=10000$, $\beta=0.4$, $\gamma=0.1$:
+\begin{enumerate}
+  \item Compute $\mathcal{R}_0$ and the herd immunity threshold.
+  \item Simulate the epidemic and determine the epidemic peak.
+  \item Verify the final size equation numerically.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}
+Compare SIR and SEIR dynamics for the same $\beta$ and $\gamma$
+with $\sigma=0.2$.  How does the latency period affect the peak
+and duration of the epidemic?
+\end{exercise}
+
+\begin{exercise}
+Implement a stochastic SIR model (Gillespie algorithm) and compare
+with the deterministic model for $N=100$ and $N=10000$.
+\end{exercise}
+
+\begin{exercise}
+Model a progressive vaccination campaign: $p(t)$ increases linearly
+from 0 to $p_{\max}$ over duration $T_v$.  Compare the total number
+of cases for different values of $T_v$.
+\end{exercise}
+
+\begin{exercise}
+Study the SIRS model with $\beta=0.5$, $\gamma=0.1$, $\delta=0.01$.
+\begin{enumerate}
+  \item Find the endemic equilibrium.
+  \item Show numerically the existence of damped oscillations.
+  \item Compare with a standard SIR model.
+\end{enumerate}
+\end{exercise}

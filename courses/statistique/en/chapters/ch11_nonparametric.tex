@@ -1,0 +1,142 @@
+% ============================================================
+% Chapter 11: Non-Parametric Methods
+% ============================================================
+\chapter{Non-Parametric Methods}
+\label{ch:nonparametric}
+
+\begin{center}
+\textit{``Do not make unnecessary assumptions.''} --- William of Ockham
+\end{center}
+
+\section{Motivating Example}
+A psychologist compares well-being scores (ordinal, 1--10 scale) between meditation and control groups. Data are clearly non-normal. Non-parametric methods provide valid alternatives.
+
+\section{Why Non-Parametric?}
+
+\begin{itemize}
+\item Ordinal or rank data.
+\item Small samples where normality cannot be verified.
+\item Heavily skewed distributions or outliers.
+\item Unknown distribution: no parametric model desired.
+\end{itemize}
+
+\begin{warning}
+Non-parametric tests are generally \textbf{less powerful} than parametric counterparts when parametric assumptions hold, but they are more \textbf{robust}.
+\end{warning}
+
+\section{Sign Test}
+\index{sign test}
+
+For $H_0:\text{median}=m_0$: count $S^+=\#\{i:X_i>m_0\}$. Under $H_0$: $S^+\sim\mathrm{Bin}(n,1/2)$.
+
+\section{Wilcoxon Signed-Rank Test}
+\index{Wilcoxon!signed-rank}
+
+Compute $D_i=X_i-m_0$, rank $|D_i|$, and $W^+=\sum_{\{D_i>0\}} R_i$.
+
+\section{Mann--Whitney / Wilcoxon Rank-Sum Test}
+\index{Mann--Whitney}
+
+Combine and rank both samples. $U_1=\sum R_i - n_1(n_1+1)/2$. For large samples:
+\[
+Z = \frac{U-n_1n_2/2}{\sqrt{n_1n_2(n_1+n_2+1)/12}} \xrightarrow{\mathcal{L}} \mathcal{N}(0,1).
+\]
+
+\section{Kruskal--Wallis Test}
+\index{Kruskal--Wallis}
+
+Extension to $k$ groups: $H = \frac{12}{n(n+1)}\sum R_j^2/n_j - 3(n+1) \sim \chi^2(k-1)$.
+
+\section{Kolmogorov--Smirnov Test}
+\index{Kolmogorov--Smirnov}
+
+One-sample: $D_n=\sup_x|\hat{F}_n(x)-F_0(x)|$. Two-sample: $D_{n_1,n_2}=\sup_x|\hat{F}_{n_1}(x)-\hat{G}_{n_2}(x)|$.
+
+\section{Kernel Density Estimation}
+\index{KDE}\index{kernel density estimation}
+
+\begin{definition}
+$\hat{f}_h(x) = \frac{1}{nh}\sum_{i=1}^n K\!\left(\frac{x-X_i}{h}\right)$, where $K$ is a kernel and $h$ the bandwidth.
+\end{definition}
+
+\begin{intuition}
+Small $h$: noisy (low bias, high variance). Large $h$: smooth (high bias, low variance). The bias-variance tradeoff in density estimation.
+\end{intuition}
+
+\section{Spearman Correlation}
+\index{Spearman correlation}
+
+$r_s = 1-\frac{6\sum d_i^2}{n(n^2-1)}$ where $d_i=\text{rank}(x_i)-\text{rank}(y_i)$. Measures monotonic (not necessarily linear) association.
+
+\section{Python Implementation}
+
+\begin{python}
+\begin{minted}{python}
+import numpy as np
+from scipy import stats
+import matplotlib.pyplot as plt
+
+# Wilcoxon signed-rank
+before = np.array([5.2, 4.8, 6.1, 5.5, 4.9, 5.8, 6.3, 5.1, 4.7, 5.4])
+after = np.array([4.8, 4.2, 5.5, 5.0, 4.3, 5.1, 5.7, 4.5, 4.1, 4.9])
+stat, p = stats.wilcoxon(before, after, alternative='greater')
+print(f"Wilcoxon signed-rank: W={stat:.1f}, p={p:.4f}")
+
+# Mann-Whitney
+A = np.array([23, 25, 28, 30, 27, 24, 26, 29, 31, 22])
+B = np.array([18, 20, 22, 19, 21, 17, 23, 20, 19, 18])
+u, p_mw = stats.mannwhitneyu(A, B, alternative='two-sided')
+print(f"Mann-Whitney: U={u:.1f}, p={p_mw:.4f}")
+
+# Kruskal-Wallis
+h, p_kw = stats.kruskal([6.4,7.1,6.8,7.3,6.9], [8.2,7.9,8.5,8.1,8.4], [5.5,6.2,5.8,6.0,5.7])
+print(f"Kruskal-Wallis: H={h:.4f}, p={p_kw:.4f}")
+
+# KS test
+data = np.random.exponential(2, 50)
+d, p_ks = stats.kstest(data, 'norm', args=(np.mean(data), np.std(data)))
+print(f"KS (normality): D={d:.4f}, p={p_ks:.4f}")
+
+# KDE
+data_kde = np.concatenate([np.random.normal(-2, 0.8, 100), np.random.normal(2, 1.2, 150)])
+x_grid = np.linspace(-6, 7, 300)
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.hist(data_kde, bins=30, density=True, alpha=0.3)
+for bw in [0.2, 0.5, 1.0]:
+    kde = stats.gaussian_kde(data_kde, bw_method=bw)
+    ax.plot(x_grid, kde(x_grid), lw=2, label=f'h={bw}')
+ax.legend(); ax.set_title("Kernel Density Estimation")
+plt.savefig("ch11_kde.pdf"); plt.show()
+
+# Spearman
+x = np.arange(1, 11); y = x**2
+r_s, p_s = stats.spearmanr(x, y)
+print(f"Spearman: r_s={r_s:.4f} (Pearson: {stats.pearsonr(x,y)[0]:.4f})")
+\end{minted}
+\end{python}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+Two algorithms tested on 8 datasets. Is algorithm A significantly faster? (Mann--Whitney)
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Compare Type I error rates of $t$-test and Wilcoxon for log-normal data via simulation.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Implement a Gaussian KDE. Study bandwidth effect on MISE for a Gaussian mixture.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Project]
+Collect non-normal real data. Apply all non-parametric methods from this chapter. Compare with parametric results.
+\end{exercise}
+
+\begin{keyformulas}
+\begin{align*}
+U &= \sum R_i - n_1(n_1+1)/2 & H &= \frac{12}{n(n+1)}\sum R_j^2/n_j-3(n+1) \\
+D_n &= \sup_x|\hat{F}_n(x)-F_0(x)| & r_s &= 1-6\sum d_i^2/[n(n^2-1)] \\
+\hat{f}_h(x) &= \frac{1}{nh}\sum K\!\left(\frac{x-X_i}{h}\right)
+\end{align*}
+\end{keyformulas}

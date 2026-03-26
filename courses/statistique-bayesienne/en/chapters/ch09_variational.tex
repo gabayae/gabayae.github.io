@@ -1,0 +1,332 @@
+% ============================================================
+\chapter{Variational Inference}
+\label{ch:variational}
+% ============================================================
+
+MCMC methods are powerful but slow: each sample depends on the previous one, convergence is difficult to diagnose, and scaling remains problematic. In the 2000s, an alternative emerged: \emph{variational inference}, which transforms the sampling problem into an \emph{optimization} problem. The idea, formalized by Michael Jordan, Tommi Jaakkola, and collaborators, is to search within a family of simple distributions $\mathcal{Q}$ for the one that best approximates the posterior, by minimizing the Kullback--Leibler divergence. David Blei and his students democratized the approach in 2017 with ADVI (Automatic Differentiation Variational Inference), making variational inference as accessible as a function call. Today, it powers variational autoencoders (VAEs) and deep generative models.
+
+\begin{intuition}[title=\textbf{Central idea}]
+Variational inference transforms the Bayesian integration problem
+(computing the posterior) into an \emph{optimization} problem. Instead of
+sampling as in MCMC, we search for the distribution $q^*(\theta)$ in a
+parametric family that best approximates the true posterior $p(\theta \mid x)$.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Motivation and problem setup}
+% ------------------------------------------------------------
+
+In many Bayesian models, the posterior
+\[
+  p(\theta \mid x) = \frac{p(x \mid \theta)\,\pi(\theta)}{p(x)}
+\]
+is intractable because the normalizing constant
+$p(x) = \int p(x \mid \theta)\,\pi(\theta)\,d\theta$ has no closed form.
+MCMC methods provide asymptotically exact solutions but can be prohibitively
+expensive in high dimensions or with large datasets.
+
+\begin{remark}
+Variational inference is often preferred over MCMC when:
+\begin{itemize}
+  \item the dataset is very large ($n > 10^5$),
+  \item a fast approximate answer is acceptable,
+  \item the model has many latent variables (e.g., LDA, VAE).
+\end{itemize}
+\end{remark}
+
+% ------------------------------------------------------------
+\section{KL divergence and the ELBO}
+% ------------------------------------------------------------
+
+\begin{definition}[KL divergence]
+\index{KL divergence}
+Let $q$ and $p$ be two densities on $\Theta$. The \textbf{Kullback--Leibler
+divergence} from $q$ to $p$ is:
+\[
+  \mathrm{KL}(q \| p) = \int q(\theta) \ln \frac{q(\theta)}{p(\theta)}\,d\theta.
+\]
+It satisfies $\mathrm{KL}(q \| p) \geq 0$ with equality if and only if
+$q = p$ almost everywhere.
+\end{definition}
+
+The variational objective is to minimize $\mathrm{KL}(q \| p(\cdot \mid x))$
+over a family $\mathcal{Q}$. Decomposing:
+\[
+  \ln p(x) = \underbrace{\E_q\!\bigl[\ln p(x, \theta) - \ln q(\theta)\bigr]}_{\mathrm{ELBO}(q)}
+              + \mathrm{KL}\bigl(q \| p(\cdot \mid x)\bigr).
+\]
+
+\begin{definition}[ELBO --- Evidence Lower Bound]
+\index{ELBO}
+The \textbf{ELBO} (Evidence Lower Bound) is defined as:
+\[
+  \mathcal{L}(q) = \E_q\!\bigl[\ln p(x, \theta)\bigr] - \E_q\!\bigl[\ln q(\theta)\bigr].
+\]
+Since $\mathrm{KL} \geq 0$, we have $\mathcal{L}(q) \leq \ln p(x)$ for all $q$.
+\end{definition}
+
+\begin{theorem}[Equivalence of objectives]
+Maximizing the ELBO $\mathcal{L}(q)$ with respect to $q \in \mathcal{Q}$
+is equivalent to minimizing $\mathrm{KL}(q \| p(\cdot \mid x))$.
+\end{theorem}
+
+\begin{attention}
+KL divergence is not symmetric: $\mathrm{KL}(q \| p) \neq \mathrm{KL}(p \| q)$.
+Variational inference uses $\mathrm{KL}(q \| p)$ (the ``reverse'' or ``exclusive'' direction),
+which makes $q$ mode-seeking and tend to underestimate the spread of $p$. Expectation
+propagation uses $\mathrm{KL}(p \| q)$ (the ``forward'' or ``inclusive'' direction),
+which makes $q$ cover the full support of $p$.
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Mean-field approximation}
+% ------------------------------------------------------------
+
+\begin{definition}[Mean-field family]
+\index{mean-field}
+Partition $\theta = (\theta_1, \ldots, \theta_K)$ and define:
+\[
+  \mathcal{Q}_{\mathrm{MF}} = \Bigl\{ q : q(\theta) = \prod_{k=1}^K q_k(\theta_k) \Bigr\}.
+\]
+Each factor $q_k$ is free (nonparametric within the factorization).
+\end{definition}
+
+\begin{theorem}[Optimal mean-field update]
+\label{thm:cavi_update}
+Fixing all $q_j$ ($j \neq k$), the optimal factor $q_k^*$ satisfies:
+\[
+  \ln q_k^*(\theta_k) = \E_{q_{-k}}\!\bigl[\ln p(x, \theta)\bigr] + \mathrm{const},
+\]
+where $q_{-k} = \prod_{j \neq k} q_j(\theta_j)$.
+\end{theorem}
+
+\begin{remark}
+For conjugate exponential family models, each $q_k^*$ belongs to the same
+family as the full conditional prior, making the updates analytic.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{CAVI --- Coordinate Ascent Variational Inference}
+% ------------------------------------------------------------
+
+\begin{definition}[CAVI algorithm]
+\index{CAVI}
+The \textbf{CAVI} algorithm cyclically applies the update from
+Theorem~\ref{thm:cavi_update} for $k = 1, \ldots, K$ and monitors
+convergence via the ELBO.
+\end{definition}
+
+\begin{proposition}[Convergence of CAVI]
+Each CAVI update increases (or maintains) the ELBO. The algorithm
+converges to a local maximum of $\mathcal{L}(q)$.
+\end{proposition}
+
+\begin{example}
+Consider a univariate Gaussian model: $x_i \mid \mu, \tau \sim \mathcal{N}(\mu, \tau^{-1})$,
+with $\mu \sim \mathcal{N}(0, \sigma_0^2)$ and $\tau \sim \mathrm{Gamma}(a_0, b_0)$.
+The mean-field approximation $q(\mu, \tau) = q_\mu(\mu)\,q_\tau(\tau)$ gives:
+\begin{align}
+  q_\mu^*(\mu) &= \mathcal{N}\!\left(\frac{n\bar{x}\,\E[\tau]}{n\E[\tau] + \sigma_0^{-2}},\;
+                   \frac{1}{n\E[\tau] + \sigma_0^{-2}}\right), \\
+  q_\tau^*(\tau) &= \mathrm{Gamma}\!\left(a_0 + \tfrac{n}{2},\;
+                   b_0 + \tfrac{1}{2}\sum_{i=1}^n \E_\mu\!\bigl[(x_i - \mu)^2\bigr]\right).
+\end{align}
+The cross-expectations are iterated until convergence.
+\end{example}
+
+% ------------------------------------------------------------
+\section{Stochastic Variational Inference (SVI)}
+% ------------------------------------------------------------
+
+CAVI requires a full pass over all data at each iteration. For large
+datasets, we use \textbf{SVI} (Stochastic Variational Inference).
+
+\begin{definition}[SVI]
+\index{SVI}
+Distinguish \emph{global} variables $\beta$ and \emph{local} variables $z_i$.
+At each iteration:
+\begin{enumerate}
+  \item Sample a mini-batch $S \subset \{1, \ldots, n\}$.
+  \item Update local variational parameters $q(z_i)$ for $i \in S$.
+  \item Compute the natural gradient of the ELBO with respect to the
+        global parameters and take a gradient step.
+\end{enumerate}
+\end{definition}
+
+\begin{proposition}[Natural gradient]
+For an exponential family model, the natural gradient of the ELBO with
+respect to the natural parameters $\lambda$ of $q(\beta)$ is:
+\[
+  \hat{\nabla}_\lambda \mathcal{L} = \lambda_{\mathrm{prior}} + n \cdot
+  \E_{q(z_S)}\!\bigl[t(\beta, x_S, z_S)\bigr] - \lambda,
+\]
+where $t$ is the sufficient statistic and $S$ the mini-batch.
+\end{proposition}
+
+\begin{minted}{python}
+# SVI pseudo-code
+for epoch in range(max_epochs):
+    S = random_minibatch(data, batch_size)
+    # Local update
+    for i in S:
+        q_z[i] = update_local(q_beta, x[i])
+    # Natural gradient for global parameters
+    grad = lambda_prior + (n / len(S)) * sufficient_stats(S) - lam
+    lam = lam + rho * grad  # rho = Robbins-Monro step size
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Reparameterization trick}
+% ------------------------------------------------------------
+
+\begin{definition}[Reparameterization trick]
+\index{reparameterization}
+If $\theta \sim q_\phi(\theta)$ can be written as $\theta = g(\phi, \epsilon)$
+with $\epsilon \sim p(\epsilon)$ independent of $\phi$, then:
+\[
+  \nabla_\phi \E_{q_\phi}\!\bigl[f(\theta)\bigr]
+  = \E_{p(\epsilon)}\!\bigl[\nabla_\phi f(g(\phi, \epsilon))\bigr],
+\]
+which enables backpropagation through the sampling step.
+\end{definition}
+
+\begin{example}
+For $q_\phi(\theta) = \mathcal{N}(\mu, \sigma^2)$, set
+$\theta = \mu + \sigma \epsilon$ with $\epsilon \sim \mathcal{N}(0,1)$.
+This is the foundation of \textbf{Variational Autoencoders} (VAEs).
+\end{example}
+
+% ------------------------------------------------------------
+\section{Comparison with MCMC}
+% ------------------------------------------------------------
+
+\begin{center}
+\begin{tabular}{lcc}
+\hline
+\textbf{Criterion} & \textbf{MCMC} & \textbf{VI} \\
+\hline
+Nature & Sampling & Optimization \\
+Convergence & Exact (asymptotic) & Approximate \\
+Speed & Slow for large $n$ & Fast, scalable \\
+Diagnostics & Traces, $\hat{R}$ & ELBO \\
+Multimodality & Possible (HMC, \ldots) & Difficult \\
+Uncertainty & Faithful & Underestimated (forward KL) \\
+\hline
+\end{tabular}
+\end{center}
+
+\begin{remark}
+In practice, it is recommended to use VI for model exploration and MCMC
+for final inference when accuracy is critical.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Extensions: normalizing flows}
+% ------------------------------------------------------------
+
+One can enrich the variational family $\mathcal{Q}$ by composing
+invertible transformations:
+\[
+  \theta_K = f_K \circ f_{K-1} \circ \cdots \circ f_1(\theta_0),
+  \quad \theta_0 \sim q_0(\theta_0).
+\]
+The resulting density is obtained by the change-of-variables formula:
+\[
+  \ln q_K(\theta_K) = \ln q_0(\theta_0)
+  - \sum_{k=1}^K \ln \abs{\det \frac{\partial f_k}{\partial \theta_{k-1}}}.
+\]
+
+% ------------------------------------------------------------
+\section{Key formulas}
+% ------------------------------------------------------------
+
+\begin{keyformulas}
+\begin{align}
+  \text{ELBO:} \quad & \mathcal{L}(q) = \E_q[\ln p(x,\theta)] - \E_q[\ln q(\theta)] \\
+  \text{Decomposition:} \quad & \ln p(x) = \mathcal{L}(q) + \mathrm{KL}(q \| p(\cdot \mid x)) \\
+  \text{Mean field:} \quad & \ln q_k^*(\theta_k) = \E_{q_{-k}}[\ln p(x,\theta)] + C \\
+  \text{Reparam.:} \quad & \nabla_\phi \E_{q_\phi}[f(\theta)]
+    = \E_\epsilon[\nabla_\phi f(g(\phi,\epsilon))]
+\end{align}
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+Show that $\mathrm{KL}(q \| p) \geq 0$ using Jensen's inequality.
+Deduce that the ELBO is indeed a lower bound on $\ln p(x)$.
+\end{exercise}
+
+\begin{exercise}
+Consider the model: $x_i \mid \mu \sim \mathcal{N}(\mu, 1)$, $i=1,\ldots,n$,
+with $\mu \sim \mathcal{N}(0, \sigma_0^2)$. Compute the ELBO for
+$q(\mu) = \mathcal{N}(m, s^2)$ and maximize it analytically in $m$ and $s^2$.
+Verify that you recover the exact posterior.
+\end{exercise}
+
+\begin{exercise}
+Implement the CAVI algorithm for the Gaussian model with unknown precision
+from the example above. Plot the ELBO evolution across iterations.
+\end{exercise}
+
+\begin{exercise}
+Experimentally compare (in Python) the mean-field variational approximation
+and the Gibbs sampler for a two-component Gaussian mixture. Discuss the
+observed differences in uncertainty estimation.
+\end{exercise}
+
+\begin{exercise}[ELBO computation for a Gaussian model]
+Consider the model:
+$x_1, \ldots, x_n \mid \mu, \sigma^2 \sim \mathcal{N}(\mu, \sigma^2)$
+with $\sigma^2$ known, and the prior $\mu \sim \mathcal{N}(\mu_0, \tau_0^2)$.
+Let $q(\mu) = \mathcal{N}(m, s^2)$ be the variational family.
+\begin{enumerate}
+  \item Write the ELBO $\mathcal{L}(m, s^2) =
+        \E_q[\ln p(x_{1:n}, \mu)] - \E_q[\ln q(\mu)]$ explicitly as a
+        function of $m$, $s^2$, $\mu_0$, $\tau_0^2$, $\sigma^2$,
+        $\bar{x}$, and $n$.
+  \item Maximize $\mathcal{L}$ with respect to $m$ and $s^2$ and show
+        that the exact posterior $\mathcal{N}(m^*, (s^*)^2)$ is recovered.
+  \item Evaluate the ELBO at the optimum and verify that
+        $\mathcal{L}(m^*, (s^*)^2) = \ln p(x_{1:n})$ (the KL vanishes).
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Mean-field update for a linear model]
+Consider the Bayesian linear regression model:
+$y \mid X, \beta, \tau \sim \mathcal{N}(X\beta, \tau^{-1} I_n)$,
+$\beta \sim \mathcal{N}(0, \alpha^{-1} I_p)$,
+$\tau \sim \mathrm{Gamma}(a_0, b_0)$, with $\alpha$ fixed.
+Set $q(\beta, \tau) = q_\beta(\beta)\,q_\tau(\tau)$.
+\begin{enumerate}
+  \item Derive the optimal update $q_\beta^*(\beta)$ by computing
+        $\E_{q_\tau}[\ln p(y, \beta, \tau)]$ and show that
+        $q_\beta^*(\beta) = \mathcal{N}(\mu_\beta, \Sigma_\beta)$
+        with $\Sigma_\beta = (\E[\tau]\,X^\top X + \alpha I_p)^{-1}$
+        and $\mu_\beta = \E[\tau]\,\Sigma_\beta\,X^\top y$.
+  \item Derive $q_\tau^*(\tau) = \mathrm{Gamma}(a_n, b_n)$ by
+        computing $\E_{q_\beta}[\ln p(y, \beta, \tau)]$.
+        Express $a_n$ and $b_n$.
+  \item Implement the resulting CAVI algorithm and verify ELBO
+        convergence on simulated data.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Comparison of VI quality metrics]
+Let $p(\theta \mid x)$ be a bimodal posterior (mixture of two Gaussians
+in one dimension) and $q(\theta) = \mathcal{N}(m, s^2)$.
+\begin{enumerate}
+  \item Numerically compute $\mathrm{KL}(q \| p)$ (reverse KL) and
+        $\mathrm{KL}(p \| q)$ (forward KL) for various values of $m$
+        and $s$. Graphically illustrate the respective minimizers.
+  \item Show that the minimizer of $\mathrm{KL}(q \| p)$ concentrates
+        on a single mode (``mode-seeking''), while the minimizer of
+        $\mathrm{KL}(p \| q)$ covers both modes (``mass-covering'').
+  \item Also compute the chi-squared divergence
+        $\chi^2(q \| p) = \int \frac{(q - p)^2}{p}\,d\theta$ and the
+        Wasserstein distance $W_2(q, p)$. Compare the variational
+        approximations obtained by minimizing these four metrics.
+\end{enumerate}
+\end{exercise}

@@ -1,0 +1,130 @@
+% ============================================================
+% Chapter 9: Multiple Regression and ANOVA
+% ============================================================
+\chapter{Multiple Linear Regression and ANOVA}
+\label{ch:multiple-regression}
+
+\begin{center}
+\textit{``In science, reality is rarely one-dimensional.''}
+\end{center}
+
+\section{Motivating Example}
+Predict apartment price from area, number of rooms, floor, and distance to city center.
+
+\section{Matrix Model}
+
+\begin{definition}[General Linear Model]
+\index{linear regression!multiple}
+$\mathbf{Y} = \mathbf{X}\bm{\beta} + \bm{\varepsilon}$, with $\bm{\varepsilon}\sim\mathcal{N}(\mathbf{0},\sigma^2\mathbf{I}_n)$.
+\end{definition}
+
+\section{OLS Estimation}
+
+\begin{theorem}
+$\hat{\bm{\beta}} = (\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{Y}$, with $\Cov(\hat{\bm{\beta}})=\sigma^2(\mathbf{X}^\top\mathbf{X})^{-1}$.
+\end{theorem}
+
+\begin{definition}[Hat Matrix]
+\index{hat matrix}
+$\mathbf{H}=\mathbf{X}(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top$: $\hat{\mathbf{Y}}=\mathbf{H}\mathbf{Y}$, $\mathbf{e}=(\mathbf{I}-\mathbf{H})\mathbf{Y}$.
+\end{definition}
+
+\section{Inference}
+
+Individual: $T_j = \hat{\beta}_j/\mathrm{SE}(\hat{\beta}_j) \sim t(n-p)$.
+
+Global $F$-test: $F = \frac{R^2/(p-1)}{(1-R^2)/(n-p)} \sim F(p-1,n-p)$.
+
+\begin{definition}[Adjusted $R^2$]
+\index{adjusted R-squared}
+$R^2_{\mathrm{adj}} = 1-\frac{n-1}{n-p}(1-R^2)$.
+\end{definition}
+
+Nested model comparison:
+$F = \frac{(\text{SSE}_{\text{red}}-\text{SSE}_{\text{full}})/(p-q)}{\text{SSE}_{\text{full}}/(n-p)} \sim F(p-q,n-p)$.
+
+\section{One-Way ANOVA}
+\index{ANOVA}
+
+\begin{definition}
+$Y_{ij} = \mu + \alpha_j + \varepsilon_{ij}$, $H_0:\alpha_1=\cdots=\alpha_k=0$.
+\end{definition}
+
+\begin{theorem}[ANOVA Table]
+\begin{center}
+\begin{tabular}{lccl}
+\toprule
+\textbf{Source} & \textbf{SS} & \textbf{df} & \textbf{$F$} \\
+\midrule
+Factor & $\text{SSB}=\sum n_j(\bar{Y}_j-\bar{Y})^2$ & $k-1$ & $F=\text{MSB}/\text{MSW}$ \\
+Residual & $\text{SSW}=\sum\sum(Y_{ij}-\bar{Y}_j)^2$ & $n-k$ & \\
+Total & SST & $n-1$ & \\
+\bottomrule
+\end{tabular}
+\end{center}
+Under $H_0$: $F\sim F(k-1,n-k)$.
+\end{theorem}
+
+\begin{warning}
+After rejecting $H_0$, use multiple comparison corrections (Bonferroni, Tukey HSD) to identify which groups differ.
+\end{warning}
+
+\section{Python Implementation}
+
+\begin{python}
+\begin{minted}{python}
+import numpy as np
+import pandas as pd
+import statsmodels.api as sm
+from statsmodels.formula.api import ols
+from scipy import stats
+
+# Multiple regression
+np.random.seed(42)
+n = 50
+df = pd.DataFrame({
+    'area': np.random.uniform(25, 120, n),
+    'rooms': np.random.randint(1, 6, n),
+    'floor': np.random.randint(0, 10, n)
+})
+df['price'] = 30 + 2.5*df['area'] + 15*df['rooms'] + 3*df['floor'] + np.random.normal(0, 15, n)
+X = sm.add_constant(df[['area', 'rooms', 'floor']])
+model = sm.OLS(df['price'], X).fit()
+print(model.summary())
+
+# One-way ANOVA
+A = [20.1, 21.5, 19.8, 22.0, 20.5, 21.2]
+B = [23.4, 24.1, 22.8, 23.9, 24.5, 23.2]
+C = [19.5, 20.2, 18.9, 20.8, 19.1, 20.5]
+f_stat, p_val = stats.f_oneway(A, B, C)
+print(f"ANOVA: F={f_stat:.4f}, p={p_val:.6f}")
+
+# Tukey HSD
+from statsmodels.stats.multicomp import pairwise_tukeyhsd
+df_a = pd.DataFrame({'y': A+B+C, 'g': ['A']*6+['B']*6+['C']*6})
+print(pairwise_tukeyhsd(df_a['y'], df_a['g'], alpha=0.05))
+\end{minted}
+\end{python}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+Fit a multiple regression for car price on year, mileage, and horsepower. Interpret coefficients.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Show that $\mathbf{H}$ is idempotent and symmetric.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Project]
+Compare models using AIC, BIC, $R^2_{\mathrm{adj}}$, and cross-validation.
+\end{exercise}
+
+\begin{keyformulas}
+\begin{align*}
+\hat{\bm{\beta}} &= (\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{Y} \\
+F_{\text{global}} &= \frac{R^2/(p-1)}{(1-R^2)/(n-p)} \\
+R^2_{\mathrm{adj}} &= 1-\frac{n-1}{n-p}(1-R^2) \\
+F_{\text{ANOVA}} &= \text{MSB}/\text{MSW} \sim F(k-1,n-k)
+\end{align*}
+\end{keyformulas}

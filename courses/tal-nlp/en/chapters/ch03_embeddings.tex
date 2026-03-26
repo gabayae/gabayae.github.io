@@ -1,0 +1,343 @@
+% ============================================================
+\chapter{Word Embeddings}
+\label{ch:embeddings}
+% ============================================================
+
+In 2013, Tomas Mikolov and his team at Google published a paper that would transform natural language processing: \emph{Efficient Estimation of Word Representations in Vector Space}. The idea was to train a shallow neural network to predict words from their context (or vice versa) and use the learned weights as vector representations of words. The result, Word2Vec, revealed a stunning geometric structure: semantic analogies become \emph{vector operations}. The vector ``king'' $-$ ``man'' $+$ ``woman'' points to ``queen.'' Geometry captures meaning.
+
+But Word2Vec did not emerge from nothing. It belongs to a long tradition founded on the \emph{distributional hypothesis} of J.R.\ Firth (1957): ``you shall know a word by the company it keeps.'' This chapter traces the path from co-occurrence matrices to dense embeddings, through latent semantic analysis and GloVe.
+
+\begin{intuition}[title=\textbf{The distributional hypothesis}]
+``You shall know a word by the company it keeps'' (J.R.\ Firth, 1957). Word
+embeddings are dense vector representations that capture semantic similarity:
+words appearing in similar contexts have nearby vectors.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{From Sparse to Dense Representations}
+\label{sec:emb:motivation}
+% ------------------------------------------------------------
+
+Recall that a one-hot representation encodes each word $w_i$ as a vector
+$\mathbf{e}_i \in \R^V$ with $(\mathbf{e}_i)_j = \delta_{ij}$. This
+representation has two major drawbacks:
+\begin{enumerate}
+    \item \textbf{Dimensionality}: $V$ can reach $10^5$ to $10^6$.
+    \item \textbf{Orthogonality}: $\inner{\mathbf{e}_i}{\mathbf{e}_j} = 0$
+          for $i \neq j$, even for synonyms.
+\end{enumerate}
+
+The goal of embeddings is to learn a function
+$\phi : \mathcal{V} \to \R^d$ with $d \ll V$ (typically $d \in [100, 300]$)
+such that geometric proximity reflects semantic similarity.
+
+% ------------------------------------------------------------
+\section{Word2Vec}
+\label{sec:emb:word2vec}
+% ------------------------------------------------------------
+
+\subsection{CBOW Architecture}
+
+\begin{definition}[Continuous Bag of Words (CBOW)]
+The CBOW model predicts the center word $w_t$ from its context
+$C_t = \{w_{t-c}, \ldots, w_{t-1}, w_{t+1}, \ldots, w_{t+c}\}$ where $c$ is
+the window size. The objective is to maximize:
+\[
+\mathcal{L}_{\text{CBOW}} = \sum_{t=1}^{T} \log P(w_t \mid C_t)
+\]
+with:
+\[
+P(w_t \mid C_t) = \frac{\exp(\inner{\mathbf{v}_{w_t}}{\bar{\mathbf{u}}_{C_t}})}{\sum_{w \in \mathcal{V}} \exp(\inner{\mathbf{v}_w}{\bar{\mathbf{u}}_{C_t}})}
+\]
+where $\bar{\mathbf{u}}_{C_t} = \frac{1}{2c} \sum_{w \in C_t} \mathbf{u}_w$
+is the average of context vectors.
+\end{definition}
+
+\subsection{Skip-gram Architecture}
+
+\begin{definition}[Skip-gram]
+The Skip-gram model predicts context words from the center word. The objective
+is to maximize:
+\[
+\mathcal{L}_{\text{SG}} = \sum_{t=1}^{T} \sum_{\substack{j=-c \\ j \neq 0}}^{c} \log P(w_{t+j} \mid w_t)
+\]
+with:
+\[
+P(w_o \mid w_i) = \frac{\exp(\inner{\mathbf{v}_{w_o}}{\mathbf{u}_{w_i}})}{\sum_{w \in \mathcal{V}} \exp(\inner{\mathbf{v}_w}{\mathbf{u}_{w_i}})}
+\]
+\end{definition}
+
+\begin{warning}[title=\textbf{Softmax cost}]
+The softmax denominator requires a sum over the entire vocabulary $V$, which
+is prohibitive. Two common approximations are used: negative sampling and
+hierarchical softmax.
+\end{warning}
+
+\subsection{Negative Sampling (NEG)}
+
+\begin{definition}[Negative Sampling]
+The negative sampling objective replaces the softmax with:
+\[
+\mathcal{L}_{\text{NEG}} = \log \sigma(\inner{\mathbf{v}_{w_o}}{\mathbf{u}_{w_i}}) + \sum_{k=1}^{K} \E_{w_k \sim P_n} \left[\log \sigma(-\inner{\mathbf{v}_{w_k}}{\mathbf{u}_{w_i}})\right]
+\]
+where $K$ is the number of negative examples and $P_n(w) \propto \text{count}(w)^{3/4}$.
+\end{definition}
+
+\begin{theorem}[NEG-PMI Equivalence]
+\label{thm:neg-pmi}
+Levy and Goldberg (2014) showed that Skip-gram with negative sampling
+implicitly factorizes a shifted PMI matrix:
+\[
+\mathbf{u}_w^\top \mathbf{v}_c = \text{PMI}(w, c) - \log K
+\]
+where $\text{PMI}(w, c) = \log \frac{P(w, c)}{P(w) P(c)}$ is the pointwise
+mutual information.
+\end{theorem}
+
+% ------------------------------------------------------------
+\section{GloVe}
+\label{sec:emb:glove}
+% ------------------------------------------------------------
+
+\begin{definition}[GloVe]
+The GloVe model (Pennington et al., 2014) learns embeddings by minimizing the
+weighted squared error on the co-occurrence matrix:
+\[
+\mathcal{L}_{\text{GloVe}} = \sum_{i,j=1}^{V} f(X_{ij}) \left(\inner{\mathbf{u}_i}{\mathbf{v}_j} + b_i + c_j - \log X_{ij}\right)^2
+\]
+where $X_{ij}$ is the co-occurrence count, $b_i, c_j$ are biases, and $f$ is a
+weighting function:
+\[
+f(x) = \begin{cases}
+(x / x_{\max})^\alpha & \text{if } x < x_{\max} \\
+1 & \text{otherwise}
+\end{cases}
+\]
+with typically $x_{\max} = 100$ and $\alpha = 0.75$.
+\end{definition}
+
+\begin{remark}
+GloVe combines the advantages of global methods (matrix factorization) and
+local methods (context window). The GloVe objective is equivalent to a
+factorization of the log-co-occurrence matrix.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{FastText}
+\label{sec:emb:fasttext}
+% ------------------------------------------------------------
+
+\begin{definition}[FastText]
+FastText (Bojanowski et al., 2017) enriches Skip-gram by representing each word
+as the sum of its character $n$-grams. For a word $w$ with $n$-gram set
+$\mathcal{G}_w$:
+\[
+\mathbf{u}_w = \sum_{g \in \mathcal{G}_w} \mathbf{z}_g
+\]
+where $\mathbf{z}_g \in \R^d$ is the vector of $n$-gram $g$.
+\end{definition}
+
+\begin{bestpractice}[title=\textbf{FastText advantages}]
+\begin{itemize}
+    \item Handles out-of-vocabulary (OOV) words via $n$-gram decomposition.
+    \item Captures morphology (prefixes, suffixes).
+    \item Particularly effective for morphologically rich languages (Turkish,
+          Finnish, Arabic).
+\end{itemize}
+\end{bestpractice}
+
+% ------------------------------------------------------------
+\section{Geometric Properties}
+\label{sec:emb:geometry}
+% ------------------------------------------------------------
+
+\subsection{Vector Analogies}
+
+One of the most remarkable properties of embeddings is their ability to capture
+semantic relations through arithmetic operations:
+
+\begin{example}
+\[
+\mathbf{v}_{\text{king}} - \mathbf{v}_{\text{man}} + \mathbf{v}_{\text{woman}} \approx \mathbf{v}_{\text{queen}}
+\]
+\end{example}
+
+Formally, to solve the analogy $a : b :: c : ?$, we seek:
+\[
+d^* = \argmax_{d \in \mathcal{V} \setminus \{a,b,c\}} \cos(\mathbf{v}_d, \mathbf{v}_b - \mathbf{v}_a + \mathbf{v}_c)
+\]
+
+\begin{theorem}[Linear Structure of Analogies]
+Under the assumption that embeddings factorize a PMI matrix
+(Theorem~\ref{thm:neg-pmi}), regular semantic relations manifest as linear
+directions in embedding space:
+\[
+\mathbf{v}_b - \mathbf{v}_a \approx \mathbf{v}_{b'} - \mathbf{v}_{a'}
+\]
+for all pairs $(a, b)$ and $(a', b')$ sharing the same relation.
+\end{theorem}
+
+\subsection{t-SNE Visualization}
+
+\begin{codeblock}[title=\textbf{Embedding visualization}]
+\begin{minted}{python}
+import numpy as np
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
+from gensim.models import KeyedVectors
+
+# Load pre-trained embeddings
+wv = KeyedVectors.load_word2vec_format('GoogleNews-vectors.bin', binary=True)
+words = ['king', 'queen', 'man', 'woman', 'prince', 'princess',
+         'paris', 'france', 'berlin', 'germany', 'rome', 'italy']
+vectors = np.array([wv[w] for w in words])
+
+tsne = TSNE(n_components=2, random_state=42, perplexity=5)
+coords = tsne.fit_transform(vectors)
+
+plt.figure(figsize=(10, 8))
+for i, word in enumerate(words):
+    plt.scatter(coords[i, 0], coords[i, 1])
+    plt.annotate(word, (coords[i, 0]+0.5, coords[i, 1]+0.5))
+plt.title("t-SNE Visualization of Word2Vec Embeddings")
+plt.show()
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Embedding Evaluation}
+\label{sec:emb:evaluation}
+% ------------------------------------------------------------
+
+\subsection{Intrinsic Evaluation}
+
+\begin{itemize}
+    \item \textbf{Analogies}: accuracy on analogy benchmarks (Google analogy
+          dataset, BATS).
+    \item \textbf{Similarity}: Spearman correlation between cosine similarity
+          and human judgments (SimLex-999, WordSim-353).
+\end{itemize}
+
+\subsection{Extrinsic Evaluation}
+
+Performance of embeddings as features in downstream tasks: sentiment
+classification, NER, word sense disambiguation.
+
+\begin{keyformulas}[title=\textbf{Embedding evaluation metrics}]
+\begin{align}
+\text{Analogy accuracy} &= \frac{\text{correct analogies}}{\text{total analogies}} \\
+\rho_{\text{Spearman}} &= 1 - \frac{6 \sum_i d_i^2}{n(n^2 - 1)} & \text{(rank correlation)}
+\end{align}
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Bias in Embeddings}
+\label{sec:emb:bias}
+% ------------------------------------------------------------
+
+Embeddings learned from large text corpora inherit societal biases present in
+the data.
+
+\begin{example}
+Bolukbasi et al.\ (2016) showed that:
+\[
+\mathbf{v}_{\text{computer programmer}} - \mathbf{v}_{\text{man}} + \mathbf{v}_{\text{woman}} \approx \mathbf{v}_{\text{homemaker}}
+\]
+This result reflects gender stereotypes present in the training corpora.
+\end{example}
+
+\begin{definition}[Debiasing by Projection]
+The debiasing method of Bolukbasi et al.\ consists of:
+\begin{enumerate}
+    \item Identifying the bias direction $\mathbf{g}$ (via PCA on gender pairs).
+    \item Projecting neutral words orthogonally to $\mathbf{g}$:
+          $\mathbf{v}_w' = \mathbf{v}_w - \inner{\mathbf{v}_w}{\mathbf{g}} \mathbf{g}$.
+    \item Equalizing definitional pairs.
+\end{enumerate}
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Contextual vs.\ Static Embeddings}
+\label{sec:emb:contextual}
+% ------------------------------------------------------------
+
+Static embeddings (Word2Vec, GloVe, FastText) assign a single vector to each
+word, regardless of context. This is problematic for polysemous words:
+
+\begin{example}
+The word ``bank'' can refer to a financial institution or the side of a river.
+A static embedding represents both senses with a single vector, which is a
+compromise between the two.
+\end{example}
+
+Contextual embeddings (ELMo, BERT, GPT) solve this problem by producing
+different representations depending on context. They will be studied in
+Chapter~\ref{ch:pretrained}.
+
+% ------------------------------------------------------------
+\section{Complete Implementation}
+\label{sec:emb:implementation}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Skip-gram training with PyTorch}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+
+class SkipGram(nn.Module):
+    def __init__(self, vocab_size, embed_dim):
+        super().__init__()
+        self.target_embed = nn.Embedding(vocab_size, embed_dim)
+        self.context_embed = nn.Embedding(vocab_size, embed_dim)
+
+    def forward(self, target, context, negatives):
+        # target: (B,), context: (B,), negatives: (B, K)
+        t = self.target_embed(target)          # (B, d)
+        c = self.context_embed(context)        # (B, d)
+        n = self.context_embed(negatives)      # (B, K, d)
+
+        # Positive score
+        pos_score = torch.sum(t * c, dim=1)    # (B,)
+        pos_loss = -torch.log(torch.sigmoid(pos_score) + 1e-10)
+
+        # Negative scores
+        neg_score = torch.bmm(n, t.unsqueeze(2)).squeeze(2)  # (B, K)
+        neg_loss = -torch.log(torch.sigmoid(-neg_score) + 1e-10).sum(1)
+
+        return (pos_loss + neg_loss).mean()
+
+model = SkipGram(vocab_size=50000, embed_dim=300)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+\label{sec:emb:exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}[$\star$]
+Show that the cosine similarity between two one-hot vectors is zero for
+different words.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Derive the gradient of the Skip-gram objective with negative sampling with
+respect to vectors $\mathbf{u}_{w_i}$ and $\mathbf{v}_{w_o}$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Show that the GloVe objective is equivalent to a weighted matrix factorization
+of the matrix $\log X_{ij}$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Train Word2Vec embeddings (using \texttt{gensim}) on an English corpus
+(Wikipedia). Evaluate the analogies ``king -- man + woman = ?'' and
+``Paris -- France + Germany = ?''.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+Implement the debiasing method of Bolukbasi et al.\ (2016). Measure gender
+bias before and after correction on a set of profession-related words.
+\end{exercise}

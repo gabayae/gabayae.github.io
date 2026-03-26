@@ -1,0 +1,298 @@
+% =============================================================================
+\chapter{RL Multi-Agents}
+\label{ch:multi_agents}
+% =============================================================================
+
+Que se passe-t-il quand plusieurs agents apprennent simultan\'ement dans le m\^eme environnement~? La question est fondamentale~: le monde r\'eel est peupl\'e d'agents en interaction --- joueurs d'\'echecs, robots dans un entrep\^ot, v\'ehicules autonomes sur une route, algorithmes de trading sur un march\'e. Le passage du MDP (un seul agent) au \emph{jeu stochastique} (plusieurs agents) introduit des d\'efis redoutables~: l'environnement devient \emph{non-stationnaire} du point de vue de chaque agent (puisque les autres agents apprennent aussi), et l'espace d'action conjoint explose combinatoirement. Les travaux de Littman (1994) sur les jeux de Markov, puis de Lowe et al.\ (MADDPG, 2017) et de Rashid et al.\ (QMIX, 2018), ont ouvert la voie \`a des m\'ethodes qui \'equilibrent centralisation et d\'ecentralisation.
+
+\begin{intuition}
+L'apprentissage par renforcement multi-agents (MARL) \'etend le cadre MDP \`a
+des syst\`emes o\`u plusieurs agents interagissent. Les agents peuvent \^etre
+coop\'eratifs, comp\'etitifs ou mixtes. La non-stationnarit\'e de l'environnement
+(du point de vue de chaque agent) et la dimensionnalit\'e croissante de l'espace
+d'action conjoint posent des d\'efis fondamentaux.
+\end{intuition}
+
+% -----------------------------------------------------------------------------
+\section{Jeux stochastiques et cadres formels}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Jeu de Markov (\emph{Markov Game})]
+Un \textbf{jeu de Markov} \`a $N$ joueurs est un tuple
+$(\mathcal{S}, \{\mathcal{A}_i\}_{i=1}^N, P, \{R_i\}_{i=1}^N, \gamma)$ o\`u~:
+\begin{itemize}
+    \item $\mathcal{S}$ est l'espace d'\'etats global,
+    \item $\mathcal{A}_i$ est l'espace d'actions de l'agent $i$,
+    \item $P(s' | s, a_1, \ldots, a_N)$ est la transition jointe,
+    \item $R_i(s, a_1, \ldots, a_N)$ est la r\'ecompense de l'agent $i$,
+    \item $\gamma$ est le facteur d'actualisation commun.
+\end{itemize}
+\end{definition}
+
+\begin{definition}[Types de jeux]
+\begin{itemize}
+    \item \textbf{Coop\'eratif (\'equipe)}~: $R_1 = R_2 = \cdots = R_N$.
+    \item \textbf{Comp\'etitif (somme nulle)}~: $\sum_{i=1}^N R_i = 0$.
+    \item \textbf{Mixte (somme g\'en\'erale)}~: pas de contrainte sur les $R_i$.
+\end{itemize}
+\end{definition}
+
+\begin{definition}[\'Equilibre de Nash]
+Un profil de politiques $(\pi_1^*, \ldots, \pi_N^*)$ est un \textbf{\'equilibre de Nash}
+si pour tout agent $i$ et toute politique alternative $\pi_i$~:
+\[
+    V_i^{\pi_1^*, \ldots, \pi_i^*, \ldots, \pi_N^*}(s)
+    \geq V_i^{\pi_1^*, \ldots, \pi_i, \ldots, \pi_N^*}(s)
+    \quad \forall s \in \mathcal{S}.
+\]
+Aucun agent ne peut am\'eliorer unilat\'eralement sa performance.
+\end{definition}
+
+% -----------------------------------------------------------------------------
+\section{D\'efis du MARL}
+% -----------------------------------------------------------------------------
+
+\begin{attention}[title=\textbf{D\'efis fondamentaux}]
+\begin{enumerate}
+    \item \textbf{Non-stationnarit\'e}~: du point de vue de l'agent $i$, l'environnement
+    inclut les autres agents qui apprennent simultan\'ement $\Rightarrow$ les garanties
+    de convergence du RL \`a un agent ne s'appliquent plus.
+    \item \textbf{Explosion combinatoire}~: l'espace d'actions conjoint est
+    $\mathcal{A}_1 \times \cdots \times \mathcal{A}_N$, de taille exponentielle en $N$.
+    \item \textbf{Attribution du cr\'edit}~: dans un cadre coop\'eratif, il est difficile
+    d'attribuer la r\'ecompense d'\'equipe aux contributions individuelles.
+    \item \textbf{Observabilit\'e partielle}~: chaque agent n'observe souvent qu'une
+    partie de l'\'etat global.
+\end{enumerate}
+\end{attention}
+
+% -----------------------------------------------------------------------------
+\section{Paradigmes d'entra\^inement}
+% -----------------------------------------------------------------------------
+
+\subsection{Apprentissage ind\'ependant (IQL)}
+
+\begin{definition}[Independent Q-Learning]
+Chaque agent $i$ ex\'ecute son propre algorithme de Q-Learning en traitant les
+autres agents comme faisant partie de l'environnement~:
+\[
+    Q_i(s, a_i) \leftarrow Q_i(s, a_i) + \alpha\left[
+    r_i + \gamma \max_{a'_i} Q_i(s', a'_i) - Q_i(s, a_i)\right].
+\]
+Simple mais ne converge pas en g\'en\'eral \`a cause de la non-stationnarit\'e.
+\end{definition}
+
+\subsection{CTDE --- Centralized Training, Decentralized Execution}
+
+\begin{definition}[CTDE]
+Le paradigme \textbf{CTDE} autorise l'acc\`es \`a l'information globale pendant
+l'entra\^inement, mais chaque agent n'utilise que ses observations locales lors
+de l'ex\'ecution~:
+\begin{itemize}
+    \item \textbf{Entra\^inement centralis\'e}~: les critiques ont acc\`es \`a
+    l'\'etat global $s$ et/ou aux actions jointes $(a_1, \ldots, a_N)$.
+    \item \textbf{Ex\'ecution d\'ecentralis\'ee}~: chaque acteur $\pi_i$ ne
+    d\'epend que de l'observation locale $o_i$.
+\end{itemize}
+\end{definition}
+
+% -----------------------------------------------------------------------------
+\section{MADDPG}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[MADDPG]
+\textbf{MADDPG} (Lowe et al., 2017) applique le paradigme CTDE avec~:
+\begin{itemize}
+    \item Un acteur d\'ecentralis\'e par agent~: $\mu_{\theta_i}(o_i)$.
+    \item Un critique centralis\'e par agent~: $Q_{\phi_i}(s, a_1, \ldots, a_N)$.
+\end{itemize}
+La mise \`a jour du critique de l'agent $i$ est~:
+\[
+    L(\phi_i) = \E\left[\left(r_i + \gamma Q_{\phi_i^-}(s', a'_1, \ldots, a'_N)
+    - Q_{\phi_i}(s, a_1, \ldots, a_N)\right)^2\right]
+\]
+o\`u $a'_j = \mu_{\theta_j^-}(o_j')$ pour tout $j$.
+\end{definition}
+
+% -----------------------------------------------------------------------------
+\section{QMIX et d\'ecomposition de la valeur}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[QMIX]
+\textbf{QMIX} (Rashid et al., 2018) apprend une fonction de valeur jointe
+$Q_{\text{tot}}$ d\'ecomposable de mani\`ere monotone~:
+\[
+    Q_{\text{tot}}(s, \mathbf{a}) = f_\theta(Q_1(o_1, a_1), \ldots, Q_N(o_N, a_N), s)
+\]
+o\`u $f_\theta$ est un r\'eseau de m\'elange (\emph{mixing network}) avec des poids
+positifs (garantissant la monotonie)~:
+\[
+    \frac{\partial Q_{\text{tot}}}{\partial Q_i} \geq 0 \quad \forall i.
+\]
+Cela permet l'ex\'ecution d\'ecentralis\'ee~: $a_i^* = \argmax_{a_i} Q_i(o_i, a_i)$.
+\end{definition}
+
+\begin{theoreme}[Condition de factorisation IGM]
+La condition IGM (\emph{Individual-Global-Max})~:
+\[
+    \argmax_{\mathbf{a}} Q_{\text{tot}}(s, \mathbf{a}) =
+    \left(\argmax_{a_1} Q_1(o_1, a_1), \ldots, \argmax_{a_N} Q_N(o_N, a_N)\right)
+\]
+est satisfaite si $Q_{\text{tot}}$ est monotone en chaque $Q_i$.
+\end{theoreme}
+
+% -----------------------------------------------------------------------------
+\section{MAPPO}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[MAPPO]
+\textbf{MAPPO} (Yu et al., 2022) applique PPO au cadre multi-agents avec
+partage de param\`etres~:
+\begin{itemize}
+    \item Acteurs partageant les m\^emes param\`etres $\theta$ (avec un identifiant d'agent en entr\'ee).
+    \item Critique centralis\'e $V_\phi(s)$ (ou $V_\phi(o_i, s)$).
+    \item GAE calcul\'e ind\'ependamment pour chaque agent.
+\end{itemize}
+Malgr\'e sa simplicit\'e, MAPPO atteint des performances comp\'etitives sur de
+nombreux benchmarks coop\'eratifs.
+\end{definition}
+
+% -----------------------------------------------------------------------------
+\section{Communication apprise}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[CommNet]
+\textbf{CommNet} (Sukhbaatar et al., 2016) permet aux agents de communiquer
+par un canal continu. \`A chaque couche $l$~:
+\[
+    h_i^{l+1} = \sigma\left(W^l h_i^l + C^l \frac{1}{N-1}\sum_{j \neq i} h_j^l\right)
+\]
+o\`u $h_i^l$ est la repr\'esentation cach\'ee de l'agent $i$ et $C^l$ est la
+matrice de communication.
+\end{definition}
+
+% -----------------------------------------------------------------------------
+\section{Self-Play}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Auto-jeu (\emph{Self-Play})]
+Dans les jeux comp\'etitifs, l'\textbf{auto-jeu} entra\^ine un agent contre
+des copies de lui-m\^eme (\'eventuellement pass\'ees). Cela g\'en\`ere un
+curriculum naturel~: \`a mesure que l'agent s'am\'eliore, ses adversaires
+deviennent plus forts.
+\end{definition}
+
+\begin{remarque}
+AlphaGo Zero et AlphaZero utilisent l'auto-jeu combin\'e avec MCTS
+(\emph{Monte Carlo Tree Search}) et un r\'eseau de neurones profond pour
+apprendre sans aucune donn\'ee humaine.
+\end{remarque}
+
+% -----------------------------------------------------------------------------
+\section{Impl\'ementation --- MARL simple}
+% -----------------------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Independent Q-Learning multi-agents}]
+\begin{minted}{python}
+import numpy as np
+
+class IndependentQLearner:
+    def __init__(self, n_agents, obs_sizes, n_actions,
+                 alpha=0.1, gamma=0.99, epsilon=0.1):
+        self.n_agents = n_agents
+        self.Q = [np.zeros((obs_sizes[i], n_actions))
+                  for i in range(n_agents)]
+        self.alpha = alpha
+        self.gamma = gamma
+        self.epsilon = epsilon
+
+    def select_actions(self, observations):
+        actions = []
+        for i, obs in enumerate(observations):
+            if np.random.random() < self.epsilon:
+                actions.append(np.random.randint(self.Q[i].shape[1]))
+            else:
+                actions.append(np.argmax(self.Q[i][obs]))
+        return actions
+
+    def update(self, obs, actions, rewards, next_obs, dones):
+        for i in range(self.n_agents):
+            s, a, r, s2, d = obs[i], actions[i], rewards[i], next_obs[i], dones[i]
+            target = r + self.gamma * np.max(self.Q[i][s2]) * (1 - d)
+            self.Q[i][s, a] += self.alpha * (target - self.Q[i][s, a])
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{QMIX --- R\'eseau de m\'elange}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+
+class QMIXMixer(nn.Module):
+    """Mixing network de QMIX avec poids positifs."""
+    def __init__(self, n_agents, state_dim, embed_dim=32):
+        super().__init__()
+        self.n_agents = n_agents
+        # Hyper-reseaux generant les poids du mixer
+        self.hyper_w1 = nn.Sequential(
+            nn.Linear(state_dim, embed_dim),
+            nn.ReLU(),
+            nn.Linear(embed_dim, n_agents * embed_dim)
+        )
+        self.hyper_w2 = nn.Sequential(
+            nn.Linear(state_dim, embed_dim),
+            nn.ReLU(),
+            nn.Linear(embed_dim, embed_dim)
+        )
+        self.hyper_b1 = nn.Linear(state_dim, embed_dim)
+        self.hyper_b2 = nn.Sequential(
+            nn.Linear(state_dim, embed_dim),
+            nn.ReLU(),
+            nn.Linear(embed_dim, 1)
+        )
+
+    def forward(self, agent_qs, state):
+        """
+        agent_qs: (batch, n_agents)
+        state: (batch, state_dim)
+        """
+        bs = agent_qs.shape[0]
+        q = agent_qs.unsqueeze(1)  # (batch, 1, n_agents)
+
+        w1 = torch.abs(self.hyper_w1(state)).view(
+            bs, self.n_agents, -1)  # poids positifs
+        b1 = self.hyper_b1(state).unsqueeze(1)
+        h = torch.relu(torch.bmm(q, w1) + b1)
+
+        w2 = torch.abs(self.hyper_w2(state)).view(bs, -1, 1)
+        b2 = self.hyper_b2(state).unsqueeze(1)
+        q_tot = (torch.bmm(h, w2) + b2).squeeze(-1).squeeze(-1)
+        return q_tot
+\end{minted}
+\end{codeblock}
+
+% -----------------------------------------------------------------------------
+\section{Exercices}
+% -----------------------------------------------------------------------------
+
+\begin{exercice}[Non-stationnarit\'e]
+Impl\'ementez IQL pour un jeu de coordination \`a 2 joueurs (type ``matching pennies'').
+Montrez que les valeurs Q oscillent et ne convergent pas. Comparez avec un
+algorithme centralis\'e.
+\end{exercice}
+
+\begin{exercice}[MADDPG]
+Impl\'ementez MADDPG pour l'environnement \texttt{simple\_spread} de PettingZoo.
+Comparez avec DDPG ind\'ependant en termes de r\'ecompense d'\'equipe.
+\end{exercice}
+
+\begin{exercice}[QMIX vs VDN]
+Impl\'ementez VDN (\emph{Value Decomposition Network}) o\`u $Q_{\text{tot}} = \sum_i Q_i$
+et comparez avec QMIX sur un sc\'enario coop\'eratif. QMIX est-il toujours
+sup\'erieur~? Discutez.
+\end{exercice}
+
+\begin{exercice}[Self-Play]
+Impl\'ementez l'auto-jeu avec PPO pour le jeu de Tic-Tac-Toe. L'agent
+apprend-il la strat\'egie optimale (jeu parfait)~?
+\end{exercice}

@@ -1,0 +1,269 @@
+% ============================================================
+\chapter{Applications}
+\label{ch:applications}
+% ============================================================
+
+\begin{intuition}[title=\textbf{Central idea}]
+Bayesian statistics is ubiquitous in modern applications: clinical trials,
+A/B testing, automatic hyperparameter optimization, Bayesian neural networks,
+and many scientific domains. This chapter illustrates the power of the
+Bayesian paradigm on concrete problems.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Bayesian clinical trials}
+% ------------------------------------------------------------
+
+\begin{definition}[Adaptive Bayesian clinical trial]
+\index{Bayesian clinical trial}
+An \textbf{adaptive Bayesian clinical trial} is a trial in which the design
+(sample size, patient allocation, stopping criteria) is modified during the
+study based on the posterior distribution of the efficacy parameters.
+\end{definition}
+
+\begin{example}
+Let $\theta_T$ be the response probability under treatment and $\theta_C$
+under control. We model:
+\[
+  \theta_T \sim \mathrm{Beta}(1, 1), \quad
+  \theta_C \sim \mathrm{Beta}(1, 1).
+\]
+After observing $s_T$ successes out of $n_T$ treated patients and $s_C$
+out of $n_C$ controls:
+\[
+  \theta_T \mid \text{data} \sim \mathrm{Beta}(1 + s_T,\, 1 + n_T - s_T).
+\]
+We stop for efficacy if $\PP(\theta_T > \theta_C \mid \text{data}) > 0.99$,
+or for futility if $\PP(\theta_T > \theta_C + \delta \mid \text{data}) < 0.05$.
+\end{example}
+
+\begin{remark}
+Adaptive Bayesian trials have been approved by the FDA since the 2010s.
+They reduce the required sample size by 20--40\% on average compared to
+fixed designs.
+\end{remark}
+
+\begin{minted}{python}
+import numpy as np
+from scipy.stats import beta
+
+def prob_superiority(s_T, n_T, s_C, n_C, n_samples=100000):
+    """P(theta_T > theta_C | data) via Monte Carlo."""
+    theta_T = beta.rvs(1 + s_T, 1 + n_T - s_T, size=n_samples)
+    theta_C = beta.rvs(1 + s_C, 1 + n_C - s_C, size=n_samples)
+    return np.mean(theta_T > theta_C)
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Bayesian A/B testing}
+% ------------------------------------------------------------
+
+\begin{definition}[Bayesian A/B test]
+\index{A/B testing}
+A \textbf{Bayesian A/B test} compares two variants (A and B) of a product
+by maintaining a posterior distribution on each variant's conversion rate.
+A decision is made when the probability that one variant is better exceeds
+a fixed threshold.
+\end{definition}
+
+\begin{proposition}[Expected loss]
+\index{expected loss}
+The \textbf{expected loss} from choosing B is:
+\[
+  \mathcal{L}_B = \E\!\bigl[\max(\theta_A - \theta_B, 0) \mid \text{data}\bigr].
+\]
+We choose B if $\mathcal{L}_B < \epsilon$ (acceptable loss threshold).
+This criterion directly controls the cost of a wrong decision.
+\end{proposition}
+
+\begin{attention}
+Unlike the frequentist test (p-value), the Bayesian A/B test allows
+``peeking'' (examining data during collection) without inflating the error
+rate, because the posterior is coherent at any time.
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Bayesian optimization}
+% ------------------------------------------------------------
+
+\begin{definition}[Bayesian optimization]
+\index{Bayesian optimization}
+\textbf{Bayesian optimization} seeks the global minimum of an expensive
+function $f : \mathcal{X} \to \R$ by building a probabilistic surrogate
+model (typically a GP) and selecting evaluation points via an
+\textbf{acquisition function}.
+\end{definition}
+
+\begin{theorem}[GP posterior as surrogate]
+Let $f \sim \mathcal{GP}(0, k)$ and $\mathcal{D}_n = \{(x_i, y_i)\}_{i=1}^n$
+with $y_i = f(x_i) + \epsilon_i$. The prediction at $x$ is:
+\begin{align}
+  \mu_n(x) &= \mathbf{k}(x)^\top (\mathbf{K} + \sigma^2 \mathbf{I})^{-1}\mathbf{y}, \\
+  \sigma_n^2(x) &= k(x,x) - \mathbf{k}(x)^\top (\mathbf{K} + \sigma^2 \mathbf{I})^{-1}\mathbf{k}(x).
+\end{align}
+\end{theorem}
+
+\begin{definition}[Acquisition functions]
+Common acquisition functions include:
+\begin{itemize}
+  \item \textbf{Expected Improvement (EI)}:
+    $\mathrm{EI}(x) = \E\!\bigl[\max(f_{\min} - f(x), 0)\bigr]$.
+  \item \textbf{Upper Confidence Bound (UCB)}:
+    $\mathrm{UCB}(x) = \mu_n(x) - \kappa\,\sigma_n(x)$ (for minimization).
+  \item \textbf{Probability of Improvement (PI)}:
+    $\mathrm{PI}(x) = \Phi\!\left(\frac{f_{\min} - \mu_n(x)}{\sigma_n(x)}\right)$.
+\end{itemize}
+\end{definition}
+
+\begin{example}
+Hyperparameter optimization for a neural network:
+\begin{minted}{python}
+from skopt import gp_minimize
+
+def objective(params):
+    lr, dropout = params
+    model = build_model(lr=lr, dropout=dropout)
+    return -model.fit_and_evaluate(X_train, y_train, X_val, y_val)
+
+result = gp_minimize(
+    objective,
+    dimensions=[(1e-5, 1e-1, "log-uniform"),  # learning rate
+                (0.0, 0.5)],                    # dropout
+    n_calls=50,
+    random_state=42
+)
+\end{minted}
+\end{example}
+
+% ------------------------------------------------------------
+\section{Bayesian neural networks}
+% ------------------------------------------------------------
+
+\begin{definition}[Bayesian neural network (BNN)]
+\index{Bayesian neural network}
+A \textbf{BNN} places a prior $p(\mathbf{w})$ on the network weights
+$\mathbf{w}$ and computes the posterior $p(\mathbf{w} \mid \mathcal{D})$.
+The prediction is:
+\[
+  p(y_* \mid x_*, \mathcal{D}) = \int p(y_* \mid x_*, \mathbf{w})\,
+  p(\mathbf{w} \mid \mathcal{D})\,d\mathbf{w}.
+\]
+\end{definition}
+
+\begin{remark}
+The above integral is intractable for deep networks. Three practical
+approaches:
+\begin{enumerate}
+  \item \textbf{MC Dropout}: use dropout at inference time as a variational
+        approximation (Gal and Ghahramani, 2016).
+  \item \textbf{Bayes by Backprop}: variational inference with
+        reparameterization on each weight.
+  \item \textbf{Deep ensembles}: train $M$ networks and average
+        (frequentist approximation of uncertainty).
+\end{enumerate}
+\end{remark}
+
+\begin{proposition}[Epistemic vs.\ aleatoric uncertainty]
+The predictive variance of a BNN decomposes as:
+\[
+  \underbrace{\Var_{p(\mathbf{w} \mid \mathcal{D})}\!\bigl[\E[y_* \mid x_*, \mathbf{w}]\bigr]}_{\text{epistemic}}
+  + \underbrace{\E_{p(\mathbf{w} \mid \mathcal{D})}\!\bigl[\Var[y_* \mid x_*, \mathbf{w}]\bigr]}_{\text{aleatoric}}.
+\]
+Epistemic uncertainty decreases with more data; aleatoric does not.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Applications in astronomy}
+% ------------------------------------------------------------
+
+\begin{example}
+In cosmology, estimating the parameters of the $\Lambda$CDM model
+(Hubble constant $H_0$, matter density $\Omega_m$, etc.) relies on
+Bayesian inference applied to cosmic microwave background (CMB) data.
+The software \texttt{CosmoMC} uses MCMC to explore the posterior in
+$\sim 30$ dimensions.
+\end{example}
+
+\begin{example}
+Exoplanet detection via the radial velocity method models the signal as:
+\[
+  v(t) = \sum_{j=1}^{K} K_j \sin(2\pi t / P_j + \phi_j) + \epsilon(t),
+\]
+where the number of planets $K$ is unknown. Bayesian model comparison
+(Bayes factors) determines $K$.
+\end{example}
+
+% ------------------------------------------------------------
+\section{Applications in ecology}
+% ------------------------------------------------------------
+
+\begin{example}
+Bayesian \textbf{capture-recapture} models estimate population size $N$.
+With a prior $N \sim \mathrm{Poisson}(\lambda)$ and recapture data, the
+posterior on $N$ naturally quantifies uncertainty---essential for
+conservation management.
+\end{example}
+
+\begin{definition}[Hierarchical model in ecology]
+\index{hierarchical model}
+\textbf{Bayesian hierarchical models} are standard in ecology for modeling:
+\begin{itemize}
+  \item between-site variability (spatial random effects),
+  \item imperfect detection (occupancy models),
+  \item temporal dynamics (state-space models).
+\end{itemize}
+The parameters for each site $j$ share a common hyperprior:
+$\theta_j \sim p(\theta_j \mid \psi)$, $\psi \sim p(\psi)$.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Key formulas}
+% ------------------------------------------------------------
+
+\begin{keyformulas}
+\begin{align}
+  \text{EI:} \quad & \mathrm{EI}(x) = (f_{\min} - \mu_n(x))\,\Phi(z) + \sigma_n(x)\,\phi(z),
+    \quad z = \frac{f_{\min} - \mu_n(x)}{\sigma_n(x)} \\
+  \text{BNN prediction:} \quad & p(y_* \mid x_*) \approx
+    \frac{1}{M}\sum_{m=1}^M p(y_* \mid x_*, \mathbf{w}^{(m)}),
+    \quad \mathbf{w}^{(m)} \sim p(\mathbf{w} \mid \mathcal{D}) \\
+  \text{A/B loss:} \quad & \mathcal{L}_B = \E[\max(\theta_A - \theta_B, 0) \mid \text{data}]
+\end{align}
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+Implement a Bayesian A/B test with Beta(1,1) priors to compare click-through
+rates of two web pages. Simulate data and plot the evolution of
+$\PP(\theta_A > \theta_B \mid \text{data})$ across observations.
+\end{exercise}
+
+\begin{exercise}
+Perform Bayesian optimization to find the minimum of the Branin function
+$f(x_1, x_2)$ using a GP with Mat\'ern kernel. Compare with random search
+in terms of the number of evaluations needed.
+\end{exercise}
+
+\begin{exercise}
+Implement MC Dropout on a two-hidden-layer neural network for a regression
+problem. Plot the mean prediction and the 95\% confidence interval. Observe
+how uncertainty behaves far from training data.
+\end{exercise}
+
+\begin{exercise}
+Design an adaptive Bayesian clinical trial with the following rules: stop
+for efficacy if $\PP(\theta_T - \theta_C > 0.05 \mid \text{data}) > 0.95$,
+stop for futility if $\PP(\theta_T > \theta_C \mid \text{data}) < 0.2$.
+Simulate 1000 trials under $H_0$ and $H_1$ and estimate the operating
+characteristics (power, type I error rate, average sample size).
+\end{exercise}
+
+\begin{exercise}
+In an exoplanet detection problem, compare models $M_0$ (pure noise) and
+$M_1$ (one planet). Compute the Bayes factor $\mathrm{BF}_{10}$ by Monte
+Carlo integration on simulated data. Discuss Jeffreys' scale for
+interpretation.
+\end{exercise}

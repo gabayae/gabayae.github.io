@@ -1,0 +1,276 @@
+% ============================================================
+\chapter{G\'en\'eration de Texte}
+\label{ch:generation}
+% ============================================================
+
+Un mod\`ele de langue qui pr\'edit le mot suivant est, litt\'eralement, un g\'en\'erateur de texte en puissance. Mais entre la distribution $P(x_t \mid x_{<t})$ et un texte coh\'erent, fluide et informatif, il y a un gouffre --- celui de la \emph{strat\'egie de d\'ecodage}. Prendre syst\'ematiquement le mot le plus probable (d\'ecodage glouton) produit un texte r\'ep\'etitif et ennuyeux. \'Echantillonner na\"ivement dans la distribution produit un texte incoh\'erent. Les solutions --- beam search, top-$k$, nucleus sampling (top-$p$), temp\'erature --- sont autant de compromis entre \emph{qualit\'e} et \emph{diversit\'e}. Ari Holtzman et ses collaborateurs, dans leur article ``The Curious Case of Neural Text Degeneration'' (2020), ont montr\'e que le nucleus sampling r\'esout \'el\'egamment le probl\`eme de d\'eg\'en\'erescence. Ce chapitre explore ces strat\'egies et leurs fondements probabilistes.
+
+\begin{intuition}[title=\textbf{Du mod\`ele de langue au g\'en\'erateur}]
+Un mod\`ele de langue auto-r\'egressif d\'efinit $P(x_t \mid x_{<t})$.
+G\'en\'erer du texte revient \`a \'echantillonner s\'equentiellement dans cette
+distribution. Le choix de la strat\'egie de d\'ecodage influence radicalement la
+qualit\'e, la diversit\'e et la coh\'erence du texte produit.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{D\'ecodage glouton}
+\label{sec:gen:greedy}
+% ------------------------------------------------------------
+
+\begin{definition}[D\'ecodage glouton]
+Le d\'ecodage glouton (\emph{greedy decoding}) s\'electionne \`a chaque pas
+le token le plus probable :
+\[
+x_t = \argmax_{w \in \mathcal{V}} P(w \mid x_{<t})
+\]
+\end{definition}
+
+\begin{attention}[title=\textbf{Limites du d\'ecodage glouton}]
+Le d\'ecodage glouton ne garantit pas la s\'equence globalement optimale. Il
+peut produire des r\'ep\'etitions et manque de diversit\'e. La s\'equence la
+plus probable n'est pas toujours la plus naturelle.
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Recherche en faisceau (Beam Search)}
+\label{sec:gen:beam}
+% ------------------------------------------------------------
+
+\begin{definition}[Beam search]
+La recherche en faisceau maintient les $B$ s\'equences partielles les plus
+probables (\emph{beams}) \`a chaque pas de d\'ecodage :
+\[
+\mathcal{B}_t = \text{top-}B\left\{(s \oplus w, \text{score}(s) + \log P(w \mid s)) : s \in \mathcal{B}_{t-1}, w \in \mathcal{V}\right\}
+\]
+o\`u $B$ est la largeur du faisceau.
+\end{definition}
+
+\begin{proposition}[Propri\'et\'es du beam search]
+\begin{enumerate}
+    \item Pour $B = 1$ : \'equivalent au d\'ecodage glouton.
+    \item Pour $B = \abs{\mathcal{V}}^T$ : \'equivalent \`a la recherche exhaustive.
+    \item En pratique, $B \in [4, 10]$ offre un bon compromis.
+\end{enumerate}
+\end{proposition}
+
+\subsection{Normalisation par la longueur}
+
+Le beam search favorise les s\'equences courtes (plus de termes $\log P < 0$
+pour les longues). On normalise le score par la longueur :
+\[
+\text{score}_{\text{norm}}(s) = \frac{1}{\abs{s}^\alpha} \sum_{t=1}^{\abs{s}} \log P(x_t \mid x_{<t})
+\]
+o\`u $\alpha \in [0.6, 1.0]$ est un hyperparam\`etre (Wu et al., 2016).
+
+% ------------------------------------------------------------
+\section{\'Echantillonnage stochastique}
+\label{sec:gen:sampling}
+% ------------------------------------------------------------
+
+\begin{definition}[\'Echantillonnage avec temp\'erature]
+L'\'echantillonnage avec temp\'erature $\tau > 0$ modifie la distribution :
+\[
+P_\tau(w \mid x_{<t}) = \frac{\exp(\text{logit}_w / \tau)}{\sum_{w'} \exp(\text{logit}_{w'} / \tau)}
+\]
+\begin{itemize}
+    \item $\tau \to 0$ : converge vers le d\'ecodage glouton.
+    \item $\tau = 1$ : distribution originale.
+    \item $\tau > 1$ : distribution plus uniforme (plus de diversit\'e).
+\end{itemize}
+\end{definition}
+
+\begin{definition}[Top-$k$ sampling]
+Le top-$k$ sampling (Fan et al., 2018) restreint l'\'echantillonnage aux $k$
+tokens les plus probables :
+\[
+P_{\text{top-}k}(w \mid x_{<t}) = \begin{cases}
+\frac{P(w \mid x_{<t})}{\sum_{w' \in \mathcal{V}_k} P(w' \mid x_{<t})} & \text{si } w \in \mathcal{V}_k \\
+0 & \text{sinon}
+\end{cases}
+\]
+o\`u $\mathcal{V}_k$ contient les $k$ tokens les plus probables.
+\end{definition}
+
+\begin{definition}[Top-$p$ sampling (nucleus)]
+Le top-$p$ sampling (Holtzman et al., 2020) s\'electionne le plus petit
+ensemble $\mathcal{V}_p$ tel que :
+\[
+\sum_{w \in \mathcal{V}_p} P(w \mid x_{<t}) \geq p
+\]
+puis \'echantillonne uniform\'ement dans $\mathcal{V}_p$ (apr\`es
+renormalisation).
+\end{definition}
+
+\begin{bonnepratique}[title=\textbf{Combinaison des strat\'egies}]
+En pratique, on combine souvent temp\'erature, top-$k$ et top-$p$. Par exemple,
+$\tau = 0.7$, $k = 50$, $p = 0.9$ offre un bon \'equilibre entre coh\'erence
+et diversit\'e pour la g\'en\'eration cr\'eative.
+\end{bonnepratique}
+
+% ------------------------------------------------------------
+\section{P\'enalit\'es de r\'ep\'etition}
+\label{sec:gen:repetition}
+% ------------------------------------------------------------
+
+\begin{definition}[P\'enalit\'e de r\'ep\'etition]
+Pour \'eviter les r\'ep\'etitions, on p\'enalise les tokens d\'ej\`a g\'en\'er\'es :
+\[
+\text{logit}'_w = \begin{cases}
+\text{logit}_w / \theta & \text{si } w \in x_{<t} \text{ et } \text{logit}_w > 0 \\
+\text{logit}_w \cdot \theta & \text{si } w \in x_{<t} \text{ et } \text{logit}_w \leq 0
+\end{cases}
+\]
+o\`u $\theta > 1$ est le facteur de p\'enalit\'e.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{D\'ecodage contrast\'e}
+\label{sec:gen:contrastive}
+% ------------------------------------------------------------
+
+\begin{definition}[Contrastive decoding]
+Le d\'ecodage contrast\'e (Li et al., 2023) s\'electionne les tokens qui
+maximisent la diff\'erence de log-probabilit\'e entre un mod\`ele expert
+$\pi_{\text{exp}}$ et un mod\`ele amateur $\pi_{\text{ama}}$ :
+\[
+x_t = \argmax_{w \in \mathcal{V}_p} \left[\log \pi_{\text{exp}}(w \mid x_{<t}) - \alpha \log \pi_{\text{ama}}(w \mid x_{<t})\right]
+\]
+\end{definition}
+
+% ------------------------------------------------------------
+\section{D\'ecodage sp\'eculatif}
+\label{sec:gen:speculative}
+% ------------------------------------------------------------
+
+\begin{definition}[Speculative decoding]
+Le d\'ecodage sp\'eculatif (Leviathan et al., 2023) utilise un petit mod\`ele
+rapide (\emph{draft model}) pour proposer $K$ tokens, puis un grand mod\`ele
+les v\'erifie en parall\`ele. Les tokens accept\'es sont ceux dont la probabilit\'e
+sous le grand mod\`ele est suffisante, ce qui acc\'el\`ere la g\'en\'eration
+sans changer la distribution.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{M\'etriques de qualit\'e de g\'en\'eration}
+\label{sec:gen:metriques}
+% ------------------------------------------------------------
+
+\begin{formules}[title=\textbf{M\'etriques de g\'en\'eration}]
+\begin{align}
+\text{BLEU} &= \text{BP} \cdot \exp\!\left(\sum_{n=1}^{N} w_n \log p_n\right) & \text{(pr\'ecision $n$-grammes)} \\
+\text{ROUGE-L} &= F_1(\text{LCS}) & \text{(plus longue sous-s\'equence commune)} \\
+\text{METEOR} &= F_1 \cdot (1 - \text{Penalty}) & \text{(alignement flexible)} \\
+\text{BERTScore} &= F_1(\text{sim cosinus BERT}) & \text{(similarit\'e contextuelle)}
+\end{align}
+\end{formules}
+
+% ------------------------------------------------------------
+\section{Impl\'ementation}
+\label{sec:gen:implementation}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Strat\'egies de d\'ecodage avec Hugging Face}]
+\begin{minted}{python}
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+model_name = "gpt2-medium"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(model_name)
+
+prompt = "The future of artificial intelligence"
+input_ids = tokenizer.encode(prompt, return_tensors="pt")
+
+# Greedy decoding
+greedy = model.generate(input_ids, max_length=50)
+
+# Beam search
+beam = model.generate(input_ids, max_length=50, num_beams=5,
+                      length_penalty=0.8, no_repeat_ngram_size=3)
+
+# Top-k + Top-p sampling
+sampled = model.generate(input_ids, max_length=50, do_sample=True,
+                         temperature=0.7, top_k=50, top_p=0.9,
+                         repetition_penalty=1.2)
+
+for name, ids in [("Greedy", greedy), ("Beam", beam), ("Sampled", sampled)]:
+    print(f"{name}: {tokenizer.decode(ids[0], skip_special_tokens=True)}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{D\'ecodage pas \`a pas}]
+\begin{minted}{python}
+import torch
+import torch.nn.functional as F
+
+def generate_top_p(model, input_ids, max_new_tokens=50, temperature=0.8,
+                   top_p=0.9):
+    generated = input_ids.clone()
+    for _ in range(max_new_tokens):
+        with torch.no_grad():
+            outputs = model(generated)
+            logits = outputs.logits[:, -1, :] / temperature
+
+        # Top-p filtering
+        sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+        cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
+        mask = cumulative_probs - F.softmax(sorted_logits, dim=-1) >= top_p
+        sorted_logits[mask] = float('-inf')
+        logits.scatter_(1, sorted_indices, sorted_logits)
+
+        probs = F.softmax(logits, dim=-1)
+        next_token = torch.multinomial(probs, num_samples=1)
+        generated = torch.cat([generated, next_token], dim=-1)
+
+        if next_token.item() == tokenizer.eos_token_id:
+            break
+    return generated
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{G\'en\'eration contr\^ol\'ee}
+\label{sec:gen:controlee}
+% ------------------------------------------------------------
+
+\begin{definition}[G\'en\'eration contr\^ol\'ee]
+La \emph{g\'en\'eration contr\^ol\'ee} vise \`a orienter la sortie d'un mod\`ele
+de langue selon des attributs sp\'ecifi\'es (ton, sujet, style) sans
+r\'e-entra\^inement. Approches :
+\begin{itemize}
+    \item \textbf{PPLM} (Dathathri et al., 2020) : perturbation des gradients.
+    \item \textbf{Classifier-free guidance} : interpolation entre distributions
+          conditionn\'ee et non conditionn\'ee.
+    \item \textbf{Constrained decoding} : contraintes lexicales dures.
+\end{itemize}
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Exercices}
+\label{sec:gen:exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}[$\star$]
+Montrez que le d\'ecodage glouton est un cas particulier du beam search avec
+$B = 1$.
+\end{exercice}
+
+\begin{exercice}[$\star$]
+Calculez la distribution top-$p$ pour $p = 0.9$ \'etant donn\'e les
+probabilit\'es $(0.4, 0.3, 0.15, 0.1, 0.05)$.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Impl\'ementez le beam search avec normalisation par la longueur. Testez avec
+diff\'erentes valeurs de $\alpha$ et $B$ sur GPT-2.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Comparez quantitativement (BLEU, diversit\'e) la g\'en\'eration par greedy,
+beam search ($B=5$), et nucleus sampling ($p=0.9$) sur un corpus de test.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$]
+Impl\'ementez le d\'ecodage sp\'eculatif avec un mod\`ele draft (GPT-2 small)
+et un mod\`ele cible (GPT-2 large). Mesurez l'acc\'el\'eration obtenue et
+v\'erifiez que la distribution de sortie est pr\'eserv\'ee.
+\end{exercice}

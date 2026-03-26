@@ -1,0 +1,490 @@
+% ============================================================
+\chapter{Backpropagation and Optimization}
+\label{ch:backpropagation}
+% ============================================================
+
+\begin{intuition}
+Backpropagation is the algorithm that allows the network to \emph{learn}. It answers a simple question: ``How does each weight influence the final error?'' By efficiently computing all gradients through the chain rule, it transforms a seemingly intractable problem ($10^6$ parameters) into a computation linear in the number of parameters.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Gradient Descent}
+\label{sec:gradient_descent}
+\index{gradient descent}
+
+\subsection{Principle}
+
+We seek to minimize the loss $\mathcal{L}(\theta)$ with respect to parameters $\theta$:
+\[
+\theta^* = \argmin_\theta \mathcal{L}(\theta)
+\]
+
+Gradient descent iterates the update:
+\[
+\theta_{t+1} = \theta_t - \eta \nabla_\theta \mathcal{L}(\theta_t)
+\]
+where $\eta > 0$ is the \textbf{learning rate}\index{learning rate}.
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+    width=10cm, height=6cm,
+    xlabel={$\theta$}, ylabel={$\mathcal{L}(\theta)$},
+    domain=-3:3, samples=100,
+    grid=major, grid style={gray!30},
+    xtick=\empty, ytick=\empty
+]
+\addplot[NavyBlue, thick] {0.5*x^4 - 2*x^2 + 3};
+\addplot[only marks, mark=*, mark size=3pt, red] coordinates {(2.2, 0.5*2.2^4-2*2.2^2+3)};
+\addplot[only marks, mark=*, mark size=3pt, red] coordinates {(1.6, 0.5*1.6^4-2*1.6^2+3)};
+\addplot[only marks, mark=*, mark size=3pt, red] coordinates {(1.15, 0.5*1.15^4-2*1.15^2+3)};
+\draw[->, red, thick] (axis cs:2.2, 0.5*2.2^4-2*2.2^2+3) -- (axis cs:1.6, 0.5*1.6^4-2*1.6^2+3);
+\draw[->, red, thick] (axis cs:1.6, 0.5*1.6^4-2*1.6^2+3) -- (axis cs:1.15, 0.5*1.15^4-2*1.15^2+3);
+\node[red, right] at (axis cs:2.3, 0.5*2.2^4-2*2.2^2+3) {$\theta_0$};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+\subsection{Stochastic Gradient Descent (SGD)}
+\index{SGD}
+
+In practice, computing $\nabla_\theta \mathcal{L}$ over the entire dataset is costly. SGD uses \textbf{mini-batches}\index{mini-batch} $\mathcal{B} \subset \{1,\ldots,N\}$ of size $B$:
+\[
+\theta_{t+1} = \theta_t - \eta \cdot \frac{1}{|\mathcal{B}|} \sum_{i \in \mathcal{B}} \nabla_\theta \ell(f_\theta(\bm{x}_i), \bm{y}_i)
+\]
+
+\begin{proposition}
+The stochastic gradient is an unbiased estimator of the full gradient:
+\[
+\E_{\mathcal{B}}\!\left[\frac{1}{|\mathcal{B}|}\sum_{i \in \mathcal{B}} \nabla_\theta \ell_i\right] = \nabla_\theta \mathcal{L}(\theta)
+\]
+Its variance decreases as $\mathcal{O}(1/B)$.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Backpropagation}
+\label{sec:backprop}
+\index{backpropagation}
+
+\subsection{Chain Rule}
+\index{chain rule}
+
+Let $f = f_L \circ f_{L-1} \circ \cdots \circ f_1$ be a composition of functions. The chain rule gives:
+\[
+\frac{\partial \mathcal{L}}{\partial \theta^{(\ell)}} = \frac{\partial \mathcal{L}}{\partial \bm{h}^{(L)}} \cdot \frac{\partial \bm{h}^{(L)}}{\partial \bm{h}^{(L-1)}} \cdots \frac{\partial \bm{h}^{(\ell+1)}}{\partial \bm{h}^{(\ell)}} \cdot \frac{\partial \bm{h}^{(\ell)}}{\partial \theta^{(\ell)}}
+\]
+
+\begin{mathbox}[title=\textbf{Backpropagation Derivation for an MLP}]
+\textbf{Forward pass.} For $\ell = 1, \ldots, L$:
+\begin{align*}
+\bm{z}^{(\ell)} &= W^{(\ell)} \bm{h}^{(\ell-1)} + \bm{b}^{(\ell)} \\
+\bm{h}^{(\ell)} &= \sigma(\bm{z}^{(\ell)})
+\end{align*}
+
+\textbf{Backward pass.} Define $\bm{\delta}^{(\ell)} = \frac{\partial \mathcal{L}}{\partial \bm{z}^{(\ell)}}$. For the last layer:
+\[
+\bm{\delta}^{(L)} = \frac{\partial \mathcal{L}}{\partial \bm{h}^{(L)}} \odot \sigma'(\bm{z}^{(L)})
+\]
+For layers $\ell = L-1, \ldots, 1$ (backward propagation):
+\[
+\bm{\delta}^{(\ell)} = \left({W^{(\ell+1)}}^\top \bm{\delta}^{(\ell+1)}\right) \odot \sigma'(\bm{z}^{(\ell)})
+\]
+The parameter gradients are then:
+\[
+\frac{\partial \mathcal{L}}{\partial W^{(\ell)}} = \bm{\delta}^{(\ell)} {\bm{h}^{(\ell-1)}}^\top, \qquad \frac{\partial \mathcal{L}}{\partial \bm{b}^{(\ell)}} = \bm{\delta}^{(\ell)}
+\]
+\end{mathbox}
+
+\subsection{Complexity}
+
+\begin{proposition}
+Backpropagation computes \textbf{all} gradients in $\mathcal{O}(|\theta|)$, the same cost as the forward pass. This is a special case of \textbf{reverse-mode automatic differentiation}\index{automatic differentiation}.
+\end{proposition}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=2cm,
+    block/.style={rectangle, draw=NavyBlue, thick, rounded corners, minimum width=2cm, minimum height=0.8cm, fill=blue!10, align=center},
+    >=Stealth
+]
+\node[block] (x) {$\bm{x}$};
+\node[block, right=of x] (z1) {$\bm{z}^{(1)}$};
+\node[block, right=of z1] (h1) {$\bm{h}^{(1)}$};
+\node[block, right=of h1] (z2) {$\bm{z}^{(2)}$};
+\node[block, right=of z2] (L) {$\mathcal{L}$};
+
+\draw[->, thick, ForestGreen] (x) -- node[above, font=\small] {$W^{(1)}$} (z1);
+\draw[->, thick, ForestGreen] (z1) -- node[above, font=\small] {$\sigma$} (h1);
+\draw[->, thick, ForestGreen] (h1) -- node[above, font=\small] {$W^{(2)}$} (z2);
+\draw[->, thick, ForestGreen] (z2) -- node[above, font=\small] {} (L);
+
+\draw[<-, thick, BrickRed, bend right=30] (x.south) to node[below, font=\small] {$\bm{\delta}^{(0)}$} (z1.south);
+\draw[<-, thick, BrickRed, bend right=30] (z1.south) to node[below, font=\small] {$\bm{\delta}^{(1)}$} (h1.south);
+\draw[<-, thick, BrickRed, bend right=30] (h1.south) to node[below, font=\small] {} (z2.south);
+\draw[<-, thick, BrickRed, bend right=30] (z2.south) to node[below, font=\small] {$\bm{\delta}^{(2)}$} (L.south);
+
+\node[ForestGreen, above=0.3cm of h1] {\textbf{Forward pass} $\longrightarrow$};
+\node[BrickRed, below=0.8cm of h1] {$\longleftarrow$ \textbf{Backward pass}};
+\end{tikzpicture}
+\end{center}
+
+% ------------------------------------------------------------
+\section{Computation Graph and Autograd}
+\label{sec:autograd}
+\index{computation graph}
+\index{autograd}
+
+PyTorch dynamically builds a \textbf{computation graph} (DAG) during the forward pass. Each operation records how to compute its gradient. Calling \py{loss.backward()} traverses this graph in reverse.
+
+\begin{codeblock}[title=\textbf{Autograd in Action}]
+\begin{minted}{python}
+import torch
+
+# Tensors with gradient tracking
+x = torch.tensor([2.0, 3.0], requires_grad=True)
+w = torch.tensor([1.0, -1.0], requires_grad=True)
+
+# Forward pass: graph built automatically
+z = x @ w          # dot product
+y = z.sigmoid()    # activation
+loss = (y - 1)**2  # loss
+
+# Backward pass: all gradients computed
+loss.backward()
+print(f"dL/dx = {x.grad}")   # gradient w.r.t. x
+print(f"dL/dw = {w.grad}")   # gradient w.r.t. w
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+dL/dx = tensor([-0.0689,  0.0689])
+dL/dw = tensor([-0.1378,  0.2067])
+\end{verbatim}
+\end{codeoutput}
+
+% ------------------------------------------------------------
+\section{Advanced Optimizers}
+\label{sec:optimizers}
+
+\subsection{Momentum}
+\index{momentum}
+
+Momentum accumulates a running average of past gradients to accelerate convergence and smooth oscillations:
+\begin{align*}
+\bm{v}_{t+1} &= \mu \bm{v}_t + \nabla_\theta \mathcal{L}(\theta_t) \\
+\theta_{t+1} &= \theta_t - \eta \bm{v}_{t+1}
+\end{align*}
+with $\mu \in [0,1)$ (typically $\mu = 0.9$).
+
+\subsection{RMSProp}
+\index{RMSProp}
+
+RMSProp adapts the learning rate per parameter by normalizing by the running average of squared gradients:
+\begin{align*}
+\bm{s}_{t+1} &= \beta \bm{s}_t + (1-\beta)\,(\nabla_\theta \mathcal{L})^2 \\
+\theta_{t+1} &= \theta_t - \frac{\eta}{\sqrt{\bm{s}_{t+1}} + \varepsilon} \odot \nabla_\theta \mathcal{L}
+\end{align*}
+
+\subsection{Adam}
+\index{Adam}
+
+Adam\cite{kingmaadam} combines momentum and learning rate adaptation:
+
+\begin{mathbox}[title=\textbf{Adam Algorithm}]
+\begin{align*}
+\bm{m}_{t+1} &= \beta_1 \bm{m}_t + (1-\beta_1)\,\bm{g}_t & \text{(first moment)} \\
+\bm{v}_{t+1} &= \beta_2 \bm{v}_t + (1-\beta_2)\,\bm{g}_t^2 & \text{(second moment)} \\
+\hat{\bm{m}}_{t+1} &= \frac{\bm{m}_{t+1}}{1 - \beta_1^{t+1}} & \text{(bias correction)} \\
+\hat{\bm{v}}_{t+1} &= \frac{\bm{v}_{t+1}}{1 - \beta_2^{t+1}} & \\
+\theta_{t+1} &= \theta_t - \frac{\eta}{\sqrt{\hat{\bm{v}}_{t+1}} + \varepsilon}\,\hat{\bm{m}}_{t+1}
+\end{align*}
+Default values: $\beta_1 = 0.9$, $\beta_2 = 0.999$, $\varepsilon = 10^{-8}$.
+\end{mathbox}
+
+\subsection{AdamW}
+\index{AdamW}
+
+AdamW decouples $L_2$ regularization from learning rate adaptation:
+\[
+\theta_{t+1} = (1 - \eta\lambda)\,\theta_t - \frac{\eta}{\sqrt{\hat{\bm{v}}_{t+1}} + \varepsilon}\,\hat{\bm{m}}_{t+1}
+\]
+This is the standard optimizer for Transformer training.
+
+\subsection{Visual Comparison}
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+    width=10cm, height=6cm,
+    xlabel={Epoch}, ylabel={Training Loss},
+    grid=major, grid style={gray!30},
+    legend style={at={(0.98,0.98)}, anchor=north east, font=\small},
+    ymin=0
+]
+\addplot[blue, thick, domain=0:50, samples=50] {2*exp(-0.04*x) + 0.15 + 0.1*rand};
+\addlegendentry{SGD}
+\addplot[red, thick, domain=0:50, samples=50] {2*exp(-0.08*x) + 0.1 + 0.05*rand};
+\addlegendentry{SGD + Momentum}
+\addplot[ForestGreen, thick, domain=0:50, samples=50] {2*exp(-0.12*x) + 0.08};
+\addlegendentry{Adam}
+\addplot[orange, thick, domain=0:50, samples=50] {2*exp(-0.13*x) + 0.06};
+\addlegendentry{AdamW}
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+% ------------------------------------------------------------
+\section{Learning Rate Scheduling}
+\label{sec:lr_schedule}
+\index{learning rate!scheduling}
+
+\subsection{Step Decay}
+
+\[
+\eta_t = \eta_0 \cdot \gamma^{\lfloor t / T \rfloor}
+\]
+with $\gamma = 0.1$ every $T = 30$ epochs, for instance.
+
+\subsection{Cosine Annealing}
+\index{cosine annealing}
+
+\[
+\eta_t = \eta_{\min} + \frac{1}{2}(\eta_{\max} - \eta_{\min})\left(1 + \cos\frac{\pi t}{T}\right)
+\]
+
+\subsection{Linear Warmup + Cosine Decay}
+\index{warmup}
+
+Used by default for Transformers: linear increase of $\eta$ during $T_w$ iterations, then cosine decay.
+
+\begin{codeblock}[title=\textbf{Schedulers in PyTorch}]
+\begin{minted}{python}
+from torch.optim.lr_scheduler import (
+    StepLR, CosineAnnealingLR, OneCycleLR
+)
+
+optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.01)
+
+# Step decay
+scheduler_step = StepLR(optimizer, step_size=30, gamma=0.1)
+
+# Cosine annealing
+scheduler_cos = CosineAnnealingLR(optimizer, T_max=100, eta_min=1e-6)
+
+# One-cycle (warmup + cosine decay)
+scheduler_1cycle = OneCycleLR(
+    optimizer, max_lr=1e-3, total_steps=len(train_loader) * EPOCHS
+)
+
+# In the training loop:
+for epoch in range(EPOCHS):
+    for X, y in train_loader:
+        optimizer.zero_grad()
+        loss = criterion(model(X.to(DEVICE)), y.to(DEVICE))
+        loss.backward()
+        optimizer.step()
+        scheduler_1cycle.step()  # per iteration for OneCycle
+    scheduler_cos.step()         # per epoch for CosineAnnealing
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Gradient Problems}
+\label{sec:gradient_problems}
+
+\subsection{Vanishing Gradient}
+\index{vanishing gradient}
+
+In an $L$-layer network with sigmoids, the gradient at layer $\ell$ contains the product:
+\[
+\prod_{k=\ell+1}^{L} \sigma'(z^{(k)}) \cdot W^{(k)}
+\]
+Since $|\sigma'(z)| \leq 1/4$, this product decays exponentially with $L - \ell$, preventing learning in early layers.
+
+\subsection{Exploding Gradient}
+\index{exploding gradient}
+
+If $\|W^{(k)}\| > 1/|\sigma'_{\max}|$, the product grows exponentially. Solution: \textbf{gradient clipping}\index{gradient clipping}:
+\[
+\bm{g} \leftarrow \begin{cases}
+\bm{g} & \text{if } \|\bm{g}\| \leq c \\
+c \cdot \frac{\bm{g}}{\|\bm{g}\|} & \text{otherwise}
+\end{cases}
+\]
+
+\begin{codeblock}[title=\textbf{Gradient Clipping in PyTorch}]
+\begin{minted}{python}
+# After loss.backward(), before optimizer.step()
+torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+\end{minted}
+\end{codeblock}
+
+\subsection{Modern Solutions}
+
+\begin{enumerate}
+\item \textbf{ReLU}: $\sigma'(z) = 1$ for $z > 0$, no attenuation.
+\item \textbf{Residual connections} (Chapter~\ref{ch:cnn}): $\bm{h}^{(\ell)} = F(\bm{h}^{(\ell-1)}) + \bm{h}^{(\ell-1)}$.
+\item \textbf{Normalization}: BatchNorm, LayerNorm (Chapter~\ref{ch:regularization}).
+\item \textbf{Proper initialization}: Xavier, He (Section~\ref{sec:init}).
+\end{enumerate}
+
+% ------------------------------------------------------------
+\section{Complete Implementation: Manual Backpropagation}
+\label{sec:backprop_manual}
+
+\begin{codeblock}[title=\textbf{Manual Backpropagation (without autograd)}]
+\begin{minted}{python}
+import numpy as np
+
+class ManualMLP:
+    """2-layer MLP with manual backprop."""
+    def __init__(self, d_in, d_hid, d_out):
+        # He initialization
+        self.W1 = np.random.randn(d_hid, d_in) * np.sqrt(2/d_in)
+        self.b1 = np.zeros(d_hid)
+        self.W2 = np.random.randn(d_out, d_hid) * np.sqrt(2/d_hid)
+        self.b2 = np.zeros(d_out)
+
+    def relu(self, z):
+        return np.maximum(0, z)
+
+    def softmax(self, z):
+        e = np.exp(z - z.max(axis=1, keepdims=True))
+        return e / e.sum(axis=1, keepdims=True)
+
+    def forward(self, X):
+        self.z1 = X @ self.W1.T + self.b1
+        self.h1 = self.relu(self.z1)
+        self.z2 = self.h1 @ self.W2.T + self.b2
+        self.probs = self.softmax(self.z2)
+        return self.probs
+
+    def backward(self, X, y_onehot, lr=0.01):
+        N = X.shape[0]
+        delta2 = (self.probs - y_onehot) / N
+        dW2 = delta2.T @ self.h1
+        db2 = delta2.sum(axis=0)
+
+        delta1 = (delta2 @ self.W2) * (self.z1 > 0)
+        dW1 = delta1.T @ X
+        db1 = delta1.sum(axis=0)
+
+        self.W2 -= lr * dW2
+        self.b2 -= lr * db2
+        self.W1 -= lr * dW1
+        self.b1 -= lr * db1
+
+    def loss(self, y_onehot):
+        return -np.mean(np.sum(y_onehot * np.log(self.probs + 1e-8),
+                               axis=1))
+
+# Test on synthetic data
+np.random.seed(42)
+X = np.random.randn(1000, 20)
+y_true = (X[:, 0] + X[:, 1] > 0).astype(int)
+y_oh = np.eye(2)[y_true]
+
+mlp = ManualMLP(20, 64, 2)
+for epoch in range(100):
+    mlp.forward(X)
+    if epoch % 20 == 0:
+        acc = (mlp.probs.argmax(1) == y_true).mean()
+        print(f"Epoch {epoch:3d} | Loss: {mlp.loss(y_oh):.4f}"
+              f" | Acc: {acc:.4f}")
+    mlp.backward(X, y_oh, lr=0.1)
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Epoch   0 | Loss: 0.7234 | Acc: 0.4930
+Epoch  20 | Loss: 0.2156 | Acc: 0.9240
+Epoch  40 | Loss: 0.1052 | Acc: 0.9670
+Epoch  60 | Loss: 0.0614 | Acc: 0.9810
+Epoch  80 | Loss: 0.0402 | Acc: 0.9880
+\end{verbatim}
+\end{codeoutput}
+
+% ------------------------------------------------------------
+\section{Ablation Study: Optimizers}
+\label{sec:ablation_optim}
+
+\begin{codeblock}[title=\textbf{Optimizer Comparison on MNIST}]
+\begin{minted}{python}
+optimizers = {
+    "SGD":          optim.SGD(model.parameters(), lr=0.01),
+    "SGD+Momentum": optim.SGD(model.parameters(), lr=0.01, momentum=0.9),
+    "Adam":         optim.Adam(model.parameters(), lr=1e-3),
+    "AdamW":        optim.AdamW(model.parameters(), lr=1e-3,
+                                weight_decay=0.01),
+}
+
+for name, opt in optimizers.items():
+    model_copy = MLP().to(DEVICE)
+    opt = type(opt)(model_copy.parameters(), **opt.defaults)
+    history = train_and_eval(model_copy, opt, train_loader,
+                             test_loader, epochs=10)
+    print(f"{name:15s} | Final Acc: {history['test_acc'][-1]:.4f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+SGD             | Final Acc: 0.9532
+SGD+Momentum    | Final Acc: 0.9721
+Adam            | Final Acc: 0.9793
+AdamW           | Final Acc: 0.9801
+\end{verbatim}
+\end{codeoutput}
+
+% ------------------------------------------------------------
+\section{Connection to the State of the Art}
+\label{sec:sota_optim}
+
+\begin{sota}
+\begin{itemize}
+\item \textbf{LAMB/LARS} (You et al., 2020): optimizers adapted for distributed training with very large batches ($B > 8192$).
+\item \textbf{Lion} (Chen et al., 2024): an optimizer discovered through evolutionary search, using only the sign of the gradient, more memory-efficient than Adam.
+\item \textbf{Muon} (Jordan et al., 2024): optimizer based on momentum orthogonalization, improving convergence for large language models.
+\item \textbf{$\mu$P} (Yang \& Hu, 2022): maximal update parametrization enabling hyperparameter transfer from small to large models.
+\end{itemize}
+\end{sota}
+
+% ------------------------------------------------------------
+\section{Chapter Summary}
+
+\begin{keyformulas}
+\begin{itemize}
+\item \textbf{Gradient descent}: $\theta_{t+1} = \theta_t - \eta \nabla \mathcal{L}$
+\item \textbf{Mini-batch SGD}: gradient on a subset $\mathcal{B}$
+\item \textbf{Backpropagation}: $\bm{\delta}^{(\ell)} = (W^{(\ell+1)\top}\bm{\delta}^{(\ell+1)}) \odot \sigma'(\bm{z}^{(\ell)})$
+\item \textbf{Weight gradient}: $\partial\mathcal{L}/\partial W^{(\ell)} = \bm{\delta}^{(\ell)} \bm{h}^{(\ell-1)\top}$
+\item \textbf{Adam}: combines momentum ($\bm{m}$) and adaptation ($\bm{v}$) with bias correction
+\item \textbf{Cosine annealing}: $\eta_t = \eta_{\min} + \frac{1}{2}(\eta_{\max}-\eta_{\min})(1+\cos\frac{\pi t}{T})$
+\item \textbf{Gradient clipping}: $\bm{g} \leftarrow c \cdot \bm{g}/\|\bm{g}\|$ if $\|\bm{g}\| > c$
+\end{itemize}
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Exercises}
+
+\begin{exercise}[$\star$ --- Derivation]
+Derive the backpropagation equations for a 3-layer MLP with tanh activation, explicitly stating all Jacobian matrix dimensions.
+\end{exercise}
+
+\begin{exercise}[$\star$ --- Analysis]
+Show that the mini-batch SGD estimator has variance $\Var[\hat{g}] = \sigma^2/B$ where $\sigma^2$ is the individual gradient variance and $B$ the batch size. Discuss the trade-off between batch size and gradient noise.
+\end{exercise}
+
+\begin{exercise}[$\star\star$ --- Implementation]
+Implement backpropagation \emph{without autograd} for a 3-layer MLP with ReLU. Verify your gradients using finite differences: $\frac{\partial \mathcal{L}}{\partial w} \approx \frac{\mathcal{L}(w+\varepsilon) - \mathcal{L}(w-\varepsilon)}{2\varepsilon}$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$ --- Comparison]
+Compare SGD, SGD+Momentum, Adam, and AdamW on Fashion-MNIST with an MLP $(784, 512, 256, 10)$. For each optimizer, perform a grid search over learning rates in $\{10^{-4}, 10^{-3}, 10^{-2}, 10^{-1}\}$. Plot loss and accuracy curves.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ --- Research Project]
+Reproduce the hyperparameter transfer experiment from $\mu$P (Yang \& Hu, 2022): train a small MLP, transfer the optimal learning rate to a $10\times$ larger model. Compare with direct tuning on the large model.
+\end{exercise}

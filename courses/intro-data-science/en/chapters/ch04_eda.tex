@@ -1,0 +1,359 @@
+% !TEX root = ../main.tex
+\chapter{Exploratory Data Analysis (EDA)}
+\label{ch:eda}
+
+\begin{intuition}
+Exploratory Data Analysis (EDA) is an analysis philosophy initiated by John Tukey in the 1970s. Rather than testing predefined hypotheses, EDA invites us to ``let the data speak'' by systematically exploring them through numerical summaries and visualizations.
+\end{intuition}
+
+% ============================================================
+\section{What is EDA?}
+\index{EDA}\index{exploratory analysis}
+
+\begin{definition}[Exploratory Data Analysis]
+EDA\index{EDA} is an analytical approach that uses visual and quantitative techniques to understand the structure, anomalies, and relationships in a dataset \emph{before} any formal modeling.
+\end{definition}
+
+The main objectives of EDA are:
+\begin{itemize}
+    \item Discover the \textbf{structure} of the data (dimensions, types, missing values).
+    \item Identify \textbf{distributions} and \textbf{central tendencies}.
+    \item Detect \textbf{anomalies} and \textbf{outliers}.
+    \item Explore \textbf{relationships} between variables.
+    \item Formulate \textbf{hypotheses} to be tested later.
+\end{itemize}
+
+% ============================================================
+\section{Systematic EDA Process}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.2cm,
+    block/.style={rectangle, draw=steelblue!80, fill=steelblue!10, rounded corners, text width=3.8cm, align=center, minimum height=1cm, font=\small},
+    arrow/.style={->, thick, >=stealth, color=gray!70}
+]
+\node[align=center,block] (load) {1. Load data\\{\scriptsize \py{pd.read\_csv}, \py{sns.load\_dataset}}};
+\node[align=center,block, below=of load] (shape) {2. Dimensions and types\\{\scriptsize \py{shape}, \py{dtypes}, \py{info()}}};
+\node[align=center,block, below=of shape] (missing) {3. Missing values\\{\scriptsize \py{isnull().sum()}}};
+\node[align=center,block, below=of missing] (desc) {4. Descriptive statistics\\{\scriptsize \py{describe()}, \py{value\_counts()}}};
+\node[align=center,block, right=2.5cm of load] (uni) {5. Univariate analysis\\{\scriptsize histograms, boxplots}};
+\node[align=center,block, below=of uni] (bi) {6. Bivariate analysis\\{\scriptsize scatter, correlation}};
+\node[align=center,block, below=of bi] (multi) {7. Multivariate analysis\\{\scriptsize pairplot, heatmap}};
+\node[block, below=of multi] (concl) {8. Conclusions and hypotheses};
+
+\draw[arrow] (load) -- (shape);
+\draw[arrow] (shape) -- (missing);
+\draw[arrow] (missing) -- (desc);
+\draw[arrow] (desc.east) -- ++(1.25,0) |- (uni.west);
+\draw[arrow] (uni) -- (bi);
+\draw[arrow] (bi) -- (multi);
+\draw[arrow] (multi) -- (concl);
+\end{tikzpicture}
+\end{center}
+
+% ============================================================
+\section{Case Study: The Titanic Dataset}
+\index{Titanic}
+
+\subsection{Loading and First Inspection}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+titanic = sns.load_dataset('titanic')
+print(f"Dimensions : {titanic.shape}")
+print(titanic.dtypes)
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Dimensions : (891, 15)
+survived         int64
+pclass           int64
+sex             object
+age            float64
+sibsp            int64
+parch            int64
+fare           float64
+embarked        object
+class         category
+who             object
+adult_male        bool
+deck          category
+embark_town     object
+alive           object
+alone             bool
+\end{minted}
+\end{codeoutput}
+
+\subsection{Missing Values}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+missing = titanic.isnull().sum()
+missing_pct = (missing / len(titanic) * 100).round(1)
+missing_df = pd.DataFrame({'Missing': missing,
+                           'Percentage': missing_pct})
+print(missing_df[missing_df['Missing'] > 0])
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+             Missing  Percentage
+age              177        19.9
+embarked           2         0.2
+deck             688        77.2
+embark_town        2         0.2
+\end{minted}
+\end{codeoutput}
+
+\begin{remark}
+The variable \py{deck} has 77\,\% missing values: it will likely be unusable without heavy imputation. The variable \py{age} has about 20\,\% missing, which is manageable.
+\end{remark}
+
+\subsection{Descriptive Statistics}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+print(titanic.describe())
+print("\n--- Categorical Variables ---")
+print(titanic[['sex', 'embarked', 'class']].describe())
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+         survived     pclass        age      sibsp      parch       fare
+count  891.000000  891.000000  714.00000  891.00000  891.00000  891.00000
+mean     0.383838    2.308642   29.69912    0.52301    0.38159   32.20421
+std      0.486592    0.836071   14.52650    1.10274    0.80606   49.69343
+min      0.000000    1.000000    0.42000    0.00000    0.00000    0.00000
+25%      0.000000    2.000000   20.12500    0.00000    0.00000    7.91040
+50%      0.000000    3.000000   28.00000    0.00000    0.00000   14.45420
+75%      1.000000    3.000000   38.00000    1.00000    0.00000   31.00000
+max      1.000000    3.000000   80.00000    8.00000    6.00000  512.32920
+
+--- Categorical Variables ---
+          sex embarked class
+count     891      889   891
+unique      2        3     3
+top      male        S Third
+freq      577      644   491
+\end{minted}
+\end{codeoutput}
+
+% ============================================================
+\section{Univariate Analysis}
+\index{univariate analysis}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+fig, axes = plt.subplots(2, 2, figsize=(12, 9))
+
+sns.histplot(titanic['age'].dropna(), bins=30, kde=True,
+             ax=axes[0,0], color='steelblue')
+axes[0,0].set_title('Age Distribution')
+
+sns.countplot(data=titanic, x='pclass', ax=axes[0,1],
+              palette='viridis')
+axes[0,1].set_title('Distribution by Class')
+
+sns.countplot(data=titanic, x='survived', ax=axes[1,0],
+              palette='Set2')
+axes[1,0].set_xticklabels(['Deceased', 'Survived'])
+axes[1,0].set_title('Survival')
+
+sns.histplot(titanic['fare'], bins=40, ax=axes[1,1],
+             color='coral')
+axes[1,1].set_title('Fare Distribution')
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Four plots: age approximately follows a normal distribution centered around 29 years; third class is the most represented (491); 62\,\% of passengers did not survive; the fare is highly skewed with a long right tail.
+\end{codeoutput}
+
+% ============================================================
+\section{Bivariate Analysis}
+\index{bivariate analysis}
+
+\subsection{Survival by Sex and by Class}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+
+# Survival by sex
+sns.barplot(data=titanic, x='sex', y='survived',
+            ax=axes[0], palette='coolwarm', ci=95)
+axes[0].set_title('Survival Rate by Sex')
+axes[0].set_ylabel('Survival Rate')
+
+# Survival by class
+sns.barplot(data=titanic, x='pclass', y='survived',
+            ax=axes[1], palette='viridis', ci=95)
+axes[1].set_title('Survival Rate by Class')
+
+# Survival by sex and class
+sns.barplot(data=titanic, x='pclass', y='survived',
+            hue='sex', ax=axes[2], palette='Set1', ci=95)
+axes[2].set_title('Survival by Class and Sex')
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Women have a survival rate of 74\,\% compared to 19\,\% for men. First class has 63\,\% survival, second class 47\,\%, and third class 24\,\%. The combination shows that first-class women survived at nearly 97\,\%.
+\end{codeoutput}
+
+\subsection{Correlations and Contingency Table}
+\index{contingency table}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Contingency table
+ct = pd.crosstab(titanic['sex'], titanic['survived'],
+                 margins=True)
+ct.columns = ['Deceased', 'Survived', 'Total']
+print(ct)
+
+# Numerical correlation
+cols_num = ['survived', 'pclass', 'age', 'sibsp', 'parch', 'fare']
+corr = titanic[cols_num].corr()
+print("\nCorrelation Matrix:")
+print(corr.round(2))
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+         Deceased  Survived  Total
+sex
+female       81        233    314
+male        468        109    577
+Total       549        342    891
+
+Correlation Matrix:
+          survived  pclass    age  sibsp  parch   fare
+survived      1.00   -0.34  -0.08  -0.04   0.08   0.26
+pclass       -0.34    1.00  -0.37   0.08   0.02  -0.55
+age          -0.08   -0.37   1.00  -0.31  -0.19   0.10
+fare          0.26   -0.55   0.10  -0.24   0.22   1.00
+\end{minted}
+\end{codeoutput}
+
+% ============================================================
+\section{Multivariate Analysis}
+\index{multivariate analysis}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+fig, ax = plt.subplots(figsize=(8, 6))
+sns.heatmap(corr, annot=True, fmt='.2f', cmap='RdBu_r',
+            center=0, ax=ax, square=True,
+            linewidths=0.5)
+ax.set_title('Correlation Heatmap -- Titanic')
+plt.tight_layout()
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Heatmap showing correlations: survival is negatively correlated with class ($-0.34$) and positively with fare ($0.26$). Class and fare are strongly anti-correlated ($-0.55$).
+\end{codeoutput}
+
+% ============================================================
+\section{Outlier Detection}
+\index{outliers}\index{IQR}
+
+\begin{definition}[IQR Method]
+An observation is considered an outlier if it falls outside the interval:
+\[
+\bigl[Q_1 - 1.5 \times \text{IQR},\; Q_3 + 1.5 \times \text{IQR}\bigr]
+\]
+where $\text{IQR} = Q_3 - Q_1$ is the interquartile range\index{interquartile range}.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+def detect_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    outliers = df[(df[column] < lower_bound) |
+                  (df[column] > upper_bound)]
+    return outliers, lower_bound, upper_bound
+
+outliers_fare, b_low, b_high = detect_outliers_iqr(titanic, 'fare')
+print(f"Bounds: [{b_low:.2f}, {b_high:.2f}]")
+print(f"Number of outliers (fare): {len(outliers_fare)}")
+print(f"Max fare: {titanic['fare'].max():.2f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Bounds: [-26.72, 65.63]
+Number of outliers (fare): 116
+Max fare: 512.33
+\end{minted}
+\end{codeoutput}
+
+\begin{remark}
+116 passengers (13\,\%) have a fare considered as an outlier by the IQR method. These are mainly first-class passengers. They should not be automatically removed: these are legitimate values that reflect the data structure.
+\end{remark}
+
+% ============================================================
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+Load the \py{titanic} dataset and display the first 5 rows, the dimensions, the column types, and the number of missing values per column.
+\end{exercise}
+
+\begin{exercise}[$\star$]
+Compute the overall survival rate, then the survival rate by port of embarkation (\py{embarked}). Which port letter has the highest survival rate?
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Create a chart with \py{sns.catplot} of type \py{'bar'} showing the survival rate by class and by sex. Add an informative title. Interpret the results in terms of evacuation priority.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Create a histogram of passenger age, separated by survival (\py{hue='survived'}). Are survivors younger on average? Verify with \py{groupby('survived')['age'].mean()}.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+Apply the IQR method to detect outliers in the \py{age} variable. How many are there? Create an annotated box plot showing the IQR bounds and the outliers. Discuss the relevance of removing these observations.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+Perform a complete EDA of the \py{penguins} dataset (\py{sns.load\_dataset('penguins')}). Your analysis should include: (a) general inspection, (b) missing value handling, (c) univariate distributions, (d) bivariate analysis by species, (e) correlation heatmap. Conclude by formulating 3 testable hypotheses.
+\end{exercise}
+
+% ============================================================
+\begin{keyformulas}
+\textbf{Chapter Summary -- Exploratory Data Analysis}
+\begin{itemize}
+    \item \textbf{Inspection}: \py{df.shape}, \py{df.dtypes}, \py{df.info()}, \py{df.head()}.
+    \item \textbf{Missing values}: \py{df.isnull().sum()}, \py{df.isnull().mean() * 100}.
+    \item \textbf{Descriptive}: \py{df.describe()}, \py{df['col'].value\_counts()}.
+    \item \textbf{Univariate}: \py{sns.histplot()}, \py{sns.countplot()}, \py{sns.boxplot()}.
+    \item \textbf{Bivariate}: \py{sns.barplot(x, y)}, \py{sns.scatterplot()}, \py{pd.crosstab()}.
+    \item \textbf{Multivariate}: \py{df.corr()}, \py{sns.heatmap()}, \py{sns.pairplot()}.
+    \item \textbf{Outliers (IQR)}: outlier if $x < Q_1 - 1.5 \cdot \text{IQR}$ or $x > Q_3 + 1.5 \cdot \text{IQR}$.
+    \item \textbf{Tukey's philosophy}: explore first, model later.
+\end{itemize}
+\end{keyformulas}

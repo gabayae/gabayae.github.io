@@ -1,0 +1,347 @@
+% =============================================================================
+\chapter{Applications}
+\label{ch:applications}
+% =============================================================================
+
+\begin{intuition}
+Ce chapitre pr\'esente les applications majeures du RL profond dans trois
+domaines~: la robotique, les jeux et la finance. Pour chaque domaine, nous
+discutons les d\'efis sp\'ecifiques, les architectures utilis\'ees et les
+r\'esultats marquants, avec des exemples concrets d'impl\'ementation.
+\end{intuition}
+
+% -----------------------------------------------------------------------------
+\section{Robotique}
+% -----------------------------------------------------------------------------
+
+\subsection{D\'efis du RL en robotique}
+
+\begin{attention}[title=\textbf{D\'efis sp\'ecifiques \`a la robotique}]
+\begin{enumerate}
+    \item \textbf{S\'ecurit\'e}~: un robot physique peut se d\'etruire ou blesser
+    des personnes pendant l'exploration.
+    \item \textbf{Efficacit\'e d'\'echantillonnage}~: les interactions r\'eelles
+    sont lentes et co\^uteuses.
+    \item \textbf{Sim-to-real gap}~: les politiques apprises en simulation ne
+    se transf\`erent pas directement au monde r\'eel.
+    \item \textbf{Espaces continus de haute dimension}~: un robot humano\"ide
+    a typiquement 20--30 degr\'es de libert\'e.
+    \item \textbf{Observations bruyantes et partielles}~: capteurs imparfaits,
+    latence.
+\end{enumerate}
+\end{attention}
+
+\subsection{Sim-to-Real et randomisation de domaine}
+
+\begin{definition}[Randomisation de domaine]
+La \textbf{randomisation de domaine} (\emph{domain randomization}) varie
+al\'eatoirement les param\`etres de la simulation (masse, friction, d\'elais,
+textures) pendant l'entra\^inement, for\c{c}ant la politique \`a \^etre robuste
+aux variations~:
+\[
+    \max_\theta \E_{\xi \sim p(\xi)}\left[J(\theta; \xi)\right]
+\]
+o\`u $\xi$ repr\'esente les param\`etres de simulation randomis\'es.
+\end{definition}
+
+\begin{exemple}[OpenAI --- Rubik's Cube]
+En 2019, OpenAI a entra\^in\'e une main robotique Dexterous \`a r\'esoudre un
+Rubik's Cube en simulation avec randomisation massive (ADR --- Automatic Domain
+Randomization). La politique, entra\^in\'ee avec PPO sur des milliers de GPUs,
+se transf\`ere directement au robot physique.
+\end{exemple}
+
+\subsection{Contr\^ole locomoteur}
+
+\begin{exemple}[Locomotion avec SAC]
+L'entra\^inement d'un agent quadrup\`ede dans MuJoCo avec SAC~:
+\begin{itemize}
+    \item \textbf{Observation}~: positions et vitesses articulaires, orientation du tronc ($\dim = 48$).
+    \item \textbf{Action}~: couples articulaires ($\dim = 12$).
+    \item \textbf{R\'ecompense}~: vitesse vers l'avant $- c_1 \norm{a}^2 - c_2 \norm{\text{contact}}$.
+    \item R\'esultat~: d\'emarches naturelles \'emergent apr\`es $\sim 5 \times 10^6$ pas.
+\end{itemize}
+\end{exemple}
+
+\begin{codeblock}[title=\textbf{Contr\^ole locomoteur avec SAC (Stable-Baselines3)}]
+\begin{minted}{python}
+from stable_baselines3 import SAC
+from stable_baselines3.common.vec_env import SubprocVecEnv
+import gymnasium as gym
+
+def make_env(env_id):
+    def _init():
+        return gym.make(env_id)
+    return _init
+
+# Environnements paralleles
+n_envs = 4
+env = SubprocVecEnv([make_env("Ant-v5") for _ in range(n_envs)])
+
+model = SAC(
+    "MlpPolicy", env,
+    learning_rate=3e-4,
+    buffer_size=1_000_000,
+    batch_size=256,
+    tau=0.005,
+    gamma=0.99,
+    ent_coef="auto",
+    verbose=1
+)
+model.learn(total_timesteps=3_000_000)
+model.save("sac_ant")
+\end{minted}
+\end{codeblock}
+
+\subsection{Manipulation robotique}
+
+\begin{definition}[Hindsight Experience Replay (HER)]
+\textbf{HER} (Andrychowicz et al., 2017) r\'esout le probl\`eme des r\'ecompenses
+creuses en manipulation. Apr\`es un \'episode \'echou\'e, on rejoue les transitions
+en rempla\c{c}ant l'objectif original par un objectif atteint~:
+\[
+    (s_t, a_t, r_t, s_{t+1}, g) \to (s_t, a_t, r'_t, s_{t+1}, g')
+\]
+o\`u $g' = s_T$ (l'\'etat final atteint) et $r'_t = R(s_t, a_t, g')$.
+\end{definition}
+
+% -----------------------------------------------------------------------------
+\section{Jeux}
+% -----------------------------------------------------------------------------
+
+\subsection{Atari et DQN}
+
+\begin{remarque}
+DQN (Mnih et al., 2015) a d\'emontr\'e que le RL profond pouvait atteindre des
+performances surhumaines sur 49 jeux Atari 2600 \`a partir de pixels bruts
+($84 \times 84 \times 4$ frames empil\'ees). L'architecture convolutive~:
+\begin{itemize}
+    \item Conv $8 \times 8$, stride 4, 32 filtres + ReLU
+    \item Conv $4 \times 4$, stride 2, 64 filtres + ReLU
+    \item Conv $3 \times 3$, stride 1, 64 filtres + ReLU
+    \item FC 512 + ReLU
+    \item FC $|\mathcal{A}|$
+\end{itemize}
+\end{remarque}
+
+\subsection{Go --- AlphaGo et AlphaZero}
+
+\begin{definition}[AlphaZero]
+\textbf{AlphaZero} (Silver et al., 2018) combine~:
+\begin{itemize}
+    \item Un r\'eseau $f_\theta(s) = (p, v)$ qui pr\'edit simultan\'ement la
+    politique $p(a|s)$ et la valeur $v(s)$.
+    \item Une recherche arborescente Monte Carlo (MCTS) guid\'ee par le r\'eseau.
+    \item Un entra\^inement par auto-jeu~: la cible pour $p$ est la distribution
+    MCTS $\boldsymbol{\pi}$~; la cible pour $v$ est le r\'esultat $z \in \{-1, +1\}$.
+\end{itemize}
+Perte~:
+\[
+    \ell(\theta) = (z - v)^2 - \boldsymbol{\pi}^\top \log \mathbf{p} + c \|\theta\|^2.
+\]
+\end{definition}
+
+\subsection{Strat\'egie en temps r\'eel --- StarCraft}
+
+\begin{exemple}[AlphaStar]
+\textbf{AlphaStar} (Vinyals et al., 2019) a atteint le niveau Grandmaster \`a
+StarCraft~II en combinant~:
+\begin{itemize}
+    \item Entra\^inement supervis\'e sur des replays humains.
+    \item RL multi-agents dans une ligue de joueurs (population-based training).
+    \item Architecture transformer pour g\'erer les s\'equences d'actions longues.
+    \item Espace d'action combinatoire (type d'action + cible + timing).
+\end{itemize}
+\end{exemple}
+
+% -----------------------------------------------------------------------------
+\section{Finance}
+% -----------------------------------------------------------------------------
+
+\subsection{Gestion de portefeuille}
+
+\begin{definition}[MDP de gestion de portefeuille]
+Le probl\`eme de gestion de portefeuille se formalise comme~:
+\begin{itemize}
+    \item \textbf{\'Etat}~: prix historiques, indicateurs techniques, positions
+    courantes, solde.
+    \item \textbf{Action}~: vecteur d'allocation $\mathbf{w} \in \Delta^K$ o\`u
+    $w_k$ est la fraction allou\'ee \`a l'actif $k$.
+    \item \textbf{R\'ecompense}~: rendement logarithmique ajust\'e du risque~:
+    \[
+        R_t = \log\left(\sum_k w_k \frac{p_k^{t+1}}{p_k^t}\right) - c_{\text{transaction}}
+        - \lambda_{\text{risk}} \cdot \text{CVaR}_\alpha
+    \]
+\end{itemize}
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Environnement de trading simplifi\'e}]
+\begin{minted}{python}
+import numpy as np
+import gymnasium as gym
+from gymnasium import spaces
+
+class TradingEnv(gym.Env):
+    def __init__(self, prices, window=20, initial_balance=10000):
+        super().__init__()
+        self.prices = prices  # (T, n_assets)
+        self.window = window
+        self.n_assets = prices.shape[1]
+        self.initial_balance = initial_balance
+        self.observation_space = spaces.Box(
+            low=-np.inf, high=np.inf,
+            shape=(window, self.n_assets + 1))  # prix + position
+        self.action_space = spaces.Box(
+            low=0, high=1, shape=(self.n_assets,))
+        self.reset()
+
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
+        self.t = self.window
+        self.balance = self.initial_balance
+        self.holdings = np.zeros(self.n_assets)
+        return self._get_obs(), {}
+
+    def _get_obs(self):
+        price_window = self.prices[self.t - self.window:self.t]
+        # Rendements normalises
+        returns = np.diff(price_window, axis=0) / price_window[:-1]
+        position = np.tile(self.holdings / (self.balance + 1e-8),
+                          (self.window, 1))
+        return np.concatenate([returns, position[:returns.shape[0]]], axis=1)
+
+    def step(self, action):
+        weights = action / (action.sum() + 1e-8)
+        # Rendements des actifs
+        current_prices = self.prices[self.t]
+        next_prices = self.prices[self.t + 1]
+        asset_returns = next_prices / current_prices - 1
+
+        portfolio_return = np.dot(weights, asset_returns)
+        transaction_cost = 0.001 * np.sum(
+            np.abs(weights - self.holdings / (self.balance + 1e-8)))
+
+        self.balance *= (1 + portfolio_return - transaction_cost)
+        self.holdings = weights * self.balance
+        self.t += 1
+
+        reward = np.log(1 + portfolio_return - transaction_cost)
+        terminated = self.t >= len(self.prices) - 1
+        return self._get_obs(), reward, terminated, False, {
+            "balance": self.balance}
+\end{minted}
+\end{codeblock}
+
+\subsection{Ex\'ecution optimale d'ordres}
+
+\begin{definition}[Probl\`eme d'ex\'ecution optimale]
+Un trader doit ex\'ecuter un ordre de $Q$ parts en $T$ p\'eriodes en minimisant
+l'impact de march\'e~:
+\begin{itemize}
+    \item \textbf{\'Etat}~: $s_t = (q_t, t, \text{features de march\'e})$ o\`u
+    $q_t$ est la quantit\'e restante.
+    \item \textbf{Action}~: $a_t$ quantit\'e \`a ex\'ecuter au temps $t$.
+    \item \textbf{Contrainte}~: $\sum_t a_t = Q$ et $a_t \geq 0$.
+    \item \textbf{R\'ecompense}~: $-a_t \cdot \text{slippage}(a_t)$.
+\end{itemize}
+\end{definition}
+
+% -----------------------------------------------------------------------------
+\section{Autres applications}
+% -----------------------------------------------------------------------------
+
+\subsection{RLHF --- Alignement de mod\`eles de langage}
+
+\begin{definition}[RLHF]
+Le \textbf{Reinforcement Learning from Human Feedback} (Ouyang et al., 2022)
+aligne les LLM avec les pr\'ef\'erences humaines~:
+\begin{enumerate}
+    \item Entra\^iner un mod\`ele de r\'ecompense $R_\psi(x, y)$ sur des
+    pr\'ef\'erences humaines $(y_w \succ y_l | x)$.
+    \item Optimiser le LLM $\pi_\theta$ par PPO~:
+    \[
+        \max_\theta \E_{x \sim \mathcal{D}, y \sim \pi_\theta}\left[
+        R_\psi(x, y) - \beta \, \text{KL}[\pi_\theta \| \pi_{\text{ref}}]
+        \right].
+    \]
+\end{enumerate}
+\end{definition}
+
+\subsection{D\'ecouverte de m\'edicaments}
+
+\begin{exemple}[G\'en\'eration mol\'eculaire]
+Le RL est utilis\'e pour g\'en\'erer des mol\'ecules optimisant des propri\'et\'es
+pharmacologiques (solubilit\'e, affinit\'e, toxicit\'e). L'agent construit
+une mol\'ecule atome par atome ou fragment par fragment~:
+\begin{itemize}
+    \item \textbf{\'Etat}~: graphe mol\'eculaire partiel.
+    \item \textbf{Action}~: ajouter un atome/liaison.
+    \item \textbf{R\'ecompense}~: score de \emph{docking}, QED, SA score.
+\end{itemize}
+\end{exemple}
+
+\subsection{Contr\^ole de plasma de fusion}
+
+\begin{exemple}[DeepMind \& EPFL (2022)]
+Le RL a \'et\'e utilis\'e pour contr\^oler la forme du plasma dans le tokamak
+TCV~:
+\begin{itemize}
+    \item \textbf{\'Etat}~: mesures magn\'etiques (200+ capteurs).
+    \item \textbf{Action}~: tensions des bobines magn\'etiques (19 actionneurs).
+    \item \textbf{R\'ecompense}~: \'ecart \`a la forme cible du plasma.
+    \item L'agent PPO contr\^ole avec succ\`es des configurations de plasma
+    jamais tent\'ees auparavant.
+\end{itemize}
+\end{exemple}
+
+% -----------------------------------------------------------------------------
+\section{Bonnes pratiques}
+% -----------------------------------------------------------------------------
+
+\begin{formules}[title=\textbf{Guide de choix d'algorithme}]
+\begin{itemize}
+    \item \textbf{Actions discr\`etes, observation simple}~: DQN, Rainbow, PPO.
+    \item \textbf{Actions continues}~: SAC, TD3, PPO.
+    \item \textbf{Efficacit\'e d'\'echantillonnage critique}~: SAC, TD3 (off-policy).
+    \item \textbf{Stabilit\'e et simplicit\'e}~: PPO.
+    \item \textbf{Multi-agents coop\'eratifs}~: MAPPO, QMIX.
+    \item \textbf{Contraintes de s\'ecurit\'e}~: PPO-Lagrangien, CPO.
+\end{itemize}
+\end{formules}
+
+\begin{attention}[title=\textbf{Pi\`eges courants}]
+\begin{enumerate}
+    \item Ne pas normaliser les observations et les r\'ecompenses.
+    \item Utiliser un taux d'apprentissage trop \'elev\'e.
+    \item Replay buffer trop petit pour les m\'ethodes off-policy.
+    \item Ignorer les graines al\'eatoires~: toujours rapporter les r\'esultats
+    sur 5--10 graines avec intervalles de confiance.
+    \item Ne pas v\'erifier l'impl\'ementation sur un probl\`eme simple d'abord.
+\end{enumerate}
+\end{attention}
+
+% -----------------------------------------------------------------------------
+\section{Exercices}
+% -----------------------------------------------------------------------------
+
+\begin{exercice}[Sim-to-real]
+Entra\^inez un agent PPO sur \texttt{Pendulum-v1} avec randomisation de la masse
+et de la friction. \'Evaluez la robustesse en testant sur des param\`etres non
+vus pendant l'entra\^inement.
+\end{exercice}
+
+\begin{exercice}[Trading]
+Impl\'ementez l'environnement de trading ci-dessus avec des donn\'ees historiques
+r\'eelles (par ex.\ Yahoo Finance). Entra\^inez SAC et comparez avec une
+strat\'egie buy-and-hold et une strat\'egie de moyenne mobile.
+\end{exercice}
+
+\begin{exercice}[MCTS + RL]
+Impl\'ementez une version simplifi\'ee d'AlphaZero pour le jeu de Connect Four.
+Combinez un r\'eseau politique-valeur avec MCTS et entra\^inez par auto-jeu.
+\end{exercice}
+
+\begin{exercice}[HER]
+Impl\'ementez HER pour un environnement de manipulation
+\texttt{FetchReach-v3}. Comparez les courbes d'apprentissage avec et sans HER.
+\end{exercice}

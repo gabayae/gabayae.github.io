@@ -1,0 +1,440 @@
+% ============================================================
+\chapter{Th\'eorie des Groupes pour le Deep Learning}
+\label{ch:groupes}
+% ============================================================
+
+Les sym\'etries sont partout~: un visage est (approximativement) sym\'etrique
+par r\'eflexion, un cristal l'est par rotation, les lois de la physique sont
+invariantes par translation dans l'espace et le temps. La th\'eorie des
+groupes, n\'ee des travaux de Galois et d'Abel au XIX\ieme{} si\`ecle, est le
+langage math\'ematique des sym\'etries. Et en deep learning, exploiter les
+sym\'etries d'un probl\`eme --- les int\'egrer comme \emph{biais inductif} dans
+l'architecture du r\'eseau --- est devenu l'une des id\'ees les plus
+puissantes de la derni\`ere d\'ecennie.
+
+% ------------------------------------------------------------
+\section{Introduction \`a la th\'eorie des groupes}
+% ------------------------------------------------------------
+
+La th\'eorie des groupes fournit le langage math\'ematique pour d\'ecrire les
+sym\'etries. Ce chapitre introduit les concepts fondamentaux n\'ecessaires \`a
+la compr\'ehension de l'apprentissage g\'eom\'etrique profond.
+
+\begin{definition}[Groupe]
+Un \textbf{groupe} est un ensemble $G$ muni d'une op\'eration binaire
+$\cdot: G \times G \to G$ satisfaisant~:
+\begin{enumerate}
+    \item \textbf{Associativit\'e}~: $(g \cdot h) \cdot k = g \cdot (h \cdot k)$
+          pour tous $g, h, k \in G$.
+    \item \textbf{\'El\'ement neutre}~: il existe $e \in G$ tel que
+          $e \cdot g = g \cdot e = g$ pour tout $g \in G$.
+    \item \textbf{Inverse}~: pour tout $g \in G$, il existe $g^{-1} \in G$ tel que
+          $g \cdot g^{-1} = g^{-1} \cdot g = e$.
+\end{enumerate}
+\end{definition}
+
+\begin{exemple}[Groupes fondamentaux en GDL]
+\begin{enumerate}
+    \item \textbf{Groupe sym\'etrique} $S_n$~: permutations de $n$ \'el\'ements.
+          $\abs{S_n} = n!$.
+    \item \textbf{Groupe cyclique} $\Z_n = \Z/n\Z$~: rotations discr\`etes.
+    \item \textbf{Groupe orthogonal} $\mathrm{O}(n)$~: matrices $\mathbf{Q} \in \R^{n \times n}$
+          telles que $\mathbf{Q}^\top\mathbf{Q} = \mathbf{I}$.
+    \item \textbf{Groupe sp\'ecial orthogonal} $\mathrm{SO}(n)$~: rotations,
+          $\det(\mathbf{Q}) = +1$.
+    \item \textbf{Groupe euclidien} $\mathrm{E}(n) = \mathrm{O}(n) \ltimes \R^n$~:
+          rotations, r\'eflexions et translations.
+    \item \textbf{Groupe sp\'ecial euclidien} $\mathrm{SE}(n) = \mathrm{SO}(n) \ltimes \R^n$~:
+          rotations et translations (mouvements rigides).
+\end{enumerate}
+\end{exemple}
+
+\subsection{Sous-groupes et homomorphismes}
+
+\begin{definition}[Sous-groupe]
+Un sous-ensemble $H \subseteq G$ est un \textbf{sous-groupe} de $G$ (not\'e
+$H \leq G$) si $H$ est lui-m\^eme un groupe pour l'op\'eration de $G$.
+\end{definition}
+
+\begin{definition}[Homomorphisme de groupes]
+Un \textbf{homomorphisme} de groupes est une application $\varphi: G \to H$
+telle que $\varphi(g_1 \cdot g_2) = \varphi(g_1) \cdot \varphi(g_2)$ pour
+tous $g_1, g_2 \in G$. Si $\varphi$ est bijectif, c'est un \textbf{isomorphisme}.
+\end{definition}
+
+\begin{proposition}[Propri\'et\'es des homomorphismes]
+Soit $\varphi: G \to H$ un homomorphisme. Alors~:
+\begin{enumerate}
+    \item $\varphi(e_G) = e_H$.
+    \item $\varphi(g^{-1}) = \varphi(g)^{-1}$ pour tout $g \in G$.
+    \item $\ker(\varphi) = \{g \in G : \varphi(g) = e_H\}$ est un sous-groupe
+          normal de $G$.
+\end{enumerate}
+\end{proposition}
+
+\section{Actions de groupe}
+
+\begin{definition}[Action de groupe]
+Une \textbf{action} (gauche) d'un groupe $G$ sur un ensemble $X$ est une
+application $\cdot: G \times X \to X$ telle que~:
+\begin{enumerate}
+    \item $e \cdot x = x$ pour tout $x \in X$.
+    \item $(g \cdot h) \cdot x = g \cdot (h \cdot x)$ pour tous $g, h \in G$
+          et $x \in X$.
+\end{enumerate}
+\end{definition}
+
+\begin{exemple}[Actions en deep learning]
+\begin{enumerate}
+    \item $S_n$ agit sur $\R^n$ par permutation des coordonn\'ees~:
+          $\pi \cdot (x_1, \ldots, x_n) = (x_{\pi^{-1}(1)}, \ldots, x_{\pi^{-1}(n)})$.
+    \item $\mathrm{SO}(3)$ agit sur $\R^3$ par rotation~: $R \cdot \mathbf{x} = R\mathbf{x}$.
+    \item $\Z^2$ agit sur les images par translation~: $\mathbf{t} \cdot f(\mathbf{x}) = f(\mathbf{x} - \mathbf{t})$.
+\end{enumerate}
+\end{exemple}
+
+\begin{definition}[Orbite et stabilisateur]
+Soit $G$ agissant sur $X$. Pour $x \in X$~:
+\begin{itemize}
+    \item L'\textbf{orbite} de $x$ est $G \cdot x = \{g \cdot x : g \in G\}$.
+    \item Le \textbf{stabilisateur} de $x$ est $G_x = \{g \in G : g \cdot x = x\}$.
+\end{itemize}
+\end{definition}
+
+\begin{theoreme}[Th\'eor\`eme orbite-stabilisateur]
+Pour un groupe fini $G$ agissant sur $X$ et $x \in X$~:
+\[
+    \abs{G} = \abs{G \cdot x} \cdot \abs{G_x}
+\]
+\end{theoreme}
+
+\section{Repr\'esentations de groupes}
+
+\begin{definition}[Repr\'esentation]
+Une \textbf{repr\'esentation} d'un groupe $G$ sur un espace vectoriel $V$ est
+un homomorphisme $\rho: G \to \mathrm{GL}(V)$, c'est-\`a-dire une application
+qui associe \`a chaque $g \in G$ une transformation lin\'eaire inversible
+$\rho(g): V \to V$ telle que $\rho(g_1 g_2) = \rho(g_1)\rho(g_2)$.
+\end{definition}
+
+\begin{exemple}[Repr\'esentations courantes]
+\begin{enumerate}
+    \item \textbf{Repr\'esentation triviale}~: $\rho(g) = \mathrm{Id}$ pour tout $g$.
+    \item \textbf{Repr\'esentation par permutation}~: $\rho(\pi) = \mathbf{P}_\pi$
+          (matrice de permutation).
+    \item \textbf{Repr\'esentation standard de $\mathrm{SO}(3)$}~: $\rho(R) = R$
+          (la matrice de rotation elle-m\^eme).
+    \item \textbf{Repr\'esentation r\'eguli\`ere}~: $[\rho(g)f](h) = f(g^{-1}h)$.
+\end{enumerate}
+\end{exemple}
+
+\subsection{Repr\'esentations irr\'eductibles}
+
+\begin{definition}[Repr\'esentation irr\'eductible]
+Une repr\'esentation $\rho: G \to \mathrm{GL}(V)$ est \textbf{irr\'eductible}
+si les seuls sous-espaces de $V$ invariants sous l'action de $G$ sont $\{0\}$
+et $V$ lui-m\^eme.
+\end{definition}
+
+\begin{theoreme}[D\'ecomposition de Maschke]
+Toute repr\'esentation de dimension finie d'un groupe fini (sur $\R$ ou $\C$)
+peut \^etre d\'ecompos\'ee en somme directe de repr\'esentations irr\'eductibles~:
+\[
+    V = V_1 \oplus V_2 \oplus \cdots \oplus V_k
+\]
+o\`u chaque $V_i$ est un sous-espace irr\'eductible.
+\end{theoreme}
+
+\begin{formules}[title=\textbf{Repr\'esentations irr\'eductibles de $\mathrm{SO}(3)$}]
+Les repr\'esentations irr\'eductibles de $\mathrm{SO}(3)$ sont index\'ees par
+$\ell \in \{0, 1, 2, \ldots\}$ et ont dimension $2\ell + 1$~:
+\begin{itemize}
+    \item $\ell = 0$~: scalaires (dimension 1) --- repr\'esentation triviale.
+    \item $\ell = 1$~: vecteurs (dimension 3) --- repr\'esentation standard.
+    \item $\ell = 2$~: tenseurs sym\'etriques sans trace (dimension 5).
+\end{itemize}
+Les matrices de repr\'esentation sont les \textbf{matrices de Wigner}
+$D^\ell_{mm'}(R)$, reli\'ees aux harmoniques sph\'eriques~:
+\[
+    Y_\ell^m(R^{-1}\hat{\mathbf{r}}) = \sum_{m'=-\ell}^{\ell}
+    D^\ell_{mm'}(R)\, Y_\ell^{m'}(\hat{\mathbf{r}})
+\]
+\end{formules}
+
+\section{\'Equivariance et invariance}
+
+\begin{definition}[Application \'equivariante]
+Soient $\rho_1: G \to \mathrm{GL}(V_1)$ et $\rho_2: G \to \mathrm{GL}(V_2)$
+deux repr\'esentations. Une application lin\'eaire $T: V_1 \to V_2$ est
+\textbf{\'equivariante} (ou \textbf{entrelacement}) si~:
+\[
+    T \circ \rho_1(g) = \rho_2(g) \circ T, \quad \forall g \in G.
+\]
+Lorsque $\rho_2$ est la repr\'esentation triviale, $T$ est \textbf{invariante}.
+\end{definition}
+
+\begin{theoreme}[Lemme de Schur]
+Soient $\rho_1$ et $\rho_2$ deux repr\'esentations irr\'eductibles de $G$ et
+$T: V_1 \to V_2$ un entrelacement~:
+\begin{enumerate}
+    \item Si $\rho_1 \not\cong \rho_2$, alors $T = 0$.
+    \item Si $\rho_1 \cong \rho_2$ (sur $\C$), alors $T = \lambda\, \mathrm{Id}$
+          pour un certain $\lambda \in \C$.
+\end{enumerate}
+\end{theoreme}
+
+\begin{intuition}[title=\textbf{Importance du lemme de Schur}]
+Le lemme de Schur est fondamental car il \textbf{contraint fortement} la forme
+des couches \'equivariantes dans un r\'eseau de neurones. Si l'on impose
+l'\'equivariance, l'espace des applications lin\'eaires autoris\'ees est
+drastiquement r\'eduit, ce qui justifie le partage des poids.
+\end{intuition}
+
+\section{Produit tensoriel de repr\'esentations}
+
+\begin{definition}[Produit tensoriel]
+Le \textbf{produit tensoriel} de deux repr\'esentations $\rho_1: G \to \mathrm{GL}(V_1)$
+et $\rho_2: G \to \mathrm{GL}(V_2)$ est la repr\'esentation
+$\rho_1 \otimes \rho_2: G \to \mathrm{GL}(V_1 \otimes V_2)$ d\'efinie par~:
+\[
+    (\rho_1 \otimes \rho_2)(g)(v_1 \otimes v_2) = \rho_1(g)v_1 \otimes \rho_2(g)v_2.
+\]
+\end{definition}
+
+\begin{theoreme}[D\'ecomposition de Clebsch--Gordan pour $\mathrm{SO}(3)$]
+Le produit tensoriel de deux repr\'esentations irr\'eductibles de $\mathrm{SO}(3)$
+se d\'ecompose selon~:
+\[
+    D^{\ell_1} \otimes D^{\ell_2} = \bigoplus_{\ell=\abs{\ell_1-\ell_2}}^{\ell_1+\ell_2} D^{\ell}
+\]
+Les coefficients de changement de base sont les \textbf{coefficients de
+Clebsch--Gordan} $C^{\ell m}_{\ell_1 m_1, \ell_2 m_2}$.
+\end{theoreme}
+
+\begin{codeblock}[title=\textbf{Produit tensoriel avec e3nn}]
+\begin{minted}{python}
+import torch
+from e3nn import o3
+
+# Representations irreductibles de SO(3)
+irreps_1 = o3.Irreps("1x0e + 1x1o")  # scalaire + vecteur
+irreps_2 = o3.Irreps("1x1o")          # vecteur
+
+# Produit tensoriel
+tp = o3.FullTensorProduct(irreps_1, irreps_2)
+print(f"Entree 1: {irreps_1}")
+print(f"Entree 2: {irreps_2}")
+print(f"Sortie: {tp.irreps_out}")
+# 0e x 1o -> 1o, 1o x 1o -> 0e + 1e + 2e
+
+x1 = irreps_1.randn(5, -1)  # batch de 5
+x2 = irreps_2.randn(5, -1)
+out = tp(x1, x2)
+print(f"Shape sortie: {out.shape}")
+\end{minted}
+\end{codeblock}
+
+\section{Groupes de Lie}
+
+\begin{definition}[Groupe de Lie]
+Un \textbf{groupe de Lie} est un groupe $G$ qui est aussi une vari\'et\'e
+diff\'erentiable, de sorte que les op\'erations de multiplication
+$(g, h) \mapsto gh$ et d'inversion $g \mapsto g^{-1}$ sont lisses.
+\end{definition}
+
+\begin{exemple}[Groupes de Lie en GDL]
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+\textbf{Groupe} & \textbf{Dimension} & \textbf{Compact~?} & \textbf{Usage} \\
+\midrule
+$\mathrm{SO}(2)$ & 1 & Oui & Rotations 2D \\
+$\mathrm{SO}(3)$ & 3 & Oui & Rotations 3D \\
+$\mathrm{SE}(3)$ & 6 & Non & Mouvements rigides \\
+$\mathrm{O}(3)$ & 3 & Oui & Rotations + r\'eflexions \\
+$\mathrm{GL}(n, \R)$ & $n^2$ & Non & Transformations lin\'eaires \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{exemple}
+
+\subsection{Alg\`ebre de Lie}
+
+\begin{definition}[Alg\`ebre de Lie]
+L'\textbf{alg\`ebre de Lie} $\mathfrak{g}$ d'un groupe de Lie $G$ est l'espace
+tangent \`a $G$ en l'\'el\'ement neutre $e$, muni du \textbf{crochet de Lie}
+$[\cdot, \cdot]: \mathfrak{g} \times \mathfrak{g} \to \mathfrak{g}$.
+\end{definition}
+
+\begin{formules}[title=\textbf{Application exponentielle}]
+L'\textbf{application exponentielle} $\exp: \mathfrak{g} \to G$ relie
+l'alg\`ebre de Lie au groupe~:
+\[
+    \exp(X) = \sum_{k=0}^{\infty} \frac{X^k}{k!}
+\]
+Pour $\mathrm{SO}(3)$, l'alg\`ebre de Lie $\mathfrak{so}(3)$ est l'espace des
+matrices antisym\'etriques $3 \times 3$. La formule de Rodrigues donne~:
+\[
+    \exp(\theta\, [\hat{\mathbf{n}}]_\times) = \mathbf{I} + \sin\theta\,
+    [\hat{\mathbf{n}}]_\times + (1 - \cos\theta)\, [\hat{\mathbf{n}}]_\times^2
+\]
+o\`u $[\hat{\mathbf{n}}]_\times$ est la matrice antisym\'etrique associ\'ee au
+vecteur unitaire $\hat{\mathbf{n}}$.
+\end{formules}
+
+\section{Convolution sur les groupes}
+
+\begin{definition}[Convolution de groupe]
+Soit $G$ un groupe localement compact muni d'une mesure de Haar $\mu$. La
+\textbf{convolution de groupe} de deux fonctions $f, g: G \to \R$ est~:
+\[
+    (f * g)(x) = \int_G f(y)\, g(y^{-1}x)\, d\mu(y).
+\]
+\end{definition}
+
+\begin{proposition}[\'Equivariance de la convolution]
+La convolution de groupe est \'equivariante par translation \`a gauche~: si
+$L_a f(x) = f(a^{-1}x)$, alors~:
+\[
+    L_a(f * g) = (L_a f) * g.
+\]
+C'est cette propri\'et\'e qui justifie l'utilisation de la convolution comme
+couche fondamentale dans les r\'eseaux \'equivariants.
+\end{proposition}
+
+\begin{theoreme}[CNN comme convolution sur $\Z^2$]
+Un r\'eseau convolutif classique r\'ealise une convolution de groupe sur
+$G = \Z^2$ (le groupe de translation discret). La premi\`ere couche effectue
+une corr\'elation crois\'ee~:
+\[
+    [f \star \psi](x) = \sum_{y \in \Z^2} f(y)\, \psi(y - x)
+    = \sum_{y \in \Z^2} f(x + y)\, \psi(y)
+\]
+qui est \'equivariante par translation de $f$.
+\end{theoreme}
+
+\section{Group Equivariant CNNs (G-CNNs)}
+
+Cohen et Welling (2016) ont g\'en\'eralis\'e les CNN en rempla\c{c}ant le
+groupe de translation $\Z^2$ par un groupe plus grand $G$.
+
+\begin{definition}[G-CNN]
+Un \textbf{G-CNN} est un r\'eseau dont les couches r\'ealisent des convolutions
+sur un groupe $G$. La premi\`ere couche \og souleve \fg (\textit{lifts}) le
+signal de $\Z^2$ vers $G$~:
+\[
+    [\text{lift}(f)](g) = \sum_{x \in \Z^2} f(x)\, \psi(g^{-1} \cdot x)
+\]
+Les couches suivantes op\`erent enti\`erement sur $G$~:
+\[
+    [f * \psi](g) = \sum_{h \in G} f(h)\, \psi(h^{-1}g)
+\]
+\end{definition}
+
+\begin{codeblock}[title=\textbf{G-CNN pour le groupe $p4$ (rotations 90\textdegree)}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+
+class P4Conv(nn.Module):
+    """Convolution equivariante par le groupe p4 (rotations 0/90/180/270)."""
+    def __init__(self, in_channels, out_channels, kernel_size=3):
+        super().__init__()
+        self.weight = nn.Parameter(
+            torch.randn(out_channels, in_channels, kernel_size, kernel_size)
+        )
+        nn.init.kaiming_normal_(self.weight)
+
+    def _rotate_kernel(self, w, k):
+        """Rotation du noyau de k*90 degres."""
+        return torch.rot90(w, k, dims=[-2, -1])
+
+    def forward(self, x):
+        # x: (batch, C_in, H, W) ou (batch, C_in, 4, H, W)
+        outputs = []
+        for k in range(4):  # 4 rotations
+            w_rot = self._rotate_kernel(self.weight, k)
+            out = torch.nn.functional.conv2d(
+                x if x.dim() == 4 else x.sum(dim=2),
+                w_rot, padding=1
+            )
+            outputs.append(out)
+        # Stack sur la dimension du groupe
+        return torch.stack(outputs, dim=2)  # (batch, C_out, 4, H, W)
+
+# Test
+conv = P4Conv(3, 16)
+x = torch.randn(2, 3, 32, 32)
+out = conv(x)
+print(f"Sortie: {out.shape}")  # (2, 16, 4, 32, 32)
+\end{minted}
+\end{codeblock}
+
+\section{Invariants et \'equivariants lin\'eaires}
+
+\begin{theoreme}[Caract\'erisation des applications lin\'eaires \'equivariantes]
+L'espace des applications lin\'eaires $T: V_1 \to V_2$ qui sont \'equivariantes
+par rapport aux repr\'esentations $\rho_1$ et $\rho_2$ est~:
+\[
+    \mathrm{Hom}_G(V_1, V_2) = \{T \in \mathrm{Hom}(V_1, V_2) :
+    T\rho_1(g) = \rho_2(g)T,\; \forall g \in G\}
+\]
+Sa dimension est donn\'ee par~:
+\[
+    \dim \mathrm{Hom}_G(V_1, V_2) = \inner{\chi_1}{\chi_2}_G
+    = \frac{1}{\abs{G}} \sum_{g \in G} \overline{\chi_1(g)}\, \chi_2(g)
+\]
+o\`u $\chi_i(g) = \tr(\rho_i(g))$ est le \textbf{caract\`ere} de $\rho_i$.
+\end{theoreme}
+
+\begin{corollaire}[Nombre de param\`etres libres]
+Pour une couche \'equivariante entre deux repr\'esentations d\'ecompos\'ees en
+irr\'eductibles $V_1 = \bigoplus_i n_i V_i^{\text{irr}}$ et
+$V_2 = \bigoplus_j m_j V_j^{\text{irr}}$, le nombre de param\`etres libres est~:
+\[
+    \sum_k n_k \cdot m_k
+\]
+o\`u la somme porte sur les types irr\'eductibles communs.
+\end{corollaire}
+
+\section*{Exercices}
+
+\begin{exercice}[Groupes de sym\'etrie de mol\'ecules]
+\begin{enumerate}
+    \item D\'eterminer le groupe de sym\'etrie de la mol\'ecule d'eau $\mathrm{H_2O}$
+          (groupe $C_{2v}$).
+    \item \'Enum\'erer toutes les repr\'esentations irr\'eductibles de $C_{2v}$.
+    \item Expliquer comment ces sym\'etries contraignent un mod\`ele de pr\'ediction
+          d'\'energie mol\'eculaire.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Repr\'esentations de $S_3$]
+\begin{enumerate}
+    \item \'Enum\'erer les six \'el\'ements du groupe sym\'etrique $S_3$.
+    \item Trouver toutes les repr\'esentations irr\'eductibles de $S_3$ (il y en a trois).
+    \item V\'erifier la relation $\sum_i (\dim V_i)^2 = \abs{G}$.
+    \item D\'ecomposer la repr\'esentation par permutation standard $\R^3$ en
+          irr\'eductibles.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Formule de Rodrigues]
+\begin{enumerate}
+    \item V\'erifier la formule de Rodrigues pour $\theta = \pi/2$ et
+          $\hat{\mathbf{n}} = (0, 0, 1)$.
+    \item Montrer que $\exp(\theta [\hat{\mathbf{n}}]_\times) \in \mathrm{SO}(3)$.
+    \item Impl\'ementer l'application exponentielle $\mathfrak{so}(3) \to \mathrm{SO}(3)$
+          en PyTorch et v\'erifier l'orthogonalit\'e du r\'esultat.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Convolution de groupe discr\`ete]
+Impl\'ementer une convolution de groupe sur le groupe di\'edral $D_4$
+(sym\'etries du carr\'e).
+\begin{enumerate}
+    \item \'Enum\'erer les 8 \'el\'ements de $D_4$.
+    \item Impl\'ementer la table de multiplication de $D_4$.
+    \item Impl\'ementer la convolution de groupe et v\'erifier son \'equivariance.
+\end{enumerate}
+\end{exercice}

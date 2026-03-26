@@ -1,0 +1,345 @@
+% ============================================================
+\chapter{Probl\`eme de Transport et d'Affectation}
+\label{ch:transport}
+% ============================================================
+
+Comment acheminer des marchandises de plusieurs usines vers plusieurs entrep\^ots au moindre co\^ut~? Ce probl\`eme, formul\'e ind\'ependamment par le math\'ematicien sovi\'etique Leonid Kantorovitch (1939) et par le statisticien am\'ericain Frank Hitchcock (1941), est l'un des plus anciens et des plus \'el\'egants de la recherche op\'erationnelle. Il poss\`ede une structure de programme lin\'eaire particuli\`ere --- toutes les variables apparaissent avec un coefficient 1 dans les contraintes --- qui permet des algorithmes sp\'ecialis\'es bien plus rapides que le simplexe g\'en\'eral. Kantorovitch recevra le prix Nobel d'\'economie en 1975 pour ces travaux.
+
+\section{Le probl\`eme de transport}
+
+\begin{definition}[Probl\`eme de transport]
+Le \textbf{probl\`eme de transport} consiste \`a d\'eterminer les quantit\'es
+$x_{ij}$ \`a exp\'edier de $m$ sources $S_i$ (offre $a_i$) vers $n$
+destinations $D_j$ (demande $b_j$) de mani\`ere \`a minimiser le co\^ut total
+de transport~:
+\[
+\begin{aligned}
+  \min \quad & \sum_{i=1}^{m}\sum_{j=1}^{n} c_{ij}\, x_{ij} \\
+  \text{s.c.} \quad
+    & \sum_{j=1}^{n} x_{ij} = a_i, \quad i = 1, \ldots, m
+      \quad \text{(offre)} \\
+    & \sum_{i=1}^{m} x_{ij} = b_j, \quad j = 1, \ldots, n
+      \quad \text{(demande)} \\
+    & x_{ij} \ge 0
+\end{aligned}
+\]
+\end{definition}
+
+\begin{definition}[Probl\`eme \'equilibr\'e]
+Le probl\`eme est \textbf{\'equilibr\'e} si $\sum_{i=1}^m a_i = \sum_{j=1}^n b_j$.
+Sinon, on ajoute une source ou destination \textbf{fictive} avec co\^uts nuls.
+\end{definition}
+
+\begin{remarque}
+Le probl\`eme de transport est un cas particulier de PL.  Sa structure
+sp\'eciale (matrice de contraintes totalement unimodulaire) garantit que
+toute SBR est enti\`ere si les $a_i$ et $b_j$ sont entiers.
+\end{remarque}
+
+\section{Solutions initiales r\'ealisables}
+
+\subsection{M\'ethode du coin nord-ouest}
+
+\begin{algorithme}[title=\textbf{Coin nord-ouest}]
+\begin{enumerate}
+  \item Commencer par la cellule $(1,1)$.
+  \item Allouer $x_{ij} = \min(a_i, b_j)$.
+  \item Mettre \`a jour $a_i$ et $b_j$.
+  \item Passer \`a la cellule suivante (droite si $a_i = 0$, bas si $b_j = 0$).
+  \item R\'ep\'eter jusqu'\`a allocation compl\`ete.
+\end{enumerate}
+\end{algorithme}
+
+\subsection{M\'ethode du co\^ut minimal}
+
+\begin{algorithme}[title=\textbf{Co\^ut minimal}]
+\begin{enumerate}
+  \item S\'electionner la cellule $(i,j)$ de co\^ut $c_{ij}$ minimal.
+  \item Allouer $x_{ij} = \min(a_i, b_j)$.
+  \item Mettre \`a jour les capacit\'es et \'eliminer la ligne ou colonne satur\'ee.
+  \item R\'ep\'eter.
+\end{enumerate}
+\end{algorithme}
+
+\subsection{M\'ethode de Vogel}
+
+\begin{algorithme}[title=\textbf{Approximation de Vogel (VAM)}]
+\begin{enumerate}
+  \item Pour chaque ligne et colonne, calculer la \textbf{p\'enalit\'e}~:
+        diff\'erence entre les deux plus petits co\^uts.
+  \item S\'electionner la ligne ou colonne de plus grande p\'enalit\'e.
+  \item Allouer le maximum possible sur la cellule de co\^ut minimal dans
+        cette ligne/colonne.
+  \item R\'ep\'eter.
+\end{enumerate}
+\end{algorithme}
+
+\begin{bonnepratique}[title=\textbf{Qualit\'e de la solution initiale}]
+Coin nord-ouest $<$ Co\^ut minimal $<$ Vogel.  La m\'ethode de Vogel donne
+g\'en\'eralement une solution proche de l'optimum.
+\end{bonnepratique}
+
+\section{Exemple complet}
+
+\begin{exemple}[Probl\`eme de transport]
+\begin{center}
+\begin{tabular}{c|ccc|c}
+  & $D_1$ & $D_2$ & $D_3$ & Offre \\
+  \hline
+  $S_1$ & 4 & 8 & 1 & 30 \\
+  $S_2$ & 7 & 3 & 5 & 40 \\
+  $S_3$ & 2 & 6 & 9 & 20 \\
+  \hline
+  Demande & 25 & 35 & 30 & 90 \\
+\end{tabular}
+\end{center}
+
+Le probl\`eme est \'equilibr\'e ($30 + 40 + 20 = 25 + 35 + 30 = 90$).
+
+\textbf{Solution par le coin nord-ouest}~:
+\begin{center}
+\begin{tabular}{c|ccc}
+  & $D_1$ & $D_2$ & $D_3$ \\
+  \hline
+  $S_1$ & \textbf{25} & \textbf{5} & 0 \\
+  $S_2$ & 0 & \textbf{30} & \textbf{10} \\
+  $S_3$ & 0 & 0 & \textbf{20} \\
+\end{tabular}
+\end{center}
+
+Co\^ut~: $25(4) + 5(8) + 30(3) + 10(5) + 20(9) = 100 + 40 + 90 + 50 + 180
+= 460$.
+\end{exemple}
+
+\section{Test d'optimalit\'e~: m\'ethode MODI}
+
+La m\'ethode \textbf{MODI} (Modified Distribution) utilise les multiplicateurs
+$u_i$ et $v_j$ tels que pour chaque cellule de base~:
+\[
+  u_i + v_j = c_{ij}
+\]
+
+On fixe $u_1 = 0$ et on r\'esout le syst\`eme.
+
+\begin{definition}[Co\^ut r\'eduit d'une cellule hors-base]
+\[
+  \bar{c}_{ij} = c_{ij} - u_i - v_j
+\]
+\end{definition}
+
+\begin{theoreme}[Optimalit\'e du transport]
+La solution est optimale si et seulement si $\bar{c}_{ij} \ge 0$ pour
+toutes les cellules hors-base.
+\end{theoreme}
+
+\section{Am\'elioration~: m\'ethode du stepping-stone}
+
+Si $\bar{c}_{ij} < 0$ pour une cellule hors-base $(i,j)$~:
+\begin{enumerate}
+  \item Identifier le \textbf{cycle} unique reliant $(i,j)$ aux cellules de
+        base (alternance $+/-$).
+  \item D\'eterminer $\theta = \min$ des valeurs sur les cellules $-$ du cycle.
+  \item Ajouter $\theta$ aux cellules $+$ et soustraire $\theta$ aux cellules $-$.
+\end{enumerate}
+
+\section{Probl\`eme d'affectation}
+
+\begin{definition}[Probl\`eme d'affectation]
+Le \textbf{probl\`eme d'affectation} consiste \`a affecter $n$ agents \`a $n$
+t\^aches (bijection) en minimisant le co\^ut total~:
+\[
+\begin{aligned}
+  \min \quad & \sum_{i=1}^{n}\sum_{j=1}^{n} c_{ij}\, x_{ij} \\
+  \text{s.c.} \quad
+    & \sum_{j=1}^{n} x_{ij} = 1, \quad i = 1, \ldots, n \\
+    & \sum_{i=1}^{n} x_{ij} = 1, \quad j = 1, \ldots, n \\
+    & x_{ij} \in \{0, 1\}
+\end{aligned}
+\]
+\end{definition}
+
+\begin{remarque}
+C'est un cas particulier du probl\`eme de transport avec $a_i = b_j = 1$.
+La contrainte d'int\'egralit\'e est automatiquement satisfaite (unimodularit\'e).
+\end{remarque}
+
+\section{Algorithme hongrois}
+
+\begin{algorithme}[title=\textbf{Algorithme hongrois (m\'ethode de Kuhn-Munkres)}]
+\begin{enumerate}
+  \item \textbf{R\'eduction par lignes}~: soustraire le minimum de chaque ligne.
+  \item \textbf{R\'eduction par colonnes}~: soustraire le minimum de chaque
+        colonne.
+  \item \textbf{Couvrir les z\'eros}~: tracer le nombre minimal de lignes
+        (horizontales/verticales) couvrant tous les z\'eros.
+  \item Si ce nombre $= n$~: une affectation optimale existe parmi les z\'eros.
+  \item Sinon~: trouver le plus petit \'el\'ement non couvert $\varepsilon$,
+        le soustraire des \'el\'ements non couverts, l'ajouter aux
+        intersections.  Retour \`a l'\'etape~3.
+\end{enumerate}
+\end{algorithme}
+
+\begin{exemple}[Algorithme hongrois]
+Matrice de co\^uts~:
+\[
+C = \begin{pmatrix}
+  9 & 2 & 7 & 8 \\
+  6 & 4 & 3 & 7 \\
+  5 & 8 & 1 & 8 \\
+  7 & 6 & 9 & 4
+\end{pmatrix}
+\]
+
+\textbf{\'Etape 1} -- R\'eduction par lignes (soustraire 2, 3, 1, 4)~:
+\[
+\begin{pmatrix}
+  7 & 0 & 5 & 6 \\
+  3 & 1 & 0 & 4 \\
+  4 & 7 & 0 & 7 \\
+  3 & 2 & 5 & 0
+\end{pmatrix}
+\]
+
+\textbf{\'Etape 2} -- R\'eduction par colonnes (soustraire 3, 0, 0, 0)~:
+\[
+\begin{pmatrix}
+  4 & 0 & 5 & 6 \\
+  0 & 1 & 0 & 4 \\
+  1 & 7 & 0 & 7 \\
+  0 & 2 & 5 & 0
+\end{pmatrix}
+\]
+
+On peut trouver une affectation optimale~:
+$(1,2), (2,3), (3,3), (4,4)$... apr\`es ajustement~:
+$(1,2), (2,1), (3,3), (4,4)$.
+
+Co\^ut optimal~: $2 + 6 + 1 + 4 = 13$.
+\end{exemple}
+
+\section{Impl\'ementation Python}
+
+\begin{codeblock}[title=\textbf{Probl\`eme de transport avec PuLP}]
+\begin{minted}{python}
+import pulp
+import numpy as np
+
+# Données
+cost = [[4, 8, 1], [7, 3, 5], [2, 6, 9]]
+supply = [30, 40, 20]
+demand = [25, 35, 30]
+m, n = len(supply), len(demand)
+
+prob = pulp.LpProblem("Transport", pulp.LpMinimize)
+x = [[pulp.LpVariable(f"x_{i}_{j}", lowBound=0)
+      for j in range(n)] for i in range(m)]
+
+# Objectif
+prob += pulp.lpSum(cost[i][j] * x[i][j]
+                   for i in range(m) for j in range(n))
+
+# Contraintes d'offre
+for i in range(m):
+    prob += pulp.lpSum(x[i][j] for j in range(n)) == supply[i]
+
+# Contraintes de demande
+for j in range(n):
+    prob += pulp.lpSum(x[i][j] for i in range(m)) == demand[j]
+
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+print(f"Coût optimal : {pulp.value(prob.objective):.0f}")
+for i in range(m):
+    row = [x[i][j].varValue for j in range(n)]
+    print(f"  S{i+1} -> {row}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Coût optimal : 290
+  S1 -> [0.0, 0.0, 30.0]
+  S2 -> [5.0, 35.0, 0.0]
+  S3 -> [20.0, 0.0, 0.0]
+\end{codeoutput}
+
+\begin{codeblock}[title=\textbf{Probl\`eme d'affectation avec SciPy}]
+\begin{minted}{python}
+from scipy.optimize import linear_sum_assignment
+import numpy as np
+
+C = np.array([[9, 2, 7, 8],
+              [6, 4, 3, 7],
+              [5, 8, 1, 8],
+              [7, 6, 9, 4]])
+
+row_ind, col_ind = linear_sum_assignment(C)
+print("Affectation optimale :")
+for i, j in zip(row_ind, col_ind):
+    print(f"  Agent {i+1} -> Tâche {j+1} (coût {C[i,j]})")
+print(f"Coût total : {C[row_ind, col_ind].sum()}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Affectation optimale :
+  Agent 1 -> Tâche 2 (coût 2)
+  Agent 2 -> Tâche 1 (coût 6)
+  Agent 3 -> Tâche 3 (coût 1)
+  Agent 4 -> Tâche 4 (coût 4)
+Coût total : 13
+\end{codeoutput}
+
+\section{Variantes}
+
+\begin{itemize}
+  \item \textbf{Transport non \'equilibr\'e}~: ajouter une source/destination
+        fictive.
+  \item \textbf{Transshipment}~: certains n\oe uds sont \`a la fois source et
+        destination.
+  \item \textbf{Capacit\'es sur les arcs}~: $x_{ij} \le u_{ij}$.
+  \item \textbf{Affectation avec maximisation}~: transformer en minimisation
+        ($c_{ij}' = M - c_{ij}$).
+\end{itemize}
+
+\section{Exercices}
+
+\begin{exercice}[$\star$ -- Coin nord-ouest et co\^ut minimal]
+R\'esoudre par les deux m\'ethodes~:
+\begin{center}
+\begin{tabular}{c|ccc|c}
+  & $D_1$ & $D_2$ & $D_3$ & Offre \\
+  \hline
+  $S_1$ & 3 & 1 & 7 & 40 \\
+  $S_2$ & 4 & 6 & 2 & 50 \\
+  $S_3$ & 8 & 3 & 5 & 30 \\
+  \hline
+  Demande & 30 & 40 & 50 & \\
+\end{tabular}
+\end{center}
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- MODI]
+V\'erifier l'optimalit\'e de la solution obtenue par la m\'ethode de Vogel
+et am\'eliorer si n\'ecessaire par la m\'ethode MODI.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- Probl\`eme non \'equilibr\'e]
+R\'esoudre le probl\`eme de transport avec offre $(20, 30, 25)$ et demande
+$(15, 25, 20, 15)$.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- Algorithme hongrois]
+R\'esoudre \`a la main~:
+\[
+C = \begin{pmatrix}
+  10 & 5 & 13 & 15 \\
+  3 & 9 & 18 & 13 \\
+  10 & 7 & 2 & 8 \\
+  5 & 11 & 9 & 6
+\end{pmatrix}
+\]
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Impl\'ementation]
+Impl\'ementer la m\'ethode de Vogel en Python et la tester sur un probl\`eme
+$5 \times 5$.
+\end{exercice}

@@ -1,0 +1,305 @@
+% ============================================================
+\chapter{Optimisation de Portefeuille}
+\label{ch:portefeuille}
+% ============================================================
+
+En 1952, Harry Markowitz, alors \'etudiant en doctorat \`a l'universit\'e de Chicago, publie un article de quatorze pages qui va r\'evolutionner la finance~: \og Portfolio Selection \fg. Son id\'ee est simple mais profonde~: un investisseur ne devrait pas choisir ses actifs individuellement, mais optimiser son \emph{portefeuille} dans son ensemble, en tenant compte des corr\'elations entre les rendements. La diversification --- ``ne pas mettre tous ses \oe ufs dans le m\^eme panier'' --- re\c{c}oit ainsi une fondation math\'ematique rigoureuse, exprim\'ee comme un probl\`eme d'optimisation quadratique sous contraintes. Markowitz recevra le prix Nobel d'\'economie en 1990 pour ce travail. Ce chapitre d\'eveloppe la th\'eorie moyenne-variance, la fronti\`ere efficiente, le mod\`ele CAPM de Sharpe, et les extensions modernes incluant le risque CVaR et l'optimisation robuste.
+
+\section{Th\'eorie de Markowitz}
+
+\subsection{Cadre moyenne-variance}
+
+\begin{definition}[Portefeuille]
+Consid\'erons $n$ actifs de rendements al\'eatoires $R = (R_1, \ldots, R_n)^\top$
+avec vecteur de rendements esp\'er\'es $\mu = \E[R] \in \R^n$ et matrice
+de covariance $\Sigma = \Cov(R) \in \R^{n \times n}$ (sym\'etrique d\'efinie
+positive).
+
+Un \textbf{portefeuille} est d\'efini par un vecteur de poids
+$w = (w_1, \ldots, w_n)^\top$ avec $\mathbf{1}^\top w = 1$. Le rendement
+du portefeuille est~:
+\[
+    R_p = w^\top R, \quad \E[R_p] = w^\top\mu, \quad
+    \Var(R_p) = w^\top\Sigma w.
+\]
+\end{definition}
+
+\subsection{Probl\`eme d'optimisation}
+
+\begin{definition}[Probl\`eme de Markowitz]
+Le \textbf{probl\`eme de Markowitz} (1952) cherche le portefeuille de
+variance minimale pour un rendement cible $\mu_p$~:
+\[
+    \min_w \frac{1}{2}w^\top\Sigma w \quad \text{s.c.} \quad
+    w^\top\mu = \mu_p, \quad \mathbf{1}^\top w = 1.
+\]
+\end{definition}
+
+\begin{theoreme}[Solution analytique]
+\label{thm:markowitz_solution}
+La solution du probl\`eme de Markowitz est~:
+\[
+    w^* = \Sigma^{-1}\bigl[\lambda_1\mu + \lambda_2\mathbf{1}\bigr],
+\]
+o\`u les multiplicateurs de Lagrange $\lambda_1, \lambda_2$ sont
+d\'etermin\'es par les contraintes. En posant~:
+\begin{align}
+    A &= \mathbf{1}^\top\Sigma^{-1}\mu, \quad
+    B = \mu^\top\Sigma^{-1}\mu, \quad
+    C = \mathbf{1}^\top\Sigma^{-1}\mathbf{1}, \quad
+    D = BC - A^2,
+\end{align}
+on obtient~:
+\[
+    \lambda_1 = \frac{C\mu_p - A}{D}, \quad
+    \lambda_2 = \frac{B - A\mu_p}{D}.
+\]
+\end{theoreme}
+
+\begin{formules}[title=\textbf{Variance minimale du portefeuille optimal}]
+\[
+    \sigma_p^2 = \frac{C\mu_p^2 - 2A\mu_p + B}{D}.
+\]
+C'est une parabole en $\mu_p$ dans le plan $(\sigma_p^2, \mu_p)$,
+ou une hyperbole dans le plan $(\sigma_p, \mu_p)$.
+\end{formules}
+
+\begin{definition}[Fronti\`ere efficiente]
+La \textbf{fronti\`ere efficiente} est la partie sup\'erieure de
+l'hyperbole~: l'ensemble des portefeuilles optimaux pour lesquels il est
+impossible d'augmenter le rendement sans augmenter le risque.
+\end{definition}
+
+\begin{definition}[Portefeuille de variance minimale globale (GMV)]
+Le portefeuille \textbf{GMV} minimise la variance sans contrainte de
+rendement~:
+\[
+    w_{\text{GMV}} = \frac{\Sigma^{-1}\mathbf{1}}
+    {\mathbf{1}^\top\Sigma^{-1}\mathbf{1}}.
+\]
+Son rendement esp\'er\'e est $\mu_{\text{GMV}} = A/C$ et sa variance
+$\sigma_{\text{GMV}}^2 = 1/C$.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Fronti\`ere efficiente de Markowitz}]
+\begin{minted}{python}
+import numpy as np
+from scipy.optimize import minimize
+
+def efficient_frontier(mu, Sigma, n_points=100):
+    """Calcul de la frontiere efficiente."""
+    n = len(mu)
+    # Portefeuille GMV
+    Sigma_inv = np.linalg.inv(Sigma)
+    ones = np.ones(n)
+    w_gmv = Sigma_inv @ ones / (ones @ Sigma_inv @ ones)
+    mu_gmv = w_gmv @ mu
+
+    # Plage de rendements cibles
+    mu_range = np.linspace(mu_gmv - 0.02, max(mu) + 0.05, n_points)
+    sigmas = []
+    weights = []
+
+    for mu_target in mu_range:
+        constraints = [
+            {'type': 'eq', 'fun': lambda w: np.sum(w) - 1},
+            {'type': 'eq', 'fun': lambda w, m=mu_target: w @ mu - m}
+        ]
+        result = minimize(
+            lambda w: 0.5 * w @ Sigma @ w,
+            np.ones(n)/n, method='SLSQP',
+            constraints=constraints
+        )
+        sigmas.append(np.sqrt(result.fun * 2))
+        weights.append(result.x)
+
+    return mu_range, np.array(sigmas), np.array(weights)
+
+# Exemple avec 3 actifs
+mu = np.array([0.08, 0.12, 0.15])
+Sigma = np.array([[0.04, 0.006, 0.002],
+                   [0.006, 0.09, 0.009],
+                   [0.002, 0.009, 0.16]])
+
+mu_range, sigmas, weights = efficient_frontier(mu, Sigma)
+print(f"GMV: sigma={sigmas.min():.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{Mod\`ele CAPM}
+
+\begin{theoreme}[Capital Asset Pricing Model (Sharpe, 1964)]
+\`A l'\'equilibre, le rendement esp\'er\'e de tout actif $i$ satisfait~:
+\[
+    \E[R_i] - r = \beta_i(\E[R_M] - r),
+\]
+o\`u $\beta_i = \Cov(R_i, R_M)/\Var(R_M)$ est le \textbf{b\^eta} de l'actif
+par rapport au portefeuille de march\'e $M$, et $r$ le taux sans risque.
+\end{theoreme}
+
+\begin{definition}[Ratio de Sharpe]
+Le \textbf{ratio de Sharpe} d'un portefeuille $p$ est~:
+\[
+    \text{SR}_p = \frac{\E[R_p] - r}{\sigma_p}.
+\]
+Le portefeuille tangent (intersection de la CML avec la fronti\`ere
+efficiente) maximise le ratio de Sharpe.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Portefeuille tangent (max Sharpe)}]
+\begin{minted}{python}
+def tangent_portfolio(mu, Sigma, rf):
+    """Portefeuille tangent maximisant le ratio de Sharpe."""
+    n = len(mu)
+    Sigma_inv = np.linalg.inv(Sigma)
+    excess = mu - rf
+    w_tan = Sigma_inv @ excess / (np.ones(n) @ Sigma_inv @ excess)
+    mu_tan = w_tan @ mu
+    sigma_tan = np.sqrt(w_tan @ Sigma @ w_tan)
+    sharpe = (mu_tan - rf) / sigma_tan
+    return w_tan, mu_tan, sigma_tan, sharpe
+
+rf = 0.03
+w_tan, mu_tan, sig_tan, sr = tangent_portfolio(mu, Sigma, rf)
+print(f"Portefeuille tangent: w = {w_tan}")
+print(f"Rendement: {mu_tan:.4f}, Risque: {sig_tan:.4f}")
+print(f"Ratio de Sharpe: {sr:.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{Mod\`ele de Black--Litterman}
+
+\begin{definition}[Mod\`ele de Black--Litterman (1992)]
+Le mod\`ele combine les rendements d'\'equilibre (CAPM) $\Pi = \delta\Sigma w_M$
+avec les \textbf{vues} de l'investisseur $P\mu = Q + \epsilon$,
+$\epsilon \sim \mathcal{N}(0, \Omega)$, pour obtenir des rendements
+post\'erieurs~:
+\[
+    \hat{\mu} = \bigl[(\tau\Sigma)^{-1} + P^\top\Omega^{-1}P\bigr]^{-1}
+    \bigl[(\tau\Sigma)^{-1}\Pi + P^\top\Omega^{-1}Q\bigr].
+\]
+Le portefeuille optimal utilise alors $\hat{\mu}$ dans l'optimisation
+de Markowitz.
+\end{definition}
+
+\begin{intuition}[title=\textbf{Avantage de Black--Litterman}]
+Black--Litterman r\'esout deux probl\`emes de Markowitz classique~:
+(1)~les poids extr\^emes dus \`a la sensibilit\'e aux rendements
+estim\'es, et (2)~l'absence de lien avec l'\'equilibre de march\'e.
+Les vues sont exprim\'ees de mani\`ere intuitive et le mod\`ele
+g\'en\`ere des portefeuilles plus stables.
+\end{intuition}
+
+\section{Contraintes pratiques}
+
+\begin{remarque}
+En pratique, on ajoute souvent des contraintes suppl\'ementaires~:
+\begin{itemize}
+    \item Interdiction de la vente \`a d\'ecouvert~: $w_i \geq 0$.
+    \item Limites de concentration~: $w_i \leq w_{\max}$.
+    \item Contraintes sectorielles ou de liquidit\'e.
+    \item Co\^uts de transaction (optimisation dynamique).
+\end{itemize}
+\end{remarque}
+
+\begin{codeblock}[title=\textbf{Optimisation avec contraintes}]
+\begin{minted}{python}
+def efficient_frontier_constrained(mu, Sigma, rf, n_points=50):
+    """Frontiere efficiente avec w >= 0 (pas de vente a decouvert)."""
+    n = len(mu)
+    bounds = [(0, 1) for _ in range(n)]
+    mu_range = np.linspace(min(mu), max(mu), n_points)
+    results = []
+
+    for mu_target in mu_range:
+        constraints = [
+            {'type': 'eq', 'fun': lambda w: np.sum(w) - 1},
+            {'type': 'eq', 'fun': lambda w, m=mu_target: w @ mu - m}
+        ]
+        res = minimize(lambda w: w @ Sigma @ w, np.ones(n)/n,
+                       method='SLSQP', bounds=bounds,
+                       constraints=constraints)
+        if res.success:
+            results.append((mu_target, np.sqrt(res.fun), res.x))
+
+    return results
+\end{minted}
+\end{codeblock}
+
+\section{Optimisation robuste}
+
+\begin{definition}[Optimisation robuste]
+L'\textbf{optimisation robuste} tient compte de l'incertitude sur les
+param\`etres estim\'es. On r\'esout~:
+\[
+    \min_w \max_{\mu \in \mathcal{U}} \left\{-w^\top\mu
+    + \lambda\,w^\top\Sigma w\right\},
+\]
+o\`u $\mathcal{U}$ est un ensemble d'incertitude autour de $\hat{\mu}$.
+Pour $\mathcal{U} = \{\mu : \norm{\mu - \hat{\mu}}_{\Sigma^{-1}} \leq \kappa\}$,
+le probl\`eme se r\'eduit \`a~:
+\[
+    \min_w \left\{-w^\top\hat{\mu} + \kappa\sqrt{w^\top\Sigma w}
+    + \lambda\,w^\top\Sigma w\right\}.
+\]
+\end{definition}
+
+\section{Estimation des param\`etres}
+
+\begin{attention}[title=\textbf{Erreurs d'estimation}]
+Les rendements esp\'er\'es $\mu$ sont notoirement difficiles \`a estimer.
+Avec $T$ observations, l'erreur standard de $\hat{\mu}_i$ est
+$\sigma_i/\sqrt{T}$, souvent du m\^eme ordre que le signal.
+La matrice $\Sigma$ est mieux estim\'ee mais peut \^etre singuli\`ere
+ou mal conditionn\'ee lorsque $n \approx T$.
+\end{attention}
+
+\begin{proposition}[Estimateur de Ledoit--Wolf]
+L'estimateur \textbf{shrinkage} de Ledoit--Wolf (2004) r\'egularise la
+matrice de covariance~:
+\[
+    \hat{\Sigma}_{\text{LW}} = (1-\alpha)\hat{\Sigma} + \alpha\,\nu I,
+\]
+o\`u $\alpha \in [0,1]$ et $\nu = \text{tr}(\hat{\Sigma})/n$ sont
+d\'etermin\'es analytiquement pour minimiser la perte quadratique.
+\end{proposition}
+
+\section{Exercices}
+
+\begin{exercice}[Fronti\`ere efficiente]
+\begin{enumerate}
+    \item Calculer et tracer la fronti\`ere efficiente pour 5 actifs.
+    \item Identifier le portefeuille GMV et le portefeuille tangent.
+    \item Tracer la Capital Market Line.
+    \item Comparer les fronti\`eres avec et sans contrainte de positivit\'e.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[CAPM et b\^eta]
+\begin{enumerate}
+    \item Estimer les b\^etas de 5 actions par r\'egression lin\'eaire sur
+          un indice de march\'e.
+    \item V\'erifier la relation du CAPM en tra\c{c}ant le rendement moyen
+          historique en fonction du b\^eta.
+    \item Calculer l'alpha de Jensen pour chaque action.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Black--Litterman]
+\begin{enumerate}
+    \item Impl\'ementer le mod\`ele de Black--Litterman.
+    \item Partir des rendements d'\'equilibre et ajouter la vue ``l'actif 1
+          surperformera l'actif 2 de 2\%''.
+    \item Comparer les poids avant et apr\`es l'int\'egration de la vue.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Estimation robuste]
+\begin{enumerate}
+    \item Simuler 250 jours de rendements pour 10 actifs et estimer
+          $\hat{\mu}$ et $\hat{\Sigma}$.
+    \item Comparer les portefeuilles optimaux avec $\hat{\Sigma}$ et
+          $\hat{\Sigma}_{\text{LW}}$.
+    \item Effectuer un backtest et mesurer la performance out-of-sample.
+\end{enumerate}
+\end{exercice}

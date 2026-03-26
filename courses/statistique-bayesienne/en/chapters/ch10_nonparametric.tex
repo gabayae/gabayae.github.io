@@ -1,0 +1,265 @@
+% ============================================================
+\chapter{Bayesian Nonparametrics}
+\label{ch:nonparametric}
+% ============================================================
+
+\begin{intuition}[title=\textbf{Central idea}]
+In Bayesian nonparametrics, we place priors on infinite-dimensional spaces
+(distributions, functions, partitions). The model adapts its complexity to
+the data: the number of components or the flexibility of the fitted
+function grows with $n$.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Motivation}
+% ------------------------------------------------------------
+
+Parametric models fix the number of parameters in advance: a mixture of
+$K$ Gaussians, a polynomial of degree $p$, etc. Yet the choice of $K$ or
+$p$ is often arbitrary.
+
+\begin{remark}
+The term ``nonparametric'' is misleading: there \emph{are} parameters, but
+infinitely many (or a number that grows with the data).
+\end{remark}
+
+% ------------------------------------------------------------
+\section{The Dirichlet process}
+% ------------------------------------------------------------
+
+\begin{definition}[Dirichlet process]
+\index{Dirichlet process}
+Let $\alpha > 0$ be a concentration parameter and $G_0$ a base probability
+measure on $(\Theta, \mathcal{B})$. We say $G \sim \mathrm{DP}(\alpha, G_0)$
+if, for every measurable partition $(A_1, \ldots, A_K)$ of $\Theta$:
+\[
+  \bigl(G(A_1), \ldots, G(A_K)\bigr) \sim
+  \mathrm{Dir}\!\bigl(\alpha G_0(A_1), \ldots, \alpha G_0(A_K)\bigr).
+\]
+\end{definition}
+
+\begin{proposition}[Properties of the DP]
+Let $G \sim \mathrm{DP}(\alpha, G_0)$. Then:
+\begin{enumerate}
+  \item $\E[G(A)] = G_0(A)$ for all $A$.
+  \item $\Var(G(A)) = \dfrac{G_0(A)(1 - G_0(A))}{\alpha + 1}$.
+  \item $G$ is almost surely discrete (atomic measure).
+\end{enumerate}
+\end{proposition}
+
+\begin{attention}
+The DP generates discrete distributions even when $G_0$ is continuous.
+It is this discreteness that induces clustering.
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Stick-breaking construction}
+% ------------------------------------------------------------
+
+\begin{theorem}[Sethuraman, 1994]
+\index{stick-breaking}
+If $G \sim \mathrm{DP}(\alpha, G_0)$, then $G$ admits the representation:
+\[
+  G = \sum_{k=1}^{\infty} \pi_k \,\delta_{\theta_k^*},
+\]
+where $\theta_k^* \stackrel{\text{iid}}{\sim} G_0$ and the weights are
+constructed by stick-breaking:
+\[
+  V_k \stackrel{\text{iid}}{\sim} \mathrm{Beta}(1, \alpha), \quad
+  \pi_k = V_k \prod_{j=1}^{k-1}(1 - V_j).
+\]
+\end{theorem}
+
+\begin{remark}
+The weights $\pi_k$ decrease stochastically: the first atoms receive most
+of the mass. In practice, one truncates to $K$ terms for inference.
+\end{remark}
+
+\begin{minted}{python}
+import numpy as np
+
+def stick_breaking(alpha, K):
+    """Generate K weights via stick-breaking."""
+    V = np.random.beta(1, alpha, size=K)
+    pi = np.zeros(K)
+    remaining = 1.0
+    for k in range(K):
+        pi[k] = V[k] * remaining
+        remaining *= (1 - V[k])
+    return pi
+\end{minted}
+
+% ------------------------------------------------------------
+\section{The Chinese restaurant process}
+% ------------------------------------------------------------
+
+\begin{definition}[Chinese restaurant process (CRP)]
+\index{Chinese restaurant process}
+Let $(\theta_1, \theta_2, \ldots)$ be a sample from the DP marginal.
+The conditional predictive distribution is:
+\[
+  \theta_{n+1} \mid \theta_1, \ldots, \theta_n \sim
+  \frac{1}{n + \alpha}\left(\sum_{k=1}^{K_n} n_k\,\delta_{\theta_k^*}
+  + \alpha\,G_0\right),
+\]
+where $\theta_1^*, \ldots, \theta_{K_n}^*$ are the distinct values and $n_k$
+their counts.
+\end{definition}
+
+\begin{intuition}[title=\textbf{Restaurant metaphor}]
+Customers arrive one by one at a restaurant with infinitely many tables.
+Customer $n+1$ sits at table $k$ (already occupied by $n_k$ customers) with
+probability $n_k / (n + \alpha)$, or opens a new table with probability
+$\alpha / (n + \alpha)$.
+\end{intuition}
+
+\begin{proposition}[Expected number of clusters]
+For $n$ observations drawn from a $\mathrm{DP}(\alpha, G_0)$, the expected
+number of distinct clusters is:
+\[
+  \E[K_n] = \alpha \sum_{i=1}^{n} \frac{1}{\alpha + i - 1}
+           \approx \alpha \ln\!\left(1 + \frac{n}{\alpha}\right).
+\]
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Dirichlet process Gaussian mixture model (DP-GMM)}
+% ------------------------------------------------------------
+
+\begin{definition}[DP-GMM]
+\index{DP-GMM}
+The \textbf{infinite Gaussian mixture model} (DP-GMM) is defined by:
+\begin{align}
+  G &\sim \mathrm{DP}(\alpha, G_0), \\
+  (\mu_i, \Sigma_i) &\sim G, \quad i = 1, \ldots, n, \\
+  x_i \mid \mu_i, \Sigma_i &\sim \mathcal{N}(\mu_i, \Sigma_i).
+\end{align}
+The number of components is determined by the data.
+\end{definition}
+
+\begin{example}
+With $G_0 = \mathrm{NIW}(\mu_0, \kappa_0, \nu_0, \Psi_0)$ (Normal-Inverse-Wishart),
+the CRP Gibbs sampler iterates:
+\begin{enumerate}
+  \item For each $i$, reassign $z_i$ with $p(z_i = k \mid \ldots) \propto
+        n_{-i,k}\,\mathcal{N}(x_i \mid \mu_k, \Sigma_k)$ or create a new cluster.
+  \item For each cluster $k$, update $(\mu_k, \Sigma_k)$ via the NIW posterior.
+\end{enumerate}
+\end{example}
+
+\begin{minted}{python}
+from sklearn.mixture import BayesianGaussianMixture
+
+# DP-GMM via scikit-learn (variational approximation)
+dpgmm = BayesianGaussianMixture(
+    n_components=20,            # upper bound
+    covariance_type='full',
+    weight_concentration_prior_type='dirichlet_process',
+    weight_concentration_prior=0.1
+)
+dpgmm.fit(X)
+labels = dpgmm.predict(X)
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Gaussian processes as function-space priors}
+% ------------------------------------------------------------
+
+\begin{definition}[Gaussian process]
+\index{Gaussian process}
+A \textbf{Gaussian process} (GP) is a collection of random variables
+$\{f(x) : x \in \mathcal{X}\}$ such that every finite subcollection is
+jointly Gaussian:
+\[
+  f \sim \mathcal{GP}(m, k), \quad
+  (f(x_1), \ldots, f(x_n)) \sim \mathcal{N}\!\bigl(\mathbf{m}, \mathbf{K}\bigr),
+\]
+where $m_i = m(x_i)$ and $K_{ij} = k(x_i, x_j)$.
+\end{definition}
+
+\begin{theorem}[GP regression posterior]
+Let $\mathbf{y} = f(\mathbf{X}) + \boldsymbol{\epsilon}$,
+$\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \sigma^2 \mathbf{I})$.
+The posterior of $f_* = f(x_*)$ is:
+\begin{align}
+  f_* \mid \mathbf{X}, \mathbf{y}, x_* &\sim \mathcal{N}(\bar{f}_*, \Var(f_*)), \\
+  \bar{f}_* &= \mathbf{k}_*^\top (\mathbf{K} + \sigma^2 \mathbf{I})^{-1}\mathbf{y}, \\
+  \Var(f_*) &= k(x_*, x_*) - \mathbf{k}_*^\top(\mathbf{K} + \sigma^2 \mathbf{I})^{-1}\mathbf{k}_*.
+\end{align}
+\end{theorem}
+
+\begin{remark}
+The choice of kernel $k$ encodes assumptions about the smoothness of $f$:
+RBF for smooth functions, Mat\'ern for fine control over differentiability,
+periodic for cyclical data.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Other nonparametric processes}
+% ------------------------------------------------------------
+
+\begin{definition}[Indian buffet process (IBP)]
+\index{Indian buffet process}
+The \textbf{IBP} is a prior on binary matrices $Z$ of size $n \times \infty$
+used for feature selection. Each customer (observation) selects existing
+dishes (features) with probability $m_k / n$ and tries
+$\mathrm{Poisson}(\alpha / n)$ new dishes.
+\end{definition}
+
+\begin{definition}[Pitman--Yor process]
+\index{Pitman--Yor process}
+The \textbf{Pitman--Yor process} $\mathrm{PY}(d, \alpha, G_0)$ generalizes
+the DP with a discount parameter $d \in [0,1)$. The predictive distribution is:
+\[
+  \theta_{n+1} \mid \theta_{1:n} \sim
+  \frac{1}{n + \alpha}\left(\sum_{k=1}^{K_n}(n_k - d)\,\delta_{\theta_k^*}
+  + (\alpha + d K_n)\,G_0\right).
+\]
+For $d = 0$, one recovers the DP.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Key formulas}
+% ------------------------------------------------------------
+
+\begin{keyformulas}
+\begin{align}
+  \text{DP:} \quad & (G(A_1), \ldots, G(A_K)) \sim \mathrm{Dir}(\alpha G_0(A_1), \ldots, \alpha G_0(A_K)) \\
+  \text{CRP:} \quad & p(\theta_{n+1} = \theta_k^*) = \frac{n_k}{n + \alpha}, \quad
+                        p(\text{new}) = \frac{\alpha}{n + \alpha} \\
+  \text{Stick-breaking:} \quad & \pi_k = V_k \prod_{j<k}(1-V_j), \quad V_k \sim \mathrm{Beta}(1,\alpha) \\
+  \text{GP:} \quad & \bar{f}_* = \mathbf{k}_*^\top(\mathbf{K}+\sigma^2\mathbf{I})^{-1}\mathbf{y}
+\end{align}
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+Verify that the stick-breaking weights sum to 1 almost surely.
+\emph{Hint:} compute $\E\bigl[\sum_{k=1}^K \pi_k\bigr]$ and take the limit.
+\end{exercise}
+
+\begin{exercise}
+Simulate the Chinese restaurant process for $\alpha \in \{0.1, 1, 10, 100\}$
+and $n = 500$. Plot the number of clusters $K_n$ as a function of $\alpha$.
+Compare with the theoretical formula $\E[K_n] \approx \alpha \ln(1 + n/\alpha)$.
+\end{exercise}
+
+\begin{exercise}
+Implement a Gibbs sampler for the DP-GMM on simulated 2D data (three
+Gaussian clusters). Visualize the cluster assignments across iterations.
+\end{exercise}
+
+\begin{exercise}
+Consider a GP with RBF kernel $k(x,x') = \sigma_f^2 \exp(-\norm{x-x'}^2/(2\ell^2))$.
+Show that the GP predictive distribution converges to an exact interpolator
+as $\sigma^2 \to 0$. Illustrate graphically with simulated data.
+\end{exercise}
+
+\begin{exercise}
+Show that the Pitman--Yor process generates $K_n = O(n^d)$ clusters,
+compared to $K_n = O(\ln n)$ for the DP. What are the implications for
+modeling textual data following Zipf's law?
+\end{exercise}

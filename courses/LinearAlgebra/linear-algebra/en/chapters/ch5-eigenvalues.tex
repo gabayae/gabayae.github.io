@@ -1,0 +1,1233 @@
+% ch5-eigenvalues.tex — Chapter 5: Eigenvalues, Eigenvectors, and Diagonalization
+% Definitions, characteristic polynomial, Cayley–Hamilton, diagonalizability,
+% minimal polynomial, applications (A^n, Fibonacci, Markov chains, ODEs).
+
+\chapter{Eigenvalues, Eigenvectors, and Diagonalization}\label{ch:eigenvalues}
+
+% ============================================================
+% Motivating introduction
+% ============================================================
+
+Among all the questions one can ask about a linear map, perhaps the
+most fundamental is this: \emph{does there exist a basis in which the
+map takes a particularly simple form?}  The simplest form one can hope
+for is a diagonal matrix, and the search for such a basis leads
+directly to the theory of eigenvalues and eigenvectors.
+
+This theory is not merely an exercise in abstraction.  Eigenvalues
+appear throughout mathematics and its applications:
+\begin{itemize}
+  \item \textbf{Differential equations.}  The solutions of a linear
+    system $\vec{x}'(t) = A\vec{x}(t)$ are determined by the
+    eigenvalues of~$A$; exponential growth, decay, and oscillation all
+    correspond to different eigenvalue configurations.
+  \item \textbf{Markov chains.}  The long-run behaviour of a stochastic
+    process is governed by the eigenvalue~$1$ and its eigenvector (the
+    steady-state distribution).
+  \item \textbf{Vibrations and resonance.}  The natural frequencies of a
+    vibrating string, membrane, or mechanical system are the square
+    roots of the eigenvalues of the associated stiffness matrix.
+  \item \textbf{Principal component analysis (PCA).}  In statistics and
+    data science, the principal components are the eigenvectors of the
+    covariance matrix, and the eigenvalues measure the variance along
+    each component.
+\end{itemize}
+
+\begin{center}
+\begin{tikzpicture}[>=Stealth, scale=1.4]
+  % --- Eigenvector illustration: stretching and flipping ---
+  % Original basis vectors
+  \fill[blue!10] (-0.3,-0.3) rectangle (2.5,2.5);
+  \draw[->, thick, blue!70!black] (0,0) -- (2,1)
+    node[right] {$\vec{v}$};
+  \draw[->, thick, red!70!black] (0,0) -- (0.5,2)
+    node[above] {$\vec{w}$};
+
+  % Arrow for the map
+  \draw[->, thick, dashed, gray] (3,1) to[bend left=15]
+    node[midway,above] {\small $f$} (5,1);
+
+  % Images
+  \begin{scope}[shift={(6,0)}]
+    \fill[blue!10] (-1.3,-0.8) rectangle (4.3,2.5);
+    % Eigenvector stretched by 2
+    \draw[->, thick, blue!70!black] (0,0) -- (4,2)
+      node[right] {$f(\vec{v}) = 2\vec{v}$};
+    % Eigenvector flipped (eigenvalue -1)
+    \draw[->, thick, red!70!black] (0,0) -- (-0.5,-2)
+      node[below] {$f(\vec{w}) = -\vec{w}$};
+    \draw[->, thick, red!70!black, dashed, opacity=0.35] (0,0) -- (0.5,2)
+      node[above, opacity=0.5] {\small (original $\vec{w}$)};
+  \end{scope}
+
+  % Labels
+  \node[below] at (1.2,-0.5) {\small Eigenvector $\vec{v}$: eigenvalue $\lambda=2$};
+  \node[below] at (7.5,-0.5) {\small Eigenvector $\vec{w}$: eigenvalue $\lambda=-1$};
+\end{tikzpicture}
+\captionof{figure}{An endomorphism acts on eigenvectors by scaling:
+  $\vec{v}$ is stretched by factor~$2$, and $\vec{w}$ is flipped
+  (eigenvalue~$-1$).}
+\label{fig:eigenvector-intro}
+\end{center}
+
+Throughout this chapter, $\K$ denotes a field (typically $\R$ or~$\C$),
+$E$ denotes a finite-dimensional $\K$-vector space with $\dim E = n$,
+and $f\in\End(E)$ is an endomorphism of~$E$.  We shall use results
+from ef{ch:linear-maps} freely, especially the notions of kernel,
+image, determinant, and matrix representation.
+
+
+% ============================================================
+\section{Eigenvalues and eigenvectors}\label{sec:eigenvalues-def}
+% ============================================================
+
+\begin{definition}{Eigenvalue and eigenvector of an endomorphism}%
+{def:eigenvalue-endomorphism}
+\index{eigenvalue}\index{eigenvector}
+Let $f\in\End(E)$.  A scalar $\lambda\in\K$ is called an
+\emph{eigenvalue} of~$f$ if there exists a nonzero vector $v\in E$
+such that
+\[
+  f(v) = \lambda v.
+\]
+Any such nonzero vector~$v$ is called an \emph{eigenvector} of~$f$
+associated with (or belonging to) the eigenvalue~$\lambda$.
+\end{definition}
+
+\begin{remark}{The zero vector is never an eigenvector}{rem:zero-not-eigen}
+By convention, the zero vector is \emph{not} an eigenvector, even
+though $f(\vzero) = \lambda\vzero$ holds for every~$\lambda$.  This
+convention ensures that the set of eigenvectors associated with a
+given eigenvalue, together with~$\vzero$, forms a subspace.
+\end{remark}
+
+\begin{definition}{Eigenvalue and eigenvector of a matrix}%
+{def:eigenvalue-matrix}
+\index{eigenvalue!of a matrix}\index{eigenvector!of a matrix}
+Let $A\in\Mat_n(\K)$.  A scalar $\lambda\in\K$ is an eigenvalue
+of~$A$ if there exists a nonzero column vector
+$X\in\K^n$ such that $AX = \lambda X$.  Such an~$X$ is an
+eigenvector of~$A$ for~$\lambda$.
+\end{definition}
+
+\begin{proposition}{Reformulation via the kernel}%
+{prop:eigenvalue-kernel}
+Let $f\in\End(E)$ and $\lambda\in\K$.  Then $\lambda$ is an
+eigenvalue of~$f$ if and only if
+\[
+  \Ker(f - \lambda\Id) \neq \set{\vzero}.
+\]
+Equivalently, for $A\in\Mat_n(\K)$, $\lambda$ is an eigenvalue of~$A$
+if and only if $\det(A - \lambda I_n) = 0$.
+\end{proposition}
+
+\begin{proof}
+We have $f(v) = \lambda v$ if and only if $(f - \lambda\Id)(v) = \vzero$,
+i.e.\ $v\in\Ker(f - \lambda\Id)$.  A nonzero such~$v$ exists precisely
+when $\Ker(f - \lambda\Id) \neq \set{\vzero}$, which is equivalent to
+$f - \lambda\Id$ being non-injective, hence non-invertible (in finite
+dimension).  For a matrix~$A$ this means $\det(A - \lambda I_n) = 0$.
+\end{proof}
+
+\begin{example}{Eigenvalues of a $2\times 2$ matrix}{ex:eigen-2x2}
+Let $A = \begin{pmatrix} 3 & 1 \\ 0 & 2 \end{pmatrix}$.  We solve
+$\det(A - \lambda I_2) = 0$:
+\[
+  \det\begin{pmatrix} 3-\lambda & 1 \\ 0 & 2-\lambda \end{pmatrix}
+  = (3-\lambda)(2-\lambda) = 0,
+\]
+so $\lambda_1 = 3$ and $\lambda_2 = 2$.
+
+For $\lambda_1 = 3$: $(A - 3I_2)X = \vzero$ gives
+$\begin{pmatrix} 0 & 1 \\ 0 & -1 \end{pmatrix}
+\begin{pmatrix} x \\ y \end{pmatrix} = \vzero$,
+hence $y = 0$ and $x$ is free.  An eigenvector is
+$\begin{psmallmatrix} 1 \\ 0 \end{psmallmatrix}$.
+
+For $\lambda_2 = 2$: $(A - 2I_2)X = \vzero$ gives
+$\begin{pmatrix} 1 & 1 \\ 0 & 0 \end{pmatrix}
+\begin{pmatrix} x \\ y \end{pmatrix} = \vzero$,
+hence $x = -y$.  An eigenvector is
+$\begin{psmallmatrix} -1 \\ 1 \end{psmallmatrix}$.
+\end{example}
+
+\begin{proposition}{Eigenvectors for distinct eigenvalues are linearly
+independent}{prop:distinct-eigenvalues-li}
+\index{eigenvector!linear independence}
+Let $f\in\End(E)$ and let $\lambda_1,\ldots,\lambda_r$ be pairwise
+distinct eigenvalues of~$f$, with associated eigenvectors
+$v_1,\ldots,v_r$.  Then $(v_1,\ldots,v_r)$ is linearly independent.
+\end{proposition}
+
+\begin{proof}
+By induction on~$r$.  The case $r=1$ is clear since $v_1\neq\vzero$.
+
+Suppose the result holds for $r-1$ eigenvalues and consider a
+relation $\sum_{i=1}^{r}\alpha_i v_i = \vzero$.  Apply $f$:
+\[
+  \sum_{i=1}^{r}\alpha_i \lambda_i v_i = \vzero.
+\]
+Subtract $\lambda_r$ times the original relation:
+\[
+  \sum_{i=1}^{r-1}\alpha_i(\lambda_i - \lambda_r) v_i = \vzero.
+\]
+By the induction hypothesis, $\alpha_i(\lambda_i - \lambda_r) = 0$
+for all $i = 1,\ldots,r-1$.  Since the eigenvalues are distinct,
+$\lambda_i - \lambda_r \neq 0$, so $\alpha_i = 0$ for
+$i = 1,\ldots,r-1$.  Substituting back gives $\alpha_r v_r = \vzero$,
+whence $\alpha_r = 0$.
+\end{proof}
+
+\begin{corollary}{Bound on the number of eigenvalues}%
+{cor:eigenvalue-bound}
+An endomorphism of an $n$-dimensional space has at most $n$ distinct
+eigenvalues.
+\end{corollary}
+
+\begin{proof}
+If there were $n+1$ distinct eigenvalues, the corresponding
+eigenvectors would form a linearly independent family of $n+1$ vectors
+in an $n$-dimensional space, contradicting the definition of dimension.
+\end{proof}
+
+
+% ============================================================
+\section{Eigenspaces}\label{sec:eigenspaces}
+% ============================================================
+
+\begin{definition}{Eigenspace}{def:eigenspace}
+\index{eigenspace}
+Let $f\in\End(E)$ and $\lambda\in\K$ be an eigenvalue of~$f$.  The
+\emph{eigenspace} of~$f$ associated with~$\lambda$ is
+\[
+  E_\lambda(f) \deff \Ker(f - \lambda\Id)
+  = \setcond{v\in E}{f(v) = \lambda v}.
+\]
+For a matrix $A\in\Mat_n(\K)$, we write $E_\lambda(A) = \Ker(A-\lambda I_n)$.
+\end{definition}
+
+\begin{proposition}{Eigenspaces are subspaces}{prop:eigenspace-subspace}
+\index{eigenspace!is a subspace}
+For every eigenvalue~$\lambda$ of~$f$, the eigenspace $E_\lambda(f)$
+is a vector subspace of~$E$ of dimension at least~$1$.
+\end{proposition}
+
+\begin{proof}
+Since $f - \lambda\Id$ is a linear map, its kernel $\Ker(f - \lambda\Id)$
+is a subspace of~$E$ (the kernel of any linear map is a subspace).
+It contains at least one nonzero vector (the eigenvector guaranteed by
+the definition of eigenvalue), so $\dim E_\lambda(f) \geq 1$.
+\end{proof}
+
+\begin{proposition}{Sum of eigenspaces is direct}{prop:eigenspace-direct-sum}
+\index{eigenspace!direct sum}
+Let $\lambda_1,\ldots,\lambda_r$ be pairwise distinct eigenvalues
+of~$f$.  Then the sum $E_{\lambda_1}(f) + \cdots + E_{\lambda_r}(f)$
+is a direct sum:
+\[
+  E_{\lambda_1}(f) + \cdots + E_{\lambda_r}(f)
+  = E_{\lambda_1}(f) \oplus \cdots \oplus E_{\lambda_r}(f).
+\]
+\end{proposition}
+
+\begin{proof}
+Suppose $v_1 + \cdots + v_r = \vzero$ with $v_i\in E_{\lambda_i}(f)$.
+We must show each $v_i = \vzero$.  If some $v_i \neq \vzero$, let
+$S = \setcond{i}{v_i \neq \vzero}$.  Then the nonzero vectors
+$(v_i)_{i\in S}$ are eigenvectors for pairwise distinct eigenvalues,
+hence linearly independent by
+ef{prop:prop:distinct-eigenvalues-li}.  But
+$\sum_{i\in S} v_i = \vzero$ (the terms with $v_i = \vzero$ contribute
+nothing), contradicting linear independence.  Therefore $S = \emptyset$
+and all $v_i = \vzero$.
+\end{proof}
+
+
+% ============================================================
+\section{Characteristic polynomial}\label{sec:char-poly}
+% ============================================================
+
+\begin{definition}{Characteristic polynomial of a matrix}%
+{def:char-poly-matrix}
+\index{characteristic polynomial!of a matrix}
+Let $A\in\Mat_n(\K)$.  The \emph{characteristic polynomial} of~$A$ is
+\[
+  \chi_A(\lambda) \deff \det(A - \lambda I_n) \in \K[\lambda].
+\]
+It is a polynomial of degree~$n$ in~$\lambda$.
+\end{definition}
+
+\begin{remark}{Sign convention}{rem:sign-convention}
+Some authors define $\chi_A(\lambda) = \det(\lambda I_n - A)$
+instead, which differs from our convention by a factor of~$(-1)^n$.
+With our convention, the leading term is $(-1)^n\lambda^n$; with the
+other convention it is $\lambda^n$.  Both conventions are standard.
+The eigenvalues (roots of~$\chi_A$) are the same either way.
+\end{remark}
+
+\begin{proposition}{Properties of the characteristic polynomial}%
+{prop:char-poly-properties}
+Let $A\in\Mat_n(\K)$ with characteristic polynomial
+$\chi_A(\lambda) = (-1)^n\lambda^n + c_{n-1}\lambda^{n-1} + \cdots + c_0$.
+Then:
+\begin{enumerate}[label=(\roman*)]
+  \item $\deg\chi_A = n$ and the leading coefficient is $(-1)^n$.
+  \item $c_{n-1} = (-1)^{n-1}\tr(A)$.
+  \item $c_0 = \chi_A(0) = \det(A)$.
+  \item The eigenvalues of~$A$ are exactly the roots of~$\chi_A$
+    in~$\K$.
+  \item Similar matrices have the same characteristic polynomial:
+    if $B = \inv{P}AP$ then $\chi_B = \chi_A$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(i) The determinant of $A - \lambda I_n$ is a sum over permutations
+$\sigma\in S_n$ of products $\prod_{i=1}^n (A - \lambda I_n)_{i,\sigma(i)}$.
+The only permutation contributing a term of degree~$n$ is the identity
+$\sigma = \Id$, which gives $\prod_{i=1}^n (a_{ii} - \lambda)$.  The
+leading term is $(-\lambda)^n = (-1)^n\lambda^n$.
+
+(ii) In the expansion of $\prod_{i=1}^n(a_{ii} - \lambda)$, the coefficient
+of $\lambda^{n-1}$ is $(-1)^{n-1}\sum_{i=1}^n a_{ii} = (-1)^{n-1}\tr(A)$.
+No other permutation contributes a term of degree~$n-1$ (such a
+permutation would need at least two non-diagonal factors, each of degree~$0$
+in~$\lambda$, leaving degree at most $n-2$).
+
+(iii) $\chi_A(0) = \det(A - 0\cdot I_n) = \det(A)$.
+
+(iv) $\lambda$ is an eigenvalue if and only if $\det(A - \lambda I_n) = 0$,
+i.e.\ $\chi_A(\lambda) = 0$.
+
+(v) $\chi_B(\lambda) = \det(\inv{P}AP - \lambda I_n)
+= \det(\inv{P}(A - \lambda I_n)P)
+= \det(\inv{P})\det(A-\lambda I_n)\det(P)
+= \chi_A(\lambda)$.
+\end{proof}
+
+\begin{definition}{Characteristic polynomial of an endomorphism}%
+{def:char-poly-endo}
+\index{characteristic polynomial!of an endomorphism}
+Let $f\in\End(E)$ and let $A = \Mat_\cB(f)$ be the matrix of~$f$ in
+some basis~$\cB$ of~$E$.  The \emph{characteristic polynomial}
+of~$f$ is
+\[
+  \chi_f(\lambda) \deff \chi_A(\lambda) = \det(A - \lambda I_n).
+\]
+By property~(v) above, this is independent of the choice of
+basis~$\cB$.
+\end{definition}
+
+\begin{example}{Characteristic polynomial of a $2\times 2$ matrix}%
+{ex:char-poly-2x2}
+Let $A = \begin{pmatrix} a & b \\ c & d \end{pmatrix}$.  Then
+\[
+  \chi_A(\lambda) = \det\begin{pmatrix} a-\lambda & b \\ c & d-\lambda
+  \end{pmatrix}
+  = (a-\lambda)(d-\lambda) - bc
+  = \lambda^2 - (a+d)\lambda + (ad-bc)
+  = \lambda^2 - \tr(A)\lambda + \det(A).
+\]
+\end{example}
+
+\begin{example}{Characteristic polynomial of a $3\times 3$ matrix}%
+{ex:char-poly-3x3}
+Let $A = \begin{pmatrix} 2 & 1 & 0 \\ 0 & 3 & 1 \\ 0 & 0 & 2
+\end{pmatrix}$.  Then
+\begin{align*}
+  \chi_A(\lambda) &= \det\begin{pmatrix} 2-\lambda & 1 & 0 \\
+  0 & 3-\lambda & 1 \\ 0 & 0 & 2-\lambda \end{pmatrix} \\
+  &= (2-\lambda)(3-\lambda)(2-\lambda) \\
+  &= (2-\lambda)^2(3-\lambda)
+  = -(\lambda-2)^2(\lambda-3).
+\end{align*}
+The eigenvalues are $\lambda_1 = 2$ (a double root) and $\lambda_2 = 3$
+(a simple root).
+\end{example}
+
+
+% ============================================================
+\section{The Cayley--Hamilton theorem}\label{sec:cayley-hamilton}
+% ============================================================
+
+\begin{theorem}{Cayley--Hamilton}{thm:cayley-hamilton}
+\index{Cayley--Hamilton theorem}
+Let $A\in\Mat_n(\K)$ with characteristic polynomial~$\chi_A$.  Then
+\[
+  \chi_A(A) = 0_{n\times n}.
+\]
+That is, every square matrix satisfies its own characteristic
+polynomial.  Equivalently, if $f\in\End(E)$, then $\chi_f(f) = 0$
+(the zero endomorphism).
+\end{theorem}
+
+\begin{proof}
+Write $B(\lambda) \deff \operatorname{adj}(A - \lambda I_n)$ for the
+classical adjoint (adjugate) of $A - \lambda I_n$.  By the adjugate
+formula for determinants,
+\[
+  (A - \lambda I_n)\, B(\lambda) = \det(A - \lambda I_n)\, I_n
+  = \chi_A(\lambda)\, I_n.
+\]
+Each entry of $B(\lambda)$ is a cofactor of $A - \lambda I_n$, hence a
+polynomial in~$\lambda$ of degree at most $n-1$.  We can therefore
+write
+\[
+  B(\lambda) = B_0 + B_1\lambda + B_2\lambda^2 + \cdots
+    + B_{n-1}\lambda^{n-1},
+\]
+where $B_0,B_1,\ldots,B_{n-1}\in\Mat_n(\K)$ are constant matrices.
+Similarly, write the characteristic polynomial as
+\[
+  \chi_A(\lambda) = c_0 + c_1\lambda + c_2\lambda^2 + \cdots
+    + c_n\lambda^n,
+\]
+where $c_n = (-1)^n$.
+
+Now expand the identity $(A - \lambda I_n)\,B(\lambda) = \chi_A(\lambda)\,I_n$:
+\begin{align*}
+  A B_0 &= c_0 I_n, \\
+  A B_1 - B_0 &= c_1 I_n, \\
+  A B_2 - B_1 &= c_2 I_n, \\
+  &\;\;\vdots \\
+  A B_{n-1} - B_{n-2} &= c_{n-1} I_n, \\
+  -B_{n-1} &= c_n I_n.
+\end{align*}
+Multiply the $k$-th equation (from $k=0$ to $k=n$) on the left by
+$A^k$ and sum:
+\begin{align*}
+  &\phantom{{}={}} A^0(AB_0) + A^1(AB_1 - B_0) + A^2(AB_2 - B_1)
+    + \cdots + A^n(-B_{n-1}) \\
+  &= c_0 I_n + c_1 A + c_2 A^2 + \cdots + c_n A^n \\
+  &= \chi_A(A).
+\end{align*}
+On the left-hand side, all terms cancel telescopically:
+\[
+  AB_0 + A^2 B_1 - AB_0 + A^3 B_2 - A^2 B_1 + \cdots - A^n B_{n-1}
+  = 0_{n\times n}.
+\]
+Therefore $\chi_A(A) = 0_{n\times n}$.
+\end{proof}
+
+\begin{remark}{Warning about ``substituting $A$ for $\lambda$''}%
+{rem:cayley-hamilton-warning}
+One cannot prove Cayley--Hamilton by simply writing
+``$\chi_A(A) = \det(A - A\cdot I_n) = \det(0) = 0$.''
+This is \emph{fallacious}: $\chi_A(\lambda)$ is a polynomial
+in the \emph{scalar}~$\lambda$, while the substitution $\lambda = A$
+places a \emph{matrix} inside a determinant in an invalid way.  The
+correct proof, as given above, requires careful bookkeeping with matrix
+polynomials.
+\end{remark}
+
+\begin{example}{Cayley--Hamilton for a $2\times 2$ matrix}{ex:cayley-hamilton-2x2}
+Take $A = \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix}$.  Then
+$\chi_A(\lambda) = \lambda^2 - 5\lambda - 2$.  We verify:
+\[
+  A^2 - 5A - 2I_2
+  = \begin{pmatrix}7 & 10 \\ 15 & 22\end{pmatrix}
+  - \begin{pmatrix}5 & 10 \\ 15 & 20\end{pmatrix}
+  - \begin{pmatrix}2 & 0 \\ 0 & 2\end{pmatrix}
+  = \begin{pmatrix}0 & 0 \\ 0 & 0\end{pmatrix}.\qedhere
+\]
+\end{example}
+
+
+% ============================================================
+\section{Spectrum of an endomorphism}\label{sec:spectrum}
+% ============================================================
+
+\begin{definition}{Spectrum}{def:spectrum}
+\index{spectrum}
+The \emph{spectrum} of an endomorphism $f\in\End(E)$ (or of a matrix
+$A\in\Mat_n(\K)$) is the set of all its eigenvalues:
+\[
+  \Spec(f) \deff \setcond{\lambda\in\K}{\lambda \text{ is an eigenvalue of } f}.
+\]
+\end{definition}
+
+\begin{remark}{Dependence on the base field}{rem:spectrum-field}
+The spectrum depends on the base field.  For example, the rotation
+matrix $R_{\pi/2} = \begin{psmallmatrix} 0 & -1 \\ 1 & 0
+\end{psmallmatrix}$ has $\chi_{R_{\pi/2}}(\lambda) = \lambda^2 + 1$,
+which has no real roots, so $\Spec_\R(R_{\pi/2}) = \emptyset$.
+Over~$\C$, $\Spec_\C(R_{\pi/2}) = \set{i,-i}$.
+\end{remark}
+
+
+% ============================================================
+\section{Algebraic and geometric multiplicity}\label{sec:multiplicities}
+% ============================================================
+
+\begin{definition}{Algebraic multiplicity}{def:alg-mult}
+\index{multiplicity!algebraic}
+Let $\lambda$ be an eigenvalue of~$f$.  The \emph{algebraic
+multiplicity} of~$\lambda$, denoted $m_a(\lambda)$, is the
+multiplicity of~$\lambda$ as a root of the characteristic
+polynomial~$\chi_f$.  In other words, $m_a(\lambda)$ is the largest
+integer $k$ such that $(\lambda_0 - \lambda)^k$ divides
+$\chi_f(\lambda_0)$, where we view $\chi_f$ as a polynomial in the
+variable~$\lambda_0$.
+\end{definition}
+
+\begin{definition}{Geometric multiplicity}{def:geom-mult}
+\index{multiplicity!geometric}
+The \emph{geometric multiplicity} of an eigenvalue~$\lambda$,
+denoted $m_g(\lambda)$, is the dimension of the eigenspace:
+\[
+  m_g(\lambda) \deff \dim E_\lambda(f) = \dim\Ker(f - \lambda\Id).
+\]
+\end{definition}
+
+\begin{theorem}{Inequality between multiplicities}%
+{thm:mult-inequality}
+\index{multiplicity!inequality}
+For every eigenvalue~$\lambda$ of~$f$,
+\[
+  1 \leq m_g(\lambda) \leq m_a(\lambda).
+\]
+\end{theorem}
+
+\begin{proof}
+The inequality $m_g(\lambda) \geq 1$ holds because $E_\lambda(f)$
+contains at least one nonzero eigenvector.
+
+For the inequality $m_g(\lambda) \leq m_a(\lambda)$, let
+$d = m_g(\lambda) = \dim E_\lambda(f)$ and choose a basis
+$(v_1,\ldots,v_d)$ of~$E_\lambda(f)$.  Extend it to a basis
+$\cB = (v_1,\ldots,v_d,v_{d+1},\ldots,v_n)$ of~$E$.  In this basis,
+the matrix of~$f$ has the block form
+\[
+  \Mat_\cB(f) = \begin{pmatrix} \lambda I_d & C \\ 0 & D \end{pmatrix},
+\]
+where $C\in\Mat_{d,n-d}(\K)$ and $D\in\Mat_{n-d}(\K)$.  This is
+because $f(v_i) = \lambda v_i$ for $i = 1,\ldots,d$.  Then
+\[
+  \chi_f(\mu) = \det\begin{pmatrix} \lambda I_d - \mu I_d & C \\
+    0 & D - \mu I_{n-d} \end{pmatrix}
+  = (\lambda - \mu)^d \det(D - \mu I_{n-d}).
+\]
+Therefore $(\lambda - \mu)^d$ divides $\chi_f(\mu)$, which means
+$m_a(\lambda) \geq d = m_g(\lambda)$.
+\end{proof}
+
+\begin{example}{Strict inequality between multiplicities}%
+{ex:strict-mult-inequality}
+The matrix $A = \begin{pmatrix} 2 & 1 \\ 0 & 2 \end{pmatrix}$ has
+$\chi_A(\lambda) = (2-\lambda)^2$, so $\lambda = 2$ has algebraic
+multiplicity $m_a(2) = 2$.  However,
+$E_2(A) = \Ker\begin{psmallmatrix} 0 & 1 \\ 0 & 0 \end{psmallmatrix}
+= \Span\!\left(\begin{psmallmatrix} 1 \\ 0 \end{psmallmatrix}\right)$,
+which has dimension~$1$.  So $m_g(2) = 1 < 2 = m_a(2)$.
+\end{example}
+
+
+% ============================================================
+\section{Diagonalizability}\label{sec:diagonalizability}
+% ============================================================
+
+\begin{definition}{Diagonalizable endomorphism}{def:diagonalizable-endo}
+\index{diagonalizable!endomorphism}
+An endomorphism $f\in\End(E)$ is \emph{diagonalizable} if there
+exists a basis of~$E$ consisting entirely of eigenvectors of~$f$.
+Equivalently, $f$ is diagonalizable if its matrix in some basis is
+diagonal.
+\end{definition}
+
+\begin{definition}{Diagonalizable matrix}{def:diagonalizable-matrix}
+\index{diagonalizable!matrix}
+A matrix $A\in\Mat_n(\K)$ is \emph{diagonalizable} if it is similar
+to a diagonal matrix, i.e.\ if there exists an invertible matrix
+$P\in\GL_n(\K)$ and a diagonal matrix
+$D = \diag(\lambda_1,\ldots,\lambda_n)$ such that
+\[
+  A = P D \inv{P}.
+\]
+The columns of~$P$ are eigenvectors of~$A$, and the diagonal entries
+of~$D$ are the corresponding eigenvalues.
+\end{definition}
+
+\begin{center}
+\begin{tikzpicture}[>=Stealth, node distance=3.5cm]
+  \node (E1) {$E$};
+  \node[right of=E1, node distance=4cm] (E2) {$E$};
+  \node[below of=E1, node distance=2.5cm] (K1) {$\K^n$};
+  \node[below of=E2, node distance=2.5cm] (K2) {$\K^n$};
+
+  \draw[->] (E1) -- node[above] {$f$} (E2);
+  \draw[->] (K1) -- node[below] {$D = \diag(\lambda_1,\ldots,\lambda_n)$} (K2);
+  \draw[->] (E1) -- node[left] {$[\cdot]_\cB$} (K1);
+  \draw[->] (E2) -- node[right] {$[\cdot]_\cB$} (K2);
+
+  \node[below of=K1, node distance=1.5cm, text width=8cm, align=center]
+    {\small In the eigenbasis $\cB$, the map $f$ acts as
+     multiplication by $\lambda_i$ on each coordinate axis.};
+\end{tikzpicture}
+\captionof{figure}{Diagonalization: in the eigenbasis $\cB$, the
+  endomorphism~$f$ is represented by the diagonal matrix~$D$.}
+\label{fig:diag-diagram}
+\end{center}
+
+\begin{theorem}{Diagonalization criterion}{thm:diag-criterion}
+\index{diagonalizable!criterion}
+Let $f\in\End(E)$ with $\dim E = n$, and let
+$\Spec(f) = \set{\lambda_1,\ldots,\lambda_r}$.  The following
+conditions are equivalent:
+\begin{enumerate}[label=(\roman*)]
+  \item $f$ is diagonalizable.
+  \item $E = E_{\lambda_1}(f) \oplus E_{\lambda_2}(f) \oplus \cdots
+    \oplus E_{\lambda_r}(f)$.
+  \item $\sum_{i=1}^{r} \dim E_{\lambda_i}(f) = n$.
+  \item The characteristic polynomial $\chi_f$ splits over~$\K$
+    (i.e.\ has all its roots in~$\K$), \emph{and}
+    $m_g(\lambda_i) = m_a(\lambda_i)$ for every eigenvalue
+    $\lambda_i$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+\textbf{(i) $\Rightarrow$ (ii).}\;
+If $f$ is diagonalizable, there is a basis $(v_1,\ldots,v_n)$ of~$E$
+with $f(v_j) = \mu_j v_j$ for some $\mu_j\in\K$.  Each $v_j$ belongs
+to $E_{\mu_j}(f)$.  Since the $v_j$ Span~$E$, we have
+$E = \sum_{i=1}^r E_{\lambda_i}(f)$.  This sum is direct by
+ef{prop:prop:eigenspace-direct-sum}.
+
+\textbf{(ii) $\Rightarrow$ (iii).}\;
+If the direct sum decomposition holds, then
+$n = \dim E = \sum_{i=1}^r \dim E_{\lambda_i}(f)$ by the dimension
+formula for direct sums.
+
+\textbf{(iii) $\Rightarrow$ (iv).}\;
+From $\sum m_g(\lambda_i) = n$ and the inequality
+$m_g(\lambda_i) \leq m_a(\lambda_i)$ for each~$i$, together with
+$\sum m_a(\lambda_i) \leq n$ (the sum of algebraic multiplicities is
+at most~$\deg\chi_f = n$), we get
+\[
+  n = \sum_{i=1}^r m_g(\lambda_i) \leq \sum_{i=1}^r m_a(\lambda_i) \leq n.
+\]
+All inequalities are equalities.  In particular,
+$m_g(\lambda_i) = m_a(\lambda_i)$ for each~$i$, and
+$\sum m_a(\lambda_i) = n$, which means $\chi_f$ splits over~$\K$
+(every root is in~$\K$ and the multiplicities account for the full
+degree~$n$).
+
+\textbf{(iv) $\Rightarrow$ (i).}\;
+If $\chi_f$ splits and $m_g(\lambda_i) = m_a(\lambda_i)$ for each~$i$,
+then
+\[
+  \sum_{i=1}^r \dim E_{\lambda_i}(f)
+  = \sum_{i=1}^r m_g(\lambda_i)
+  = \sum_{i=1}^r m_a(\lambda_i) = n.
+\]
+Since the sum of eigenspaces is direct (ef{prop:prop:eigenspace-direct-sum}),
+we have $E = \bigoplus_{i=1}^r E_{\lambda_i}(f)$.  Choosing a basis
+for each $E_{\lambda_i}(f)$ and concatenating gives a basis of~$E$
+consisting of eigenvectors, so $f$ is diagonalizable.
+\end{proof}
+
+\begin{corollary}{Endomorphism with $n$ distinct eigenvalues}%
+{cor:n-distinct-eigenvalues}
+If $f\in\End(E)$ has $n = \dim E$ distinct eigenvalues, then $f$ is
+diagonalizable.
+\end{corollary}
+
+\begin{proof}
+Each eigenvalue has algebraic multiplicity~$1$ (since there are $n$
+eigenvalues and $\deg\chi_f = n$), and the geometric multiplicity
+satisfies $1 \leq m_g(\lambda) \leq m_a(\lambda) = 1$.  Thus
+$m_g = m_a$ for all eigenvalues and $\chi_f$ splits, so $f$ is
+diagonalizable by ef{thm:thm:diag-criterion}.
+\end{proof}
+
+\begin{remark}{The converse is false}{rem:diag-distinct-converse}
+Having $n$ distinct eigenvalues is sufficient but not necessary for
+diagonalizability.  For instance, the identity matrix $I_n$ is
+diagonal (hence diagonalizable) but has a single eigenvalue
+$\lambda = 1$ with multiplicity~$n$.
+\end{remark}
+
+
+% ============================================================
+\section{The diagonalization algorithm}\label{sec:diag-algorithm}
+% ============================================================
+
+Given $A\in\Mat_n(\K)$, the following procedure determines whether
+$A$ is diagonalizable and, if so, produces $P$ and $D$ such that
+$A = P D \inv{P}$.
+
+\begin{enumerate}[label=\textbf{Step \arabic*.}]
+  \item \textbf{Compute the characteristic polynomial}
+    $\chi_A(\lambda) = \det(A - \lambda I_n)$.
+  \item \textbf{Find the eigenvalues} by solving $\chi_A(\lambda) = 0$.
+    If $\chi_A$ does not split over~$\K$, then $A$ is \emph{not}
+    diagonalizable over~$\K$.
+  \item \textbf{For each eigenvalue~$\lambda_i$}, compute the eigenspace
+    $E_{\lambda_i} = \Ker(A - \lambda_i I_n)$ by solving the
+    homogeneous system $(A - \lambda_i I_n)X = \vzero$.
+  \item \textbf{Check the multiplicity condition:}
+    $\dim E_{\lambda_i} = m_a(\lambda_i)$ for each~$i$.
+    If this fails for any eigenvalue, $A$ is \emph{not} diagonalizable.
+  \item \textbf{Form} $P$ by placing the eigenvectors (bases of each
+    eigenspace) as columns, and $D = \diag(\lambda_1,\ldots,\lambda_1,
+    \lambda_2,\ldots,\lambda_2,\ldots)$ with each $\lambda_i$ repeated
+    $m_a(\lambda_i)$ times.
+\end{enumerate}
+
+\begin{example}{Full diagonalization of a $3\times 3$ matrix}%
+{ex:diag-3x3}
+\index{diagonalization!example}
+Diagonalize $A = \begin{pmatrix} 4 & 0 & 1 \\ 2 & 3 & 2 \\ 1 & 0 & 4
+\end{pmatrix}$.
+
+\textbf{Step 1.}  The characteristic polynomial:
+\begin{align*}
+  \chi_A(\lambda) &= \det\begin{pmatrix} 4-\lambda & 0 & 1 \\
+    2 & 3-\lambda & 2 \\ 1 & 0 & 4-\lambda \end{pmatrix} \\
+  &= (4-\lambda)\bigl[(3-\lambda)(4-\lambda) - 0\bigr]
+    - 0 + 1\bigl[0 - (3-\lambda)\bigr] \\
+  &= (4-\lambda)(3-\lambda)(4-\lambda) - (3-\lambda) \\
+  &= (3-\lambda)\bigl[(4-\lambda)^2 - 1\bigr] \\
+  &= (3-\lambda)(16 - 8\lambda + \lambda^2 - 1) \\
+  &= (3-\lambda)(\lambda^2 - 8\lambda + 15) \\
+  &= (3-\lambda)(\lambda - 3)(\lambda - 5) \\
+  &= -(3-\lambda)^2(\lambda - 5) = -(\lambda-3)^2(\lambda-5).
+\end{align*}
+
+\textbf{Step 2.}  Eigenvalues: $\lambda_1 = 3$ (algebraic
+multiplicity~$2$) and $\lambda_2 = 5$ (algebraic multiplicity~$1$).
+
+\textbf{Step 3.}  Eigenspaces:
+
+For $\lambda_1 = 3$: solve $(A - 3I_3)X = \vzero$:
+\[
+  A - 3I_3 = \begin{pmatrix} 1 & 0 & 1 \\ 2 & 0 & 2 \\ 1 & 0 & 1
+  \end{pmatrix} \longrightarrow \begin{pmatrix} 1 & 0 & 1 \\ 0 & 0 & 0
+  \\ 0 & 0 & 0 \end{pmatrix}.
+\]
+So $x_1 = -x_3$, $x_2$ free, $x_3$ free.  A basis of $E_3(A)$ is
+\[
+  \left\{ \begin{pmatrix} 0\\1\\0 \end{pmatrix},\;
+  \begin{pmatrix} -1\\0\\1 \end{pmatrix} \right\},
+  \quad \dim E_3(A) = 2 = m_a(3).
+\]
+
+For $\lambda_2 = 5$: solve $(A - 5I_3)X = \vzero$:
+\[
+  A - 5I_3 = \begin{pmatrix} -1 & 0 & 1 \\ 2 & -2 & 2 \\ 1 & 0 & -1
+  \end{pmatrix} \longrightarrow \begin{pmatrix} 1 & 0 & -1 \\ 0 & 1 & -2
+  \\ 0 & 0 & 0 \end{pmatrix}.
+\]
+So $x_1 = x_3$, $x_2 = 2x_3$, $x_3$ free.  A basis of $E_5(A)$ is
+$\left\{ \begin{psmallmatrix} 1\\2\\1 \end{psmallmatrix} \right\}$,
+and $\dim E_5(A) = 1 = m_a(5)$.
+
+\textbf{Step 4.}  Since $m_g = m_a$ for both eigenvalues, $A$ is
+diagonalizable.
+
+\textbf{Step 5.}  We obtain
+\[
+  P = \begin{pmatrix} 0 & -1 & 1 \\ 1 & 0 & 2 \\ 0 & 1 & 1
+  \end{pmatrix}, \qquad
+  D = \begin{pmatrix} 3 & 0 & 0 \\ 0 & 3 & 0 \\ 0 & 0 & 5
+  \end{pmatrix}, \qquad
+  A = P D \inv{P}.
+\]
+\end{example}
+
+\begin{example}{A non-diagonalizable matrix}{ex:non-diag}
+\index{diagonalizable!non-example}
+Consider $A = \begin{pmatrix} 2 & 1 \\ 0 & 2 \end{pmatrix}$.  Then
+$\chi_A(\lambda) = (2-\lambda)^2$, so $\lambda = 2$ is the only
+eigenvalue with $m_a(2) = 2$.  But
+$E_2(A) = \Ker\begin{psmallmatrix} 0 & 1 \\ 0 & 0 \end{psmallmatrix}
+= \Span\!\left(\begin{psmallmatrix} 1 \\ 0 \end{psmallmatrix}\right)$,
+so $m_g(2) = 1 < 2 = m_a(2)$.  By
+ef{thm:thm:diag-criterion}, $A$ is \emph{not} diagonalizable.
+\end{example}
+
+
+% ============================================================
+\section{Trigonalization}\label{sec:trigonalization}
+% ============================================================
+
+\begin{definition}{Trigonalizable endomorphism}{def:trigonalizable}
+\index{trigonalizable}\index{triangularizable|see{trigonalizable}}
+An endomorphism $f\in\End(E)$ is \emph{trigonalizable} (over~$\K$)
+if there exists a basis of~$E$ in which the matrix of~$f$ is upper
+triangular.  A matrix $A\in\Mat_n(\K)$ is trigonalizable if it is
+similar to an upper triangular matrix.
+\end{definition}
+
+\begin{theorem}{Trigonalization over an algebraically closed field}%
+{thm:trigonalization}
+\index{trigonalization theorem}
+Let $f\in\End(E)$ with $\dim E = n$.  Then $f$ is trigonalizable
+over~$\K$ if and only if $\chi_f$ splits over~$\K$.
+
+In particular, every endomorphism of a finite-dimensional complex
+vector space is trigonalizable (since $\C$ is algebraically closed).
+\end{theorem}
+
+\begin{proof}
+$(\Leftarrow)$\; We proceed by induction on $n = \dim E$.
+The case $n = 1$ is trivial.
+
+Since $\chi_f$ splits, $f$ has at least one eigenvalue
+$\lambda_1\in\K$.  Let $v_1$ be a corresponding eigenvector and set
+$F = \Span(v_1)$.  The quotient space $\bar{E} = E/F$ has
+dimension~$n-1$, and $f$ induces a well-defined endomorphism
+$\bar{f}\colon\bar{E}\to\bar{E}$ (since $F$ is $f$-invariant).
+Moreover, $\chi_{\bar{f}}$ divides $\chi_f$ (up to a constant),
+so $\chi_{\bar{f}}$ also splits over~$\K$.
+
+By the induction hypothesis, $\bar{f}$ is trigonalizable: there
+exists a basis $(\bar{v}_2,\ldots,\bar{v}_n)$ of~$\bar{E}$ in which
+$\bar{f}$ is upper triangular.  Choosing representatives
+$v_2,\ldots,v_n\in E$ with $\bar{v}_i = v_i + F$, the family
+$(v_1,v_2,\ldots,v_n)$ is a basis of~$E$ and the matrix of~$f$ in
+this basis is upper triangular with $\lambda_1$ in the $(1,1)$
+position.
+
+$(\Rightarrow)$\; If $f$ is trigonalizable with upper triangular
+matrix $T$, then $\chi_f(\lambda) = \chi_T(\lambda) = \prod_{i=1}^n
+(t_{ii} - \lambda)$, which splits over~$\K$.
+\end{proof}
+
+\begin{corollary}{Trigonalization over $\C$}{cor:trig-C}
+Every matrix $A\in\Mat_n(\C)$ is trigonalizable over~$\C$.
+\end{corollary}
+
+
+% ============================================================
+\section{Minimal polynomial}\label{sec:minimal-poly}
+% ============================================================
+
+\begin{definition}{Annihilating polynomial}{def:annihilating-poly}
+\index{annihilating polynomial}
+A polynomial $p\in\K[\lambda]$ is an \emph{annihilating polynomial}
+(or \emph{annihilator}) of $f\in\End(E)$ if $p(f) = 0$ (the zero
+endomorphism).  Similarly, $p$ annihilates $A\in\Mat_n(\K)$ if
+$p(A) = 0_{n\times n}$.
+\end{definition}
+
+By the Cayley--Hamilton theorem (ef{thm:thm:cayley-hamilton}), $\chi_f$
+is always an annihilating polynomial of~$f$.  The minimal polynomial
+is the ``smallest'' such polynomial.
+
+\begin{definition}{Minimal polynomial}{def:minimal-poly}
+\index{minimal polynomial}
+The \emph{minimal polynomial} of $f\in\End(E)$, denoted $\mu_f$, is
+the unique monic polynomial of smallest degree that annihilates~$f$.
+\end{definition}
+
+\begin{proposition}{Existence and uniqueness of the minimal polynomial}%
+{prop:minimal-poly-unique}
+The minimal polynomial $\mu_f$ exists and is unique.  Moreover, $\mu_f$
+divides every annihilating polynomial of~$f$.
+\end{proposition}
+
+\begin{proof}
+\textit{Existence.}\; The set of annihilating polynomials is nonempty
+(it contains $\chi_f$ by Cayley--Hamilton) and every polynomial has a
+nonnegative degree, so there is one of minimal degree.  Normalising
+to be monic gives~$\mu_f$.
+
+\textit{Divides every annihilator.}\; Let $p$ be an annihilating
+polynomial.  Perform Euclidean division: $p = q\mu_f + r$ with
+$\deg r < \deg\mu_f$.  Then $r(f) = p(f) - q(f)\mu_f(f) = 0 - 0 = 0$.
+If $r \neq 0$, then $r/\operatorname{lc}(r)$ would be a monic
+annihilator of smaller degree than~$\mu_f$, a contradiction.  Hence
+$r = 0$ and $\mu_f \mid p$.
+
+\textit{Uniqueness.}\; If $\mu$ and $\mu'$ are both monic annihilating
+polynomials of minimal degree, then $\mu \mid \mu'$ and $\mu' \mid \mu$
+(by the above), so $\mu = \mu'$ (both being monic).
+\end{proof}
+
+\begin{proposition}{Properties of the minimal polynomial}%
+{prop:minimal-poly-properties}
+Let $f\in\End(E)$.  Then:
+\begin{enumerate}[label=(\roman*)]
+  \item $\mu_f$ divides $\chi_f$.
+  \item $\mu_f$ and $\chi_f$ have the same roots (i.e.\ the same
+    eigenvalues), though possibly with different multiplicities.
+  \item If $A$ and $B$ are similar matrices, they have the same
+    minimal polynomial.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(i) Cayley--Hamilton gives $\chi_f(f) = 0$, so $\mu_f \mid \chi_f$.
+
+(ii) Since $\mu_f \mid \chi_f$, every root of $\mu_f$ is a root of
+$\chi_f$.  Conversely, if $\lambda$ is an eigenvalue of~$f$ with
+eigenvector~$v$, then $\mu_f(f)(v) = \mu_f(\lambda)v = \vzero$,
+so $\mu_f(\lambda) = 0$ (since $v \neq \vzero$).
+
+(iii) If $B = \inv{P}AP$, then $p(B) = \inv{P}p(A)P$ for any
+polynomial~$p$.  Thus $p(A) = 0$ if and only if $p(B) = 0$.
+\end{proof}
+
+\begin{theorem}{Diagonalizability via the minimal polynomial}%
+{thm:diag-minimal-poly}
+\index{diagonalizable!minimal polynomial criterion}
+An endomorphism $f\in\End(E)$ is diagonalizable if and only if its
+minimal polynomial $\mu_f$ splits into distinct linear factors
+over~$\K$:
+\[
+  \mu_f(\lambda) = (\lambda - \lambda_1)(\lambda - \lambda_2)\cdots
+    (\lambda - \lambda_r)
+\]
+where $\lambda_1,\ldots,\lambda_r$ are pairwise distinct.
+\end{theorem}
+
+\begin{proof}
+$(\Rightarrow)$\; Suppose $f$ is diagonalizable with eigenvalues
+$\lambda_1,\ldots,\lambda_r$.  Set
+$p(\lambda) = (\lambda-\lambda_1)\cdots(\lambda-\lambda_r)$.  Since $f$
+is diagonalizable, there is a basis of eigenvectors.  For any
+eigenvector~$v$ with eigenvalue~$\lambda_i$,
+$p(f)(v) = \prod_{j\neq i}(\lambda_i - \lambda_j)\cdot 0 \cdot v = \vzero$.
+Wait---more carefully:
+$p(f)(v) = (f-\lambda_1\Id)\cdots(f-\lambda_r\Id)(v)$.  Since
+$(f - \lambda_i\Id)(v) = \vzero$, the entire product gives~$\vzero$.
+As this holds for every eigenvector and eigenvectors Span~$E$, we get
+$p(f) = 0$.  So $\mu_f \mid p$.  Since the roots of $\mu_f$ include
+all eigenvalues (by ef{prop:prop:minimal-poly-properties}(ii)) and
+$\mu_f$ divides a product of distinct linear factors, $\mu_f$ itself
+is a product of distinct linear factors.
+
+$(\Leftarrow)$\; Suppose $\mu_f(\lambda)=(\lambda-\lambda_1)\cdots
+(\lambda-\lambda_r)$ with distinct $\lambda_i$.  We prove
+$E = \bigoplus_{i=1}^r E_{\lambda_i}(f)$ by induction on~$r$.
+
+For $r = 1$: $\mu_f(\lambda) = \lambda - \lambda_1$, so
+$f = \lambda_1\Id$ and every nonzero vector is an eigenvector.
+Thus $E = E_{\lambda_1}(f)$.
+
+For the inductive step, write
+$\mu_f = (\lambda - \lambda_r)\,q(\lambda)$ where
+$q(\lambda) = \prod_{i=1}^{r-1}(\lambda - \lambda_i)$.  Since
+$\gcd(q, \lambda-\lambda_r) = 1$ (the $\lambda_i$ are distinct),
+there exist polynomials $a,b\in\K[\lambda]$ with
+$a(\lambda)\,q(\lambda) + b(\lambda)(\lambda-\lambda_r) = 1$.
+Substituting $f$:
+\[
+  a(f)\circ q(f) + b(f)\circ(f - \lambda_r\Id) = \Id.
+\]
+For any $v\in E$, write $v = a(f)(q(f)(v)) + b(f)((f-\lambda_r\Id)(v))$.
+Let $u = q(f)(v)$ and $w = (f-\lambda_r\Id)(v)$.  Then
+$(f-\lambda_r\Id)(u) = (f-\lambda_r\Id)(q(f)(v)) = \mu_f(f)(v) = \vzero$,
+so $u\in E_{\lambda_r}(f)$.  Similarly,
+$q(f)(w) = q(f)(f-\lambda_r\Id)(v) = \mu_f(f)(v) = \vzero$, so
+$w\in\Ker(q(f))$.
+
+Now $q(f)$ acts on $F = \Ker(q(f))$, and $q$ annihilates $f\restrict{F}$.
+So $\mu_{f|_F}$ divides $q = \prod_{i=1}^{r-1}(\lambda-\lambda_i)$.
+By the induction hypothesis, $F = \bigoplus_{i=1}^{r-1}E_{\lambda_i}(f|_F)
+\subset \bigoplus_{i=1}^{r-1}E_{\lambda_i}(f)$.
+
+Since $v = a(f)(u) + b(f)(w)$ and $u\in E_{\lambda_r}(f)$,
+$w\in F\subset\bigoplus_{i=1}^{r-1}E_{\lambda_i}(f)$, we see that
+every $v\in E$ lies in $\sum_{i=1}^r E_{\lambda_i}(f)$.  The sum is
+direct by ef{prop:prop:eigenspace-direct-sum}.
+\end{proof}
+
+
+% ============================================================
+\section{Applications}\label{sec:eigen-applications}
+% ============================================================
+
+% -------------------------
+\subsection{Computing powers of a matrix}\label{subsec:matrix-powers}
+% -------------------------
+
+\begin{proposition}{Powers of a diagonalizable matrix}%
+{prop:matrix-power}
+\index{matrix power}
+If $A = P D \inv{P}$ where $D = \diag(\lambda_1,\ldots,\lambda_n)$,
+then for every integer $k\geq 0$,
+\[
+  A^k = P\,\diag(\lambda_1^k,\ldots,\lambda_n^k)\,\inv{P}.
+\]
+\end{proposition}
+
+\begin{proof}
+By induction, $A^k = (PD\inv{P})^k = PD^k\inv{P}$, since
+$(PD\inv{P})(PD\inv{P}) = PD(\inv{P}P)D\inv{P} = PD^2\inv{P}$,
+and so on.  Moreover, $D^k = \diag(\lambda_1^k,\ldots,\lambda_n^k)$.
+\end{proof}
+
+% -------------------------
+\subsection{Linear recurrences: the Fibonacci sequence}%
+\label{subsec:fibonacci}
+% -------------------------
+
+\begin{example}{Fibonacci sequence via diagonalization}{ex:fibonacci}
+\index{Fibonacci sequence}\index{linear recurrence}
+The Fibonacci sequence is defined by $F_0 = 0$, $F_1 = 1$, and
+$F_{n+2} = F_{n+1} + F_n$.  Set
+$V_n = \begin{psmallmatrix} F_{n+1} \\ F_n \end{psmallmatrix}$.  Then
+$V_{n+1} = A V_n$ where
+$A = \begin{psmallmatrix} 1 & 1 \\ 1 & 0 \end{psmallmatrix}$.
+
+The characteristic polynomial is $\chi_A(\lambda) = \lambda^2 - \lambda - 1$,
+with roots $\vphi = \frac{1+\sqrt{5}}{2}$ and
+$\psi = \frac{1-\sqrt{5}}{2}$.
+
+Eigenvectors:
+$v_1 = \begin{psmallmatrix}\vphi\\1\end{psmallmatrix}$ for $\vphi$
+and $v_2 = \begin{psmallmatrix}\psi\\1\end{psmallmatrix}$ for $\psi$.
+So $P = \begin{psmallmatrix}\vphi & \psi \\ 1 & 1\end{psmallmatrix}$
+and
+$A = P\begin{psmallmatrix}\vphi & 0 \\ 0 & \psi\end{psmallmatrix}\inv{P}$.
+
+From $V_n = A^n V_0$ and $V_0 = \begin{psmallmatrix}1\\0\end{psmallmatrix}$,
+we extract:
+\[
+  F_n = \frac{\vphi^n - \psi^n}{\vphi - \psi}
+  = \frac{1}{\sqrt{5}}\left[\left(\frac{1+\sqrt{5}}{2}\right)^{\!n}
+    - \left(\frac{1-\sqrt{5}}{2}\right)^{\!n}\right].
+\]
+This is \emph{Binet's formula}\index{Binet's formula}.
+\end{example}
+
+% -------------------------
+\subsection{Markov chains and steady-state distributions}%
+\label{subsec:markov}
+% -------------------------
+
+\begin{example}{Steady-state of a Markov chain}{ex:markov}
+\index{Markov chain}\index{steady-state distribution}
+A weather model has two states: Sunny (S) and Rainy (R), with
+transition matrix
+\[
+  T = \begin{pmatrix} 0.8 & 0.4 \\ 0.2 & 0.6 \end{pmatrix},
+\]
+where column~$j$ gives the transition probabilities from state~$j$.
+If $\vec{p}_n$ is the state vector at time~$n$, then
+$\vec{p}_{n+1} = T\vec{p}_n$, so $\vec{p}_n = T^n\vec{p}_0$.
+
+The eigenvalues of~$T$ are $\lambda_1 = 1$ and $\lambda_2 = 0.4$.
+The eigenvector for $\lambda_1 = 1$ (normalised to sum to~$1$) is
+\[
+  \vec{\pi} = \begin{pmatrix} 2/3 \\ 1/3 \end{pmatrix}.
+\]
+Since $|\lambda_2| < 1$, as $n\to\infty$ the component along the
+second eigenvector decays, and
+$\vec{p}_n \to \vec{\pi}$ regardless of~$\vec{p}_0$.  Thus the
+long-run probability of sunny weather is~$2/3$.
+\end{example}
+
+% -------------------------
+\subsection{Systems of linear ODEs}\label{subsec:odes}
+% -------------------------
+
+\begin{example}{System of ODEs via diagonalization}{ex:odes}
+\index{differential equation!system}
+Consider the system $\vec{x}'(t) = A\vec{x}(t)$ with
+$A = \begin{psmallmatrix} -3 & 1 \\ 1 & -3 \end{psmallmatrix}$.
+The eigenvalues are $\lambda_1 = -2$ (eigenvector
+$v_1 = \begin{psmallmatrix}1\\1\end{psmallmatrix}$) and
+$\lambda_2 = -4$ (eigenvector
+$v_2 = \begin{psmallmatrix}1\\-1\end{psmallmatrix}$).
+
+Setting $\vec{x}(t) = P\vec{y}(t)$ where
+$P = \begin{psmallmatrix}1 & 1 \\ 1 & -1\end{psmallmatrix}$,
+the system decouples to $\vec{y}'(t) = D\vec{y}(t)$ with
+$D = \diag(-2,-4)$.  The solution is
+\[
+  \vec{y}(t) = \begin{pmatrix} c_1 e^{-2t} \\ c_2 e^{-4t} \end{pmatrix},
+  \qquad
+  \vec{x}(t) = c_1 e^{-2t}\begin{pmatrix}1\\1\end{pmatrix}
+    + c_2 e^{-4t}\begin{pmatrix}1\\-1\end{pmatrix},
+\]
+where $c_1,c_2$ are determined by the initial condition
+$\vec{x}(0)$.
+\end{example}
+
+
+% ============================================================
+\section{Exercises}\label{sec:eigenvalue-exercises}
+% ============================================================
+
+\begin{exercise}{Eigenvalues of a $2\times 2$ matrix \basic}%
+{exo:eigen-2x2-basic}
+Find the eigenvalues and eigenvectors of
+$A = \begin{pmatrix} 5 & 4 \\ 1 & 2 \end{pmatrix}$.
+Is $A$ diagonalizable?  If so, find $P$ and $D$ such that
+$A = PD\inv{P}$.
+\end{exercise}
+
+\begin{exercise}{Eigenvalues of a triangular matrix \basic}%
+{exo:triangular-eigen}
+Let $A\in\Mat_n(\K)$ be upper triangular.  Show that the eigenvalues
+of~$A$ are exactly the diagonal entries $a_{11},a_{22},\ldots,a_{nn}$.
+\end{exercise}
+
+\begin{exercise}{Eigenvalues of a projection \basic}{exo:proj-eigen}
+Let $p\in\End(E)$ be a projection, i.e.\ $p^2 = p$.  Show that the
+only possible eigenvalues of~$p$ are $0$ and~$1$, and that $p$ is
+diagonalizable.
+
+\noindent\textit{Hint:} What is the minimal polynomial of~$p$?
+\end{exercise}
+
+\begin{exercise}{Eigenvalues and trace/determinant \basic}%
+{exo:trace-det-eigen}
+Let $A\in\Mat_2(\K)$ with eigenvalues $\lambda_1,\lambda_2$.  Show
+that $\tr(A) = \lambda_1 + \lambda_2$ and
+$\det(A) = \lambda_1\lambda_2$.  Generalise to $n\times n$ matrices.
+\end{exercise}
+
+\begin{exercise}{Eigenvalues of $A^2$, $A^{-1}$, $A + cI$ \intermediate}%
+{exo:eigen-transformations}
+Let $A\in\Mat_n(\K)$ with eigenvalue $\lambda$ and eigenvector~$v$.
+\begin{enumerate}[label=(\alph*)]
+  \item Show that $\lambda^2$ is an eigenvalue of $A^2$ with the same
+    eigenvector~$v$.  Generalise to $A^k$.
+  \item If $A$ is invertible, show that $\lambda^{-1}$ is an eigenvalue
+    of~$\inv{A}$.
+  \item Show that $\lambda + c$ is an eigenvalue of $A + cI$ for
+    any $c\in\K$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Diagonalization of a $3\times 3$ matrix \intermediate}%
+{exo:diag-3x3}
+Diagonalize the matrix
+$A = \begin{pmatrix} 1 & 2 & 0 \\ 0 & 3 & 0 \\ 2 & 1 & -1 \end{pmatrix}$.
+\end{exercise}
+
+\begin{exercise}{Non-diagonalizable matrix \intermediate}{exo:non-diag}
+Show that $A = \begin{pmatrix} 1 & 1 & 0 \\ 0 & 1 & 1 \\
+0 & 0 & 1 \end{pmatrix}$ is not diagonalizable over any field.
+What is its minimal polynomial?
+\end{exercise}
+
+\begin{exercise}{Cayley--Hamilton application \intermediate}%
+{exo:cayley-hamilton-app}
+Let $A = \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix}$.
+\begin{enumerate}[label=(\alph*)]
+  \item Find the characteristic polynomial $\chi_A$.
+  \item Use the Cayley--Hamilton theorem to express $\inv{A}$ as a
+    polynomial in~$A$ (i.e.\ in the form $aI + bA$).
+  \item Compute $A^5$ using Cayley--Hamilton to reduce to lower
+    powers.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Powers via diagonalization \intermediate}{exo:powers}
+\index{matrix power!via diagonalization}
+Let $A = \begin{pmatrix} 2 & 1 \\ 0 & 3 \end{pmatrix}$.
+\begin{enumerate}[label=(\alph*)]
+  \item Diagonalize $A$.
+  \item Compute $A^{100}$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Simultaneous diagonalization \challenging}%
+{exo:simul-diag}
+\index{simultaneous diagonalization}
+Let $A,B\in\Mat_n(\K)$ be diagonalizable matrices that commute
+($AB = BA$).  Show that $A$ and $B$ are \emph{simultaneously
+diagonalizable}: there exists an invertible $P$ such that both
+$\inv{P}AP$ and $\inv{P}BP$ are diagonal.
+
+\noindent\textit{Hint:} Show that eigenspaces of~$A$ are invariant
+under~$B$, then diagonalize the restriction of~$B$ to each eigenspace.
+\end{exercise}
+
+\begin{exercise}{Computing the Fibonacci sequence \intermediate}%
+{exo:fibonacci}
+\begin{enumerate}[label=(\alph*)]
+  \item Diagonalize $A = \begin{psmallmatrix} 1 & 1 \\ 1 & 0
+    \end{psmallmatrix}$ over~$\R$.
+  \item Derive Binet's formula:
+    $F_n = \dfrac{1}{\sqrt{5}}\!\left[\left(\dfrac{1+\sqrt{5}}{2}
+    \right)^{\!n} - \left(\dfrac{1-\sqrt{5}}{2}\right)^{\!n}\right]$.
+  \item Show that $F_n$ is the nearest integer to
+    $\dfrac{1}{\sqrt{5}}\left(\dfrac{1+\sqrt{5}}{2}\right)^{\!n}$
+    for all $n\geq 0$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Minimal polynomial \challenging}{exo:minimal-poly}
+For each of the following matrices, find the minimal polynomial and
+determine whether the matrix is diagonalizable.
+\begin{enumerate}[label=(\alph*)]
+  \item $A = \begin{pmatrix} 3 & 0 & 0 \\ 0 & 3 & 0 \\ 0 & 0 & 5
+    \end{pmatrix}$
+  \item $B = \begin{pmatrix} 3 & 1 & 0 \\ 0 & 3 & 0 \\ 0 & 0 & 5
+    \end{pmatrix}$
+  \item $C = \begin{pmatrix} 3 & 1 & 0 \\ 0 & 3 & 1 \\ 0 & 0 & 3
+    \end{pmatrix}$
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Markov chain steady state \intermediate}{exo:markov}
+\index{Markov chain!exercise}
+A rat in a maze has three rooms.  At each time step, it moves
+according to the transition matrix
+\[
+  T = \begin{pmatrix} 0.5 & 0.25 & 0.25 \\ 0.25 & 0.5 & 0.25 \\
+  0.25 & 0.25 & 0.5 \end{pmatrix}.
+\]
+\begin{enumerate}[label=(\alph*)]
+  \item Find the eigenvalues and eigenspaces of~$T$.
+  \item Determine the steady-state distribution $\vec{\pi}$ satisfying
+    $T\vec{\pi} = \vec{\pi}$, $\sum_i \pi_i = 1$.
+  \item Compute $T^n$ explicitly and verify that
+    $T^n \to \vec{\pi}\,\transpose{\vec{1}}$ as $n\to\infty$ (where
+    $\vec{1} = (1,1,1)^{\mathsf{T}}/3$).
+\end{enumerate}
+\end{exercise}
+
+
+% ============================================================
+\section{Chapter summary}\label{sec:eigenvalue-summary}
+% ============================================================
+
+\begin{itemize}
+  \item An \textbf{eigenvalue} $\lambda$ of $f\in\End(E)$ satisfies
+    $f(v) = \lambda v$ for some nonzero~$v$ (the \textbf{eigenvector}).
+    The \textbf{eigenspace} $E_\lambda(f) = \Ker(f - \lambda\Id)$ is a
+    subspace.
+
+  \item The \textbf{characteristic polynomial}
+    $\chi_f(\lambda) = \det(f - \lambda\Id)$ has degree~$n$; its roots
+    in~$\K$ are exactly the eigenvalues.  The set of eigenvalues is
+    the \textbf{spectrum} $\Spec(f)$.
+
+  \item The \textbf{Cayley--Hamilton theorem}: every matrix satisfies
+    its own characteristic polynomial, $\chi_A(A) = 0$.
+
+  \item For each eigenvalue~$\lambda$, the \textbf{geometric
+    multiplicity} $m_g(\lambda) = \dim E_\lambda$ satisfies
+    $1 \leq m_g(\lambda) \leq m_a(\lambda)$ (the \textbf{algebraic
+    multiplicity}).
+
+  \item $f$ is \textbf{diagonalizable} if and only if $\chi_f$ splits
+    over~$\K$ and $m_g = m_a$ for every eigenvalue.  Equivalently,
+    $E = \bigoplus_{\lambda\in\Spec(f)} E_\lambda(f)$.
+
+  \item \textbf{Diagonalization algorithm}: compute $\chi_f$, find
+    eigenvalues, compute eigenspaces, check $m_g = m_a$, form the
+    change-of-basis matrix~$P$.
+
+  \item Every endomorphism whose characteristic polynomial splits is
+    \textbf{trigonalizable}.  Over~$\C$, every endomorphism is
+    trigonalizable.
+
+  \item The \textbf{minimal polynomial} $\mu_f$ is the monic
+    polynomial of smallest degree annihilating~$f$.  It divides~$\chi_f$
+    and shares its roots.  $f$ is diagonalizable if and only if $\mu_f$
+    splits into distinct linear factors.
+
+  \item \textbf{Applications}: if $A = PD\inv{P}$ then
+    $A^k = PD^k\inv{P}$, which allows efficient computation of matrix
+    powers, closed-form solutions of linear recurrences (Fibonacci),
+    steady-state analysis of Markov chains, and explicit solutions of
+    linear systems of ODEs.
+\end{itemize}

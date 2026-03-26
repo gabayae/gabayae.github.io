@@ -1,0 +1,385 @@
+% ============================================================
+\chapter{Prior and Posterior --- Conjugate Families}
+\label{ch:conjugacy}
+% ============================================================
+
+Bayesian inference is elegant in principle: start with a prior, observe data, compute the posterior via Bayes' theorem. But in practice, the posterior can be an intractable integral, impossible to evaluate in closed form. This computational obstacle haunted Bayesian statistics for two centuries---until a beautiful structural shortcut was discovered. If the prior and the likelihood belong to compatible families, the posterior turns out to have the \emph{same form} as the prior, with updated parameters. The prior and posterior are ``conjugate'' to each other.
+
+This idea of conjugate families was systematised in the 1960s by Howard Raiffa and Robert Schlaifer at Harvard Business School, who catalogued the major conjugate pairs: Beta-Binomial, Gamma-Poisson, Normal-Normal, and others. Each pair provides a complete analytical solution to the Bayesian update, turning what could be an intractable computation into a simple parameter update. Before the advent of MCMC methods in the 1990s, conjugacy was essentially the only way to do Bayesian inference at scale. Even today, conjugate models remain the first tool a Bayesian statistician reaches for---and the lens through which the logic of Bayesian updating is most clearly understood.
+
+\begin{intuition}[title=\textbf{Central idea}]
+A conjugate family is a (likelihood, prior) pair such that the posterior
+belongs to the same parametric family as the prior. This guarantees
+analytic computations and a transparent interpretation of the Bayesian
+update.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Exponential family}
+% ------------------------------------------------------------
+
+\begin{definition}[Natural exponential family]
+A family of distributions $\{f(x \mid \theta) : \theta \in \Theta\}$
+belongs to the \textbf{exponential family} if it can be written as:
+\[
+  f(x \mid \theta) = h(x)\,\exp\!\big(\eta(\theta)^\top T(x) - A(\theta)\big),
+\]
+where $T(x)$ is the sufficient statistic, $\eta(\theta)$ the natural
+parameter, and $A(\theta)$ the log-normalizer.
+\end{definition}
+
+\begin{proposition}[Properties of the log-normalizer]
+\begin{enumerate}
+  \item $\E[T(X)] = \nabla_\eta A(\eta)$.
+  \item $\Var[T(X)] = \nabla^2_\eta A(\eta)$ (Hessian matrix).
+  \item $A(\eta)$ is convex.
+\end{enumerate}
+\end{proposition}
+
+\begin{theorem}[Existence of the conjugate prior]
+Every exponential family admits a conjugate prior of the form:
+\[
+  \pi(\theta \mid \chi_0, \nu_0) \propto
+  \exp\!\big(\eta(\theta)^\top \chi_0 - \nu_0\,A(\theta)\big),
+\]
+where $\chi_0$ and $\nu_0$ are hyperparameters. After observing
+$x_1, \ldots, x_n$, the posterior has the same form with:
+\[
+  \chi_n = \chi_0 + \sum_{i=1}^n T(x_i), \qquad
+  \nu_n = \nu_0 + n.
+\]
+\end{theorem}
+
+\begin{proof}
+The sample likelihood is:
+\[
+  L(\theta \mid x) = \prod_{i=1}^n h(x_i) \cdot
+  \exp\!\left(\eta(\theta)^\top \sum_{i=1}^n T(x_i) - n\,A(\theta)\right).
+\]
+Multiplying by the conjugate prior:
+\[
+  \pi(\theta \mid x) \propto
+  \exp\!\big(\eta(\theta)^\top (\chi_0 + \textstyle\sum T(x_i))
+  - (\nu_0 + n)\,A(\theta)\big),
+\]
+which has the same form with $(\chi_n, \nu_n)$.
+\end{proof}
+
+% ------------------------------------------------------------
+\section{Table of conjugate families}
+% ------------------------------------------------------------
+
+\begin{keyformulas}[title=\textbf{Main conjugate families}]
+\begin{center}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{llll}
+\toprule
+\textbf{Likelihood} & \textbf{Prior} & \textbf{Posterior} & \textbf{Update} \\
+\midrule
+$\text{Ber}(\theta)$ & $\text{Be}(a,b)$ & $\text{Be}(a',b')$ &
+  $a'=a+s,\; b'=b+n-s$ \\
+$\text{Bin}(m,\theta)$ & $\text{Be}(a,b)$ & $\text{Be}(a',b')$ &
+  $a'=a+\sum x_i,\; b'=b+nm-\sum x_i$ \\
+$\text{Poi}(\lambda)$ & $\text{Ga}(\alpha,\beta)$ & $\text{Ga}(\alpha',\beta')$ &
+  $\alpha'=\alpha+\sum x_i,\; \beta'=\beta+n$ \\
+$\text{Exp}(\lambda)$ & $\text{Ga}(\alpha,\beta)$ & $\text{Ga}(\alpha',\beta')$ &
+  $\alpha'=\alpha+n,\; \beta'=\beta+\sum x_i$ \\
+$\mathcal{N}(\mu,\sigma^2_0)$ & $\mathcal{N}(\mu_0,\tau^2_0)$ &
+  $\mathcal{N}(\mu_n,\tau^2_n)$ & see below \\
+$\mathcal{N}(\mu_0,\sigma^2)$ & $\text{IG}(\alpha,\beta)$ &
+  $\text{IG}(\alpha',\beta')$ & see below \\
+$\text{Mult}(n,\mathbf{p})$ & $\text{Dir}(\boldsymbol{\alpha})$ &
+  $\text{Dir}(\boldsymbol{\alpha}')$ &
+  $\alpha'_k = \alpha_k + x_k$ \\
+$\text{Geom}(\theta)$ & $\text{Be}(a,b)$ & $\text{Be}(a',b')$ &
+  $a'=a+n,\; b'=b+\sum x_i$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Detailed examples}
+% ------------------------------------------------------------
+
+\subsection{Bernoulli--Beta}
+
+\begin{example}
+Let $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \text{Ber}(\theta)$
+with $\theta \sim \text{Be}(a, b)$. The sufficient statistic is
+$s = \sum x_i$. The posterior is $\text{Be}(a + s, b + n - s)$.
+
+\textbf{Interpretation}: the prior $\text{Be}(a,b)$ is equivalent to
+$a - 1$ virtual ``successes'' and $b - 1$ virtual ``failures''.
+The observation adds $s$ successes and $n - s$ failures.
+
+Posterior moments:
+\begin{align*}
+  \E[\theta \mid x] &= \frac{a + s}{a + b + n}, \\
+  \Var[\theta \mid x] &= \frac{(a+s)(b+n-s)}{(a+b+n)^2(a+b+n+1)}.
+\end{align*}
+\end{example}
+
+\subsection{Poisson--Gamma}
+
+\begin{example}
+Let $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \text{Poi}(\lambda)$
+with $\lambda \sim \text{Ga}(\alpha, \beta)$. Then:
+\begin{align*}
+  \pi(\lambda \mid x) &\propto
+  \lambda^{\sum x_i} e^{-n\lambda} \cdot \lambda^{\alpha-1} e^{-\beta\lambda} \\
+  &= \lambda^{\alpha + \sum x_i - 1} e^{-(\beta + n)\lambda}.
+\end{align*}
+Hence $\lambda \mid x \sim \text{Ga}(\alpha + \sum x_i, \beta + n)$.
+
+The posterior mean is:
+\[
+  \E[\lambda \mid x] = \frac{\alpha + \sum x_i}{\beta + n}
+  = \frac{\beta}{\beta + n} \cdot \frac{\alpha}{\beta}
+  + \frac{n}{\beta + n} \cdot \bar{x}.
+\]
+This is a weighted average of the prior mean $\alpha/\beta$ and the
+sample mean $\bar{x}$.
+\end{example}
+
+\subsection{Normal--Normal (known variance)}
+
+\begin{theorem}[Normal--Normal conjugacy]
+Let $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \mathcal{N}(\mu, \sigma^2)$
+with $\sigma^2$ known and $\mu \sim \mathcal{N}(\mu_0, \tau_0^2)$.
+Then $\mu \mid x \sim \mathcal{N}(\mu_n, \tau_n^2)$ with:
+\[
+  \frac{1}{\tau_n^2} = \frac{1}{\tau_0^2} + \frac{n}{\sigma^2},
+  \qquad
+  \mu_n = \tau_n^2\left(\frac{\mu_0}{\tau_0^2} + \frac{n\bar{x}}{\sigma^2}\right).
+\]
+\end{theorem}
+
+\begin{proof}
+The log-posterior density (ignoring constants) is:
+\begin{align*}
+  \log \pi(\mu \mid x)
+  &\propto -\frac{1}{2\tau_0^2}(\mu - \mu_0)^2
+  - \frac{n}{2\sigma^2}(\mu - \bar{x})^2 \\
+  &= -\frac{1}{2}\left(\frac{1}{\tau_0^2} + \frac{n}{\sigma^2}\right)
+  \mu^2 + \left(\frac{\mu_0}{\tau_0^2} + \frac{n\bar{x}}{\sigma^2}\right)\mu
+  + C,
+\end{align*}
+which corresponds to a Gaussian with precision
+$1/\tau_n^2 = 1/\tau_0^2 + n/\sigma^2$ and mean $\mu_n$.
+\end{proof}
+
+\subsection{Normal--Inverse-Gamma (known mean)}
+
+\begin{theorem}[Variance conjugacy]
+Let $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \mathcal{N}(\mu_0, \sigma^2)$
+with $\mu_0$ known and $\sigma^2 \sim \text{IG}(\alpha, \beta)$. Then:
+\[
+  \sigma^2 \mid x \sim \text{IG}\!\left(\alpha + \frac{n}{2},\;
+  \beta + \frac{1}{2}\sum_{i=1}^n (x_i - \mu_0)^2\right).
+\]
+\end{theorem}
+
+\subsection{Normal--Normal-Inverse-Gamma (general case)}
+
+\begin{theorem}[NIG conjugacy]
+Let $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \mathcal{N}(\mu, \sigma^2)$
+with joint prior $(\mu, \sigma^2) \sim \text{NIG}(\mu_0, \kappa_0, \alpha_0, \beta_0)$:
+\[
+  \mu \mid \sigma^2 \sim \mathcal{N}(\mu_0, \sigma^2/\kappa_0), \qquad
+  \sigma^2 \sim \text{IG}(\alpha_0, \beta_0).
+\]
+The posterior is $\text{NIG}(\mu_n, \kappa_n, \alpha_n, \beta_n)$ with:
+\begin{align*}
+  \kappa_n &= \kappa_0 + n, \\
+  \mu_n &= \frac{\kappa_0 \mu_0 + n\bar{x}}{\kappa_n}, \\
+  \alpha_n &= \alpha_0 + n/2, \\
+  \beta_n &= \beta_0 + \tfrac{1}{2}\sum(x_i-\bar{x})^2
+  + \frac{\kappa_0 n(\bar{x}-\mu_0)^2}{2\kappa_n}.
+\end{align*}
+\end{theorem}
+
+\subsection{Multinomial--Dirichlet}
+
+\begin{example}
+Let $\mathbf{x} \sim \text{Mult}(n, \mathbf{p})$ with
+$\mathbf{p} \sim \text{Dir}(\boldsymbol{\alpha})$. The posterior is:
+\[
+  \mathbf{p} \mid \mathbf{x} \sim \text{Dir}(\alpha_1 + x_1, \ldots, \alpha_K + x_K).
+\]
+The posterior mean of $p_k$ is:
+\[
+  \E[p_k \mid \mathbf{x}] = \frac{\alpha_k + x_k}{\sum_j (\alpha_j + x_j)}.
+\]
+\end{example}
+
+% ------------------------------------------------------------
+\section{Non-conjugate priors}
+% ------------------------------------------------------------
+
+\begin{remark}
+When the prior is not conjugate, the posterior has no closed form. One
+must then resort to:
+\begin{itemize}
+  \item the Laplace approximation,
+  \item MCMC methods (Chapters~\ref{ch:metropolis}--\ref{ch:gibbs}),
+  \item variational inference (Chapter~\ref{ch:variational}).
+\end{itemize}
+\end{remark}
+
+\begin{definition}[Laplace approximation]
+The Laplace approximation approximates the posterior by a Gaussian
+centered on the MAP (Maximum A Posteriori):
+\[
+  \pi(\theta \mid x) \approx \mathcal{N}\!\left(\hat{\theta}_{\text{MAP}},\;
+  \left[-\nabla^2 \log \pi(\theta \mid x)\big|_{\hat{\theta}_{\text{MAP}}}\right]^{-1}\right).
+\]
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Hyperpriors and hierarchical priors}
+% ------------------------------------------------------------
+
+\begin{definition}[Hyperprior]
+A \textbf{hyperprior} is a distribution placed on the hyperparameters
+of the prior. For instance, if $\theta \sim \text{Be}(a, b)$, one may
+set $a \sim \text{Ga}(1, 1)$ and $b \sim \text{Ga}(1, 1)$.
+\end{definition}
+
+\begin{remark}
+Hyperpriors lead to hierarchical models, discussed in detail in
+Chapter~\ref{ch:hierarchical}.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Prior sensitivity}
+% ------------------------------------------------------------
+
+\begin{definition}[Sensitivity analysis]
+\textbf{Sensitivity analysis} evaluates the robustness of Bayesian
+conclusions by varying the prior within a class
+$\Gamma = \{\pi_\gamma : \gamma \in \mathcal{G}\}$ and studying
+the range of posterior quantities.
+\end{definition}
+
+\begin{proposition}[Convergence to MLE]
+For any prior $\pi(\theta)$ that is absolutely continuous with
+$\pi(\theta_0) > 0$, the posterior mean converges to the MLE as
+$n \to \infty$. Thus, the influence of the prior vanishes
+asymptotically.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Python implementation}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Poisson--Gamma conjugacy}]
+\begin{minted}{python}
+import numpy as np
+from scipy import stats
+import matplotlib.pyplot as plt
+
+# Poisson data
+np.random.seed(123)
+n = 30
+lam_true = 4.5
+data = np.random.poisson(lam_true, size=n)
+
+# Gamma(2, 0.5) prior => E[lambda] = 4
+alpha_prior, beta_prior = 2, 0.5
+
+# Analytic posterior
+alpha_post = alpha_prior + data.sum()
+beta_post = beta_prior + n
+print(f"Prior: Ga({alpha_prior}, {beta_prior})")
+print(f"Posterior: Ga({alpha_post}, {beta_post})")
+print(f"Posterior mean: {alpha_post/beta_post:.3f}")
+print(f"MLE: {data.mean():.3f}")
+
+# Visualization
+lam_grid = np.linspace(0, 10, 500)
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.plot(lam_grid,
+        stats.gamma.pdf(lam_grid, alpha_prior,
+                        scale=1/beta_prior),
+        label="Prior", linestyle="--")
+ax.plot(lam_grid,
+        stats.gamma.pdf(lam_grid, alpha_post,
+                        scale=1/beta_post),
+        label="Posterior")
+ax.axvline(lam_true, color="red", alpha=0.5,
+           label=f"True value ({lam_true})")
+ax.set_xlabel(r"$\lambda$")
+ax.set_ylabel("Density")
+ax.legend()
+ax.set_title("Poisson-Gamma conjugacy")
+plt.tight_layout()
+plt.savefig("poisson_gamma.pdf")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Multinomial--Dirichlet conjugacy}]
+\begin{minted}{python}
+import pymc as pm
+import arviz as az
+
+# Categorical data (K=4 categories)
+counts = np.array([45, 30, 15, 10])
+K = len(counts)
+alpha_prior = np.ones(K)  # Dirichlet(1,...,1) = uniform
+
+# Analytic posterior
+alpha_post = alpha_prior + counts
+p_post_mean = alpha_post / alpha_post.sum()
+print("Posterior Dirichlet:", alpha_post)
+print("Posterior mean:", p_post_mean)
+
+# PyMC verification
+with pm.Model() as model_dir:
+    p = pm.Dirichlet("p", a=alpha_prior)
+    obs = pm.Multinomial("obs", n=counts.sum(),
+                         p=p, observed=counts)
+    trace = pm.sample(3000, random_seed=42)
+
+print(az.summary(trace, var_names=["p"]))
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+Show that the exponential family $X \sim \text{Exp}(\lambda)$ admits the
+conjugate prior $\text{Ga}(\alpha, \beta)$ and determine the posterior.
+\end{exercise}
+
+\begin{exercise}
+Let $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \mathcal{N}(\mu, \sigma^2)$
+with both $\mu$ and $\sigma^2$ unknown. Use the NIG prior and compute
+the posterior. Show that the marginal posterior of $\mu$ is a Student-$t$
+distribution.
+\end{exercise}
+
+\begin{exercise}
+For the geometric model $X \sim \text{Geom}(\theta)$ with
+$\PP(X = k) = \theta(1-\theta)^k$ for $k = 0, 1, 2, \ldots$:
+\begin{enumerate}
+  \item Verify that this model belongs to the exponential family.
+  \item Determine the conjugate prior.
+  \item Compute the posterior mean.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}
+Perform a sensitivity analysis for the Bernoulli--Beta model with
+$n = 10$ and $s = 3$. Compare the posteriors obtained with priors
+$\text{Be}(1,1)$, $\text{Be}(0.5, 0.5)$, $\text{Be}(2, 8)$, and
+$\text{Be}(5, 5)$. Plot all four posteriors on the same graph.
+\end{exercise}
+
+\begin{exercise}
+\textbf{(Theoretical)} Prove that the conjugate prior for the general
+exponential family has the form given in the theorem of this section.
+Verify for the Bernoulli, Poisson, and Normal cases.
+\end{exercise}

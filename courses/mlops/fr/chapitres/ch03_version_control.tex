@@ -1,0 +1,490 @@
+% !TEX root = ../main.tex
+\chapter{Contr\^ole de Version --- Git et DVC}
+\label{ch:version-control}
+
+\section{Introduction}
+
+Dans tout projet de Machine Learning, la reproductibilit\'e est fondamentale.
+Sans un syst\`eme de contr\^ole de version rigoureux, il devient impossible de
+retracer quelle version du code, des donn\'ees et des hyperparam\`etres a produit
+un mod\`ele donn\'e. Ce chapitre couvre les outils essentiels~: \textbf{Git} pour
+le code et \textbf{DVC} (Data Version Control) pour les donn\'ees et les mod\`eles.
+
+\begin{attention}[title=\textbf{Le pi\`ege du <<~c'\'etait mieux avant~>>}]
+Sans versionnement, vous ne pourrez jamais revenir \`a un \'etat ant\'erieur de
+votre projet. Un mod\`ele performant peut \^etre perdu \`a jamais si vous \'ecrasez
+les fichiers sans pr\'ecaution.
+\end{attention}
+
+%% ============================================================
+\section{Git~: les fondamentaux pour le ML}
+\label{sec:git-essentials}
+%% ============================================================
+
+\subsection{Rappels sur Git}
+\index{Git}
+
+\begin{definition}[D\'ep\^ot Git]
+Un \textbf{d\'ep\^ot Git} (\emph{repository}) est un r\'epertoire dont l'historique
+complet des modifications est enregistr\'e. Chaque instantan\'e est appel\'e un
+\textbf{commit}.
+\end{definition}
+
+Les commandes essentielles~:
+
+\begin{codeblock}[title=\textbf{Commandes Git de base}]
+\begin{minted}{bash}
+git init                    # Initialiser un d\'ep\^ot
+git add <fichier>           # Ajouter au staging
+git commit -m "message"     # Cr\'eer un commit
+git log --oneline --graph   # Visualiser l'historique
+git diff                    # Voir les modifications
+\end{minted}
+\end{codeblock}
+
+\subsection{Branches et fusion}
+\index{Git!branches}
+
+Les branches permettent de travailler sur des fonctionnalit\'es ou des
+exp\'eriences en parall\`ele sans affecter la branche principale.
+
+\begin{codeblock}[title=\textbf{Gestion des branches}]
+\begin{minted}{bash}
+git branch feature/new-model    # Cr\'eer une branche
+git checkout feature/new-model  # Basculer sur la branche
+git checkout -b feature/xgboost # Cr\'eer et basculer
+git merge feature/new-model     # Fusionner dans la branche courante
+git branch -d feature/new-model # Supprimer la branche
+\end{minted}
+\end{codeblock}
+
+\subsection{Le fichier \file{.gitignore} pour le ML}
+\index{.gitignore}
+
+En ML, de nombreux fichiers ne doivent \textbf{jamais} \^etre commit\'es~:
+
+\begin{codeblock}[title=\textbf{Exemple de \file{.gitignore} pour un projet ML}]
+\begin{minted}{bash}
+# Donn\'ees volumineuses
+data/raw/
+data/processed/
+*.csv
+*.parquet
+*.h5
+
+# Mod\`eles entra\^in\'es
+models/*.pkl
+models/*.pt
+models/*.onnx
+
+# Environnements
+venv/
+.conda/
+__pycache__/
+
+# Notebooks checkpoints
+.ipynb_checkpoints/
+
+# Secrets
+.env
+*.key
+\end{minted}
+\end{codeblock}
+
+%% ============================================================
+\section{Workflow Git pour les projets ML}
+\label{sec:git-workflow-ml}
+%% ============================================================
+
+\index{Git!workflow ML}
+
+\begin{bonnepratique}[title=\textbf{Strat\'egie de branches pour le ML}]
+\begin{itemize}
+  \item \texttt{main}~: code stable, mod\`eles valid\'es en production.
+  \item \texttt{develop}~: int\'egration continue des nouvelles fonctionnalit\'es.
+  \item \texttt{feature/*}~: nouvelles fonctionnalit\'es ou architectures.
+  \item \texttt{experiment/*}~: exp\'eriences exploratoires (peuvent \^etre abandonn\'ees).
+  \item \texttt{data/*}~: modifications aux pipelines de donn\'ees.
+\end{itemize}
+\end{bonnepratique}
+
+\begin{bonnepratique}[title=\textbf{Revues de code (Pull Requests) en ML}]
+Une PR en ML devrait inclure~:
+\begin{enumerate}
+  \item Les m\'etriques avant/apr\`es modification.
+  \item Une justification de l'approche choisie.
+  \item Les visualisations pertinentes (courbes d'apprentissage, matrices de confusion).
+  \item La reproductibilit\'e~: graines al\'eatoires fix\'ees, environnement document\'e.
+\end{enumerate}
+\end{bonnepratique}
+
+%% ============================================================
+\section{DVC~: Data Version Control}
+\label{sec:dvc}
+%% ============================================================
+
+\index{DVC}
+
+\subsection{Pourquoi Git ne suffit pas}
+
+\begin{attention}[title=\textbf{Limites de Git pour les fichiers volumineux}]
+Git stocke l'int\'egralit\'e de chaque version d'un fichier. Pour un jeu de
+donn\'ees de 10\,Go modifi\'e 5 fois, le d\'ep\^ot occuperait 50\,Go.
+Les plateformes comme GitHub imposent une limite de 100\,Mo par fichier.
+\end{attention}
+
+\begin{definition}[DVC]
+\textbf{DVC} (Data Version Control) est un outil open-source qui \'etend Git
+pour g\'erer les fichiers volumineux (donn\'ees, mod\`eles). Il remplace les
+fichiers par des pointeurs l\'egers (\file{.dvc}) et stocke le contenu
+r\'eel sur un stockage distant (S3, GCS, Azure, SSH, etc.).
+\end{definition}
+
+\subsection{Installation et initialisation}
+
+\begin{codeblock}[title=\textbf{Installation de DVC}]
+\begin{minted}{bash}
+pip install dvc[s3]      # Avec support S3
+pip install dvc[gs]      # Avec support Google Cloud
+pip install dvc[all]     # Tous les backends
+
+# Initialiser DVC dans un d\'ep\^ot Git existant
+cd mon-projet-ml
+dvc init
+git add .dvc .dvcignore
+git commit -m "Initialiser DVC"
+\end{minted}
+\end{codeblock}
+
+\subsection{Commandes fondamentales de DVC}
+\index{DVC!commandes}
+
+\begin{formules}[title=\textbf{Commandes DVC essentielles}]
+\begin{tabular}{ll}
+\toprule
+\textbf{Commande} & \textbf{Description} \\
+\midrule
+\cli{dvc init} & Initialiser DVC dans un d\'ep\^ot Git \\
+\cli{dvc add <fichier>} & Suivre un fichier/dossier avec DVC \\
+\cli{dvc push} & Envoyer les donn\'ees vers le stockage distant \\
+\cli{dvc pull} & R\'ecup\'erer les donn\'ees depuis le stockage distant \\
+\cli{dvc remote add} & Configurer un stockage distant \\
+\cli{dvc status} & V\'erifier l'\'etat des fichiers suivis \\
+\cli{dvc checkout} & Restaurer les fichiers \`a partir du cache \\
+\cli{dvc gc} & Nettoyer le cache local \\
+\bottomrule
+\end{tabular}
+\end{formules}
+
+\begin{codeblock}[title=\textbf{Utilisation de DVC au quotidien}]
+\begin{minted}{bash}
+# Configurer le stockage distant
+dvc remote add -d myremote s3://mon-bucket/dvc-store
+git add .dvc/config
+git commit -m "Configurer le remote DVC"
+
+# Suivre un jeu de donn\'ees
+dvc add data/raw/dataset.csv
+git add data/raw/dataset.csv.dvc data/raw/.gitignore
+git commit -m "Ajouter dataset v1"
+
+# Envoyer les donn\'ees
+dvc push
+
+# R\'ecup\'erer les donn\'ees (apr\`es un clone)
+git clone <url-du-repo>
+dvc pull
+\end{minted}
+\end{codeblock}
+
+\subsection{Pipelines DVC}
+\index{DVC!pipelines}
+
+DVC permet de d\'efinir des pipelines reproductibles via un fichier \file{dvc.yaml}.
+
+\begin{codeblock}[title=\textbf{Exemple de \file{dvc.yaml}}]
+\begin{minted}{yaml}
+stages:
+  prepare:
+    cmd: python src/prepare.py
+    deps:
+      - src/prepare.py
+      - data/raw/dataset.csv
+    outs:
+      - data/processed/train.csv
+      - data/processed/test.csv
+
+  train:
+    cmd: python src/train.py
+    deps:
+      - src/train.py
+      - data/processed/train.csv
+    params:
+      - train.learning_rate
+      - train.n_estimators
+    outs:
+      - models/model.pkl
+    metrics:
+      - metrics/scores.json:
+          cache: false
+
+  evaluate:
+    cmd: python src/evaluate.py
+    deps:
+      - src/evaluate.py
+      - models/model.pkl
+      - data/processed/test.csv
+    metrics:
+      - metrics/eval.json:
+          cache: false
+    plots:
+      - metrics/confusion_matrix.csv:
+          x: predicted
+          y: actual
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Ex\'ecution et comparaison de pipelines}]
+\begin{minted}{bash}
+# Ex\'ecuter le pipeline complet
+dvc repro
+
+# Comparer les m\'etriques entre branches/commits
+dvc metrics diff
+dvc params diff
+
+# Visualiser le DAG du pipeline
+dvc dag
+\end{minted}
+\end{codeblock}
+
+\subsection{Fichier \file{.dvcignore}}
+\index{.dvcignore}
+
+Comme \file{.gitignore}, le fichier \file{.dvcignore} indique \`a DVC les
+fichiers \`a ignorer lors du suivi de r\'epertoires~:
+
+\begin{codeblock}[title=\textbf{Exemple de \file{.dvcignore}}]
+\begin{minted}{bash}
+# Fichiers temporaires
+*.tmp
+*.log
+
+# Caches
+__pycache__/
+.ipynb_checkpoints/
+
+# Fichiers syst\`eme
+.DS_Store
+Thumbs.db
+\end{minted}
+\end{codeblock}
+
+%% ============================================================
+\section{Architecture Git + DVC}
+\label{sec:git-dvc-architecture}
+%% ============================================================
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    node distance=1.5cm and 2.5cm,
+    block/.style={rectangle, draw, rounded corners, minimum width=3cm,
+                  minimum height=1cm, align=center, font=\small},
+    storage/.style={cylinder, draw, shape border rotate=90,
+                    minimum width=2cm, minimum height=1.5cm,
+                    align=center, font=\small},
+    arrow/.style={-{Stealth}, thick},
+    label/.style={font=\footnotesize\itshape, text=gray}
+  ]
+
+  % D\'eveloppeur
+  \node[block, fill=blue!15] (dev) {D\'eveloppeur\\local};
+
+  % Git
+  \node[block, fill=green!15, right=of dev] (git) {D\'ep\^ot Git\\(GitHub/GitLab)};
+  \node[label, above=0.2cm of git] {Code + fichiers \file{.dvc}};
+
+  % DVC Remote
+  \node[storage, fill=orange!15, right=of git] (remote) {Stockage\\distant\\(S3/GCS)};
+  \node[label, above=0.2cm of remote] {Donn\'ees + mod\`eles};
+
+  % Cache local
+  \node[storage, fill=yellow!15, below=of dev] (cache) {Cache\\DVC\\local};
+
+  % Fl\`eches
+  \draw[arrow] (dev) -- node[above, font=\scriptsize] {\cli{git push}} (git);
+  \draw[arrow] (git) -- node[below, font=\scriptsize] {\cli{git pull}} (dev);
+
+  \draw[arrow] (dev) -- node[left, font=\scriptsize] {\cli{dvc add}} (cache);
+  \draw[arrow] (cache) -- node[right, font=\scriptsize] {\cli{dvc checkout}} (dev);
+
+  \draw[arrow, bend left=20] (cache.east) to
+    node[below, font=\scriptsize] {\cli{dvc push}} (remote.south);
+  \draw[arrow, bend left=20] (remote.south) to
+    node[above, font=\scriptsize] {\cli{dvc pull}} (cache.east);
+
+\end{tikzpicture}
+\caption{Architecture du workflow Git + DVC. Le code et les fichiers
+\file{.dvc} transitent par Git, tandis que les donn\'ees volumineuses sont
+g\'er\'ees par le cache DVC local et le stockage distant.}
+\label{fig:git-dvc-workflow}
+\end{figure}
+
+%% ============================================================
+\section{Comparaison des outils de versionnement de donn\'ees}
+\label{sec:version-tools-comparison}
+%% ============================================================
+
+\index{Git LFS}\index{Delta Lake}\index{LakeFS}
+
+\begin{table}[htbp]
+\centering
+\caption{Comparaison des outils de versionnement de donn\'ees}
+\label{tab:version-tools}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Crit\`ere} & \textbf{DVC} & \textbf{Git LFS} & \textbf{Delta Lake} & \textbf{LakeFS} \\
+\midrule
+Licence & Open-source & Open-source & Open-source & Open-source \\
+Stockage & S3, GCS, etc. & Serveur LFS & Object store & S3-compatible \\
+Pipelines & Oui & Non & Non & Non \\
+Branching donn\'ees & Via Git & Via Git & Non & Oui (natif) \\
+Taille max fichier & Illimit\'ee & Illimit\'ee & Illimit\'ee & Illimit\'ee \\
+Int\'egration Git & Excellente & Native & Aucune & Bonne \\
+Courbe d'apprentissage & Mod\'er\'ee & Facile & \'Elev\'ee & Mod\'er\'ee \\
+Cas d'usage id\'eal & Projets ML & Binaires & Data lakes & Data lakes \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{remarque}
+\textbf{Git LFS} est plus simple que DVC mais ne supporte pas les pipelines
+de donn\'ees. \textbf{LakeFS} offre un v\'eritable branching au niveau des
+donn\'ees, ce qui est id\'eal pour les lacs de donn\'ees \`a grande \'echelle.
+\end{remarque}
+
+%% ============================================================
+\section{Mini-projet~: versionner un dataset et un mod\`ele}
+\label{sec:miniprojet-dvc}
+%% ============================================================
+
+\begin{miniprojet}[title=\textbf{Versionner un projet ML complet avec Git et DVC}]
+\textbf{Objectif}~: Mettre en place un workflow Git + DVC pour un projet de
+classification.
+
+\begin{enumerate}
+  \item Initialiser un d\'ep\^ot Git et DVC~:
+\begin{minted}{bash}
+mkdir projet-classification && cd projet-classification
+git init && dvc init
+dvc remote add -d local_remote /tmp/dvc-storage
+\end{minted}
+
+  \item Cr\'eer la structure du projet~:
+\begin{minted}{bash}
+mkdir -p data/raw data/processed models src metrics
+\end{minted}
+
+  \item Ajouter un jeu de donn\'ees et le suivre avec DVC~:
+\begin{minted}{python}
+# src/download_data.py
+from sklearn.datasets import load_wine
+import pandas as pd
+
+data = load_wine(as_frame=True)
+df = pd.concat([data.data, data.target], axis=1)
+df.to_csv("data/raw/wine.csv", index=False)
+\end{minted}
+
+\begin{minted}{bash}
+python src/download_data.py
+dvc add data/raw/wine.csv
+git add data/raw/wine.csv.dvc data/raw/.gitignore
+git commit -m "Ajouter wine dataset v1"
+dvc push
+\end{minted}
+
+  \item Cr\'eer un pipeline \file{dvc.yaml} avec les \'etapes \texttt{prepare},
+        \texttt{train} et \texttt{evaluate}.
+
+  \item Ex\'ecuter le pipeline, modifier un hyperparam\`etre et comparer les
+        r\'esultats~:
+\begin{minted}{bash}
+dvc repro
+dvc metrics show
+# Modifier params.yaml, puis :
+dvc repro
+dvc metrics diff
+\end{minted}
+\end{enumerate}
+\end{miniprojet}
+
+%% ============================================================
+\section{Exercices}
+\label{sec:exos-version-control}
+%% ============================================================
+
+\begin{exercice}[Cr\'eer un \file{.gitignore} ML]
+\textbf{1/3}
+Cr\'eez un fichier \file{.gitignore} adapt\'e \`a un projet de Deep Learning
+utilisant PyTorch. Incluez les patterns pour les donn\'ees, les checkpoints,
+les logs TensorBoard, les environnements virtuels et les fichiers syst\`eme.
+\end{exercice}
+
+\begin{exercice}[Pipeline DVC multi-\'etapes]
+\textbf{2/3}
+Cr\'eez un pipeline DVC complet pour un projet de NLP comprenant~:
+\begin{enumerate}
+  \item T\'el\'echargement des donn\'ees brutes.
+  \item Pr\'etraitement (tokenisation, nettoyage).
+  \item Entra\^inement d'un mod\`ele de classification de texte.
+  \item \'Evaluation avec m\'etriques (accuracy, F1-score).
+\end{enumerate}
+Utilisez \file{params.yaml} pour les hyperparam\`etres et comparez deux
+configurations avec \cli{dvc metrics diff}.
+\end{exercice}
+
+\begin{exercice}[Branching et exp\'eriences parall\`eles]
+\textbf{3/3}
+Mettez en place un workflow o\`u deux exp\'eriences sont men\'ees en parall\`ele
+sur des branches Git diff\'erentes. Chaque branche utilise une architecture
+de mod\`ele diff\'erente (par exemple, Random Forest vs.\ Gradient Boosting).
+Utilisez DVC pour~:
+\begin{itemize}
+  \item Suivre les donn\'ees d'entra\^inement (partag\'ees entre branches).
+  \item Suivre les mod\`eles entra\^in\'es (propres \`a chaque branche).
+  \item Comparer les m\'etriques entre les deux branches avec
+        \cli{dvc metrics diff}.
+  \item Fusionner la meilleure branche dans \texttt{main}.
+\end{itemize}
+\end{exercice}
+
+%% ============================================================
+\section{Aide-m\'emoire}
+\label{sec:cheatsheet-version-control}
+%% ============================================================
+
+\begin{cheatsheet}[title=\textbf{Git + DVC --- Aide-m\'emoire}]
+\small
+\begin{tabular}{p{4.5cm}p{8.5cm}}
+\toprule
+\textbf{Action} & \textbf{Commande} \\
+\midrule
+Initialiser Git + DVC & \cli{git init \&\& dvc init} \\
+Configurer remote DVC & \cli{dvc remote add -d nom s3://bucket/path} \\
+Suivre un fichier & \cli{dvc add data/fichier.csv} \\
+Commiter les pointeurs & \cli{git add fichier.csv.dvc .gitignore} \\
+Envoyer donn\'ees & \cli{dvc push} \\
+R\'ecup\'erer donn\'ees & \cli{dvc pull} \\
+D\'efinir un pipeline & \'Editer \file{dvc.yaml} \\
+Ex\'ecuter le pipeline & \cli{dvc repro} \\
+Voir les m\'etriques & \cli{dvc metrics show} \\
+Comparer les m\'etriques & \cli{dvc metrics diff} \\
+Visualiser le DAG & \cli{dvc dag} \\
+Cr\'eer une branche & \cli{git checkout -b experiment/nom} \\
+Revue de code & Cr\'eer une Pull Request sur GitHub/GitLab \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}

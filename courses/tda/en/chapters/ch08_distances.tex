@@ -1,0 +1,295 @@
+% ============================================================
+\chapter{Distances between Diagrams}
+\label{ch:distances}
+% ============================================================
+
+For persistence diagrams to be truly useful, one must be able to \emph{compare} them. Do two point clouds have the same topological shape? Does a noisy signal have the same structure as a clean one? Answering these questions requires a notion of distance between diagrams. Two families dominate the theory: the bottleneck distance, which measures the worst displacement needed to match the points of two diagrams, and the Wasserstein distances, which measure the total optimal transport cost. The choice is consequential: the bottleneck distance privileges the most persistent features (the ``tall'' bars), while Wasserstein integrates information from all bars, including the small ones. The computational algorithms --- Hungarian assignment, auction methods --- and the theoretical stability properties are the subject of this chapter.
+
+\begin{intuition}
+Persistence diagrams\index{persistence diagram} summarize the topological
+information of a filtered space. To compare two spaces, we need
+\textbf{distances} between diagrams. The choice of distance determines
+which topological differences we emphasize: the most persistent features
+(bottleneck\index{bottleneck distance}) or the entire spectrum
+(Wasserstein\index{Wasserstein distance}).
+\end{intuition}
+
+% ============================================================
+\section{Review of persistence diagrams}
+% ============================================================
+
+\begin{definition}[Persistence diagram]
+Let $\mathcal{F}$ be a filtration of a simplicial complex. The
+\textbf{persistence diagram}\index{persistence diagram}
+$\mathrm{Dgm}(\mathcal{F})$ is the multiset of points
+$(b_i, d_i) \in \R^2$ with $b_i < d_i$, where $b_i$ is the birth
+value and $d_i$ the death value of the $i$-th persistent homology
+class. We adjoin the diagonal
+$\Delta = \{(x,x) : x \in \R\}$ with infinite multiplicity.
+\end{definition}
+
+\begin{remark}
+Adding the diagonal with infinite multiplicity allows us to define
+bijections between diagrams of different sizes: a point in one diagram
+can be matched to a point on the diagonal, effectively treating it
+as noise.
+\end{remark}
+
+% ============================================================
+\section{The bottleneck distance}
+\label{sec:bottleneck}
+% ============================================================
+
+\begin{definition}[Bottleneck distance]
+\label{def:bottleneck}
+Let $D_1$ and $D_2$ be two persistence diagrams. The
+\textbf{bottleneck distance}\index{bottleneck distance} is:
+\[
+  d_\infty(D_1, D_2) = \inf_{\gamma} \sup_{x \in D_1}
+    \norm{x - \gamma(x)}_\infty
+\]
+where the infimum is over all bijections $\gamma : D_1 \to D_2$
+(using the diagonal to complete).
+\end{definition}
+
+\begin{intuition}
+The bottleneck distance measures the ``worst-case matching cost.''
+It is insensitive to many small features and only captures the
+maximum displacement among the most significant structures.
+\end{intuition}
+
+\begin{example}
+Consider $D_1 = \{(0, 2), (1, 3)\}$ and $D_2 = \{(0, 2.5), (1, 3.2)\}$.
+The natural matching gives:
+\[
+  d_\infty(D_1, D_2) = \max\bigl(\norm{(0,2)-(0,2.5)}_\infty,\;
+  \norm{(1,3)-(1,3.2)}_\infty\bigr) = \max(0.5, 0.2) = 0.5.
+\]
+\end{example}
+
+\begin{proposition}[Metric property]
+$d_\infty$ is a metric on the space of persistence diagrams.
+\end{proposition}
+
+% ============================================================
+\section{Wasserstein distances}
+\label{sec:wasserstein}
+% ============================================================
+
+\begin{definition}[Wasserstein distance]
+\label{def:wasserstein}
+For $p \geq 1$ and $q \geq 1$, the \textbf{Wasserstein distance}
+$W_{p,q}$ between two diagrams $D_1$, $D_2$ is:
+\[
+  W_{p,q}(D_1, D_2) = \left(\inf_{\gamma}
+    \sum_{x \in D_1} \norm{x - \gamma(x)}_q^p\right)^{1/p}
+\]
+where $\gamma$ ranges over all bijections $D_1 \to D_2$.
+The case $q = \infty$, $p = \infty$ recovers the bottleneck distance.
+\end{definition}
+
+\begin{attention}[title=\textbf{Varying conventions}]
+The literature uses different conventions for the Wasserstein distance
+indices. Some authors write $W_p$ with $q = \infty$ implicit, others
+use $q = p$. Always check the convention in each paper.
+\end{attention}
+
+\begin{proposition}[Bottleneck--Wasserstein relationship]
+For all $p \geq 1$:
+\[
+  d_\infty(D_1, D_2) = \lim_{p \to \infty} W_{p,\infty}(D_1, D_2).
+\]
+Moreover, $d_\infty(D_1, D_2) \leq W_{p,\infty}(D_1, D_2)$ for all $p$.
+\end{proposition}
+
+\begin{keyformulas}[title=\textbf{Summary of distances}]
+\begin{align}
+  d_\infty(D_1, D_2) &= \inf_{\gamma} \sup_{x \in D_1}
+    \norm{x - \gamma(x)}_\infty \\
+  W_{p,q}(D_1, D_2) &= \left(\inf_{\gamma}
+    \sum_{x \in D_1} \norm{x - \gamma(x)}_q^p\right)^{1/p}
+\end{align}
+\end{keyformulas}
+
+% ============================================================
+\section{The stability theorem}
+\label{sec:stability}
+% ============================================================
+
+\begin{theorem}[Persistence stability --- Cohen-Steiner, Edelsbrunner, Harer 2007]
+\label{thm:stability}
+\index{stability theorem}
+Let $f, g : X \to \R$ be continuous functions on a triangulable
+topological space $X$. Then:
+\[
+  d_\infty\bigl(\mathrm{Dgm}(f),\; \mathrm{Dgm}(g)\bigr) \leq
+  \norm{f - g}_\infty.
+\]
+\end{theorem}
+
+\begin{intuition}
+The stability theorem is the most important result in TDA. It
+guarantees that small perturbations of the data (in the $L^\infty$
+sense) can only produce small perturbations of the persistence
+diagram. This is what makes persistence \textbf{robust to noise}.
+\end{intuition}
+
+\begin{corollary}
+The map $f \mapsto \mathrm{Dgm}(f)$ is $1$-Lipschitz from
+$\bigl(C(X, \R), \norm{\cdot}_\infty\bigr)$ to
+$\bigl(\mathcal{D}, d_\infty\bigr)$.
+\end{corollary}
+
+\begin{theorem}[Wasserstein stability]
+Under additional regularity assumptions (tame Morse functions),
+for all $p \geq 1$:
+\[
+  W_{p,\infty}(\mathrm{Dgm}(f), \mathrm{Dgm}(g)) \leq
+  C_p \cdot \norm{f - g}_\infty^{1 - 1/p} \cdot
+  \norm{f - g}_{p}^{1/p}
+\]
+for a constant $C_p$ depending on $X$ and $p$.
+\end{theorem}
+
+% ============================================================
+\section{The interleaving distance}
+\label{sec:interleaving}
+% ============================================================
+
+\begin{definition}[Persistence modules]
+\index{persistence module}
+A \textbf{persistence module} is a functor $\mathbb{V} :
+(\R, \leq) \to \mathbf{Vec}_k$, i.e., a family of vector spaces
+$\{V_t\}_{t \in \R}$ with linear maps
+$v_{s,t} : V_s \to V_t$ for $s \leq t$ satisfying $v_{t,t} = \mathrm{id}$
+and $v_{s,u} = v_{t,u} \circ v_{s,t}$ for $s \leq t \leq u$.
+\end{definition}
+
+\begin{definition}[$\varepsilon$-interleaving]
+\index{interleaving}
+Two persistence modules $\mathbb{V}$ and $\mathbb{W}$ are
+\textbf{$\varepsilon$-interleaved} if there exist shifted module
+morphisms $\varphi : \mathbb{V} \to \mathbb{W}[\varepsilon]$
+and $\psi : \mathbb{W} \to \mathbb{V}[\varepsilon]$ such that:
+\[
+  \psi[\varepsilon] \circ \varphi = v_{2\varepsilon}, \qquad
+  \varphi[\varepsilon] \circ \psi = w_{2\varepsilon}
+\]
+where $\mathbb{W}[\varepsilon]_t = W_{t+\varepsilon}$ is the
+shifted module.
+\end{definition}
+
+\begin{definition}[Interleaving distance]
+The \textbf{interleaving distance}\index{interleaving distance} is:
+\[
+  d_I(\mathbb{V}, \mathbb{W}) = \inf\{\varepsilon \geq 0 :
+  \mathbb{V} \text{ and } \mathbb{W} \text{ are }
+  \varepsilon\text{-interleaved}\}.
+\]
+\end{definition}
+
+\begin{theorem}[Isometry theorem --- Chazal et al.\ 2009]
+\label{thm:isometry}
+\index{isometry theorem}
+For interval-decomposable real-parameter persistence modules:
+\[
+  d_I(\mathbb{V}, \mathbb{W}) = d_\infty(\mathrm{Dgm}(\mathbb{V}),
+  \mathrm{Dgm}(\mathbb{W})).
+\]
+\end{theorem}
+
+\begin{intuition}
+The isometry theorem shows that the bottleneck distance between
+diagrams coincides exactly with the interleaving distance between
+modules. This gives an \textbf{algebraic} interpretation of the
+bottleneck distance and grounds stability on solid categorical
+foundations.
+\end{intuition}
+
+% ============================================================
+\section{Algebraic stability}
+\label{sec:algebraic_stability}
+% ============================================================
+
+\begin{theorem}[Algebraic stability]
+\index{algebraic stability}
+Let $F : \mathbf{Top} \to \mathbf{Vec}_k^{(\R, \leq)}$ be a
+persistent homology functor. For any pair of filtered spaces
+$(X, f)$ and $(Y, g)$ with an $\varepsilon$-interleaving morphism
+between the filtrations:
+\[
+  d_I(H_*(X, f),\; H_*(Y, g)) \leq \varepsilon.
+\]
+\end{theorem}
+
+\begin{remark}
+Algebraic stability generalizes the classical stability theorem to
+the setting of abstract persistence modules. It does not require
+continuous functions: it applies directly at the level of filtrations
+and module algebra.
+\end{remark}
+
+% ============================================================
+\section{Practical computation}
+\label{sec:computation}
+% ============================================================
+
+\begin{proposition}[Complexity]
+The bottleneck distance between two diagrams of $n$ and $m$ points
+can be computed in $\mathcal{O}(N^{1.5} \log N)$ where $N = n + m$,
+by reduction to bipartite matching. The Wasserstein distance $W_p$
+can be computed in $\mathcal{O}(N^3)$ using the Hungarian algorithm.
+\end{proposition}
+
+\begin{minted}{python}
+import numpy as np
+from gudhi.wasserstein import wasserstein_distance
+from gudhi.bottleneck import bottleneck_distance
+
+# Two persistence diagrams (birth, death)
+dgm1 = np.array([[0.0, 2.0], [1.0, 3.0], [2.0, 2.5]])
+dgm2 = np.array([[0.0, 2.1], [1.1, 3.2]])
+
+# Bottleneck distance
+d_bn = bottleneck_distance(dgm1, dgm2)
+print(f"Bottleneck: {d_bn:.4f}")
+
+# Wasserstein distance (p=2)
+d_w2 = wasserstein_distance(dgm1, dgm2, order=2)
+print(f"Wasserstein-2: {d_w2:.4f}")
+\end{minted}
+
+% ============================================================
+\section{Exercises}
+% ============================================================
+
+\begin{exercise}
+Compute by hand the bottleneck distance between
+$D_1 = \{(0,1), (0,3), (2,5)\}$ and
+$D_2 = \{(0,1.5), (1,4)\}$.
+\textit{Hint}: try different matchings and do not forget the diagonal.
+\end{exercise}
+
+\begin{exercise}
+Show that $d_\infty(D_1, D_2) \leq W_{p,\infty}(D_1, D_2)$ for all
+$p \geq 1$.
+\end{exercise}
+
+\begin{exercise}
+Let $f(x) = \sin(x)$ and $g(x) = \sin(x) + 0.1$ on $[0, 2\pi]$.
+Show that $d_\infty(\mathrm{Dgm}(f), \mathrm{Dgm}(g)) \leq 0.1$
+using the stability theorem.
+\end{exercise}
+
+\begin{exercise}[Interleaving distance]
+Let $\mathbb{V}$ be the module $k$ on $[0, 2]$ and $\mathbb{W}$ the
+module $k$ on $[0.5, 2.5]$. Compute $d_I(\mathbb{V}, \mathbb{W})$
+directly from the definition.
+\end{exercise}
+
+\begin{exercise}[Implementation]
+Using \texttt{gudhi}, compare the bottleneck and Wasserstein-$2$
+distances for persistence diagrams of two point clouds: a sample
+from the circle $S^1$ and a sample from the torus $T^2$ embedded
+in $\R^3$.
+\end{exercise}

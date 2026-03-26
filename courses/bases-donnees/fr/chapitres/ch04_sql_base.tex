@@ -1,0 +1,499 @@
+% ============================================================
+\chapter{SQL --- Requ\^etes de Base}
+\label{ch:sql_base}
+% ============================================================
+
+En 1974, Donald Chamberlin et Raymond Boyce, chercheurs chez IBM, cr\'eent SEQUEL (\emph{Structured English Query Language}), rebaptis\'e SQL pour des raisons juridiques. Leur ambition~: permettre \`a des non-programmeurs d'interroger des bases de donn\'ees en \'ecrivant des phrases proches de l'anglais. L'id\'ee \'etait r\'evolutionnaire~: au lieu de dire \emph{comment} parcourir les donn\'ees, on dit simplement \emph{ce que} l'on veut. Cinquante ans plus tard, SQL reste le langage universel des bases de donn\'ees relationnelles.
+
+\section{Introduction \`a SQL}
+
+\begin{definition}[SQL]
+\emph{SQL} (\emph{Structured Query Language}) est le langage standard
+pour interroger et manipuler les bases de donn\'ees relationnelles.
+Contrairement \`a l'alg\`ebre relationnelle, SQL est un langage
+\emph{d\'eclaratif}~: on sp\'ecifie \emph{ce que} l'on veut, pas \emph{comment}
+l'obtenir.
+\end{definition}
+
+SQL a \'et\'e standardis\'e par l'ISO/ANSI. Les versions majeures sont~:
+SQL-86, SQL-92, SQL:1999, SQL:2003, SQL:2011, SQL:2016, SQL:2023.
+
+\section{Structure d'une requ\^ete SELECT}
+
+\begin{formules}[title=\textbf{Syntaxe g\'en\'erale du SELECT}]
+\begin{minted}{sql}
+SELECT [DISTINCT] colonnes
+FROM   tables
+[WHERE  condition]
+[ORDER BY colonne [ASC|DESC]]
+[LIMIT  n [OFFSET m]];
+\end{minted}
+\end{formules}
+
+L'ordre d'ex\'ecution logique est diff\'erent de l'ordre d'\'ecriture~:
+\begin{enumerate}
+    \item \texttt{FROM} --- d\'eterminer les tables sources.
+    \item \texttt{WHERE} --- filtrer les lignes.
+    \item \texttt{SELECT} --- projeter les colonnes.
+    \item \texttt{DISTINCT} --- \'eliminer les doublons.
+    \item \texttt{ORDER BY} --- trier le r\'esultat.
+    \item \texttt{LIMIT / OFFSET} --- limiter le nombre de lignes.
+\end{enumerate}
+
+\section{SELECT et FROM}
+
+\begin{codeblock}[title=\textbf{S\'electionner toutes les colonnes}]
+\begin{minted}{sql}
+SELECT * FROM Etudiants;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+id_etudiant | nom     | prenom | date_naissance | filiere
+------------+---------+--------+----------------+--------
+1           | Bernard | Alice  | 2004-03-15     | Info
+2           | Petit   | Bob    | 2003-11-22     | Info
+3           | Moreau  | Claire | 2004-07-08     | Maths
+4           | Leroy   | David  | 2003-01-30     | Info
+5           | Roux    | Emma   | 2004-09-12     | Maths
+\end{verbatim}
+\end{codeoutput}
+
+\begin{codeblock}[title=\textbf{S\'electionner des colonnes sp\'ecifiques}]
+\begin{minted}{sql}
+SELECT nom, prenom, filiere FROM Etudiants;
+\end{minted}
+\end{codeblock}
+
+\begin{bonnepratique}[title=\textbf{\'Eviter SELECT *}]
+En production, \'evitez \texttt{SELECT *}~:
+\begin{itemize}
+    \item Cela transf\`ere des donn\'ees inutiles.
+    \item Le r\'esultat d\'epend du sch\'ema~: l'ajout d'une colonne peut casser le code.
+    \item Utilisez \texttt{SELECT *} uniquement pour l'exploration et le d\'ebogage.
+\end{itemize}
+\end{bonnepratique}
+
+\section{Alias de colonnes et de tables}
+
+\begin{codeblock}[title=\textbf{Utilisation d'alias}]
+\begin{minted}{sql}
+SELECT e.nom AS nom_etudiant,
+       e.prenom AS prenom_etudiant,
+       e.filiere AS departement
+FROM Etudiants AS e;
+\end{minted}
+\end{codeblock}
+
+Le mot-cl\'e \texttt{AS} est optionnel dans la plupart des SGBD~:
+\texttt{SELECT nom nom\_etudiant FROM Etudiants e}.
+
+\section{Clause WHERE --- Filtrage}
+
+\begin{definition}[Clause WHERE]
+La clause \texttt{WHERE} filtre les lignes selon une condition bool\'eenne.
+Seules les lignes pour lesquelles la condition est \texttt{TRUE} sont retenues
+(\texttt{FALSE} et \texttt{UNKNOWN} sont rejet\'es).
+\end{definition}
+
+\subsection{Op\'erateurs de comparaison}
+
+\begin{formules}[title=\textbf{Op\'erateurs de comparaison SQL}]
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Op\'erateur} & \textbf{Signification} \\
+\midrule
+\texttt{=} & \'Egal \\
+\texttt{<>} ou \texttt{!=} & Diff\'erent \\
+\texttt{<}, \texttt{>} & Inf\'erieur, sup\'erieur \\
+\texttt{<=}, \texttt{>=} & Inf\'erieur ou \'egal, sup\'erieur ou \'egal \\
+\texttt{BETWEEN a AND b} & Entre $a$ et $b$ (inclus) \\
+\texttt{IN (v1, v2, ...)} & Appartient \`a une liste \\
+\texttt{LIKE 'motif'} & Correspondance de motif \\
+\texttt{IS NULL} / \texttt{IS NOT NULL} & Test de nullit\'e \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{formules}
+
+\begin{codeblock}[title=\textbf{Exemples de filtrage}]
+\begin{minted}{sql}
+-- Etudiants en Info
+SELECT * FROM Etudiants WHERE filiere = 'Info';
+
+-- Notes entre 10 et 15
+SELECT * FROM Inscriptions WHERE note BETWEEN 10 AND 15;
+
+-- Etudiants dont le nom commence par 'B'
+SELECT * FROM Etudiants WHERE nom LIKE 'B%';
+
+-- Etudiants en Info ou Maths
+SELECT * FROM Etudiants WHERE filiere IN ('Info', 'Maths');
+
+-- Inscriptions sans note
+SELECT * FROM Inscriptions WHERE note IS NULL;
+\end{minted}
+\end{codeblock}
+
+\subsection{Op\'erateurs logiques}
+
+\begin{codeblock}[title=\textbf{Combinaison de conditions}]
+\begin{minted}{sql}
+-- AND : les deux conditions doivent etre vraies
+SELECT * FROM Etudiants
+WHERE filiere = 'Info' AND date_naissance > '2004-01-01';
+
+-- OR : au moins une condition vraie
+SELECT * FROM Inscriptions
+WHERE note > 16 OR note < 8;
+
+-- NOT : negation
+SELECT * FROM Etudiants
+WHERE NOT filiere = 'Maths';
+\end{minted}
+\end{codeblock}
+
+\begin{attention}[title=\textbf{Logique ternaire et NULL}]
+En SQL, la logique est \emph{ternaire}~: \texttt{TRUE}, \texttt{FALSE}, \texttt{UNKNOWN}.
+\begin{center}
+\begin{tabular}{c|ccc}
+\texttt{AND} & T & F & U \\
+\hline
+T & T & F & U \\
+F & F & F & F \\
+U & U & F & U \\
+\end{tabular}
+\qquad
+\begin{tabular}{c|ccc}
+\texttt{OR} & T & F & U \\
+\hline
+T & T & T & T \\
+F & T & F & U \\
+U & T & U & U \\
+\end{tabular}
+\end{center}
+\texttt{NOT UNKNOWN = UNKNOWN}. Cons\'equence~: \texttt{note = NULL}
+retourne \texttt{UNKNOWN}, pas \texttt{TRUE}. Utilisez \texttt{IS NULL}.
+\end{attention}
+
+\subsection{LIKE et les motifs}
+
+\begin{formules}[title=\textbf{Caract\`eres sp\'eciaux de LIKE}]
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Caract\`ere} & \textbf{Signification} \\
+\midrule
+\texttt{\%} & Z\'ero ou plusieurs caract\`eres quelconques \\
+\texttt{\_} & Exactement un caract\`ere quelconque \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{formules}
+
+\begin{codeblock}[title=\textbf{Exemples avec LIKE}]
+\begin{minted}{sql}
+-- Noms commencant par 'M'
+SELECT * FROM Etudiants WHERE nom LIKE 'M%';
+
+-- Prenoms de exactement 5 lettres
+SELECT * FROM Etudiants WHERE prenom LIKE '_____';
+
+-- Noms contenant 'or'
+SELECT * FROM Etudiants WHERE nom LIKE '%or%';
+\end{minted}
+\end{codeblock}
+
+\section{ORDER BY --- Tri}
+
+\begin{codeblock}[title=\textbf{Tri des r\'esultats}]
+\begin{minted}{sql}
+-- Tri ascendant (par defaut)
+SELECT nom, prenom FROM Etudiants ORDER BY nom ASC;
+
+-- Tri descendant
+SELECT * FROM Inscriptions ORDER BY note DESC;
+
+-- Tri multi-colonnes
+SELECT * FROM Etudiants ORDER BY filiere ASC, nom ASC;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+-- Tri par note descendante :
+id_etudiant | id_cours | note | annee
+-----------+---------+------+------
+5           | 104      | 18.0 | 2025
+3           | 102      | 17.5 | 2025
+2           | 103      | 16.0 | 2025
+1           | 101      | 15.5 | 2025
+3           | 104      | 14.0 | 2025
+1           | 102      | 13.0 | 2025
+2           | 101      | 12.0 | 2025
+4           | 101      | 9.0  | 2025
+\end{verbatim}
+\end{codeoutput}
+
+\section{DISTINCT --- \'Elimination des doublons}
+
+\begin{codeblock}[title=\textbf{Utilisation de DISTINCT}]
+\begin{minted}{sql}
+-- Sans DISTINCT : doublons possibles
+SELECT filiere FROM Etudiants;
+-- Info, Info, Maths, Info, Maths
+
+-- Avec DISTINCT : valeurs uniques
+SELECT DISTINCT filiere FROM Etudiants;
+-- Info, Maths
+\end{minted}
+\end{codeblock}
+
+\section{LIMIT et OFFSET --- Pagination}
+
+\begin{codeblock}[title=\textbf{Limiter les r\'esultats}]
+\begin{minted}{sql}
+-- Les 3 meilleures notes
+SELECT e.nom, i.note
+FROM Etudiants e
+JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+ORDER BY i.note DESC
+LIMIT 3;
+
+-- Pagination : page 2 (lignes 4 a 6)
+SELECT * FROM Etudiants ORDER BY id_etudiant LIMIT 3 OFFSET 3;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+-- Les 3 meilleures notes :
+nom   | note
+------+-----
+Roux  | 18.0
+Moreau| 17.5
+Petit | 16.0
+\end{verbatim}
+\end{codeoutput}
+
+\begin{attention}[title=\textbf{LIMIT n'est pas standard SQL}]
+\texttt{LIMIT} est support\'e par PostgreSQL, MySQL, SQLite.
+Le standard SQL:2008 utilise \texttt{FETCH FIRST n ROWS ONLY}~:
+\begin{minted}{sql}
+SELECT * FROM Etudiants
+ORDER BY nom
+FETCH FIRST 3 ROWS ONLY;  -- Standard SQL
+\end{minted}
+\end{attention}
+
+\section{Expressions et fonctions scalaires}
+
+\begin{codeblock}[title=\textbf{Expressions calcul\'ees}]
+\begin{minted}{sql}
+-- Expression arithmetique
+SELECT nom, note, note / 20.0 * 100 AS pourcentage
+FROM Inscriptions i
+JOIN Etudiants e ON i.id_etudiant = e.id_etudiant;
+
+-- Concatenation de chaines
+SELECT nom || ' ' || prenom AS nom_complet
+FROM Etudiants;
+
+-- Fonction conditionnelle CASE
+SELECT nom, note,
+    CASE
+        WHEN note >= 16 THEN 'Tres bien'
+        WHEN note >= 14 THEN 'Bien'
+        WHEN note >= 12 THEN 'Assez bien'
+        WHEN note >= 10 THEN 'Passable'
+        ELSE 'Insuffisant'
+    END AS mention
+FROM Inscriptions i
+JOIN Etudiants e ON i.id_etudiant = e.id_etudiant;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+nom     | note | mention
+--------+------+-----------
+Bernard | 15.5 | Bien
+Bernard | 13.0 | Assez bien
+Petit   | 12.0 | Assez bien
+Petit   | 16.0 | Tres bien
+Moreau  | 17.5 | Tres bien
+Moreau  | 14.0 | Bien
+Leroy   | 9.0  | Insuffisant
+Roux    | 18.0 | Tres bien
+\end{verbatim}
+\end{codeoutput}
+
+\section{Fonctions utiles}
+
+\begin{formules}[title=\textbf{Fonctions scalaires courantes}]
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Cat\'egorie} & \textbf{Fonction} & \textbf{Description} \\
+\midrule
+Texte & \texttt{UPPER(s)}, \texttt{LOWER(s)} & Majuscules, minuscules \\
+      & \texttt{LENGTH(s)} & Longueur \\
+      & \texttt{SUBSTR(s, d, n)} & Sous-cha\^ine \\
+      & \texttt{TRIM(s)} & Suppression espaces \\
+      & \texttt{REPLACE(s, a, b)} & Remplacement \\
+Nombre & \texttt{ABS(x)}, \texttt{ROUND(x, n)} & Valeur absolue, arrondi \\
+       & \texttt{CEIL(x)}, \texttt{FLOOR(x)} & Plafond, plancher \\
+Date   & \texttt{CURRENT\_DATE} & Date courante \\
+       & \texttt{DATE('now')} & Date courante (SQLite) \\
+NULL   & \texttt{COALESCE(a, b, c)} & Premi\`ere valeur non NULL \\
+       & \texttt{NULLIF(a, b)} & NULL si $a = b$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{formules}
+
+\begin{codeblock}[title=\textbf{Exemples de fonctions}]
+\begin{minted}{sql}
+SELECT UPPER(nom) AS nom_maj,
+       LENGTH(prenom) AS lg_prenom,
+       COALESCE(note, 0) AS note_ou_zero
+FROM Etudiants e
+LEFT JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant;
+\end{minted}
+\end{codeblock}
+
+\section{INSERT, UPDATE, DELETE}
+
+\begin{codeblock}[title=\textbf{Insertion de donn\'ees}]
+\begin{minted}{sql}
+-- Insertion d'une ligne
+INSERT INTO Etudiants (id_etudiant, nom, prenom, filiere)
+VALUES (6, 'Garcia', 'Lucie', 'Info');
+
+-- Insertion multiple
+INSERT INTO Etudiants (id_etudiant, nom, prenom, filiere) VALUES
+    (7, 'Dubois', 'Marc', 'Maths'),
+    (8, 'Thomas', 'Julie', 'Info');
+
+-- Insertion depuis une requete
+INSERT INTO Archive_Etudiants
+SELECT * FROM Etudiants WHERE filiere = 'Maths';
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Mise \`a jour et suppression}]
+\begin{minted}{sql}
+-- Mise a jour
+UPDATE Inscriptions SET note = 11.0
+WHERE id_etudiant = 4 AND id_cours = 101;
+
+-- Suppression conditionnelle
+DELETE FROM Inscriptions WHERE note < 8;
+
+-- Suppression de toutes les lignes
+DELETE FROM Archive_Etudiants;
+-- ou TRUNCATE TABLE Archive_Etudiants;  (PostgreSQL)
+\end{minted}
+\end{codeblock}
+
+\begin{attention}[title=\textbf{UPDATE/DELETE sans WHERE}]
+Un \texttt{UPDATE} ou \texttt{DELETE} sans clause \texttt{WHERE} affecte
+\emph{toutes} les lignes de la table. Toujours v\'erifier la clause
+\texttt{WHERE} avant d'ex\'ecuter~!
+\end{attention}
+
+\section{Int\'egration Python compl\`ete}
+
+\begin{codeblock}[title=\textbf{CRUD complet avec Python/sqlite3}]
+\begin{minted}{python}
+import sqlite3
+
+conn = sqlite3.connect(':memory:')  # base en memoire
+cur = conn.cursor()
+
+# Creation et insertion
+cur.executescript('''
+    CREATE TABLE Etudiants (
+        id INTEGER PRIMARY KEY, nom TEXT, prenom TEXT, filiere TEXT
+    );
+    INSERT INTO Etudiants VALUES (1, 'Bernard', 'Alice', 'Info');
+    INSERT INTO Etudiants VALUES (2, 'Petit', 'Bob', 'Info');
+    INSERT INTO Etudiants VALUES (3, 'Moreau', 'Claire', 'Maths');
+''')
+
+# Lecture avec parametres
+filiere = 'Info'
+cur.execute("SELECT * FROM Etudiants WHERE filiere = ?", (filiere,))
+print("Etudiants Info :", cur.fetchall())
+
+# Mise a jour
+cur.execute("UPDATE Etudiants SET filiere = ? WHERE id = ?", ('Maths', 2))
+conn.commit()
+
+# Verification
+cur.execute("SELECT * FROM Etudiants ORDER BY id")
+for row in cur.fetchall():
+    print(row)
+
+conn.close()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Etudiants Info : [(1, 'Bernard', 'Alice', 'Info'), (2, 'Petit', 'Bob', 'Info')]
+(1, 'Bernard', 'Alice', 'Info')
+(2, 'Petit', 'Bob', 'Maths')
+(3, 'Moreau', 'Claire', 'Maths')
+\end{verbatim}
+\end{codeoutput}
+
+\section*{Exercices}
+
+\begin{exercice}
+\'Ecrivez les requ\^etes SQL suivantes~:
+\begin{enumerate}
+    \item Tous les cours ayant plus de 3 cr\'edits.
+    \item Les noms et pr\'enoms des \'etudiants n\'es avant 2004.
+    \item Les inscriptions avec une note sup\'erieure \`a 15, tri\'ees par note d\'ecroissante.
+    \item Les 3 \'etudiants ayant les meilleures notes.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}
+Expliquez la diff\'erence entre les deux requ\^etes~:
+\begin{minted}{sql}
+SELECT DISTINCT filiere FROM Etudiants;
+SELECT filiere FROM Etudiants GROUP BY filiere;
+\end{minted}
+\end{exercice}
+
+\begin{exercice}
+\'Ecrivez une requ\^ete SQL qui affiche pour chaque inscription~: le nom
+de l'\'etudiant, l'intitul\'e du cours, la note, et la mention correspondante
+(Tr\`es bien $\geq$ 16, Bien $\geq$ 14, Assez bien $\geq$ 12, Passable $\geq$ 10,
+Insuffisant sinon).
+\end{exercice}
+
+\begin{exercice}
+Quels sont les r\'esultats des expressions suivantes ?
+\begin{enumerate}
+    \item \texttt{NULL = NULL}
+    \item \texttt{NULL <> 5}
+    \item \texttt{NULL AND TRUE}
+    \item \texttt{NULL OR TRUE}
+    \item \texttt{NOT NULL}
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}
+\'Ecrivez un programme Python qui~:
+\begin{enumerate}
+    \item Cr\'ee une base de donn\'ees SQLite avec les tables du sch\'ema Universit\'e.
+    \item Ins\`ere les donn\'ees d'exemple.
+    \item Ex\'ecute 3 requ\^etes diff\'erentes et affiche les r\'esultats format\'es.
+    \item Utilise des requ\^etes param\'etr\'ees pour toutes les entr\'ees utilisateur.
+\end{enumerate}
+\end{exercice}

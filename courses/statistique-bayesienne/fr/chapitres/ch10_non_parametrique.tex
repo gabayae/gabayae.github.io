@@ -1,0 +1,272 @@
+% ============================================================
+\chapter{Mod\`eles Bay\'esiens Non-Param\'etriques}
+\label{ch:non_parametrique}
+% ============================================================
+
+En statistique param\'etrique, on choisit \`a l'avance le nombre de param\`etres~: un mod\`ele de m\'elange \`a $K$ composantes, une r\'egression polynomiale de degr\'e $p$. Mais comment choisir $K$ ou $p$~? La statistique bay\'esienne non param\'etrique contourne le probl\`eme en pla\c{c}ant des lois a priori sur des espaces de \emph{dimension infinie}~: le processus de Dirichlet (Ferguson, 1973) d\'efinit une loi sur l'espace des distributions de probabilit\'e~; le processus gaussien d\'efinit une loi sur l'espace des fonctions. Le mod\`ele adapte alors automatiquement sa complexit\'e aux donn\'ees~: le nombre de clusters cro\^it avec la taille de l'\'echantillon, la souplesse de la r\'egression s'ajuste. Cette flexibilit\'e a r\'evolutionn\'e le clustering, la mod\'elisation de donn\'ees de survie et l'analyse de textes.
+
+\begin{intuition}[title=\textbf{Id\'ee centrale}]
+En statistique bay\'esienne non param\'etrique, on place des lois a priori
+sur des espaces de dimension infinie (distributions, fonctions, partitions).
+Le mod\`ele adapte sa complexit\'e aux donn\'ees~: le nombre de composantes
+ou la souplesse de la fonction ajust\'ee cro\^it avec $n$.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Motivation}
+% ------------------------------------------------------------
+
+Les mod\`eles param\'etriques fixent le nombre de param\`etres \`a l'avance~:
+un m\'elange de $K$ gaussiennes, une r\'egression d'ordre $p$, etc.
+Or, le choix de $K$ ou $p$ est souvent arbitraire.
+
+\begin{remarque}
+Le terme \og non param\'etrique \fg est trompeur~: il y a bien des
+param\`etres, mais en nombre \emph{infini} (ou croissant avec les donn\'ees).
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Le processus de Dirichlet}
+% ------------------------------------------------------------
+
+\begin{definition}[Processus de Dirichlet]
+\index{processus de Dirichlet}
+Soit $\alpha > 0$ un param\`etre de concentration et $G_0$ une mesure de
+probabilit\'e de base sur $(\Theta, \mathcal{B})$. On dit que
+$G \sim \mathrm{DP}(\alpha, G_0)$ si, pour toute partition mesurable
+$(A_1, \ldots, A_K)$ de $\Theta$~:
+\[
+  \bigl(G(A_1), \ldots, G(A_K)\bigr) \sim
+  \mathrm{Dir}\!\bigl(\alpha G_0(A_1), \ldots, \alpha G_0(A_K)\bigr).
+\]
+\end{definition}
+
+\begin{proposition}[Propri\'et\'es du DP]
+Soit $G \sim \mathrm{DP}(\alpha, G_0)$. Alors~:
+\begin{enumerate}
+  \item $\E[G(A)] = G_0(A)$ pour tout $A$.
+  \item $\Var(G(A)) = \dfrac{G_0(A)(1 - G_0(A))}{\alpha + 1}$.
+  \item $G$ est presque s\^urement discr\`ete (mesure atomique).
+\end{enumerate}
+\end{proposition}
+
+\begin{attention}
+Le DP g\'en\`ere des distributions discr\`etes m\^eme si $G_0$ est continue.
+C'est cette discr\'etude qui induit le regroupement (\emph{clustering}).
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Construction par brisure de b\^aton}
+% ------------------------------------------------------------
+
+\begin{theoreme}[Sethuraman, 1994]
+\index{brisure de b\^aton}
+Si $G \sim \mathrm{DP}(\alpha, G_0)$, alors $G$ admet la repr\'esentation~:
+\[
+  G = \sum_{k=1}^{\infty} \pi_k \,\delta_{\theta_k^*},
+\]
+o\`u $\theta_k^* \stackrel{\text{iid}}{\sim} G_0$ et les poids sont
+construits par brisure de b\^aton~:
+\[
+  V_k \stackrel{\text{iid}}{\sim} \mathrm{Beta}(1, \alpha), \quad
+  \pi_k = V_k \prod_{j=1}^{k-1}(1 - V_j).
+\]
+\end{theoreme}
+
+\begin{remarque}
+Les poids $\pi_k$ d\'ecroissent stochastiquement~: les premiers atomes
+re\c{c}oivent l'essentiel de la masse. En pratique, on tronque \`a $K$
+termes pour l'inf\'erence.
+\end{remarque}
+
+\begin{minted}{python}
+import numpy as np
+
+def stick_breaking(alpha, K):
+    """Genere K poids par brisure de baton."""
+    V = np.random.beta(1, alpha, size=K)
+    pi = np.zeros(K)
+    remaining = 1.0
+    for k in range(K):
+        pi[k] = V[k] * remaining
+        remaining *= (1 - V[k])
+    return pi
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Le processus du restaurant chinois}
+% ------------------------------------------------------------
+
+\begin{definition}[Processus du restaurant chinois (CRP)]
+\index{processus du restaurant chinois}
+Soit $(\theta_1, \theta_2, \ldots)$ un \'echantillon du DP marginal.
+La loi conditionnelle pr\'edictive est~:
+\[
+  \theta_{n+1} \mid \theta_1, \ldots, \theta_n \sim
+  \frac{1}{n + \alpha}\left(\sum_{k=1}^{K_n} n_k\,\delta_{\theta_k^*}
+  + \alpha\,G_0\right),
+\]
+o\`u $\theta_1^*, \ldots, \theta_{K_n}^*$ sont les valeurs distinctes et $n_k$
+leurs effectifs.
+\end{definition}
+
+\begin{intuition}[title=\textbf{M\'etaphore du restaurant}]
+Des clients arrivent un par un dans un restaurant avec des tables infinies.
+Le client $n+1$ s'assoit \`a la table $k$ (d\'ej\`a occup\'ee par $n_k$ clients)
+avec probabilit\'e $n_k / (n + \alpha)$, ou ouvre une nouvelle table avec
+probabilit\'e $\alpha / (n + \alpha)$.
+\end{intuition}
+
+\begin{proposition}[Nombre attendu de clusters]
+Pour $n$ observations tir\'ees d'un $\mathrm{DP}(\alpha, G_0)$, le nombre
+attendu de clusters distincts est~:
+\[
+  \E[K_n] = \alpha \sum_{i=1}^{n} \frac{1}{\alpha + i - 1}
+           \approx \alpha \ln\!\left(1 + \frac{n}{\alpha}\right).
+\]
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{M\'elange par processus de Dirichlet (DP-GMM)}
+% ------------------------------------------------------------
+
+\begin{definition}[Mod\`ele DP-GMM]
+\index{DP-GMM}
+Le \textbf{m\'elange gaussien infini} (DP-GMM) est d\'efini par~:
+\begin{align}
+  G &\sim \mathrm{DP}(\alpha, G_0), \\
+  (\mu_i, \Sigma_i) &\sim G, \quad i = 1, \ldots, n, \\
+  x_i \mid \mu_i, \Sigma_i &\sim \mathcal{N}(\mu_i, \Sigma_i).
+\end{align}
+Le nombre de composantes est d\'etermin\'e par les donn\'ees.
+\end{definition}
+
+\begin{exemple}
+Avec $G_0 = \mathrm{NIW}(\mu_0, \kappa_0, \nu_0, \Psi_0)$ (Normal-Inverse-Wishart),
+l'\'echantillonneur de Gibbs du CRP it\`ere~:
+\begin{enumerate}
+  \item Pour chaque $i$, r\'eassigner $z_i$ selon $p(z_i = k \mid \ldots) \propto
+        n_{-i,k}\,\mathcal{N}(x_i \mid \mu_k, \Sigma_k)$ ou cr\'eer un nouveau cluster.
+  \item Pour chaque cluster $k$, mettre \`a jour $(\mu_k, \Sigma_k)$ via le posterior NIW.
+\end{enumerate}
+\end{exemple}
+
+\begin{minted}{python}
+from sklearn.mixture import BayesianGaussianMixture
+
+# DP-GMM via scikit-learn (approximation variationnelle)
+dpgmm = BayesianGaussianMixture(
+    n_components=20,            # borne superieure
+    covariance_type='full',
+    weight_concentration_prior_type='dirichlet_process',
+    weight_concentration_prior=0.1
+)
+dpgmm.fit(X)
+labels = dpgmm.predict(X)
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Processus gaussiens comme priors sur les fonctions}
+% ------------------------------------------------------------
+
+\begin{definition}[Processus gaussien]
+\index{processus gaussien}
+Un \textbf{processus gaussien} (GP) est une collection de variables
+al\'eatoires $\{f(x) : x \in \mathcal{X}\}$ telle que toute sous-collection
+finie suit une loi gaussienne multivari\'ee~:
+\[
+  f \sim \mathcal{GP}(m, k), \quad
+  (f(x_1), \ldots, f(x_n)) \sim \mathcal{N}\!\bigl(\mathbf{m}, \mathbf{K}\bigr),
+\]
+o\`u $m_{i} = m(x_i)$ et $K_{ij} = k(x_i, x_j)$.
+\end{definition}
+
+\begin{theoreme}[Posterior du GP pour la r\'egression]
+Soit $\mathbf{y} = f(\mathbf{X}) + \boldsymbol{\epsilon}$,
+$\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \sigma^2 \mathbf{I})$.
+La loi a posteriori de $f_* = f(x_*)$ est~:
+\begin{align}
+  f_* \mid \mathbf{X}, \mathbf{y}, x_* &\sim \mathcal{N}(\bar{f}_*, \Var(f_*)), \\
+  \bar{f}_* &= \mathbf{k}_*^\top (\mathbf{K} + \sigma^2 \mathbf{I})^{-1}\mathbf{y}, \\
+  \Var(f_*) &= k(x_*, x_*) - \mathbf{k}_*^\top(\mathbf{K} + \sigma^2 \mathbf{I})^{-1}\mathbf{k}_*.
+\end{align}
+\end{theoreme}
+
+\begin{remarque}
+Le choix du noyau $k$ encode les hypoth\`eses sur la r\'egularit\'e de $f$~:
+RBF pour des fonctions lisses, Mat\'ern pour un contr\^ole fin de la
+diff\'erentiabilit\'e, p\'eriodique pour des donn\'ees cycliques.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Autres processus non param\'etriques}
+% ------------------------------------------------------------
+
+\begin{definition}[Processus du buffet indien (IBP)]
+\index{processus du buffet indien}
+Le \textbf{IBP} est un prior sur des matrices binaires $Z$ de taille
+$n \times \infty$ utilis\'e pour la s\'election de caract\'eristiques.
+Chaque client (observation) choisit des plats (caract\'eristiques) existants
+avec probabilit\'e $m_k / n$ et essaie $\mathrm{Poisson}(\alpha / n)$
+nouveaux plats.
+\end{definition}
+
+\begin{definition}[Processus de Pitman--Yor]
+\index{processus de Pitman--Yor}
+Le \textbf{processus de Pitman--Yor} $\mathrm{PY}(d, \alpha, G_0)$ g\'en\'eralise
+le DP avec un param\`etre de discount $d \in [0,1)$. La loi pr\'edictive est~:
+\[
+  \theta_{n+1} \mid \theta_{1:n} \sim
+  \frac{1}{n + \alpha}\left(\sum_{k=1}^{K_n}(n_k - d)\,\delta_{\theta_k^*}
+  + (\alpha + d K_n)\,G_0\right).
+\]
+Pour $d = 0$, on retrouve le DP.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Formules cl\'es}
+% ------------------------------------------------------------
+
+\begin{formules}
+\begin{align}
+  \text{DP :} \quad & (G(A_1), \ldots, G(A_K)) \sim \mathrm{Dir}(\alpha G_0(A_1), \ldots, \alpha G_0(A_K)) \\
+  \text{CRP :} \quad & p(\theta_{n+1} = \theta_k^*) = \frac{n_k}{n + \alpha}, \quad
+                        p(\text{nouveau}) = \frac{\alpha}{n + \alpha} \\
+  \text{Brisure :} \quad & \pi_k = V_k \prod_{j<k}(1-V_j), \quad V_k \sim \mathrm{Beta}(1,\alpha) \\
+  \text{GP :} \quad & \bar{f}_* = \mathbf{k}_*^\top(\mathbf{K}+\sigma^2\mathbf{I})^{-1}\mathbf{y}
+\end{align}
+\end{formules}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}
+V\'erifier que les poids de la brisure de b\^aton somment \`a 1 presque
+s\^urement. \emph{Indication~:} calculer $\E\bigl[\sum_{k=1}^K \pi_k\bigr]$ et
+passer \`a la limite.
+\end{exercice}
+
+\begin{exercice}
+Simuler le processus du restaurant chinois pour $\alpha \in \{0.1, 1, 10, 100\}$
+et $n = 500$. Tracer le nombre de clusters $K_n$ en fonction de $\alpha$.
+Comparer avec la formule th\'eorique $\E[K_n] \approx \alpha \ln(1 + n/\alpha)$.
+\end{exercice}
+
+\begin{exercice}
+Impl\'ementer un \'echantillonneur de Gibbs pour le DP-GMM sur des donn\'ees
+simul\'ees en dimension 2 (trois clusters gaussiens). Visualiser les
+affectations au fil des it\'erations.
+\end{exercice}
+
+\begin{exercice}
+Consid\'erer un GP avec noyau RBF $k(x,x') = \sigma_f^2 \exp(-\norm{x-x'}^2/(2\ell^2))$.
+Montrer que la loi pr\'edictive du GP converge vers un interpolateur exact
+lorsque $\sigma^2 \to 0$. Illustrer graphiquement avec des donn\'ees simul\'ees.
+\end{exercice}
+
+\begin{exercice}
+Montrer que le processus de Pitman--Yor engendre un nombre de clusters
+$K_n = O(n^d)$, contre $K_n = O(\ln n)$ pour le DP. Quelle implication
+pour la mod\'elisation de donn\'ees textuelles suivant la loi de Zipf~?
+\end{exercice}

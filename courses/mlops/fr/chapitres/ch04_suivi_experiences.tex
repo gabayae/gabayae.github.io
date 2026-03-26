@@ -1,0 +1,649 @@
+% !TEX root = ../main.tex
+\chapter{Suivi d'Exp\'eriences --- MLflow, Weights \& Biases}
+\label{ch:suivi-experiences}
+
+\section{Introduction}
+
+Entra\^iner un mod\`ele de Machine Learning implique de tester des dizaines,
+voire des centaines, de combinaisons d'hyperparam\`etres, d'architectures et
+de jeux de donn\'ees. Sans un syst\`eme de suivi structur\'e, les r\'esultats
+se perdent et la reproductibilit\'e devient illusoire.
+
+\begin{antipattern}[title=\textbf{L'anti-pattern du tableur}]
+Beaucoup de data scientists commencent par noter leurs r\'esultats dans un
+fichier Excel ou Google Sheets~:
+\begin{itemize}
+  \item Les entr\'ees sont incompl\`etes (on oublie de noter un param\`etre).
+  \item Aucun lien avec le code ou les donn\'ees utilis\'es.
+  \item Impossible de reproduire une exp\'erience pass\'ee.
+  \item Le fichier devient vite illisible avec des centaines de lignes.
+\end{itemize}
+Les outils de suivi d'exp\'eriences r\'esolvent tous ces probl\`emes.
+\end{antipattern}
+
+\begin{definition}[Suivi d'exp\'eriences]
+Le \textbf{suivi d'exp\'eriences} (\emph{experiment tracking}) consiste \`a
+enregistrer automatiquement, pour chaque ex\'ecution d'entra\^inement~:
+les \textbf{param\`etres}, les \textbf{m\'etriques}, les \textbf{artefacts}
+(mod\`eles, graphiques), le \textbf{code source} et l'\textbf{environnement}.
+\end{definition}
+
+%% ============================================================
+\section{MLflow}
+\label{sec:mlflow}
+%% ============================================================
+
+\index{MLflow}
+
+\subsection{Pr\'esentation}
+
+\pkg{MLflow} est une plateforme open-source cr\'e\'ee par Databricks pour
+g\'erer le cycle de vie complet du ML. Elle comprend quatre composants~:
+
+\begin{formules}[title=\textbf{Composants de MLflow}]
+\begin{description}
+  \item[MLflow Tracking] Enregistrement des param\`etres, m\'etriques et artefacts.
+  \item[MLflow Projects] Packaging reproductible du code ML.
+  \item[MLflow Models] Format standard pour le d\'eploiement de mod\`eles.
+  \item[MLflow Model Registry] Gestion du cycle de vie des mod\`eles
+    (staging, production, archiv\'e).
+\end{description}
+\end{formules}
+
+\subsection{Installation et d\'emarrage}
+
+\begin{codeblock}[title=\textbf{Installation de MLflow}]
+\begin{minted}{bash}
+pip install mlflow
+
+# Lancer l'interface web
+mlflow ui --port 5000
+# Accessible sur http://localhost:5000
+\end{minted}
+\end{codeblock}
+
+\subsection{API de suivi (Tracking API)}
+\index{MLflow!Tracking API}
+
+\begin{codeblock}[title=\textbf{Concepts fondamentaux de MLflow Tracking}]
+\begin{minted}{python}
+import mlflow
+
+# Cr\'eer ou s\'electionner une exp\'erience
+mlflow.set_experiment("classification-vin")
+
+# D\'emarrer un run
+with mlflow.start_run(run_name="random-forest-v1"):
+    # Enregistrer des param\`etres
+    mlflow.log_param("n_estimators", 100)
+    mlflow.log_param("max_depth", 10)
+    mlflow.log_param("random_state", 42)
+
+    # Enregistrer des m\'etriques
+    mlflow.log_metric("accuracy", 0.94)
+    mlflow.log_metric("f1_score", 0.93)
+
+    # Enregistrer des m\'etriques au fil des \'epoques
+    for epoch in range(50):
+        mlflow.log_metric("loss", loss_val, step=epoch)
+
+    # Enregistrer des artefacts
+    mlflow.log_artifact("plots/confusion_matrix.png")
+    mlflow.log_artifact("models/model.pkl")
+\end{minted}
+\end{codeblock}
+
+\subsection{Entra\^inement complet avec MLflow}
+
+\begin{codeblock}[title=\textbf{Exemple complet~: classification avec MLflow}]
+\begin{minted}{python}
+import mlflow
+import mlflow.sklearn
+from sklearn.datasets import load_wine
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, f1_score
+import matplotlib.pyplot as plt
+from sklearn.metrics import ConfusionMatrixDisplay
+
+# Charger les donn\'ees
+X, y = load_wine(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# Configuration
+params = {
+    "n_estimators": 200,
+    "max_depth": 15,
+    "min_samples_split": 5,
+    "random_state": 42,
+}
+
+mlflow.set_experiment("wine-classification")
+
+with mlflow.start_run(run_name="rf-optimized"):
+    # Enregistrer les param\`etres
+    mlflow.log_params(params)
+
+    # Entra\^iner le mod\`ele
+    model = RandomForestClassifier(**params)
+    model.fit(X_train, y_train)
+
+    # Pr\'edire et \'evaluer
+    y_pred = model.predict(X_test)
+    acc = accuracy_score(y_test, y_pred)
+    f1 = f1_score(y_test, y_pred, average="weighted")
+
+    mlflow.log_metric("accuracy", acc)
+    mlflow.log_metric("f1_weighted", f1)
+
+    # Matrice de confusion
+    fig, ax = plt.subplots()
+    ConfusionMatrixDisplay.from_predictions(
+        y_test, y_pred, ax=ax
+    )
+    fig.savefig("confusion_matrix.png")
+    mlflow.log_artifact("confusion_matrix.png")
+
+    # Enregistrer le mod\`ele
+    mlflow.sklearn.log_model(model, "random-forest-model")
+
+    print(f"Accuracy: {acc:.4f}, F1: {f1:.4f}")
+\end{minted}
+\end{codeblock}
+
+\subsection{MLflow Model Registry}
+\index{MLflow!Model Registry}
+
+\begin{codeblock}[title=\textbf{Utilisation du Model Registry}]
+\begin{minted}{python}
+import mlflow
+
+# Enregistrer un mod\`ele dans le registry
+model_uri = "runs:/<run_id>/random-forest-model"
+mlflow.register_model(model_uri, "WineClassifier")
+
+# Charger un mod\`ele depuis le registry
+from mlflow import MlflowClient
+
+client = MlflowClient()
+
+# Promouvoir en staging
+client.transition_model_version_stage(
+    name="WineClassifier",
+    version=1,
+    stage="Staging"
+)
+
+# Promouvoir en production
+client.transition_model_version_stage(
+    name="WineClassifier",
+    version=1,
+    stage="Production"
+)
+
+# Charger le mod\`ele en production
+model = mlflow.pyfunc.load_model(
+    "models:/WineClassifier/Production"
+)
+\end{minted}
+\end{codeblock}
+
+\begin{bonnepratique}[title=\textbf{Workflow du Model Registry}]
+\begin{enumerate}
+  \item \textbf{None}~: le mod\`ele vient d'\^etre enregistr\'e.
+  \item \textbf{Staging}~: le mod\`ele est en cours de validation.
+  \item \textbf{Production}~: le mod\`ele est d\'eploy\'e en production.
+  \item \textbf{Archived}~: le mod\`ele est retir\'e mais conserv\'e.
+\end{enumerate}
+\end{bonnepratique}
+
+%% ============================================================
+\section{Weights \& Biases (W\&B)}
+\label{sec:wandb}
+%% ============================================================
+
+\index{Weights \& Biases}
+
+\subsection{Pr\'esentation}
+
+\pkg{Weights \& Biases} (W\&B) est une plateforme cloud de suivi
+d'exp\'eriences offrant une interface web riche, des visualisations
+interactives et des fonctionnalit\'es de collaboration avanc\'ees.
+
+\begin{codeblock}[title=\textbf{Installation et authentification}]
+\begin{minted}{bash}
+pip install wandb
+wandb login  # Saisir la cl\'e API depuis wandb.ai
+\end{minted}
+\end{codeblock}
+
+\subsection{API de suivi W\&B}
+\index{Weights \& Biases!API}
+
+\begin{codeblock}[title=\textbf{Entra\^inement complet avec W\&B}]
+\begin{minted}{python}
+import wandb
+from sklearn.datasets import load_wine
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.metrics import accuracy_score, f1_score
+
+# Initialiser W&B
+wandb.init(
+    project="wine-classification",
+    name="gradient-boosting-v1",
+    config={
+        "n_estimators": 150,
+        "learning_rate": 0.1,
+        "max_depth": 5,
+        "random_state": 42,
+    }
+)
+config = wandb.config
+
+# Charger les donn\'ees
+X, y = load_wine(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=config.random_state
+)
+
+# Entra\^iner le mod\`ele
+model = GradientBoostingClassifier(
+    n_estimators=config.n_estimators,
+    learning_rate=config.learning_rate,
+    max_depth=config.max_depth,
+    random_state=config.random_state,
+)
+
+# Suivi \'epoque par \'epoque (staged_predict)
+model.fit(X_train, y_train)
+for i, y_pred_staged in enumerate(
+    model.staged_predict(X_test)
+):
+    acc = accuracy_score(y_test, y_pred_staged)
+    wandb.log({"epoch": i, "accuracy": acc})
+
+# M\'etriques finales
+y_pred = model.predict(X_test)
+final_acc = accuracy_score(y_test, y_pred)
+final_f1 = f1_score(y_test, y_pred, average="weighted")
+
+wandb.log({
+    "final_accuracy": final_acc,
+    "final_f1": final_f1,
+})
+
+# Enregistrer le mod\`ele comme artefact
+artifact = wandb.Artifact("wine-model", type="model")
+artifact.add_file("models/model.pkl")
+wandb.log_artifact(artifact)
+
+wandb.finish()
+\end{minted}
+\end{codeblock}
+
+\subsection{Sweeps~: recherche d'hyperparam\`etres}
+\index{Weights \& Biases!Sweeps}
+
+\begin{codeblock}[title=\textbf{Configuration d'un Sweep W\&B}]
+\begin{minted}{yaml}
+# sweep_config.yaml
+program: train.py
+method: bayes  # random, grid, bayes
+metric:
+  name: final_accuracy
+  goal: maximize
+parameters:
+  n_estimators:
+    values: [50, 100, 200, 500]
+  learning_rate:
+    min: 0.001
+    max: 0.3
+  max_depth:
+    values: [3, 5, 7, 10]
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Lancer un Sweep}]
+\begin{minted}{bash}
+# Cr\'eer le sweep
+wandb sweep sweep_config.yaml
+# Retourne un sweep_id
+
+# Lancer les agents
+wandb agent <username>/<project>/<sweep_id>
+\end{minted}
+\end{codeblock}
+
+%% ============================================================
+\section{Hydra pour la gestion de configuration}
+\label{sec:hydra}
+%% ============================================================
+
+\index{Hydra}
+
+\pkg{Hydra} est un framework de configuration d\'evelopp\'e par Meta qui
+simplifie la gestion des param\`etres dans les projets ML.
+
+\begin{codeblock}[title=\textbf{Structure de configuration Hydra}]
+\begin{minted}{yaml}
+# config/config.yaml
+defaults:
+  - model: random_forest
+  - data: wine
+
+training:
+  test_size: 0.2
+  random_state: 42
+
+# config/model/random_forest.yaml
+name: RandomForest
+n_estimators: 100
+max_depth: 10
+
+# config/model/gradient_boosting.yaml
+name: GradientBoosting
+n_estimators: 200
+learning_rate: 0.1
+
+# config/data/wine.yaml
+name: wine
+path: data/raw/wine.csv
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Utilisation de Hydra avec MLflow}]
+\begin{minted}{python}
+import hydra
+from omegaconf import DictConfig
+import mlflow
+
+@hydra.main(config_path="config", config_name="config",
+            version_base=None)
+def train(cfg: DictConfig):
+    mlflow.set_experiment(cfg.data.name)
+
+    with mlflow.start_run():
+        # Les param\`etres viennent de la config Hydra
+        mlflow.log_params({
+            "model": cfg.model.name,
+            "n_estimators": cfg.model.n_estimators,
+            "test_size": cfg.training.test_size,
+        })
+
+        # ... entra\^inement ...
+
+        mlflow.log_metric("accuracy", accuracy)
+
+if __name__ == "__main__":
+    train()
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Override de configuration en ligne de commande}]
+\begin{minted}{bash}
+# Utiliser la config par d\'efaut
+python train.py
+
+# Changer de mod\`ele
+python train.py model=gradient_boosting
+
+# Override un param\`etre
+python train.py model.n_estimators=500
+
+# Multi-run (grid search)
+python train.py --multirun \
+    model=random_forest,gradient_boosting \
+    model.n_estimators=100,200,500
+\end{minted}
+\end{codeblock}
+
+%% ============================================================
+\section{Architecture du suivi d'exp\'eriences}
+\label{sec:tracking-architecture}
+%% ============================================================
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    node distance=1.5cm and 2cm,
+    block/.style={rectangle, draw, rounded corners, minimum width=2.8cm,
+                  minimum height=1cm, align=center, font=\small},
+    server/.style={rectangle, draw, rounded corners, minimum width=3cm,
+                   minimum height=1.2cm, align=center, font=\small,
+                   double, double distance=1.5pt},
+    storage/.style={cylinder, draw, shape border rotate=90,
+                    minimum width=1.8cm, minimum height=1.2cm,
+                    align=center, font=\small},
+    arrow/.style={-{Stealth}, thick},
+  ]
+
+  % Sources
+  \node[block, fill=blue!15] (script) {Script\\d'entra\^inement};
+  \node[block, fill=blue!15, below=1cm of script] (notebook) {Notebook\\Jupyter};
+  \node[block, fill=blue!15, below=1cm of notebook] (hydra) {Hydra\\Config};
+
+  % Serveur de tracking
+  \node[server, fill=green!20, right=3cm of notebook] (tracker) {Serveur de\\suivi\\(MLflow / W\&B)};
+
+  % Stockage
+  \node[storage, fill=orange!15, right=2.5cm of tracker] (db) {Base de\\donn\'ees\\m\'etriques};
+  \node[storage, fill=yellow!15, above=1cm of db] (artifacts) {Stockage\\artefacts};
+  \node[block, fill=purple!15, below=1cm of db] (ui) {Interface\\Web (UI)};
+
+  % Fl\`eches
+  \draw[arrow] (script) -- (tracker);
+  \draw[arrow] (notebook) -- (tracker);
+  \draw[arrow] (hydra) -- (tracker);
+  \draw[arrow] (tracker) -- (db);
+  \draw[arrow] (tracker) -- (artifacts);
+  \draw[arrow] (db) -- (ui);
+  \draw[arrow] (artifacts) -- (ui);
+
+  % \'Etiquettes
+  \node[font=\scriptsize, above=0.1cm of script.east, anchor=south west]
+    {param\`etres, m\'etriques};
+  \node[font=\scriptsize, below right=0.1cm of tracker.east, anchor=north west]
+    {SQL / API};
+
+\end{tikzpicture}
+\caption{Architecture g\'en\'erale d'un syst\`eme de suivi d'exp\'eriences.
+Les scripts et notebooks envoient les donn\'ees au serveur de suivi, qui les
+persiste dans une base de donn\'ees et un stockage d'artefacts, accessibles
+via une interface web.}
+\label{fig:tracking-architecture}
+\end{figure}
+
+%% ============================================================
+\section{Comparaison des outils de suivi}
+\label{sec:tracking-tools-comparison}
+%% ============================================================
+
+\index{Neptune}\index{ClearML}
+
+\begin{table}[htbp]
+\centering
+\caption{Comparaison des outils de suivi d'exp\'eriences}
+\label{tab:tracking-tools}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Crit\`ere} & \textbf{MLflow} & \textbf{W\&B} & \textbf{Neptune} & \textbf{ClearML} \\
+\midrule
+Licence & Open-source & Freemium & Freemium & Open-source \\
+H\'ebergement & Self-hosted & Cloud & Cloud & Self/Cloud \\
+Interface web & Bonne & Excellente & Excellente & Bonne \\
+Model Registry & Oui & Oui & Oui & Oui \\
+Sweeps/HPO & Non natif & Oui & Oui & Oui \\
+Collaboration & Basique & Avanc\'ee & Avanc\'ee & Bonne \\
+Int\'egration DL & Bonne & Excellente & Excellente & Bonne \\
+Taille \'equipe & Toutes & Petite--grande & Moyenne--grande & Toutes \\
+Co\^ut production & Gratuit & Payant & Payant & Gratuit \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{remarque}
+\textbf{MLflow} est le choix privil\'egi\'e pour les \'equipes souhaitant garder
+le contr\^ole total de leur infrastructure (self-hosted). \textbf{W\&B} offre
+la meilleure exp\'erience utilisateur pour les \'equipes de recherche qui
+pr\'ef\`erent une solution cloud cl\'e en main.
+\end{remarque}
+
+%% ============================================================
+\section{Mini-projet~: suivi d'exp\'eriences pour le projet fil rouge}
+\label{sec:miniprojet-tracking}
+%% ============================================================
+
+\begin{miniprojet}[title=\textbf{Instrumenter le projet des chapitres 1--3 avec MLflow}]
+\textbf{Objectif}~: Ajouter le suivi d'exp\'eriences au pipeline de
+classification cr\'e\'e dans les chapitres pr\'ec\'edents.
+
+\begin{enumerate}
+  \item Installer et lancer MLflow~:
+\begin{minted}{bash}
+pip install mlflow
+mlflow ui --port 5000 &
+\end{minted}
+
+  \item Modifier le script d'entra\^inement pour int\'egrer MLflow~:
+\begin{minted}{python}
+import mlflow
+import mlflow.sklearn
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, f1_score
+import json
+
+mlflow.set_experiment("projet-fil-rouge")
+
+with mlflow.start_run(run_name="baseline-rf"):
+    params = {
+        "n_estimators": 100,
+        "max_depth": 10,
+        "random_state": 42,
+    }
+    mlflow.log_params(params)
+
+    model = RandomForestClassifier(**params)
+    model.fit(X_train, y_train)
+
+    y_pred = model.predict(X_test)
+    metrics = {
+        "accuracy": accuracy_score(y_test, y_pred),
+        "f1": f1_score(y_test, y_pred, average="weighted"),
+    }
+    mlflow.log_metrics(metrics)
+
+    # Sauvegarder les m\'etriques pour DVC
+    with open("metrics/scores.json", "w") as f:
+        json.dump(metrics, f, indent=2)
+
+    mlflow.sklearn.log_model(model, "model")
+\end{minted}
+
+  \item Cr\'eer une configuration Hydra pour varier les hyperparam\`etres.
+
+  \item Lancer au moins 5 exp\'eriences avec des param\`etres diff\'erents.
+
+  \item Utiliser l'interface MLflow pour comparer les runs et
+        identifier la meilleure configuration.
+
+  \item Enregistrer le meilleur mod\`ele dans le Model Registry et le
+        promouvoir en \texttt{Staging}.
+\end{enumerate}
+\end{miniprojet}
+
+%% ============================================================
+\section{Exercices}
+\label{sec:exos-suivi-experiences}
+%% ============================================================
+
+\begin{exercice}[Prise en main de MLflow]
+\textbf{1/3}
+Installez MLflow et enregistrez une exp\'erience simple~:
+\begin{enumerate}
+  \item Entra\^inez un mod\`ele \texttt{LogisticRegression} sur le dataset Iris.
+  \item Enregistrez les param\`etres \texttt{C}, \texttt{solver} et
+        \texttt{max\_iter}.
+  \item Enregistrez les m\'etriques \texttt{accuracy} et \texttt{f1\_macro}.
+  \item Lancez l'interface MLflow et v\'erifiez que le run appara\^it.
+  \item Relancez avec des param\`etres diff\'erents et comparez dans l'UI.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Sweeps W\&B et analyse]
+\textbf{2/3}
+Utilisez W\&B Sweeps pour optimiser les hyperparam\`etres d'un mod\`ele
+\texttt{GradientBoosting}~:
+\begin{enumerate}
+  \item Cr\'eez un fichier \file{sweep\_config.yaml} explorant~:
+    \begin{itemize}
+      \item \texttt{n\_estimators}~: 50, 100, 200, 500.
+      \item \texttt{learning\_rate}~: entre 0.001 et 0.5 (\'echelle log).
+      \item \texttt{max\_depth}~: 3, 5, 7, 10.
+    \end{itemize}
+  \item Lancez un sweep bay\'esien avec 20 runs.
+  \item Analysez les r\'esultats dans l'interface W\&B~: parallel coordinates,
+        importance des hyperparam\`etres.
+  \item R\'edigez un rapport W\&B r\'esumant vos conclusions.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Pipeline complet Hydra + MLflow + DVC]
+\textbf{3/3}
+Construisez un pipeline ML complet int\'egrant les trois outils~:
+\begin{enumerate}
+  \item Utilisez \textbf{DVC} pour versionner les donn\'ees et d\'efinir les
+        \'etapes du pipeline (\file{dvc.yaml}).
+  \item Utilisez \textbf{Hydra} pour g\'erer les configurations~: cr\'eez au
+        moins trois fichiers de config (un par mod\`ele).
+  \item Utilisez \textbf{MLflow} pour suivre chaque exp\'erience
+        automatiquement.
+  \item Int\'egrez le tout pour que \cli{dvc repro} ex\'ecute le pipeline et
+        enregistre les r\'esultats dans MLflow.
+  \item Comparez les r\'esultats de trois architectures diff\'erentes et
+        enregistrez la meilleure dans le Model Registry.
+\end{enumerate}
+\end{exercice}
+
+%% ============================================================
+\section{Aide-m\'emoire}
+\label{sec:cheatsheet-suivi-experiences}
+%% ============================================================
+
+\begin{cheatsheet}[title=\textbf{Suivi d'exp\'eriences --- Aide-m\'emoire}]
+\small
+\begin{tabular}{p{4.5cm}p{8.5cm}}
+\toprule
+\textbf{Action} & \textbf{Commande / Code} \\
+\midrule
+\multicolumn{2}{l}{\textbf{MLflow}} \\
+\midrule
+Lancer l'UI & \cli{mlflow ui --port 5000} \\
+Cr\'eer une exp\'erience & \texttt{mlflow.set\_experiment("nom")} \\
+D\'emarrer un run & \texttt{mlflow.start\_run(run\_name="nom")} \\
+Logger param\`etres & \texttt{mlflow.log\_params(dict)} \\
+Logger m\'etriques & \texttt{mlflow.log\_metric("nom", val, step)} \\
+Logger un mod\`ele & \texttt{mlflow.sklearn.log\_model(m, "nom")} \\
+Enregistrer au registry & \texttt{mlflow.register\_model(uri, "nom")} \\
+\midrule
+\multicolumn{2}{l}{\textbf{Weights \& Biases}} \\
+\midrule
+Connexion & \cli{wandb login} \\
+Initialiser & \texttt{wandb.init(project, name, config)} \\
+Logger m\'etriques & \texttt{wandb.log(\{"metric": val\})} \\
+Logger artefact & \texttt{wandb.log\_artifact(artifact)} \\
+Cr\'eer un sweep & \cli{wandb sweep config.yaml} \\
+Lancer un agent & \cli{wandb agent user/proj/sweep\_id} \\
+Terminer & \texttt{wandb.finish()} \\
+\midrule
+\multicolumn{2}{l}{\textbf{Hydra}} \\
+\midrule
+D\'ecorateur principal & \texttt{@hydra.main(config\_path, config\_name)} \\
+Override param\`etre & \cli{python train.py model.lr=0.01} \\
+Multi-run & \cli{python train.py --multirun model=a,b,c} \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}

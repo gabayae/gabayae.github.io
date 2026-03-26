@@ -1,0 +1,381 @@
+% =============================================================================
+\chapter{Gradients de Politique --- REINFORCE}
+\label{ch:gradient_politique}
+% =============================================================================
+
+Jusqu'ici, nous avons appris des \emph{fonctions de valeur} et d\'eduit la politique indirectement. Les m\'ethodes de gradient de politique inversent cette logique~: elles param\'etrisent directement la politique $\pi_\theta$ et optimisent ses param\`etres par mont\'ee de gradient. L'algorithme REINFORCE, propos\'e par Ronald Williams en 1992, utilise le \emph{th\'eor\`eme du gradient de politique} --- un r\'esultat \'el\'egant qui exprime le gradient de la performance esp\'er\'ee en termes d'esp\'erance sous la politique, sans n\'ecessiter de diff\'erencier \`a travers la dynamique de l'environnement. Cette approche ouvre la voie aux espaces d'actions continus et aux politiques stochastiques expressives.
+
+\begin{intuition}
+Les m\'ethodes de gradient de politique optimisent directement les param\`etres
+$\theta$ d'une politique $\pi_\theta$ en montant le gradient de la performance
+$J(\theta) = \E_{\pi_\theta}[G_0]$. Contrairement aux m\'ethodes fond\'ees
+sur la valeur, elles peuvent naturellement g\'erer les espaces d'action continus
+et les politiques stochastiques.
+\end{intuition}
+
+% -----------------------------------------------------------------------------
+\section{Motivation}
+% -----------------------------------------------------------------------------
+
+Les m\'ethodes de type DQN pr\'esentent des limitations~:
+\begin{itemize}
+    \item Elles ne s'appliquent qu'aux espaces d'action \textbf{discrets} et de
+    petite taille (le $\max$ sur les actions est explicite).
+    \item La politique est implicite (gloutonne par rapport \`a $Q$) et ne peut
+    repr\'esenter que des politiques d\'eterministes.
+    \item De petits changements dans $Q$ peuvent causer de grands changements
+    dans la politique, rendant l'apprentissage instable.
+\end{itemize}
+
+L'id\'ee du gradient de politique est de param\'etrer directement $\pi_\theta$
+et d'optimiser $\theta$ par mont\'ee de gradient.
+
+% -----------------------------------------------------------------------------
+\section{Objectif et th\'eor\`eme du gradient de politique}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Objectif de performance]
+L'objectif de performance est le retour esp\'er\'e sous la politique $\pi_\theta$~:
+\[
+    J(\theta) = \E_{\tau \sim \pi_\theta}\left[\sum_{t=0}^{T-1} \gamma^t R_{t+1}\right]
+    = \E_{s_0 \sim \rho_0}\left[V^{\pi_\theta}(s_0)\right]
+\]
+o\`u $\rho_0$ est la distribution initiale des \'etats et $\tau = (s_0, a_0, r_1, s_1, \ldots)$
+est une trajectoire.
+\end{definition}
+
+\begin{theoreme}[Th\'eor\`eme du gradient de politique]
+\label{thm:policy_gradient}
+Le gradient de $J(\theta)$ est~:
+\[
+    \nabla_\theta J(\theta) = \E_{\pi_\theta}\left[
+    \sum_{t=0}^{T-1} \nabla_\theta \log \pi_\theta(A_t \mid S_t) \, Q^{\pi_\theta}(S_t, A_t)
+    \right].
+\]
+\end{theoreme}
+
+\begin{proof}
+On commence par le cas \`a un pas. Soit $J(\theta) = \sum_s d^{\pi_\theta}(s)
+\sum_a \pi_\theta(a|s) Q^{\pi_\theta}(s,a)$ o\`u $d^{\pi_\theta}(s)$ est la
+distribution stationnaire. Alors~:
+\begin{align*}
+    \nabla_\theta J(\theta)
+    &= \sum_s d^{\pi_\theta}(s) \sum_a \nabla_\theta \pi_\theta(a|s) Q^{\pi_\theta}(s,a) \\
+    &\quad + \sum_s \nabla_\theta d^{\pi_\theta}(s) \sum_a \pi_\theta(a|s) Q^{\pi_\theta}(s,a).
+\end{align*}
+Le r\'esultat remarquable (Sutton et al., 2000) est que l'on peut ignorer le
+second terme (d\'ependance de $d^{\pi_\theta}$ en $\theta$). En utilisant
+l'identit\'e du log-gradient $\nabla_\theta \pi_\theta = \pi_\theta \nabla_\theta \log \pi_\theta$~:
+\[
+    \nabla_\theta J(\theta) = \E_{\pi_\theta}\left[
+    \nabla_\theta \log \pi_\theta(A_t | S_t) \, Q^{\pi_\theta}(S_t, A_t)\right].
+\]
+Pour l'horizon fini, on somme sur $t = 0, \ldots, T-1$.
+\end{proof}
+
+\begin{formules}[title=\textbf{Th\'eor\`eme du gradient de politique}]
+\[
+    \nabla_\theta J(\theta) = \E_{\pi_\theta}\left[
+    \sum_{t=0}^{T-1} \nabla_\theta \log \pi_\theta(A_t | S_t) \, Q^{\pi_\theta}(S_t, A_t)
+    \right]
+\]
+\end{formules}
+
+% -----------------------------------------------------------------------------
+\section{Algorithme REINFORCE}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[REINFORCE]
+L'algorithme \textbf{REINFORCE} (Williams, 1992) estime le gradient de politique
+en rempla\c{c}ant $Q^{\pi_\theta}(S_t, A_t)$ par le retour Monte Carlo $G_t$~:
+\[
+    \nabla_\theta J(\theta) \approx \frac{1}{N} \sum_{i=1}^{N} \sum_{t=0}^{T_i-1}
+    \nabla_\theta \log \pi_\theta(a_t^{(i)} | s_t^{(i)}) \, G_t^{(i)}.
+\]
+\end{definition}
+
+\begin{algorithme}[title=\textbf{REINFORCE}]
+\begin{enumerate}
+    \item Initialiser les param\`etres $\theta$ de $\pi_\theta$
+    \item Pour chaque \'episode~:
+    \begin{enumerate}
+        \item G\'en\'erer une trajectoire $\tau = (s_0, a_0, r_1, \ldots, s_T)$
+        en suivant $\pi_\theta$
+        \item Pour $t = T-1, T-2, \ldots, 0$~: calculer $G_t = \sum_{k=0}^{T-t-1} \gamma^k r_{t+k+1}$
+        \item $\theta \leftarrow \theta + \alpha \sum_{t=0}^{T-1} \gamma^t \nabla_\theta \log \pi_\theta(a_t | s_t) \, G_t$
+    \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+% -----------------------------------------------------------------------------
+\section{R\'eduction de variance~: la ligne de base}
+% -----------------------------------------------------------------------------
+
+\begin{theoreme}[Ligne de base]
+\label{thm:baseline}
+Pour toute fonction $b(s)$ ne d\'ependant pas de $a$~:
+\[
+    \E_{\pi_\theta}\left[\nabla_\theta \log \pi_\theta(a|s) \, b(s)\right] = 0.
+\]
+On peut donc soustraire $b(s)$ du retour sans introduire de biais~:
+\[
+    \nabla_\theta J(\theta) = \E_{\pi_\theta}\left[
+    \nabla_\theta \log \pi_\theta(a_t|s_t) \, (G_t - b(s_t))
+    \right].
+\]
+\end{theoreme}
+
+\begin{proof}
+\begin{align*}
+    \E_\pi[\nabla_\theta \log \pi_\theta(a|s) \, b(s)]
+    &= \sum_a \pi_\theta(a|s) \frac{\nabla_\theta \pi_\theta(a|s)}{\pi_\theta(a|s)} b(s) \\
+    &= b(s) \sum_a \nabla_\theta \pi_\theta(a|s) \\
+    &= b(s) \nabla_\theta \underbrace{\sum_a \pi_\theta(a|s)}_{=1} = 0. \qedhere
+\end{align*}
+\end{proof}
+
+\begin{remarque}
+Le choix optimal de la ligne de base pour minimiser la variance est~:
+\[
+    b^*(s) = \frac{\E[\norm{\nabla_\theta \log \pi_\theta}^2 G_t \mid S_t = s]}
+    {\E[\norm{\nabla_\theta \log \pi_\theta}^2 \mid S_t = s]}.
+\]
+En pratique, on utilise $b(s) \approx V^{\pi_\theta}(s)$, ce qui donne le
+gradient \`a base d'avantage~:
+\[
+    \nabla_\theta J(\theta) \approx \E_{\pi_\theta}\left[
+    \nabla_\theta \log \pi_\theta(a_t|s_t) \, \hat{A}_t
+    \right]
+\]
+o\`u $\hat{A}_t = G_t - V(s_t; \phi)$ est l'estimateur de l'avantage.
+C'est la base des m\'ethodes acteur-critique (Chapitre~\ref{ch:acteur_critique}).
+\end{remarque}
+
+% -----------------------------------------------------------------------------
+\section{Politique gaussienne pour actions continues}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Politique gaussienne]
+Pour un espace d'action continu $\mathcal{A} \subseteq \R^d$, on param\`etre~:
+\[
+    \pi_\theta(a | s) = \mathcal{N}\!\left(a; \mu_\theta(s), \sigma_\theta^2(s) I\right)
+\]
+o\`u $\mu_\theta(s)$ et $\sigma_\theta(s)$ sont des sorties du r\'eseau de neurones.
+Le log-gradient est~:
+\[
+    \nabla_\theta \log \pi_\theta(a|s) =
+    \frac{(a - \mu_\theta(s))}{\sigma_\theta^2(s)} \nabla_\theta \mu_\theta(s)
+    + \left(\frac{(a - \mu_\theta(s))^2}{\sigma_\theta^3(s)} - \frac{1}{\sigma_\theta(s)}\right) \nabla_\theta \sigma_\theta(s).
+\]
+\end{definition}
+
+% -----------------------------------------------------------------------------
+\section{Politique softmax pour actions discr\`etes}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Politique softmax]
+Pour un espace d'action discret $\mathcal{A} = \{1, \ldots, K\}$~:
+\[
+    \pi_\theta(a | s) = \frac{\exp(h_\theta(s, a))}{\sum_{a'} \exp(h_\theta(s, a'))}
+\]
+o\`u $h_\theta(s, a)$ sont les logits produits par le r\'eseau de neurones.
+Le log-gradient est~:
+\[
+    \nabla_\theta \log \pi_\theta(a|s) = \nabla_\theta h_\theta(s,a)
+    - \sum_{a'} \pi_\theta(a'|s) \nabla_\theta h_\theta(s,a').
+\]
+\end{definition}
+
+% -----------------------------------------------------------------------------
+\section{Causalit\'e et r\'eduction de variance suppl\'ementaire}
+% -----------------------------------------------------------------------------
+
+\begin{proposition}[Causalit\'e dans le gradient de politique]
+Les r\'ecompenses pass\'ees ne d\'ependent pas des actions futures. On peut
+donc remplacer $G_t$ par le \textbf{retour futur}~:
+\[
+    \nabla_\theta J(\theta) = \E_{\pi_\theta}\left[
+    \sum_{t=0}^{T-1} \nabla_\theta \log \pi_\theta(a_t|s_t)
+    \left(\sum_{k=t}^{T-1} \gamma^{k-t} r_{k+1}\right)
+    \right].
+\]
+Cela r\'eduit la variance sans introduire de biais.
+\end{proposition}
+
+% -----------------------------------------------------------------------------
+\section{Impl\'ementation PyTorch}
+% -----------------------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{REINFORCE avec ligne de base}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.distributions import Categorical
+import gymnasium as gym
+import numpy as np
+
+class PolicyNetwork(nn.Module):
+    def __init__(self, obs_dim, n_actions, hidden=128):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(obs_dim, hidden), nn.ReLU(),
+            nn.Linear(hidden, hidden), nn.ReLU(),
+            nn.Linear(hidden, n_actions)
+        )
+
+    def forward(self, x):
+        logits = self.net(x)
+        return Categorical(logits=logits)
+
+class ValueNetwork(nn.Module):
+    def __init__(self, obs_dim, hidden=128):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(obs_dim, hidden), nn.ReLU(),
+            nn.Linear(hidden, hidden), nn.ReLU(),
+            nn.Linear(hidden, 1)
+        )
+
+    def forward(self, x):
+        return self.net(x).squeeze(-1)
+
+def reinforce_baseline(env_name="CartPole-v1", n_episodes=1000,
+                       gamma=0.99, lr_pi=1e-3, lr_v=1e-3):
+    env = gym.make(env_name)
+    obs_dim = env.observation_space.shape[0]
+    n_actions = env.action_space.n
+
+    policy = PolicyNetwork(obs_dim, n_actions)
+    value_fn = ValueNetwork(obs_dim)
+    opt_pi = optim.Adam(policy.parameters(), lr=lr_pi)
+    opt_v = optim.Adam(value_fn.parameters(), lr=lr_v)
+
+    for ep in range(n_episodes):
+        states, actions, rewards = [], [], []
+        s, _ = env.reset()
+        done = False
+
+        while not done:
+            s_t = torch.FloatTensor(s)
+            dist = policy(s_t)
+            a = dist.sample()
+            s_next, r, terminated, truncated, _ = env.step(a.item())
+            states.append(s)
+            actions.append(a.item())
+            rewards.append(r)
+            s = s_next
+            done = terminated or truncated
+
+        # Calcul des retours
+        T = len(rewards)
+        returns = np.zeros(T)
+        G = 0
+        for t in reversed(range(T)):
+            G = rewards[t] + gamma * G
+            returns[t] = G
+
+        states_t = torch.FloatTensor(np.array(states))
+        actions_t = torch.LongTensor(actions)
+        returns_t = torch.FloatTensor(returns)
+
+        # Mise a jour de la ligne de base (value function)
+        values = value_fn(states_t)
+        value_loss = nn.MSELoss()(values, returns_t)
+        opt_v.zero_grad()
+        value_loss.backward()
+        opt_v.step()
+
+        # Mise a jour de la politique
+        with torch.no_grad():
+            advantages = returns_t - value_fn(states_t)
+
+        dist = policy(states_t)
+        log_probs = dist.log_prob(actions_t)
+        policy_loss = -(log_probs * advantages).mean()
+        opt_pi.zero_grad()
+        policy_loss.backward()
+        opt_pi.step()
+
+        if ep % 100 == 0:
+            print(f"Episode {ep}, Return: {returns[0]:.1f}")
+
+    return policy
+
+policy = reinforce_baseline()
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{REINFORCE pour actions continues}]
+\begin{minted}{python}
+from torch.distributions import Normal
+
+class GaussianPolicy(nn.Module):
+    def __init__(self, obs_dim, act_dim, hidden=64):
+        super().__init__()
+        self.shared = nn.Sequential(
+            nn.Linear(obs_dim, hidden), nn.Tanh(),
+            nn.Linear(hidden, hidden), nn.Tanh()
+        )
+        self.mu_head = nn.Linear(hidden, act_dim)
+        self.log_std = nn.Parameter(torch.zeros(act_dim))
+
+    def forward(self, x):
+        h = self.shared(x)
+        mu = self.mu_head(h)
+        std = self.log_std.exp()
+        return Normal(mu, std)
+\end{minted}
+\end{codeblock}
+
+% -----------------------------------------------------------------------------
+\section{Analyse de la variance}
+% -----------------------------------------------------------------------------
+
+\begin{theoreme}[Variance de REINFORCE]
+La variance de l'estimateur REINFORCE cro\^it avec~:
+\begin{enumerate}
+    \item La longueur de l'horizon $T$~: $\Var[\hat{g}] = O(T)$.
+    \item La dimensionnalit\'e de $\theta$~: chaque composante a sa propre variance.
+    \item La stochasticit\'e de la politique et de l'environnement.
+\end{enumerate}
+La ligne de base r\'eduit la variance d'un facteur qui d\'epend de la corr\'elation
+entre $\nabla \log \pi$ et $G_t - b(s)$.
+\end{theoreme}
+
+\begin{attention}[title=\textbf{Limitations de REINFORCE}]
+REINFORCE souffre de~:
+\begin{itemize}
+    \item Haute variance $\Rightarrow$ convergence lente.
+    \item N\'ecessite des \'episodes complets (pas de bootstrap).
+    \item Utilisation inefficace des donn\'ees (on-policy, pas de rejeu).
+\end{itemize}
+Ces limitations motivent les m\'ethodes acteur-critique (Chapitre~\ref{ch:acteur_critique}).
+\end{attention}
+
+% -----------------------------------------------------------------------------
+\section{Exercices}
+% -----------------------------------------------------------------------------
+
+\begin{exercice}[Effet de la ligne de base]
+Impl\'ementez REINFORCE avec et sans ligne de base sur \texttt{CartPole-v1}.
+Tracez la variance du gradient estim\'e au cours de l'entra\^inement pour les
+deux versions. Comparez la vitesse de convergence.
+\end{exercice}
+
+\begin{exercice}[Actions continues]
+Appliquez REINFORCE avec politique gaussienne \`a l'environnement
+\texttt{Pendulum-v1} (action continue). Utilisez un r\'eseau pour $\mu$ et
+un param\`etre apprenable pour $\log \sigma$.
+\end{exercice}
+
+\begin{exercice}[Preuve du th\'eor\`eme]
+D\'emontrez le th\'eor\`eme du gradient de politique pour le cas \`a horizon
+infini en utilisant la distribution stationnaire $d^{\pi_\theta}$.
+\end{exercice}
+
+\begin{exercice}[Ligne de base optimale]
+D\'erivez analytiquement la ligne de base $b^*(s)$ qui minimise la variance
+de l'estimateur du gradient et montrez que $V^{\pi_\theta}(s)$ en est une
+bonne approximation.
+\end{exercice}

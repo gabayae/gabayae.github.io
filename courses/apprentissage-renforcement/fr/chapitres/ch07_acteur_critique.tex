@@ -1,0 +1,342 @@
+% =============================================================================
+\chapter{M\'ethodes Acteur-Critique}
+\label{ch:acteur_critique}
+% =============================================================================
+
+Les m\'ethodes de gradient de politique (REINFORCE) souffrent d'une variance \'elev\'ee~; les m\'ethodes fond\'ees sur la valeur (DQN) peinent dans les espaces d'actions continus. Au d\'ebut des ann\'ees 2000, Richard Sutton, David McAllester, Satinder Singh et Yishay Mansour formalisent une id\'ee qui r\'econcilie ces deux familles~: le \emph{th\'eor\`eme du gradient de politique} montre que l'on peut estimer le gradient \`a l'aide d'une fonction de valeur apprise s\'epar\'ement. Na\^it alors l'architecture \emph{acteur-critique}~: un \textbf{acteur} qui propose les actions et un \textbf{critique} qui \'evalue leur qualit\'e. Le critique fournit une ligne de base (baseline) qui r\'eduit drastiquement la variance des estimations de gradient, tandis que l'acteur conserve la capacit\'e de repr\'esenter des politiques stochastiques sur des espaces continus. De A2C \`a PPO en passant par SAC, les m\'ethodes acteur-critique dominent aujourd'hui l'apprentissage par renforcement profond.
+
+\begin{intuition}
+Les m\'ethodes acteur-critique combinent le meilleur des deux mondes~: un
+\textbf{acteur} (la politique $\pi_\theta$) et un \textbf{critique} (la
+fonction de valeur $V_\phi$ ou $Q_\phi$). Le critique fournit un estimateur
+\`a faible variance pour guider la mise \`a jour de l'acteur, \'eliminant
+le besoin d'attendre la fin d'un \'episode.
+\end{intuition}
+
+% -----------------------------------------------------------------------------
+\section{Cadre acteur-critique}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Acteur-Critique]
+Un algorithme \textbf{acteur-critique} maintient deux r\'eseaux~:
+\begin{itemize}
+    \item \textbf{Acteur}~: $\pi_\theta(a|s)$, param\'etr\'e par $\theta$.
+    \item \textbf{Critique}~: $V_\phi(s)$ ou $Q_\phi(s,a)$, param\'etr\'e par $\phi$.
+\end{itemize}
+Le critique est mis \`a jour par m\'ethodes TD et l'acteur par gradient de politique
+utilisant le critique comme ligne de base.
+\end{definition}
+
+\begin{formules}[title=\textbf{Mise \`a jour acteur-critique de base}]
+\textbf{Critique}~:
+\[
+    \phi \leftarrow \phi - \alpha_\phi \nabla_\phi \left(
+    R_{t+1} + \gamma V_\phi(S_{t+1}) - V_\phi(S_t) \right)^2
+\]
+\textbf{Acteur}~:
+\[
+    \theta \leftarrow \theta + \alpha_\theta \nabla_\theta \log \pi_\theta(A_t|S_t) \,
+    \underbrace{\left(R_{t+1} + \gamma V_\phi(S_{t+1}) - V_\phi(S_t)\right)}_{\hat{A}_t \text{ (avantage estim\'e)}}
+\]
+\end{formules}
+
+% -----------------------------------------------------------------------------
+\section{Estimateurs de l'avantage}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Generalized Advantage Estimation (GAE)]
+L'estimateur GAE (Schulman et al., 2016) est une moyenne exponentiellement
+pond\'er\'ee des estimateurs \`a $n$ pas~:
+\[
+    \hat{A}_t^{\text{GAE}(\gamma, \lambda)} = \sum_{l=0}^{\infty} (\gamma \lambda)^l \delta_{t+l}
+\]
+o\`u $\delta_t = R_{t+1} + \gamma V_\phi(S_{t+1}) - V_\phi(S_t)$ est l'erreur TD.
+\end{definition}
+
+\begin{proposition}[Cas limites de GAE]
+\begin{itemize}
+    \item $\lambda = 0$~: $\hat{A}_t = \delta_t$ (erreur TD \`a un pas, faible variance, biais \'elev\'e).
+    \item $\lambda = 1$~: $\hat{A}_t = G_t - V_\phi(S_t)$ (retour MC, variance \'elev\'ee, pas de biais).
+\end{itemize}
+\end{proposition}
+
+\begin{proof}
+Pour $\lambda = 1$~:
+\begin{align*}
+    \hat{A}_t^{\text{GAE}(\gamma, 1)} &= \sum_{l=0}^{T-t-1} \gamma^l \delta_{t+l} \\
+    &= \sum_{l=0}^{T-t-1} \gamma^l (R_{t+l+1} + \gamma V(S_{t+l+1}) - V(S_{t+l})) \\
+    &= -V(S_t) + \sum_{l=0}^{T-t-1} \gamma^l R_{t+l+1} + \gamma^{T-t} V(S_T) \\
+    &= G_t - V(S_t) \quad \text{(si $V(S_T) = 0$)}.
+\end{align*}
+\end{proof}
+
+% -----------------------------------------------------------------------------
+\section{A2C --- Advantage Actor-Critic}
+% -----------------------------------------------------------------------------
+
+\begin{algorithme}[title=\textbf{A2C (Advantage Actor-Critic synchrone)}]
+\begin{enumerate}
+    \item Initialiser $\theta$ (acteur) et $\phi$ (critique)
+    \item Lancer $N$ environnements en parall\`ele
+    \item Pour chaque it\'eration~:
+    \begin{enumerate}
+        \item Collecter $T$ pas dans chaque environnement en suivant $\pi_\theta$
+        \item Calculer les avantages $\hat{A}_t$ via GAE
+        \item Calculer les retours cibles $\hat{R}_t = \hat{A}_t + V_\phi(S_t)$
+        \item Mettre \`a jour le critique~:
+        $\phi \leftarrow \phi - \alpha_\phi \nabla_\phi \frac{1}{NT}\sum_{i,t}(V_\phi(s_t^i) - \hat{R}_t^i)^2$
+        \item Mettre \`a jour l'acteur~:
+        $\theta \leftarrow \theta + \alpha_\theta \frac{1}{NT}\sum_{i,t}
+        \nabla_\theta \log \pi_\theta(a_t^i|s_t^i) \hat{A}_t^i$
+        \item Ajouter un bonus d'entropie~: $+ \beta H(\pi_\theta(\cdot|s_t))$
+    \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+% -----------------------------------------------------------------------------
+\section{A3C --- Asynchronous Advantage Actor-Critic}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[A3C]
+\textbf{A3C} (Mnih et al., 2016) lance $N$ \emph{workers} asynchrones, chacun
+interagissant avec sa propre copie de l'environnement. Chaque worker~:
+\begin{enumerate}
+    \item Copie les param\`etres globaux $\theta, \phi$.
+    \item Collecte $T$ pas de transitions.
+    \item Calcule les gradients locaux.
+    \item Met \`a jour les param\`etres globaux de mani\`ere asynchrone.
+\end{enumerate}
+L'asynchronisme remplace la m\'emoire de rejeu en d\'ecorr\'elant les donn\'ees.
+\end{definition}
+
+\begin{remarque}
+En pratique, A2C (synchrone) est souvent pr\'ef\'er\'e \`a A3C car il est plus
+simple \`a impl\'ementer, offre une utilisation plus efficace du GPU et atteint
+des performances similaires.
+\end{remarque}
+
+% -----------------------------------------------------------------------------
+\section{PPO --- Proximal Policy Optimization}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Objectif de substitution]
+L'objectif de substitution (\emph{surrogate objective}) utilis\'e par PPO est~:
+\[
+    L^{\text{CPI}}(\theta) = \E_t\left[\frac{\pi_\theta(a_t|s_t)}{\pi_{\theta_{\text{old}}}(a_t|s_t)}
+    \hat{A}_t\right] = \E_t\left[r_t(\theta) \hat{A}_t\right]
+\]
+o\`u $r_t(\theta) = \pi_\theta(a_t|s_t) / \pi_{\theta_{\text{old}}}(a_t|s_t)$ est
+le rapport de probabilit\'e.
+\end{definition}
+
+\begin{theoreme}[PPO-Clip]
+L'objectif PPO-Clip (Schulman et al., 2017) est~:
+\[
+    L^{\text{CLIP}}(\theta) = \E_t\left[\min\left(
+    r_t(\theta) \hat{A}_t, \;
+    \text{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon) \hat{A}_t
+    \right)\right]
+\]
+avec $\epsilon = 0.2$ typiquement. Cette formulation emp\^eche les mises \`a jour
+trop importantes sans n\'ecessiter de contrainte KL explicite.
+\end{theoreme}
+
+\begin{formules}[title=\textbf{Objectif complet de PPO}]
+\[
+    L(\theta, \phi) = L^{\text{CLIP}}(\theta) - c_1 \, L^{\text{VF}}(\phi)
+    + c_2 \, H[\pi_\theta]
+\]
+o\`u $L^{\text{VF}} = (V_\phi(s_t) - \hat{R}_t)^2$ est la perte du critique,
+$H[\pi_\theta]$ est le bonus d'entropie, et $c_1, c_2$ sont des hyperparamettres.
+\end{formules}
+
+\begin{algorithme}[title=\textbf{PPO}]
+\begin{enumerate}
+    \item Pour chaque it\'eration~:
+    \begin{enumerate}
+        \item Collecter $T$ pas dans $N$ environnements parall\`eles avec $\pi_{\theta_{\text{old}}}$
+        \item Calculer $\hat{A}_t$ via GAE($\gamma, \lambda$)
+        \item Pour $K$ \'epoques sur le mini-lot~:
+        \begin{enumerate}
+            \item Calculer $r_t(\theta) = \pi_\theta(a_t|s_t) / \pi_{\theta_{\text{old}}}(a_t|s_t)$
+            \item $L^{\text{CLIP}} = \E_t[\min(r_t \hat{A}_t, \text{clip}(r_t, 1{\pm}\epsilon)\hat{A}_t)]$
+            \item Mettre \`a jour $\theta$ et $\phi$ par gradient sur $L(\theta, \phi)$
+        \end{enumerate}
+        \item $\theta_{\text{old}} \leftarrow \theta$
+    \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+% -----------------------------------------------------------------------------
+\section{TRPO --- Trust Region Policy Optimization}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[TRPO]
+\textbf{TRPO} (Schulman et al., 2015) maximise l'objectif de substitution
+sous une contrainte de r\'egion de confiance~:
+\[
+    \max_\theta \; L^{\text{CPI}}(\theta) \quad \text{s.c.} \quad
+    \E_t\left[\text{KL}[\pi_{\theta_{\text{old}}}(\cdot|s_t) \,\|\, \pi_\theta(\cdot|s_t)]\right] \leq \delta.
+\]
+\end{definition}
+
+\begin{theoreme}[Garantie d'am\'elioration monotone]
+TRPO garantit une am\'elioration monotone de la politique~:
+\[
+    J(\theta_{\text{new}}) \geq L^{\text{CPI}}(\theta_{\text{new}})
+    - \frac{2\epsilon\gamma}{(1-\gamma)^2} D_{\text{KL}}^{\max}(\theta_{\text{old}}, \theta_{\text{new}})
+\]
+o\`u $\epsilon = \max_{s,a} |A^{\pi_{\text{old}}}(s,a)|$.
+\end{theoreme}
+
+% -----------------------------------------------------------------------------
+\section{Impl\'ementation PyTorch de PPO}
+% -----------------------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{PPO --- R\'eseau acteur-critique}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+from torch.distributions import Categorical
+
+class ActorCritic(nn.Module):
+    def __init__(self, obs_dim, n_actions, hidden=64):
+        super().__init__()
+        self.shared = nn.Sequential(
+            nn.Linear(obs_dim, hidden), nn.Tanh(),
+            nn.Linear(hidden, hidden), nn.Tanh()
+        )
+        self.actor = nn.Linear(hidden, n_actions)
+        self.critic = nn.Linear(hidden, 1)
+
+    def forward(self, x):
+        h = self.shared(x)
+        return Categorical(logits=self.actor(h)), self.critic(h).squeeze(-1)
+
+    def get_action(self, obs):
+        dist, value = self(obs)
+        action = dist.sample()
+        return action, dist.log_prob(action), value
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{PPO --- Boucle d'entra\^inement}]
+\begin{minted}{python}
+import gymnasium as gym
+import numpy as np
+
+def compute_gae(rewards, values, dones, gamma=0.99, lam=0.95):
+    """Calcul du GAE (Generalized Advantage Estimation)."""
+    T = len(rewards)
+    advantages = np.zeros(T)
+    gae = 0
+    for t in reversed(range(T)):
+        next_val = values[t + 1] if t + 1 < len(values) else 0
+        delta = rewards[t] + gamma * next_val * (1 - dones[t]) - values[t]
+        gae = delta + gamma * lam * (1 - dones[t]) * gae
+        advantages[t] = gae
+    returns = advantages + values[:T]
+    return advantages, returns
+
+def train_ppo(env_name="CartPole-v1", total_steps=200000,
+              n_steps=128, n_epochs=4, batch_size=64,
+              gamma=0.99, lam=0.95, clip_eps=0.2,
+              lr=3e-4, ent_coef=0.01, vf_coef=0.5):
+    env = gym.make(env_name)
+    obs_dim = env.observation_space.shape[0]
+    n_actions = env.action_space.n
+
+    model = ActorCritic(obs_dim, n_actions)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    obs, _ = env.reset()
+    step = 0
+
+    while step < total_steps:
+        # Collecte
+        states, actions, rewards, dones = [], [], [], []
+        log_probs_old, values_list = [], []
+
+        for _ in range(n_steps):
+            s_t = torch.FloatTensor(obs)
+            with torch.no_grad():
+                action, log_prob, value = model.get_action(s_t)
+            next_obs, reward, terminated, truncated, _ = env.step(action.item())
+            states.append(obs)
+            actions.append(action.item())
+            rewards.append(reward)
+            dones.append(float(terminated))
+            log_probs_old.append(log_prob.item())
+            values_list.append(value.item())
+            obs = next_obs
+            step += 1
+            if terminated or truncated:
+                obs, _ = env.reset()
+
+        # Valeur bootstrap
+        with torch.no_grad():
+            _, last_val = model(torch.FloatTensor(obs))
+        values_list.append(last_val.item())
+
+        advantages, returns = compute_gae(
+            rewards, values_list, dones, gamma, lam)
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+
+        # Tenseurs
+        s_t = torch.FloatTensor(np.array(states))
+        a_t = torch.LongTensor(actions)
+        adv_t = torch.FloatTensor(advantages)
+        ret_t = torch.FloatTensor(returns)
+        old_lp = torch.FloatTensor(log_probs_old)
+
+        # Optimisation sur K epoques
+        for _ in range(n_epochs):
+            idx = np.random.permutation(n_steps)
+            for start in range(0, n_steps, batch_size):
+                mb = idx[start:start + batch_size]
+                dist, vals = model(s_t[mb])
+                new_lp = dist.log_prob(a_t[mb])
+                ratio = (new_lp - old_lp[mb]).exp()
+                surr1 = ratio * adv_t[mb]
+                surr2 = ratio.clamp(1 - clip_eps, 1 + clip_eps) * adv_t[mb]
+                policy_loss = -torch.min(surr1, surr2).mean()
+                value_loss = (vals - ret_t[mb]).pow(2).mean()
+                entropy = dist.entropy().mean()
+
+                loss = policy_loss + vf_coef * value_loss - ent_coef * entropy
+                optimizer.zero_grad()
+                loss.backward()
+                nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+                optimizer.step()
+
+        if step % 10000 < n_steps:
+            print(f"Step {step}, Recent rewards: {sum(rewards):.0f}")
+    return model
+\end{minted}
+\end{codeblock}
+
+% -----------------------------------------------------------------------------
+\section{Exercices}
+% -----------------------------------------------------------------------------
+
+\begin{exercice}[GAE]
+Impl\'ementez GAE avec diff\'erentes valeurs de $\lambda \in \{0, 0.5, 0.9, 0.95, 1.0\}$
+dans PPO. Tracez les courbes d'apprentissage sur \texttt{CartPole-v1} et
+\texttt{LunarLander-v3}. Discutez du compromis biais-variance.
+\end{exercice}
+
+\begin{exercice}[PPO vs TRPO]
+Impl\'ementez TRPO en utilisant l'optimisation sous contrainte KL avec la m\'ethode
+du gradient conjugu\'e. Comparez avec PPO-Clip en termes de performance et de
+temps de calcul sur \texttt{HalfCheetah-v5}.
+\end{exercice}
+
+\begin{exercice}[Entropie]
+\'Etudiez l'effet du coefficient d'entropie $c_2 \in \{0, 0.001, 0.01, 0.1\}$
+sur l'exploration et la performance finale. Montrez que sans r\'egularisation
+d'entropie, la politique peut converger pr\'ematur\'ement.
+\end{exercice}
+
+\begin{exercice}[A3C asynchrone]
+Impl\'ementez A3C avec le module \texttt{multiprocessing} de Python. Lancez
+4 workers et comparez la vitesse d'entra\^inement (en temps horloge) avec A2C.
+\end{exercice}

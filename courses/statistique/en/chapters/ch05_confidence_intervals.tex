@@ -1,0 +1,149 @@
+% ============================================================
+% Chapter 5: Confidence Intervals
+% ============================================================
+\chapter{Confidence Intervals}
+\label{ch:ci}
+
+\begin{center}
+\textit{``An estimate without a measure of uncertainty is an incomplete estimate.''}
+\end{center}
+
+\section{Motivating Example}
+
+A poll of $n=1000$ people finds 520 in favor of a reform: $\phat=0.52$. How precise is this? A confidence interval answers: ``with 95\% confidence, $p\in[0.489,\,0.551]$.''
+
+\section{Definition and Interpretation}
+
+\begin{definition}[Confidence Interval]
+\index{confidence interval}
+A \textbf{confidence interval} (CI) of level $1-\alpha$ for $\theta$ is $[L(\mathbf{X}),U(\mathbf{X})]$ such that $\Prob_\theta(L\leq\theta\leq U)\geq 1-\alpha$ for all $\theta$.
+\end{definition}
+
+\begin{warning}
+The correct interpretation is \textbf{frequentist}: if we repeat the experiment many times, $(1-\alpha)\times 100\%$ of constructed CIs will contain $\theta$.
+
+\textbf{Common error}: ``There is a 95\% probability that $\theta$ is in the CI.'' No! $\theta$ is fixed; the interval is random. After observation, the CI either contains $\theta$ or it doesn't.
+\end{warning}
+
+\begin{definition}[Pivotal Quantity]
+\index{pivotal quantity}
+A \textbf{pivotal quantity} is $Q(X_1,\ldots,X_n,\theta)$ whose distribution does not depend on $\theta$.
+\end{definition}
+
+\section{CI for the Mean}
+
+\begin{theorem}[Known variance]
+Under $\mathcal{N}(\mu,\sigma^2)$ with $\sigma^2$ known:
+\[
+\xbar \pm z_{\alpha/2}\frac{\sigma}{\sqrt{n}}.
+\]
+\end{theorem}
+
+\begin{theorem}[Unknown variance]
+Under $\mathcal{N}(\mu,\sigma^2)$ with $\sigma^2$ unknown:
+\[
+\xbar \pm t_{\alpha/2,n-1}\frac{S}{\sqrt{n}}.
+\]
+\end{theorem}
+
+\section{CI for the Variance}
+
+\begin{theorem}
+Under normality:
+\[
+\left[\frac{(n-1)S^2}{\chi^2_{\alpha/2,n-1}},\;\frac{(n-1)S^2}{\chi^2_{1-\alpha/2,n-1}}\right].
+\]
+\end{theorem}
+
+\section{CI for a Proportion}
+
+\begin{theorem}[Wald CI]
+For large $n$:
+\[
+\phat \pm z_{\alpha/2}\sqrt{\frac{\phat(1-\phat)}{n}}.
+\]
+\end{theorem}
+
+\begin{warning}
+The Wald CI can perform poorly for $p$ near 0 or 1, or small $n$. The \textbf{Wilson interval} is preferable:
+\[
+\tilde{p} = \frac{\phat n + z^2/2}{n+z^2}, \quad \tilde{p}\pm z_{\alpha/2}\sqrt{\frac{\tilde{p}(1-\tilde{p})}{n+z^2}}.
+\]
+\end{warning}
+
+\section{CI for Two Means}
+
+With common variance $\sigma^2$ unknown:
+\[
+(\xbar-\bar{Y}) \pm t_{\alpha/2,\nu}\cdot S_p\sqrt{1/n_1+1/n_2}, \quad S_p^2=\frac{(n_1-1)S_1^2+(n_2-1)S_2^2}{n_1+n_2-2}.
+\]
+
+\section{Sample Size Determination}
+
+For margin of error $E$: $n\geq(z_{\alpha/2}\sigma/E)^2$. For proportions: $n\geq z_{\alpha/2}^2/(4E^2)$.
+
+\section{Python Implementation}
+
+\begin{python}
+\begin{minted}{python}
+import numpy as np
+from scipy import stats
+import matplotlib.pyplot as plt
+
+data = np.array([12.1, 11.8, 12.5, 12.3, 11.9, 12.7, 12.0, 12.4, 11.7, 12.2])
+n = len(data); xbar = np.mean(data); s = np.std(data, ddof=1)
+alpha = 0.05; t_crit = stats.t.ppf(1-alpha/2, df=n-1)
+ci = (xbar - t_crit*s/np.sqrt(n), xbar + t_crit*s/np.sqrt(n))
+print(f"95% CI for mu: [{ci[0]:.4f}, {ci[1]:.4f}]")
+
+# Proportion CI (Wald and Wilson)
+n_poll, x_fav = 1000, 520
+p_hat = x_fav/n_poll; z = stats.norm.ppf(0.975)
+margin = z*np.sqrt(p_hat*(1-p_hat)/n_poll)
+print(f"Wald CI:   [{p_hat-margin:.4f}, {p_hat+margin:.4f}]")
+p_t = (x_fav + z**2/2)/(n_poll + z**2)
+m_w = z*np.sqrt(p_t*(1-p_t)/(n_poll+z**2))
+print(f"Wilson CI: [{p_t-m_w:.4f}, {p_t+m_w:.4f}]")
+
+# Coverage visualization
+mu_true, sigma_true, n_ci = 12.0, 0.3, 10
+fig, ax = plt.subplots(figsize=(10, 6))
+for i in range(50):
+    sample = np.random.normal(mu_true, sigma_true, n_ci)
+    m, se = np.mean(sample), np.std(sample, ddof=1)/np.sqrt(n_ci)
+    t_c = stats.t.ppf(0.975, df=n_ci-1)
+    lo, hi = m-t_c*se, m+t_c*se
+    color = 'blue' if lo <= mu_true <= hi else 'red'
+    ax.plot([lo, hi], [i, i], color=color, lw=1.5)
+ax.axvline(mu_true, color='green', lw=2, ls='--')
+ax.set_title('50 CIs at 95%: red ones miss $\\mu$')
+plt.savefig("ch05_coverage.pdf"); plt.show()
+\end{minted}
+\end{python}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+15 tea bags: $\bar{x}=2.03$g, $s=0.12$g. Build a 99\% CI for the mean weight.
+\end{exercise}
+
+\begin{exercise}[$\star$]
+23 defective out of 500 items. Build 95\% CIs (Wald and Wilson) for the defect rate.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Find $n$ to estimate mean height within 1~cm at 95\% confidence ($\sigma\approx 8$~cm).
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Project]
+Compare Wald and Wilson coverage rates for $p=0.05$ and $n=20,50,100,500$ via Monte Carlo.
+\end{exercise}
+
+\begin{keyformulas}
+\begin{align*}
+\text{Mean ($\sigma$ known)} &: \xbar\pm z_{\alpha/2}\sigma/\sqrt{n} \\
+\text{Mean ($\sigma$ unknown)} &: \xbar\pm t_{\alpha/2,n-1}S/\sqrt{n} \\
+\text{Proportion} &: \phat\pm z_{\alpha/2}\sqrt{\phat(1-\phat)/n} \\
+\text{Variance} &: \left[\frac{(n-1)S^2}{\chi^2_{\alpha/2}},\;\frac{(n-1)S^2}{\chi^2_{1-\alpha/2}}\right]
+\end{align*}
+\end{keyformulas}

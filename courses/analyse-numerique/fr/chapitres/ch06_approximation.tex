@@ -1,0 +1,101 @@
+% ============================================================
+\chapter{Approximation --- Moindres Carr\'es et Tchebychev}
+\label{ch:approximation}
+% ============================================================
+
+\section{Exemple motivant}
+On a 100 mesures exp\'erimentales bruit\'ees. Faire passer un polyn\^ome de degr\'e 99 par tous les points serait absurde (sur-ajustement). On cherche un polyn\^ome de faible degr\'e qui \emph{approche} les donn\'ees au mieux : c'est l'approximation par moindres carr\'es.
+
+\section{Approximation au sens des moindres carr\'es}
+
+\begin{definition}[Probl\`eme des moindres carr\'es]\index{moindres carres@moindres carr\'es}
+\'Etant donn\'es $(x_i,y_i)_{i=1}^m$ et des fonctions $\varphi_0,\ldots,\varphi_n$ ($n<m$), trouver $c_0,\ldots,c_n$ minimisant :
+\[
+S(c) = \sum_{i=1}^m\left(y_i-\sum_{j=0}^n c_j\varphi_j(x_i)\right)^2 = \|y-Ac\|_2^2,
+\]
+o\`u $A_{ij}=\varphi_j(x_i)$.
+\end{definition}
+
+\begin{theoreme}[\'Equations normales]\index{equations normales@\'equations normales}
+Le minimum est atteint pour $c^*$ solution de :
+\[
+A^\top A\,c^* = A^\top y.
+\]
+La matrice $A^\top A$ est SDP si $A$ est de rang plein.
+\end{theoreme}
+
+\begin{proof}
+$\nabla_c\|y-Ac\|^2=-2A^\top(y-Ac)=0$ donne $A^\top Ac=A^\top y$.
+\end{proof}
+
+\section{Polyn\^omes orthogonaux}\index{polynomes orthogonaux@polyn\^omes orthogonaux}
+
+\begin{definition}
+Pour le produit scalaire $\langle f,g\rangle=\int_a^b f(x)g(x)w(x)\,dx$ (ou discret), les polyn\^omes orthogonaux \'evitent le mauvais conditionnement de $A^\top A$.
+\end{definition}
+
+\begin{theoreme}[Projection orthogonale]
+Si $\{\varphi_j\}$ est une base orthonormale : $c_j=\langle y,\varphi_j\rangle$.
+\end{theoreme}
+
+\section{Meilleure approximation uniforme}\index{Tchebychev!approximation}
+
+\begin{definition}
+Trouver $p^*\in\mathcal{P}_n$ minimisant $\|f-p\|_\infty=\max_{x\in[a,b]}|f(x)-p(x)|$.
+\end{definition}
+
+\begin{theoreme}[Th\'eor\`eme d'\'equioscillation de Tchebychev]
+$p^*$ est la meilleure approximation uniforme de degr\'e $n$ ssi l'erreur $f-p^*$ \'equioscille en au moins $n+2$ points.
+\end{theoreme}
+
+\section{Impl\'ementation}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Moindres carres polynomiaux
+np.random.seed(42)
+x = np.linspace(0, 5, 50)
+y = 2 + 0.5*x + 0.3*x**2 + np.random.normal(0, 1, 50)
+
+for deg in [1, 2, 5]:
+    c = np.polyfit(x, y, deg)
+    p = np.poly1d(c)
+    residual = np.sqrt(np.mean((y - p(x))**2))
+    print(f"Degre {deg}: RMSE = {residual:.4f}")
+
+# Avec equations normales
+A = np.column_stack([np.ones_like(x), x, x**2])
+c_normal = np.linalg.solve(A.T @ A, A.T @ y)
+print(f"Coefs (eq. normales): {c_normal}")
+
+plt.scatter(x, y, s=10, label='Donnees')
+x_fine = np.linspace(0, 5, 200)
+plt.plot(x_fine, np.polyval(np.polyfit(x, y, 2), x_fine), 'r-', label='MC deg 2')
+plt.legend(); plt.savefig("ch06_mc.pdf"); plt.show()
+\end{minted}
+\end{codeblock}
+
+\section{Exercices}
+
+\begin{exercice}[$\star$]
+Ajuster une droite $y=a+bx$ aux donn\'ees $(1,2{,}1)$, $(2,3{,}8)$, $(3,6{,}2)$, $(4,7{,}9)$, $(5,10{,}3)$ par moindres carr\'es. Calculer le RMSE.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Montrer que le conditionnement de $A^\top A$ est le carr\'e du conditionnement de $A$. Pourquoi est-il pr\'ef\'erable d'utiliser la factorisation QR ?
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Projet]
+Impl\'ementer l'approximation de Tchebychev par l'algorithme de Remez. Comparer avec les moindres carr\'es sur des fonctions test.
+\end{exercice}
+
+\begin{formules}
+\begin{align*}
+\min_c\|y-Ac\|_2^2 &\implies A^\top Ac=A^\top y \\
+\cond(A^\top A) &= \cond(A)^2 \\
+\text{\'Equioscillation} &: \text{erreur change de signe en }n+2\text{ points}
+\end{align*}
+\end{formules}

@@ -1,0 +1,483 @@
+% ============================================================
+\chapter{Machines \`a Vecteurs de Support (SVM)}
+\label{ch:svm}
+\index{SVM}
+% ============================================================
+
+\section{Classifieur \`a marge maximale}
+\label{sec:svm-marge}
+
+\subsection{Intuition g\'eom\'etrique}
+
+Consid\'erons un probl\`eme de classification binaire avec
+$\mathcal{D} = \{(\bm{x}_i, y_i)\}_{i=1}^n$, $\bm{x}_i \in \R^d$,
+$y_i \in \{-1, +1\}$. On cherche un hyperplan s\'eparateur
+$H = \{\bm{x} \in \R^d : \bm{w}^\top \bm{x} + b = 0\}$.
+
+\begin{definition}[Marge g\'eom\'etrique]
+\index{marge g\'eom\'etrique}
+La \textbf{marge g\'eom\'etrique} d'un point $(\bm{x}_i, y_i)$ par rapport \`a
+l'hyperplan $(\bm{w}, b)$ est~:
+\begin{equation}
+  \gamma_i = y_i \left( \frac{\bm{w}^\top \bm{x}_i + b}{\norm{\bm{w}}} \right)
+\end{equation}
+La marge de l'ensemble de donn\'ees est $\gamma = \min_{i} \gamma_i$.
+\end{definition}
+
+\begin{intuition}[title=\textbf{Pourquoi maximiser la marge~?}]
+Un hyperplan de grande marge est plus robuste aux perturbations des donn\'ees.
+Intuitivement, si la marge est grande, de petites variations dans les
+observations n'entra\^inent pas de changement de classification. Cela procure
+une meilleure g\'en\'eralisation, comme le confirme la th\'eorie de Vapnik.
+\end{intuition}
+
+\begin{center}
+\begin{tikzpicture}[scale=0.9]
+  % Hyperplan
+  \draw[thick, NavyBlue] (-0.5,-2) -- (4.5,3)
+    node[above right, font=\small] {$\bm{w}^\top\bm{x}+b=0$};
+  % Marges
+  \draw[dashed, NavyBlue!60] (-0.5+0.8,-2-0.5) -- (4.5+0.8,3-0.5)
+    node[right, font=\scriptsize] {$\bm{w}^\top\bm{x}+b=+1$};
+  \draw[dashed, NavyBlue!60] (-0.5-0.8,-2+0.5) -- (4.5-0.8,3+0.5)
+    node[right, font=\scriptsize] {$\bm{w}^\top\bm{x}+b=-1$};
+  % Fleche marge
+  \draw[<->, thick, BrickRed] (1.5-0.8, -0.5+0.5) -- (1.5+0.8, -0.5-0.5)
+    node[midway, below right, font=\small] {$\frac{2}{\norm{\bm{w}}}$};
+  % Points classe +1
+  \foreach \x/\y in {3.5/0.5, 4/1.5, 3.8/2.5, 4.5/1, 3.2/1.8} {
+    \node[draw, fill=blue!30, circle, inner sep=1.5pt] at (\x,\y) {};
+  }
+  % Points classe -1
+  \foreach \x/\y in {0.5/0.5, 0/1.5, 0.3/-0.5, 1/-1, 0.8/0.8} {
+    \node[draw, fill=red!30, regular polygon, regular polygon sides=3,
+      inner sep=1.2pt] at (\x,\y) {};
+  }
+  % Vecteurs de support
+  \node[draw, fill=blue!30, circle, inner sep=1.5pt, very thick,
+    label={[font=\scriptsize]right:SV}] at (2.8,-0.2) {};
+  \node[draw, fill=red!30, regular polygon, regular polygon sides=3,
+    inner sep=1.2pt, very thick,
+    label={[font=\scriptsize]left:SV}] at (1.2,-0.3) {};
+\end{tikzpicture}
+\end{center}
+
+\subsection{D\'erivation du probl\`eme d'optimisation}
+
+On veut maximiser la marge $\gamma = \frac{2}{\norm{\bm{w}}}$ sous la
+contrainte que tous les points sont correctement class\'es. Puisque
+$(\bm{w}, b)$ peut \^etre mis \`a l'\'echelle, on impose la convention
+$\min_i y_i(\bm{w}^\top\bm{x}_i + b) = 1$ (marge fonctionnelle unitaire).
+
+\begin{formules}[title=\textbf{Probl\`eme SVM \`a marge dure (primal)}]
+\begin{equation}
+\boxed{
+  \min_{\bm{w}, b} \quad \frac{1}{2}\norm{\bm{w}}^2
+  \qquad \text{s.c.} \quad y_i(\bm{w}^\top\bm{x}_i + b) \geq 1,
+  \quad \forall\, i = 1, \ldots, n
+}
+\label{eq:hard-svm}
+\end{equation}
+C'est un probl\`eme d'optimisation quadratique convexe avec contraintes
+lin\'eaires.
+\end{formules}
+
+\section{SVM \`a marge dure}
+\label{sec:hard-margin}
+\index{SVM!marge dure}
+
+\subsection{Formulation duale}
+
+On introduit les multiplicateurs de Lagrange $\alpha_i \geq 0$ et on forme le
+lagrangien~:
+\begin{equation}
+  \mathcal{L}(\bm{w}, b, \bm{\alpha}) = \frac{1}{2}\norm{\bm{w}}^2
+  - \sum_{i=1}^n \alpha_i \bigl[ y_i(\bm{w}^\top\bm{x}_i + b) - 1 \bigr]
+\end{equation}
+
+Les conditions d'optimalit\'e (stationnarit\'e) donnent~:
+\begin{align}
+  \frac{\partial \mathcal{L}}{\partial \bm{w}} = 0
+  &\implies \bm{w} = \sum_{i=1}^n \alpha_i y_i \bm{x}_i
+  \label{eq:svm-w-dual} \\
+  \frac{\partial \mathcal{L}}{\partial b} = 0
+  &\implies \sum_{i=1}^n \alpha_i y_i = 0
+  \label{eq:svm-b-dual}
+\end{align}
+
+En substituant dans $\mathcal{L}$, on obtient le probl\`eme dual~:
+
+\begin{formules}[title=\textbf{Probl\`eme dual (marge dure)}]
+\begin{equation}
+\boxed{
+  \max_{\bm{\alpha}} \quad \sum_{i=1}^n \alpha_i
+  - \frac{1}{2}\sum_{i=1}^n\sum_{j=1}^n \alpha_i \alpha_j y_i y_j
+    \bm{x}_i^\top \bm{x}_j
+  \qquad \text{s.c.} \quad \alpha_i \geq 0, \quad
+  \sum_{i=1}^n \alpha_i y_i = 0
+}
+\label{eq:dual-hard}
+\end{equation}
+\end{formules}
+
+\subsection{Conditions KKT}
+\index{KKT}
+
+\begin{theoreme}[Conditions de Karush-Kuhn-Tucker pour le SVM]
+\`A l'optimum $(\bm{w}^*, b^*, \bm{\alpha}^*)$, les conditions KKT
+s'\'ecrivent~:
+\begin{enumerate}
+  \item \textbf{Stationnarit\'e}~: $\bm{w}^* = \sum_i \alpha_i^* y_i \bm{x}_i$
+    et $\sum_i \alpha_i^* y_i = 0$.
+  \item \textbf{Faisabilit\'e primale}~:
+    $y_i(\bm{w}^{*\top}\bm{x}_i + b^*) \geq 1$ pour tout $i$.
+  \item \textbf{Faisabilit\'e duale}~: $\alpha_i^* \geq 0$ pour tout $i$.
+  \item \textbf{Compl\'ementarit\'e}~:
+    $\alpha_i^*[y_i(\bm{w}^{*\top}\bm{x}_i + b^*) - 1] = 0$ pour tout $i$.
+\end{enumerate}
+\end{theoreme}
+
+\begin{remarque}
+La condition de compl\'ementarit\'e implique que $\alpha_i^* > 0$ seulement
+pour les points tels que $y_i(\bm{w}^{*\top}\bm{x}_i + b^*) = 1$. Ces points
+sont les \textbf{vecteurs de support}\index{vecteurs de support}~: ils se
+trouvent exactement sur la marge.
+\end{remarque}
+
+\section{SVM \`a marge souple}
+\label{sec:soft-margin}
+\index{SVM!marge souple}
+
+Lorsque les donn\'ees ne sont pas lin\'eairement s\'eparables, on introduit des
+\textbf{variables de rel\^achement} (\emph{slack variables}) $\xi_i \geq 0$
+qui autorisent certains points \`a violer la marge.
+
+\begin{formules}[title=\textbf{SVM \`a marge souple (primal)}]
+\begin{equation}
+\boxed{
+  \min_{\bm{w}, b, \bm{\xi}} \quad \frac{1}{2}\norm{\bm{w}}^2
+  + C \sum_{i=1}^n \xi_i
+  \qquad \text{s.c.} \quad
+  \begin{cases}
+    y_i(\bm{w}^\top\bm{x}_i + b) \geq 1 - \xi_i \\
+    \xi_i \geq 0
+  \end{cases}
+  \quad \forall\, i
+}
+\label{eq:soft-svm}
+\end{equation}
+\end{formules}
+
+\begin{definition}[Param\`etre de r\'egularisation $C$]
+\index{SVM!param\`etre $C$}
+Le param\`etre $C > 0$ contr\^ole le compromis entre~:
+\begin{itemize}
+  \item Maximiser la marge ($C$ petit $\Rightarrow$ marge large, plus d'erreurs
+    tol\'er\'ees).
+  \item Minimiser les violations ($C$ grand $\Rightarrow$ marge \'etroite,
+    moins d'erreurs).
+\end{itemize}
+\end{definition}
+
+\begin{attention}[title=\textbf{Interpr\'etation de $\xi_i$}]
+\begin{itemize}
+  \item $\xi_i = 0$~: le point est correctement class\'e et hors de la marge.
+  \item $0 < \xi_i < 1$~: le point est dans la marge mais du bon c\^ot\'e.
+  \item $\xi_i \geq 1$~: le point est mal class\'e.
+\end{itemize}
+\end{attention}
+
+Le probl\`eme dual correspondant est~:
+
+\begin{formules}[title=\textbf{Probl\`eme dual (marge souple)}]
+\begin{equation}
+\boxed{
+  \max_{\bm{\alpha}} \quad \sum_{i=1}^n \alpha_i
+  - \frac{1}{2}\sum_{i,j} \alpha_i \alpha_j y_i y_j \bm{x}_i^\top\bm{x}_j
+  \qquad \text{s.c.} \quad 0 \leq \alpha_i \leq C, \quad
+  \sum_{i=1}^n \alpha_i y_i = 0
+}
+\label{eq:dual-soft}
+\end{equation}
+La seule diff\'erence avec le dual \`a marge dure est la contrainte de borne
+$\alpha_i \leq C$.
+\end{formules}
+
+\begin{proposition}[\'Equivalence avec la perte hinge]
+Le probl\`eme~\eqref{eq:soft-svm} est \'equivalent \`a~:
+\begin{equation}
+  \min_{\bm{w}, b} \quad \frac{1}{2}\norm{\bm{w}}^2
+  + C \sum_{i=1}^n \max\bigl(0,\; 1 - y_i(\bm{w}^\top\bm{x}_i + b)\bigr)
+\end{equation}
+o\`u $\ell_{\text{hinge}}(y, f) = \max(0, 1 - yf)$ est la \textbf{perte
+hinge}\index{perte hinge}.
+\end{proposition}
+
+\section{L'astuce du noyau}
+\label{sec:kernel-trick}
+\index{noyau!astuce}
+
+\subsection{Motivation}
+
+Le dual~\eqref{eq:dual-soft} ne d\'epend des donn\'ees qu'\`a travers les
+produits scalaires $\bm{x}_i^\top\bm{x}_j$. Si on transforme les donn\'ees
+par $\phi : \R^d \to \mathcal{F}$ (espace de grande dimension), on peut
+remplacer $\bm{x}_i^\top\bm{x}_j$ par
+$\phi(\bm{x}_i)^\top\phi(\bm{x}_j)$.
+
+\begin{definition}[Fonction noyau]
+\index{noyau!fonction}
+Une fonction $K : \R^d \times \R^d \to \R$ est un \textbf{noyau} s'il existe
+un espace de Hilbert $\mathcal{F}$ et une application
+$\phi : \R^d \to \mathcal{F}$ tels que~:
+\begin{equation}
+  K(\bm{x}, \bm{x}') = \inner{\phi(\bm{x})}{\phi(\bm{x}')}
+\end{equation}
+\end{definition}
+
+\begin{formules}[title=\textbf{Noyaux classiques}]
+\begin{align}
+  \text{Lin\'eaire~:} \quad & K(\bm{x}, \bm{x}') = \bm{x}^\top\bm{x}'
+  \label{eq:kernel-linear} \\
+  \text{Polynomial~:} \quad & K(\bm{x}, \bm{x}') =
+    (\bm{x}^\top\bm{x}' + c)^p
+  \label{eq:kernel-poly} \\
+  \text{RBF (Gaussien)~:} \quad & K(\bm{x}, \bm{x}') =
+    \exp\!\left(-\frac{\norm{\bm{x} - \bm{x}'}^2}{2\sigma^2}\right)
+  \label{eq:kernel-rbf}
+\end{align}
+Le noyau RBF correspond \`a un espace de dimension \emph{infinie}.
+\end{formules}
+
+\begin{theoreme}[Mercer]
+\index{Mercer}
+Une fonction $K$ sym\'etrique continue est un noyau valide si et seulement si
+la matrice de Gram $\bm{K}$, d\'efinie par $K_{ij} = K(\bm{x}_i, \bm{x}_j)$,
+est semi-d\'efinie positive pour tout ensemble fini de points.
+\end{theoreme}
+
+La d\'ecision s'\'ecrit alors~:
+\begin{equation}
+  f(\bm{x}) = \sign\!\left(\sum_{i=1}^n \alpha_i^* y_i
+    K(\bm{x}_i, \bm{x}) + b^*\right)
+  \label{eq:svm-decision-kernel}
+\end{equation}
+
+\section{SVM en pratique avec scikit-learn}
+\label{sec:svm-sklearn}
+
+\begin{codeblock}[title=\textbf{SVM lin\'eaire et RBF sur donn\'ees synth\'etiques}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import make_moons
+from sklearn.svm import SVC
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.metrics import classification_report
+
+# Donnees non lineairement separables
+X, y = make_moons(n_samples=300, noise=0.25, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42
+)
+
+# Standardisation (essentielle pour SVM)
+scaler = StandardScaler()
+X_train_sc = scaler.fit_transform(X_train)
+X_test_sc = scaler.transform(X_test)
+
+# --- SVM lineaire ---
+svm_lin = SVC(kernel="linear", C=1.0)
+svm_lin.fit(X_train_sc, y_train)
+print("=== SVM lineaire ===")
+print(f"Accuracy test : {svm_lin.score(X_test_sc, y_test):.4f}")
+print(f"Nb vecteurs de support : {svm_lin.n_support_}")
+
+# --- SVM RBF ---
+svm_rbf = SVC(kernel="rbf", C=10.0, gamma=0.5)
+svm_rbf.fit(X_train_sc, y_train)
+print("\n=== SVM RBF ===")
+print(f"Accuracy test : {svm_rbf.score(X_test_sc, y_test):.4f}")
+print(f"Nb vecteurs de support : {svm_rbf.n_support_}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+=== SVM lineaire ===
+Accuracy test : 0.8667
+Nb vecteurs de support : [55 54]
+
+=== SVM RBF ===
+Accuracy test : 0.9778
+Nb vecteurs de support : [32 30]
+\end{verbatim}
+\end{codeoutput}
+
+\begin{codeblock}[title=\textbf{Recherche d'hyperparam\`etres par validation crois\'ee}]
+\begin{minted}{python}
+# Grille de recherche pour C et gamma
+param_grid = {
+    "C": [0.1, 1, 10, 100],
+    "gamma": [0.01, 0.1, 0.5, 1, 5],
+    "kernel": ["rbf"]
+}
+
+grid = GridSearchCV(SVC(), param_grid, cv=5, scoring="accuracy", n_jobs=-1)
+grid.fit(X_train_sc, y_train)
+
+print(f"Meilleurs parametres : {grid.best_params_}")
+print(f"Accuracy CV : {grid.best_score_:.4f}")
+print(f"Accuracy test : {grid.best_estimator_.score(X_test_sc, y_test):.4f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Meilleurs parametres : {'C': 10, 'gamma': 0.5, 'kernel': 'rbf'}
+Accuracy CV : 0.9667
+Accuracy test : 0.9778
+\end{verbatim}
+\end{codeoutput}
+
+\begin{bonnepratique}[title=\textbf{Conseils pour l'utilisation des SVM}]
+\begin{itemize}
+  \item \textbf{Toujours standardiser} les donn\'ees avant d'entra\^iner un SVM
+    (les noyaux d\'ependent des distances).
+  \item Utiliser \texttt{GridSearchCV} ou \texttt{RandomizedSearchCV} pour
+    trouver les meilleurs $(C, \gamma)$.
+  \item Pour de grands jeux de donn\'ees ($n > 10\,000$), pr\'ef\'erer
+    \texttt{LinearSVC} ou \texttt{SGDClassifier(loss="hinge")}.
+\end{itemize}
+\end{bonnepratique}
+
+\section{Impl\'ementation from scratch}
+\label{sec:svm-scratch}
+
+\begin{codeblock}[title=\textbf{SVM lin\'eaire via programmation quadratique}]
+\begin{minted}{python}
+import numpy as np
+from scipy.optimize import minimize
+
+def svm_hard_margin(X, y):
+    """SVM a marge dure via resolution du dual (scipy)."""
+    n = X.shape[0]
+    # Matrice de Gram : Q_ij = y_i y_j x_i^T x_j
+    Q = (y[:, None] * X) @ (y[:, None] * X).T
+
+    # Fonction objectif duale (a minimiser, donc -dual)
+    def objective(alpha):
+        return 0.5 * alpha @ Q @ alpha - np.sum(alpha)
+
+    def grad(alpha):
+        return Q @ alpha - np.ones(n)
+
+    # Contraintes
+    constraints = [
+        {"type": "eq", "fun": lambda a: a @ y},  # sum alpha_i y_i = 0
+    ]
+    bounds = [(0, None) for _ in range(n)]  # alpha_i >= 0
+    alpha0 = np.zeros(n)
+
+    result = minimize(objective, alpha0, jac=grad, method="SLSQP",
+                      bounds=bounds, constraints=constraints)
+    alpha = result.x
+
+    # Vecteurs de support : alpha_i > seuil
+    sv = alpha > 1e-5
+    w = (alpha[sv] * y[sv]) @ X[sv]
+
+    # Calcul de b a partir des vecteurs de support
+    b = np.mean(y[sv] - X[sv] @ w)
+    return w, b, alpha
+
+# Demonstration sur donnees lineairement separables
+np.random.seed(0)
+X_pos = np.random.randn(30, 2) + np.array([2, 2])
+X_neg = np.random.randn(30, 2) + np.array([-2, -2])
+X_demo = np.vstack([X_pos, X_neg])
+y_demo = np.array([1]*30 + [-1]*30, dtype=float)
+
+w, b, alpha = svm_hard_margin(X_demo, y_demo)
+print(f"w = {w}")
+print(f"b = {b:.4f}")
+print(f"Nb vecteurs de support : {np.sum(alpha > 1e-5)}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+w = [0.4812 0.5234]
+b = -0.0187
+Nb vecteurs de support : 3
+\end{verbatim}
+\end{codeoutput}
+
+\section{Visualisation de la fronti\`ere de d\'ecision}
+\label{sec:svm-viz}
+
+\begin{codeblock}[title=\textbf{Fronti\`ere de d\'ecision SVM lin\'eaire vs RBF}]
+\begin{minted}{python}
+from sklearn.inspection import DecisionBoundaryDisplay
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+for ax, model, title in zip(axes, [svm_lin, svm_rbf],
+                              ["SVM lineaire", "SVM RBF"]):
+    DecisionBoundaryDisplay.from_estimator(
+        model, X_train_sc, ax=ax, response_method="decision_function",
+        alpha=0.3, cmap=plt.cm.RdBu
+    )
+    ax.scatter(X_train_sc[:, 0], X_train_sc[:, 1], c=y_train,
+               cmap=plt.cm.RdBu, edgecolors="k", s=30)
+    # Marquer les vecteurs de support
+    sv_idx = model.support_
+    ax.scatter(X_train_sc[sv_idx, 0], X_train_sc[sv_idx, 1],
+               s=100, facecolors="none", edgecolors="k", linewidths=1.5)
+    ax.set_title(title)
+plt.tight_layout()
+plt.savefig("svm_decision_boundaries.pdf")
+\end{minted}
+\end{codeblock}
+
+\section{Exercices}
+\label{sec:exercises-ch5}
+
+\begin{exercice}[Calcul de marge --- Niveau 1]
+Soit l'hyperplan $2x_1 + x_2 - 3 = 0$ et les points $\bm{a} = (2, 1)$ (classe
+$+1$) et $\bm{b} = (0, 0)$ (classe $-1$).
+\begin{enumerate}
+  \item Calculer la marge g\'eom\'etrique de chaque point.
+  \item Calculer la marge de l'ensemble $\{\bm{a}, \bm{b}\}$.
+  \item Est-ce l'hyperplan \`a marge maximale~? Justifier.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Formulation duale --- Niveau 2]
+\begin{enumerate}
+  \item D\'eriver compl\`etement le passage du primal~\eqref{eq:hard-svm} au
+    dual~\eqref{eq:dual-hard} en formant le lagrangien et en appliquant les
+    conditions de stationnarit\'e.
+  \item Montrer que le nombre de vecteurs de support est born\'e par $n$.
+  \item Pour le jeu de donn\'ees $\{((1,0), +1), ((0,1), +1),
+    ((0,0), -1)\}$, r\'esoudre le dual analytiquement. V\'erifier que
+    $\bm{w}^* = \sum_i \alpha_i^* y_i \bm{x}_i$.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[SVM complet --- Niveau 3]
+\begin{enumerate}
+  \item Impl\'ementer un SVM \`a marge souple avec noyau RBF en utilisant
+    la programmation quadratique (\texttt{cvxopt} ou \texttt{scipy}).
+    Tester sur le dataset \texttt{make\_moons}.
+  \item D\'emontrer que la perte hinge est une borne sup\'erieure convexe de
+    la perte 0-1~: $\ind[yf \leq 0] \leq \max(0, 1 - yf)$ pour tout
+    $y \in \{-1, +1\}$.
+  \item \'Etudier exp\'erimentalement l'effet de $C$ sur la marge et le nombre
+    de vecteurs de support. Tracer le nombre de SV en fonction de $\log C$
+    pour $C \in \{10^{-3}, 10^{-2}, \ldots, 10^3\}$.
+  \item Comparer les performances SVM (lin\'eaire, RBF, polynomial) avec la
+    r\'egression logistique sur le dataset \texttt{breast\_cancer} de
+    scikit-learn. Utiliser une validation crois\'ee 10-fold.
+\end{enumerate}
+\end{exercice}

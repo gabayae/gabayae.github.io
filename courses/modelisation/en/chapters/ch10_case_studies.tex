@@ -1,0 +1,301 @@
+% ============================================================
+\chapter{Case Studies and Projects}
+\label{ch:case_studies}
+% ============================================================
+
+\begin{center}
+\textit{``All models are wrong, but some are useful.''}\\[4pt]
+--- George E.\ P.\ Box
+\end{center}
+
+\bigskip
+
+This chapter applies the tools developed in earlier chapters to five
+concrete case studies. Each study illustrates the full modeling cycle:
+formulation, mathematical analysis, calibration with data, and validation.
+
+% ------------------------------------------------------------
+\section{Epidemiological Modeling: SIR and SEIR}
+\label{sec:sir_seir}
+% ------------------------------------------------------------
+
+\begin{definition}[SIR Model]
+\index{SIR model}
+The \textbf{SIR} (Susceptible--Infected--Recovered) model of
+Kermack--McKendrick\index{Kermack--McKendrick} describes disease spread
+in a population of size $N$:
+\[
+  \frac{dS}{dt} = -\beta\,\frac{SI}{N}, \quad
+  \frac{dI}{dt} = \beta\,\frac{SI}{N} - \gamma\,I, \quad
+  \frac{dR}{dt} = \gamma\,I,
+\]
+where $\beta > 0$ is the transmission rate and $\gamma > 0$ the recovery rate.
+\end{definition}
+
+\begin{theorem}[Epidemic Threshold]
+\label{thm:threshold_sir}
+Let $R_0 = \beta/\gamma$\index{basic reproduction number} be the
+\emph{basic reproduction number}. If $R_0 > 1$ and $S(0) \approx N$,
+then $I(t)$ initially increases (epidemic outbreak). If $R_0 < 1$,
+the number of infected individuals decreases monotonically.
+\end{theorem}
+
+\begin{proof}
+At the onset of the epidemic, $S \approx N$, so
+$dI/dt \approx (\beta - \gamma)\,I = \gamma(R_0 - 1)\,I$.
+If $R_0 > 1$, this linearized equation yields exponential growth of $I$.
+If $R_0 < 1$, $I$ decays exponentially.
+\end{proof}
+
+\begin{intuition}
+The number $R_0$ represents the average number of secondary infections
+caused by a single infected individual during their entire infectious
+period (of mean duration $1/\gamma$). The epidemic spreads only if each
+patient infects more than one person on average ($R_0 > 1$).
+\end{intuition}
+
+\begin{definition}[SEIR Model]
+\index{SEIR model}
+The \textbf{SEIR} model adds an ``Exposed'' (incubation) compartment:
+\[
+  \frac{dS}{dt} = -\beta\,\frac{SI}{N}, \quad
+  \frac{dE}{dt} = \beta\,\frac{SI}{N} - \sigma\,E, \quad
+  \frac{dI}{dt} = \sigma\,E - \gamma\,I, \quad
+  \frac{dR}{dt} = \gamma\,I,
+\]
+where $1/\sigma$ is the mean incubation period.
+\end{definition}
+
+\begin{keyformulas}
+\textbf{Key Epidemiological Parameters}
+\begin{align*}
+  R_0 &= \frac{\beta}{\gamma} \quad \text{(SIR and SEIR)}, \qquad
+  R_{\text{eff}}(t) = R_0 \cdot \frac{S(t)}{N} \\[4pt]
+  \text{Final size:}\quad & S_\infty \text{ solves }
+    S_\infty = S_0\, e^{-R_0(N - S_\infty)/N}
+\end{align*}
+\end{keyformulas}
+
+\begin{example}
+Calibrating the SIR model on influenza data from an English boarding
+school (1978): 763 students, daily data over 14 days. Least-squares
+fitting gives $\beta \approx 1.66$ and $\gamma \approx 0.44$,
+yielding $R_0 \approx 3.78$.
+\end{example}
+
+\begin{minted}{python}
+import numpy as np
+from scipy.integrate import odeint
+from scipy.optimize import minimize
+
+def sir_model(y, t, beta, gamma, N):
+    S, I, R = y
+    dSdt = -beta * S * I / N
+    dIdt = beta * S * I / N - gamma * I
+    dRdt = gamma * I
+    return [dSdt, dIdt, dRdt]
+
+# Observed infected counts (daily)
+data_I = np.array([1, 3, 8, 28, 76, 222, 293, 257, 237,
+                   192, 126, 70, 28, 12])
+t_data = np.arange(len(data_I))
+N = 763
+
+def objective(params):
+    beta, gamma = params
+    y0 = [N - 1, 1, 0]
+    sol = odeint(sir_model, y0, t_data, args=(beta, gamma, N))
+    return np.sum((sol[:, 1] - data_I)**2)
+
+result = minimize(objective, [1.5, 0.5], method='Nelder-Mead')
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Population Dynamics: Lotka--Volterra}
+\label{sec:lotka_volterra}
+% ------------------------------------------------------------
+
+\begin{definition}[Lotka--Volterra Model]
+\index{Lotka--Volterra}
+The predator--prey Lotka--Volterra model reads:
+\[
+  \frac{dx}{dt} = \alpha\,x - \beta\,x\,y, \qquad
+  \frac{dy}{dt} = \delta\,x\,y - \gamma\,y,
+\]
+where $x(t)$ is the prey population, $y(t)$ the predator population,
+and $\alpha, \beta, \gamma, \delta > 0$.
+\end{definition}
+
+\begin{proposition}[First Integral]
+The Lotka--Volterra system admits the conserved quantity:
+\[
+  H(x,y) = \delta\,x - \gamma\,\ln x + \beta\,y - \alpha\,\ln y.
+\]
+Phase-plane trajectories are therefore closed curves around the
+equilibrium $(\gamma/\delta,\, \alpha/\beta)$.
+\end{proposition}
+
+\begin{proof}
+Compute $\frac{dH}{dt} = \delta\,\dot{x} - \frac{\gamma}{x}\,\dot{x}
++ \beta\,\dot{y} - \frac{\alpha}{y}\,\dot{y}$. Substituting the system
+equations, all terms cancel: $dH/dt = 0$.
+\end{proof}
+
+\begin{attention}
+The classical Lotka--Volterra model is structurally unstable: it has
+no attracting limit cycle. Any perturbation changes the oscillation
+amplitude permanently. For a more realistic model, add a carrying
+capacity (logistic term) or a Holling-type functional response\index{Holling response}.
+\end{attention}
+
+\begin{example}
+Historical data from the Hudson's Bay Company (hare and lynx pelts,
+1845--1935) show phase-shifted oscillations characteristic of
+predator--prey dynamics. Least-squares calibration yields periods
+of approximately 10 years.
+\end{example}
+
+% ------------------------------------------------------------
+\section{Traffic Flow Models}
+\label{sec:traffic}
+% ------------------------------------------------------------
+
+\begin{definition}[LWR Model]
+\index{LWR model}
+The \textbf{Lighthill--Whitham--Richards} (LWR) model is a scalar
+conservation law for the vehicle density $\rho(x,t)$:
+\[
+  \frac{\partial \rho}{\partial t} +
+  \frac{\partial}{\partial x}\bigl[Q(\rho)\bigr] = 0,
+\]
+where $Q(\rho) = \rho\,v(\rho)$ is the flux and $v(\rho)$ is the
+speed-density relation.
+\end{definition}
+
+\begin{proposition}[Greenshields Relation]
+\index{Greenshields}
+The Greenshields model assumes $v(\rho) = v_{\max}(1 - \rho/\rho_{\max})$,
+giving a parabolic flux:
+\[
+  Q(\rho) = v_{\max}\,\rho\left(1 - \frac{\rho}{\rho_{\max}}\right).
+\]
+The capacity (maximum flux) is $Q_{\max} = v_{\max}\rho_{\max}/4$,
+attained at $\rho = \rho_{\max}/2$.
+\end{proposition}
+
+\begin{remark}
+Solutions of the LWR model can develop discontinuities (\emph{shocks}),
+corresponding physically to traffic jam formation. The
+Rankine--Hugoniot condition\index{Rankine--Hugoniot} gives the shock
+speed: $s = [Q(\rho_R) - Q(\rho_L)]/(\rho_R - \rho_L)$.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Introduction to Climate Modeling}
+\label{sec:climate}
+% ------------------------------------------------------------
+
+\begin{definition}[Energy Balance Model]
+\index{energy balance model}
+The \textbf{Budyko--Sellers energy balance model}\index{Budyko} describes
+the mean temperature $T$ of the Earth:
+\[
+  C\,\frac{dT}{dt} = (1 - \alpha(T))\,Q - \varepsilon\,\sigma\,T^4,
+\]
+where $C$ is the heat capacity, $Q$ the incoming solar flux,
+$\alpha(T)$ the albedo (temperature-dependent via ice cover), and
+$\varepsilon\,\sigma\,T^4$ the emitted infrared radiation.
+\end{definition}
+
+\begin{theorem}[Bifurcation and ``Snowball Earth'']
+The Budyko--Sellers model generically admits three equilibria: a warm
+state (little ice), a ``snowball'' state (fully glaciated Earth), and
+an unstable intermediate equilibrium. When the solar flux $Q$ decreases,
+a saddle-node bifurcation triggers an abrupt transition to the glaciated state.
+\end{theorem}
+
+\begin{intuition}
+Ice albedo ($\sim 0.7$) is much higher than ocean albedo ($\sim 0.06$).
+The colder it gets, the more ice forms, the more sunlight is reflected,
+the colder it gets\ldots{} This is a positive feedback loop that can
+lead to a runaway glaciation.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Model Comparison and Validation}
+\label{sec:validation}
+% ------------------------------------------------------------
+
+\begin{definition}[Akaike Information Criterion (AIC)]
+\index{AIC}
+Let $\hat{L}$ be the maximum likelihood of a model with $k$ parameters.
+The \textbf{Akaike Information Criterion} is:
+\[
+  \text{AIC} = -2\,\ln\hat{L} + 2k.
+\]
+The model with the smallest AIC is preferred.
+\end{definition}
+
+\begin{definition}[Bayesian Information Criterion (BIC)]
+\index{BIC}
+The \textbf{BIC} (or Schwarz criterion) is:
+\[
+  \text{BIC} = -2\,\ln\hat{L} + k\,\ln n,
+\]
+where $n$ is the number of observations. BIC penalizes complexity more
+heavily than AIC when $n \geq 8$.
+\end{definition}
+
+\begin{proposition}[Cross-Validation]
+\index{cross-validation}
+$k$-fold \textbf{cross-validation} estimates the prediction error by
+splitting the data into $k$ parts. The estimated error is:
+\[
+  \text{CV}(k) = \frac{1}{k}\sum_{j=1}^k \text{Error}_j,
+\]
+where $\text{Error}_j$ is the error of the model fitted on the other
+$k-1$ parts and evaluated on part $j$.
+\end{proposition}
+
+\begin{attention}
+A good fit to training data does not guarantee good predictive power.
+\emph{Overfitting}\index{overfitting} occurs when the model captures noise
+rather than signal. Always validate on independent data.
+\end{attention}
+
+\begin{keyformulas}
+\textbf{Model Comparison Criteria}
+\begin{align*}
+  R^2 &= 1 - \frac{\sum_i (y_i - \hat{y}_i)^2}{\sum_i (y_i - \bar{y})^2}
+    \quad \text{(coefficient of determination)} \\[4pt]
+  \text{RMSE} &= \sqrt{\frac{1}{n}\sum_{i=1}^n (y_i - \hat{y}_i)^2}
+    \quad \text{(root mean squared error)} \\[4pt]
+  \text{AIC} &= -2\ln\hat{L} + 2k, \qquad
+  \text{BIC} = -2\ln\hat{L} + k\ln n
+\end{align*}
+\end{keyformulas}
+
+\begin{exercise}
+Implement the SEIR model with COVID-19 parameters
+($\sigma^{-1} \approx 5.2$ days, $\gamma^{-1} \approx 10$ days,
+$R_0 \approx 2.5$). Simulate the dynamics for a city of $100{,}000$
+inhabitants and study the effect of lockdown (reduced $R_0$).
+\end{exercise}
+
+\begin{exercise}
+Calibrate a Lotka--Volterra model on the Hudson's Bay Company
+hare--lynx dataset. Estimate parameters by nonlinear least squares
+and assess fit quality via $R^2$ and RMSE.
+\end{exercise}
+
+\begin{exercise}
+Compare SIR, SEIR, and SIR-with-vaccination models on an epidemic
+dataset. Use AIC and BIC to determine the most parsimonious model.
+\end{exercise}
+
+\begin{exercise}
+Solve the LWR model numerically with the Greenshields relation to
+simulate traffic jam formation at a red light. Use a Godunov
+scheme\index{Godunov scheme} and visualize the density
+$\rho(x,t)$ in space and time.
+\end{exercise}

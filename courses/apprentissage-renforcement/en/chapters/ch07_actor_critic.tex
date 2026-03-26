@@ -1,0 +1,341 @@
+% ============================================================
+\chapter{Actor-Critic Methods}
+\label{ch:actor_critic}
+% ============================================================
+
+Policy gradient methods (REINFORCE) suffer from high variance; value-based methods (DQN) struggle with continuous action spaces. In the early 2000s, Richard Sutton, David McAllester, Satinder Singh, and Yishay Mansour formalized an idea that reconciles these two families: the \emph{policy gradient theorem} shows that the gradient can be estimated using a separately learned value function. Thus was born the \emph{actor-critic} architecture: an \textbf{actor} that proposes actions and a \textbf{critic} that evaluates their quality. The critic provides a baseline that drastically reduces gradient estimate variance, while the actor retains the ability to represent stochastic policies over continuous spaces. From A2C to PPO to SAC, actor-critic methods dominate contemporary deep reinforcement learning.
+
+\begin{intuition}
+Actor-critic methods combine the best of both worlds: an \textbf{actor}
+(the policy $\pi_\theta$) and a \textbf{critic} (the value function
+$V_\phi$ or $Q_\phi$). The critic provides a low-variance signal to
+guide the actor's updates, eliminating the need to wait for complete
+episodes. Modern variants (PPO, SAC, TD3) form the backbone of
+contemporary deep RL.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Actor-Critic Framework}
+\label{sec:ac:framework}
+% ------------------------------------------------------------
+
+\begin{definition}[Actor-Critic]
+\index{actor-critic}
+An \textbf{actor-critic} algorithm maintains two networks:
+\begin{itemize}
+    \item \textbf{Actor}: $\pi_\theta(a|s)$, parameterized by $\theta$.
+    \item \textbf{Critic}: $V_\phi(s)$ or $Q_\phi(s,a)$, parameterized
+    by $\phi$.
+\end{itemize}
+The critic is updated via TD methods and the actor via policy gradient
+using the critic as a baseline.
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{Basic Actor-Critic Update}]
+\textbf{Critic}:
+\[
+    \phi \leftarrow \phi - \alpha_\phi \nabla_\phi \left(
+    R_{t+1} + \gamma V_\phi(S_{t+1}) - V_\phi(S_t) \right)^2
+\]
+\textbf{Actor}:
+\[
+    \theta \leftarrow \theta + \alpha_\theta \nabla_\theta
+    \log \pi_\theta(A_t|S_t) \,
+    \underbrace{\left(R_{t+1} + \gamma V_\phi(S_{t+1})
+    - V_\phi(S_t)\right)}_{\hat{A}_t \text{ (estimated advantage)}}
+\]
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Advantage Actor-Critic (A2C)}
+\label{sec:a2c}
+% ------------------------------------------------------------
+
+\begin{definition}[A2C]
+\index{A2C}
+Advantage Actor-Critic (A2C) is the synchronous version of A3C
+(Mnih et al., 2016). Multiple workers collect trajectories in parallel.
+The gradients are averaged and applied synchronously:
+\[
+    \nabla_\theta J \approx \frac{1}{K} \sum_{k=1}^{K}
+    \sum_{t} \nabla_\theta \log \pi_\theta(a_t^{(k)} | s_t^{(k)}) \,
+    \hat{A}_t^{(k)}
+\]
+where $K$ is the number of parallel workers.
+\end{definition}
+
+\begin{definition}[A3C]
+\index{A3C}
+Asynchronous Advantage Actor-Critic (A3C) uses multiple workers updating
+a shared parameter server \emph{asynchronously}. Each worker computes
+gradients on its own trajectory and applies them to the global parameters
+without synchronization.
+\end{definition}
+
+\begin{remark}
+A2C typically matches or outperforms A3C in practice because synchronous
+updates produce less noisy gradients. A3C's main advantage was
+computational (avoiding GPU memory bottlenecks), which is less relevant
+with modern hardware.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Proximal Policy Optimization (PPO)}
+\label{sec:ppo}
+% ------------------------------------------------------------
+
+\begin{definition}[PPO-Clip]
+\index{PPO}
+Proximal Policy Optimization (Schulman et al., 2017) uses a clipped
+surrogate objective to prevent excessively large policy updates:
+\[
+    L^{\text{CLIP}}(\theta) = \E_t \left[
+    \min\left(r_t(\theta) \hat{A}_t, \;
+    \text{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon) \hat{A}_t
+    \right) \right]
+\]
+where $r_t(\theta) = \frac{\pi_\theta(a_t|s_t)}{\pi_{\theta_{\text{old}}}(a_t|s_t)}$
+is the probability ratio and $\epsilon \approx 0.2$.
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{PPO Full Objective}]
+\[
+    L(\theta) = L^{\text{CLIP}}(\theta)
+    - c_1 \, L^{\text{VF}}(\phi)
+    + c_2 \, H[\pi_\theta]
+\]
+where $L^{\text{VF}} = (V_\phi(s_t) - G_t)^2$ is the value loss,
+$H[\pi_\theta]$ is an entropy bonus for exploration, and $c_1, c_2$
+are coefficients.
+\end{keyformulas}
+
+\begin{algorithme}[title=\textbf{PPO Algorithm}]
+\begin{enumerate}
+    \item For each iteration:
+    \begin{enumerate}
+        \item Collect $T$ timesteps of data using $\pi_{\theta_{\text{old}}}$
+              with $K$ parallel actors
+        \item Compute advantages $\hat{A}_t$ using GAE
+        \item For $E$ epochs over the collected data:
+        \begin{enumerate}
+            \item Sample mini-batch from the collected data
+            \item Compute $r_t(\theta)$ and the clipped objective
+            \item Update $\theta$ by gradient ascent on $L(\theta)$
+        \end{enumerate}
+        \item $\theta_{\text{old}} \leftarrow \theta$
+    \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+\begin{intuition}
+The clipping mechanism in PPO acts as a ``trust region'' in probability
+ratio space. When the advantage is positive, the objective is clipped
+if $r_t > 1+\epsilon$ (preventing too large a ratio). When the advantage
+is negative, it is clipped if $r_t < 1-\epsilon$. This ensures the new
+policy stays close to the old one without requiring second-order
+optimization.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Continuous Action Spaces: DDPG}
+\label{sec:ddpg}
+% ------------------------------------------------------------
+
+\begin{definition}[DDPG]
+\index{DDPG}
+Deep Deterministic Policy Gradient (Lillicrap et al., 2016) extends DQN
+to continuous actions using a deterministic policy $\mu_\theta(s)$:
+\begin{itemize}
+    \item \textbf{Critic}: $Q_\phi(s,a)$ trained with Bellman error:
+    $y = r + \gamma Q_{\phi^-}(s', \mu_{\theta^-}(s'))$
+    \item \textbf{Actor}: $\theta$ updated by the deterministic policy
+    gradient:
+    $\nabla_\theta J = \E_s[\nabla_a Q_\phi(s,a)|_{a=\mu_\theta(s)}
+    \nabla_\theta \mu_\theta(s)]$
+\end{itemize}
+Both use target networks with Polyak averaging:
+$\phi^- \leftarrow \tau \phi + (1-\tau)\phi^-$.
+\end{definition}
+
+\begin{theorem}[Deterministic Policy Gradient]
+\index{deterministic policy gradient}
+For a deterministic policy $\mu_\theta$, the policy gradient simplifies to:
+\[
+    \nabla_\theta J(\theta) = \E_{s \sim d^{\mu_\theta}}\left[
+    \nabla_\theta \mu_\theta(s) \nabla_a Q^{\mu_\theta}(s,a)\big|_{a=\mu_\theta(s)}
+    \right].
+\]
+This avoids integration over the action space, making it efficient for
+high-dimensional continuous actions.
+\end{theorem}
+
+% ------------------------------------------------------------
+\section{Twin Delayed DDPG (TD3)}
+\label{sec:td3}
+% ------------------------------------------------------------
+
+\begin{definition}[TD3]
+\index{TD3}
+TD3 (Fujimoto et al., 2018) addresses DDPG's overestimation with three
+techniques:
+\begin{enumerate}
+    \item \textbf{Twin critics}: two independent Q-networks $Q_{\phi_1},
+    Q_{\phi_2}$; the target uses the minimum:
+    $y = r + \gamma \min_{i=1,2} Q_{\phi_i^-}(s', \tilde{a}')$
+    \item \textbf{Delayed updates}: the actor and target networks are
+    updated every $d$ steps (typically $d=2$), while the critics update
+    every step.
+    \item \textbf{Target policy smoothing}: noise is added to the target
+    action: $\tilde{a}' = \mu_{\theta^-}(s') + \text{clip}(\epsilon, -c, c)$,
+    $\epsilon \sim \mathcal{N}(0, \sigma^2)$.
+\end{enumerate}
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Soft Actor-Critic (SAC)}
+\label{sec:sac}
+% ------------------------------------------------------------
+
+\begin{definition}[Maximum Entropy RL]
+\index{maximum entropy RL}
+The maximum entropy objective augments the standard return with an
+entropy bonus:
+\[
+    J(\theta) = \E_{\pi_\theta}\left[\sum_{t=0}^{\infty} \gamma^t
+    \left(R_{t+1} + \alpha H[\pi_\theta(\cdot | S_t)]\right)\right]
+\]
+where $\alpha > 0$ is the temperature parameter controlling the
+exploration-exploitation trade-off.
+\end{definition}
+
+\begin{definition}[Soft Actor-Critic]
+\index{SAC}
+SAC (Haarnoja et al., 2018) learns a stochastic policy by optimizing
+the maximum entropy objective:
+\begin{itemize}
+    \item \textbf{Soft Q-function}:
+    $Q(s,a) = r + \gamma \E_{s'}[V(s')]$ where
+    $V(s) = \E_{a \sim \pi}[Q(s,a) - \alpha \log \pi(a|s)]$
+    \item \textbf{Policy}: $\pi_\theta$ is updated to minimize:
+    $\E_{a \sim \pi_\theta}[\alpha \log \pi_\theta(a|s) - Q_\phi(s,a)]$
+    \item \textbf{Temperature}: $\alpha$ is automatically tuned to
+    maintain a target entropy $\bar{H}$.
+\end{itemize}
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{SAC Soft Bellman Equation}]
+\[
+    Q(s,a) = R(s,a) + \gamma \E_{s' \sim P}\left[
+    \E_{a' \sim \pi}\left[Q(s', a') - \alpha \log \pi(a'|s')\right]
+    \right]
+\]
+\end{keyformulas}
+
+\begin{proposition}[SAC Convergence]
+In the tabular setting, repeated soft policy evaluation and soft policy
+improvement converge to the optimal policy of the maximum entropy
+objective. The entropy regularization ensures sufficient exploration
+and makes the optimization landscape smoother.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Entropy Regularization}
+\label{sec:entropy}
+% ------------------------------------------------------------
+
+\begin{definition}[Entropy Bonus]
+\index{entropy regularization}
+Adding an entropy term $H[\pi_\theta(\cdot|s)] = -\sum_a \pi_\theta(a|s)
+\log \pi_\theta(a|s)$ to the objective encourages exploration by
+penalizing peaked distributions. The coefficient $\alpha$ balances
+reward maximization with policy stochasticity.
+\end{definition}
+
+\begin{remark}
+Entropy regularization has several benefits:
+\begin{itemize}
+    \item Prevents premature convergence to deterministic policies.
+    \item Improves robustness to perturbations.
+    \item Enables multi-modal policies that capture multiple near-optimal
+    behaviors.
+    \item In SAC, automatic temperature tuning adapts $\alpha$ throughout
+    training.
+\end{itemize}
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Python Implementation}
+\label{sec:ac:code}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{PPO (Simplified)}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+import numpy as np
+
+def ppo_update(policy, value_fn, optimizer,
+               states, actions, old_log_probs,
+               returns, advantages,
+               clip_eps=0.2, epochs=4, batch_size=64):
+    states = torch.FloatTensor(np.array(states))
+    actions = torch.LongTensor(actions)
+    old_lp = torch.FloatTensor(old_log_probs)
+    ret = torch.FloatTensor(returns)
+    adv = torch.FloatTensor(advantages)
+    adv = (adv - adv.mean()) / (adv.std() + 1e-8)
+
+    for _ in range(epochs):
+        idx = np.random.permutation(len(states))
+        for start in range(0, len(states), batch_size):
+            mb = idx[start:start+batch_size]
+            probs = policy(states[mb])
+            dist = torch.distributions.Categorical(probs)
+            new_lp = dist.log_prob(actions[mb])
+            ratio = torch.exp(new_lp - old_lp[mb])
+
+            surr1 = ratio * adv[mb]
+            surr2 = torch.clamp(ratio, 1-clip_eps,
+                                1+clip_eps) * adv[mb]
+            policy_loss = -torch.min(surr1, surr2).mean()
+            value_loss = nn.MSELoss()(value_fn(states[mb]),
+                                      ret[mb])
+            entropy = dist.entropy().mean()
+            loss = policy_loss + 0.5*value_loss - 0.01*entropy
+
+            optimizer.zero_grad()
+            loss.backward()
+            nn.utils.clip_grad_norm_(
+                list(policy.parameters())
+                + list(value_fn.parameters()), 0.5)
+            optimizer.step()
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+\label{sec:ac:exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}[A2C Implementation]
+Implement A2C with GAE on \texttt{CartPole-v1}. Compare different
+numbers of parallel workers $K \in \{1, 4, 8, 16\}$ and measure
+wall-clock time to convergence.
+\end{exercise}
+
+\begin{exercise}[PPO Clipping Analysis]
+Visualize the PPO clipped objective $L^{\text{CLIP}}$ as a function of
+$r_t$ for $\hat{A}_t > 0$ and $\hat{A}_t < 0$. Explain why the clipping
+prevents destructively large updates.
+\end{exercise}
+
+\begin{exercise}[SAC on Continuous Control]
+Implement SAC for \texttt{Pendulum-v1}. Compare with DDPG and TD3.
+Plot Q-value estimates and verify that SAC avoids overestimation.
+\end{exercise}
+
+\begin{exercise}[Entropy Temperature Tuning]
+Implement automatic entropy temperature tuning for SAC. Compare with
+fixed $\alpha \in \{0.01, 0.1, 0.5\}$ and explain the effect on
+exploration behavior.
+\end{exercise}

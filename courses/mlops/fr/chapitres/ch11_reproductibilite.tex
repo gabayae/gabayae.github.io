@@ -1,0 +1,620 @@
+% ============================================================
+\chapter{Reproductibilit\'e en Recherche --- Standards et Bonnes Pratiques}
+\label{ch:reproductibilite}
+\index{reproductibilit\'e}
+% ============================================================
+
+\section{La crise de la reproductibilit\'e en ML}
+\label{sec:crise-repro}
+\index{reproductibilit\'e!crise}
+
+La \textbf{crise de la reproductibilit\'e}\index{crise de la reproductibilit\'e}
+est un probl\`eme majeur en recherche scientifique, et le machine learning
+n'y \'echappe pas. Plusieurs \'etudes ont montr\'e que la majorit\'e des
+r\'esultats publi\'es en ML sont difficiles, voire impossibles, \`a reproduire.
+
+\begin{attention}[title=\textbf{Chiffres alarmants}]
+\begin{itemize}
+  \item Selon une enqu\^ete de \emph{Nature} (2016), plus de 70\,\% des
+    chercheurs ont \'echou\'e \`a reproduire les r\'esultats d'un autre
+    chercheur.
+  \item En NLP, Dodge et al.\ (2019) ont montr\'e que le simple choix de la
+    graine al\'eatoire pouvait faire varier la performance de 1 \`a 5 points
+    de F1-score.
+  \item En vision par ordinateur, de nombreux r\'esultats <<~\'etat de l'art~>>
+    ne sont pas reproductibles sans acc\`es au code et aux donn\'ees originaux.
+\end{itemize}
+\end{attention}
+
+Les causes sp\'ecifiques au ML sont multiples~:
+
+\begin{itemize}
+  \item \textbf{Al\'eatoire non contr\^ol\'e}~: initialisation des poids,
+    ordre des batchs, augmentation de donn\'ees.
+  \item \textbf{D\'ependances logicielles}~: versions de CUDA, cuDNN, PyTorch
+    qui influencent les r\'esultats num\'eriques.
+  \item \textbf{Donn\'ees non partag\'ees}~: datasets propri\'etaires,
+    pr\'etraitements non document\'es.
+  \item \textbf{Hyperparamm\`etres cach\'es}~: param\`etres non mentionn\'es
+    dans l'article (learning rate scheduler, warmup, etc.).
+  \item \textbf{Co\^ut computationnel}~: entra\^inements n\'ecessitant des
+    centaines de GPU-heures, impossibles \`a re-ex\'ecuter.
+\end{itemize}
+
+\section{Niveaux de reproductibilit\'e}
+\label{sec:niveaux-repro}
+\index{reproductibilit\'e!niveaux}
+
+Il est essentiel de distinguer trois niveaux de reproductibilit\'e, souvent
+confondus~:
+
+\begin{definition}[R\'ep\'etabilit\'e]
+La \textbf{r\'ep\'etabilit\'e}\index{r\'ep\'etabilit\'e} (\emph{repeatability})
+est la capacit\'e d'obtenir les m\^emes r\'esultats en r\'e-ex\'ecutant le
+m\^eme code, sur les m\^emes donn\'ees, dans le m\^eme environnement.
+C'est le niveau le plus basique.
+\end{definition}
+
+\begin{definition}[Reproductibilit\'e]
+La \textbf{reproductibilit\'e}\index{reproductibilit\'e!d\'efinition}
+(\emph{reproducibility}) est la capacit\'e pour une \'equipe ind\'ependante
+d'obtenir les m\^emes r\'esultats en utilisant le code et les donn\'ees
+fournis par les auteurs, mais dans leur propre environnement.
+\end{definition}
+
+\begin{definition}[R\'eplicabilit\'e]
+La \textbf{r\'eplicabilit\'e}\index{r\'eplicabilit\'e} (\emph{replicability})
+est la capacit\'e d'obtenir des r\'esultats similaires avec une
+impl\'ementation ind\'ependante, sur des donn\'ees diff\'erentes. C'est le
+niveau le plus exigeant, qui valide la g\'en\'eralisabilit\'e de la m\'ethode.
+\end{definition}
+
+\begin{center}
+\begin{tikzpicture}[
+  level/.style={rectangle, draw, rounded corners, minimum width=11cm,
+    minimum height=1.6cm, align=center, font=\small},
+  arr/.style={-{Stealth[length=2.5mm]}, thick, steelblue}
+]
+  \node[level, fill=green!10] (rep) {
+    \textbf{R\'ep\'etabilit\'e (Repeatability)}\\
+    M\^eme \'equipe, m\^eme code, m\^emes donn\'ees, m\^eme environnement
+  };
+  \node[level, fill=yellow!10, above=0.6cm of rep] (repro) {
+    \textbf{Reproductibilit\'e (Reproducibility)}\\
+    \'Equipe diff\'erente, m\^eme code, m\^emes donn\'ees, environnement diff\'erent
+  };
+  \node[level, fill=orange!10, above=0.6cm of repro] (repli) {
+    \textbf{R\'eplicabilit\'e (Replicability)}\\
+    \'Equipe diff\'erente, code diff\'erent, donn\'ees diff\'erentes
+  };
+
+  \draw[arr] (rep) -- (repro);
+  \draw[arr] (repro) -- (repli);
+
+  \node[right=0.3cm of rep, font=\scriptsize, text=green!50!black] {Facile};
+  \node[right=0.3cm of repli, font=\scriptsize, text=red!60!black] {Difficile};
+\end{tikzpicture}
+\end{center}
+
+\begin{remarque}
+En pratique, m\^eme la r\'ep\'etabilit\'e n'est pas garantie en ML~: les
+op\'erations GPU non d\'eterministes (atomicAdd, cuDNN autotuner) peuvent
+produire des r\'esultats l\'eg\`erement diff\'erents d'une ex\'ecution \`a
+l'autre sur le m\^eme mat\'eriel.
+\end{remarque}
+
+\section{Gestion des graines al\'eatoires}
+\label{sec:random-seeds}
+\index{graine al\'eatoire}
+\index{reproductibilit\'e!graines al\'eatoires}
+
+Le contr\^ole de l'al\'eatoire est la premi\`ere \'etape vers la
+r\'ep\'etabilit\'e. En Python, plusieurs sources d'al\'eatoire coexistent
+et doivent toutes \^etre fix\'ees.
+
+\begin{codeblock}[title=\textbf{Configuration compl\`ete de reproductibilit\'e}]
+\begin{minted}{python}
+"""Reproducibility utilities for PyTorch projects."""
+import os
+import random
+import numpy as np
+import torch
+
+
+def set_seed(seed: int = 42, deterministic: bool = True) -> None:
+    """Set all random seeds for reproducibility.
+
+    Args:
+        seed: Random seed value.
+        deterministic: If True, enforce deterministic algorithms
+            (may reduce performance).
+    """
+    # Python built-in random
+    random.seed(seed)
+
+    # Numpy
+    np.random.seed(seed)
+
+    # PyTorch CPU
+    torch.manual_seed(seed)
+
+    # PyTorch GPU (all devices)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+    # Hash seed for Python dicts, sets, etc.
+    os.environ["PYTHONHASHSEED"] = str(seed)
+
+    if deterministic:
+        # Force deterministic algorithms
+        torch.use_deterministic_algorithms(True)
+
+        # Disable cuDNN benchmark (non-deterministic)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+
+        # Handle CUBLAS non-determinism
+        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+
+
+def seed_worker(worker_id: int) -> None:
+    """Seed function for DataLoader workers.
+
+    Usage:
+        DataLoader(..., worker_init_fn=seed_worker)
+    """
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+
+# Usage
+set_seed(42)
+
+# DataLoader with reproducible workers
+g = torch.Generator()
+g.manual_seed(42)
+
+train_loader = torch.utils.data.DataLoader(
+    dataset,
+    batch_size=32,
+    shuffle=True,
+    num_workers=4,
+    worker_init_fn=seed_worker,
+    generator=g,
+)
+\end{minted}
+\end{codeblock}
+
+\begin{attention}[title=\textbf{D\'eterminisme CUDA~: le prix \`a payer}]
+Activer \cli{torch.use\_deterministic\_algorithms(True)} peut~:
+\begin{itemize}
+  \item Ralentir l'entra\^inement de 10 \`a 20\,\%.
+  \item Lever des erreurs pour certaines op\'erations qui n'ont pas
+    d'impl\'ementation d\'eterministe (ex.~: \cli{scatter\_add},
+    certaines convolutions).
+  \item Ne pas \^etre suffisant entre versions de CUDA ou de mat\'eriel
+    diff\'erents.
+\end{itemize}
+\textbf{Recommandation}~: utiliser le d\'eterminisme pour le d\'ebogage et
+la validation, mais accepter une l\'eg\`ere variabilit\'e en production.
+\end{attention}
+
+\begin{formules}[title=\textbf{Sources d'al\'eatoire \`a contr\^oler}]
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Source} & \textbf{Commande} & \textbf{Impact} \\
+\midrule
+Python \cli{random} & \cli{random.seed(s)} & Shuffling, sampling \\
+NumPy & \cli{np.random.seed(s)} & Initialisation, bruit \\
+PyTorch CPU & \cli{torch.manual\_seed(s)} & Poids initiaux \\
+PyTorch GPU & \cli{torch.cuda.manual\_seed\_all(s)} & Op\'erations CUDA \\
+cuDNN & \cli{cudnn.deterministic = True} & Convolutions \\
+CUBLAS & \cli{CUBLAS\_WORKSPACE\_CONFIG} & Produits matriciels \\
+DataLoader & \cli{worker\_init\_fn} & Workers parall\`eles \\
+PYTHONHASHSEED & \cli{os.environ[...] = str(s)} & Ordre des dicts \\
+\bottomrule
+\end{tabular}
+\end{formules}
+
+\section{Documentation des exp\'eriences}
+\label{sec:doc-experiments}
+\index{model card}
+\index{datasheet}
+
+Au-del\`a du code, la documentation est essentielle pour la
+reproductibilit\'e. Deux standards \'emergent dans la communaut\'e ML.
+
+\subsection{Model Cards}
+\index{model card}
+
+Les \textbf{Model Cards} (Mitchell et al., 2019) sont des documents
+structur\'es qui accompagnent un mod\`ele publi\'e.
+
+\begin{bonnepratique}[title=\textbf{Contenu d'une Model Card}]
+\begin{enumerate}
+  \item \textbf{D\'etails du mod\`ele}~: architecture, version, auteurs,
+    licence.
+  \item \textbf{Usage pr\'evu}~: cas d'utilisation primaires et hors-scope.
+  \item \textbf{M\'etriques}~: m\'etriques choisies et justification.
+  \item \textbf{Donn\'ees d'entra\^inement}~: description, taille, source.
+  \item \textbf{Donn\'ees d'\'evaluation}~: dataset de test, m\'ethodologie.
+  \item \textbf{Analyses \'ethiques}~: biais, \'equit\'e, limites connues.
+  \item \textbf{R\'esultats quantitatifs}~: par sous-groupe
+    d\'emographique si applicable.
+  \item \textbf{Consid\'erations environnementales}~: empreinte carbone,
+    co\^ut computationnel.
+\end{enumerate}
+\end{bonnepratique}
+
+\begin{codeblock}[title=\textbf{Model Card en YAML (extrait)}]
+\begin{minted}{yaml}
+model_card:
+  model_details:
+    name: "sentiment-classifier-v2"
+    version: "2.1.0"
+    architecture: "BERT-base fine-tuned"
+    parameters: 110_000_000
+    license: "Apache-2.0"
+    training_date: "2025-01-15"
+    training_cost: "8 GPU-hours (A100)"
+
+  intended_use:
+    primary: "Sentiment analysis of product reviews"
+    out_of_scope: "Medical text, legal documents"
+
+  metrics:
+    - name: "F1-score (macro)"
+      value: 0.892
+      confidence_interval: [0.885, 0.899]
+    - name: "Accuracy"
+      value: 0.904
+
+  training_data:
+    name: "Amazon Reviews (2023)"
+    size: "3.6M reviews"
+    preprocessing: "Lowercased, truncated to 512 tokens"
+
+  ethical_considerations:
+    bias: "Lower performance on non-English reviews"
+    fairness_evaluation: "Tested across 5 product categories"
+\end{minted}
+\end{codeblock}
+
+\subsection{Datasheets for Datasets}
+\index{datasheets for datasets}
+
+Les \textbf{Datasheets for Datasets} (Gebru et al., 2021) documentent les
+datasets de mani\`ere standardis\'ee~:
+
+\begin{itemize}
+  \item \textbf{Motivation}~: pourquoi le dataset a-t-il \'et\'e cr\'e\'e~?
+  \item \textbf{Composition}~: quelles instances contient-il~? Quelle est
+    la distribution~?
+  \item \textbf{Collecte}~: comment les donn\'ees ont-elles \'et\'e
+    collect\'ees~? Par qui~?
+  \item \textbf{Pr\'etraitement}~: quelles transformations ont \'et\'e
+    appliqu\'ees~?
+  \item \textbf{Distribution}~: comment le dataset est-il distribu\'e~?
+    Sous quelle licence~?
+  \item \textbf{Maintenance}~: qui maintient le dataset~? Comment signaler
+    des probl\`emes~?
+\end{itemize}
+
+\section{Archivage et partage des artefacts}
+\label{sec:archivage}
+\index{archivage}
+\index{Zenodo}
+\index{Papers with Code}
+
+La reproductibilit\'e exige que le code, les donn\'ees et les mod\`eles
+soient archiv\'es de mani\`ere p\'erenne et accessible.
+
+\begin{formules}[title=\textbf{Plateformes d'archivage}]
+\begin{tabular}{@{}llp{6cm}@{}}
+\toprule
+\textbf{Plateforme} & \textbf{Type} & \textbf{Cas d'usage} \\
+\midrule
+Zenodo & Code + donn\'ees & Archive p\'erenne avec DOI, int\'egration GitHub,
+  jusqu'\`a 50\,Go par d\'ep\^ot \\
+Papers with Code & Code + r\'esultats & Lier articles, code et benchmarks~;
+  leaderboards communautaires \\
+Hugging Face Hub & Mod\`eles + datasets & H\'ebergement de mod\`eles et
+  datasets avec versionnement \\
+GitHub Releases & Code & Snapshots versionn\'es du code \\
+DVC (remote) & Donn\'ees + mod\`eles & Versionnement de fichiers volumineux
+  sur S3, GCS, Azure \\
+\bottomrule
+\end{tabular}
+\end{formules}
+
+\begin{codeblock}[title=\textbf{Archivage automatique avec Zenodo + GitHub}]
+\begin{minted}{bash}
+# 1. Activer l'integration Zenodo-GitHub
+#    -> https://zenodo.org/account/settings/github/
+
+# 2. Creer une release GitHub
+git tag -a v1.0.0 -m "Camera-ready version for NeurIPS 2025"
+git push origin v1.0.0
+
+# 3. Zenodo cree automatiquement un DOI pour la release
+
+# 4. Ajouter le badge DOI dans le README
+# [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXX.svg)]
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Publication sur Hugging Face Hub}]
+\begin{minted}{python}
+from huggingface_hub import HfApi, ModelCard
+
+api = HfApi()
+
+# Upload model
+api.upload_folder(
+    folder_path="./model_checkpoint",
+    repo_id="username/sentiment-classifier-v2",
+    repo_type="model",
+)
+
+# Upload dataset
+api.upload_folder(
+    folder_path="./processed_data",
+    repo_id="username/amazon-reviews-2023",
+    repo_type="dataset",
+)
+
+# Create and push model card
+card = ModelCard.load("username/sentiment-classifier-v2")
+card.data.language = "en"
+card.data.license = "apache-2.0"
+card.data.datasets = ["username/amazon-reviews-2023"]
+card.push_to_hub("username/sentiment-classifier-v2")
+\end{minted}
+\end{codeblock}
+
+\section{Checklist de reproductibilit\'e}
+\label{sec:checklist}
+\index{NeurIPS!checklist}
+\index{reproductibilit\'e!checklist}
+
+La conf\'erence NeurIPS exige depuis 2019 une checklist de
+reproductibilit\'e. Voici une version adapt\'ee pour tout projet ML~:
+
+\begin{bonnepratique}[title=\textbf{Checklist de reproductibilit\'e ML}]
+\textbf{Code et environnement~:}
+\begin{itemize}
+  \item[$\square$] Code source disponible publiquement (ou en suppl\'ement)
+  \item[$\square$] Fichier de d\'ependances complet avec versions \'epingl\'ees
+  \item[$\square$] Instructions d'installation test\'ees sur une machine vierge
+  \item[$\square$] Script unique pour reproduire tous les r\'esultats
+  \item[$\square$] Version de Python, CUDA, cuDNN document\'ee
+\end{itemize}
+\textbf{Donn\'ees~:}
+\begin{itemize}
+  \item[$\square$] Donn\'ees disponibles ou instructions pour les obtenir
+  \item[$\square$] Pr\'etraitement enti\`erement script\'e (pas d'\'etapes manuelles)
+  \item[$\square$] Splits train/val/test fix\'es et partag\'es
+  \item[$\square$] Datasheet ou documentation du dataset
+\end{itemize}
+\textbf{Exp\'eriences~:}
+\begin{itemize}
+  \item[$\square$] Tous les hyperparamm\`etres rapport\'es
+  \item[$\square$] Graines al\'eatoires fix\'ees et document\'ees
+  \item[$\square$] R\'esultats moyenn\'es sur plusieurs runs ($\geq 3$)
+  \item[$\square$] Barres d'erreur ou intervalles de confiance rapport\'es
+  \item[$\square$] Temps d'entra\^inement et ressources document\'es
+\end{itemize}
+\textbf{Mod\`ele~:}
+\begin{itemize}
+  \item[$\square$] Architecture compl\`etement d\'ecrite
+  \item[$\square$] Nombre de param\`etres rapport\'e
+  \item[$\square$] Model card incluse
+  \item[$\square$] Poids du mod\`ele disponibles (si applicable)
+\end{itemize}
+\end{bonnepratique}
+
+\section{Comparaison des outils pour la recherche reproductible}
+\label{sec:tools-repro}
+
+\begin{center}
+\begin{tabular}{@{}lp{3cm}p{3cm}p{3.5cm}@{}}
+\toprule
+\textbf{Outil} & \textbf{Points forts} & \textbf{Limites} &
+  \textbf{Cas d'usage} \\
+\midrule
+MLflow & Suivi d'exp\'eriences, registre de mod\`eles & Interface parfois
+  lourde & Projets d'\'equipe, production \\
+DVC & Versionnement donn\'ees, pipelines & Courbe d'apprentissage &
+  Gros datasets, pipelines complexes \\
+W\&B & Visualisation, collaboration & SaaS (donn\'ees sur le cloud) &
+  Recherche acad\'emique, prototypage \\
+Hydra & Configuration flexible, multi-run & Code sp\'ecifique &
+  Balayage d'hyperparamm\`etres \\
+Sacred & L\'eger, MongoDB & Peu maintenu & Petits projets acad\'emiques \\
+Guild AI & CLI, comparaison de runs & Communaut\'e r\'eduite &
+  Exp\'erimentation locale \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Bonnes pratiques compl\'ementaires}
+\label{sec:bonnes-pratiques-repro}
+
+\begin{bonnepratique}[title=\textbf{R\`egles d'or de la reproductibilit\'e}]
+\begin{enumerate}
+  \item \textbf{Versionner tout}~: code (Git), donn\'ees (DVC), environnement
+    (\file{requirements.txt}), configuration (YAML).
+  \item \textbf{Automatiser tout}~: un seul \cli{make reproduce} doit
+    g\'en\'erer tous les r\'esultats.
+  \item \textbf{Documenter les choix}~: pourquoi ce learning rate~? Pourquoi
+    cette architecture~? Notez les d\'ecisions dans un journal d'exp\'eriences.
+  \item \textbf{Rapporter la variabilit\'e}~: toujours moyenne $\pm$
+    \'ecart-type sur $n \geq 3$ runs.
+  \item \textbf{Conteneuriser}~: un \file{Dockerfile} garantit un
+    environnement identique.
+  \item \textbf{Archiver}~: d\'eposez code et donn\'ees sur Zenodo pour
+    obtenir un DOI p\'erenne.
+\end{enumerate}
+\end{bonnepratique}
+
+\begin{antipattern}[title=\textbf{Anti-patterns de la reproductibilit\'e}]
+\begin{itemize}
+  \item <<~Les r\'esultats sont dans le notebook~>> sans script de
+    reproduction.
+  \item Rapporter le meilleur run sur 100 sans mentionner les 99 autres.
+  \item Utiliser \cli{random\_state=42} partout sans justifier ni
+    tester d'autres valeurs.
+  \item Ne pas versionner les donn\'ees de pr\'etraitement.
+  \item <<~Code disponible sur demande~>> (spoiler~: il ne l'est jamais).
+  \item Modifier le code apr\`es soumission sans mettre \`a jour le d\'ep\^ot.
+\end{itemize}
+\end{antipattern}
+
+\section{Mini-projet~: rendre le projet de cours reproductible}
+\label{sec:mini-project-ch11}
+
+\begin{miniprojet}[title=\textbf{Mini-projet 11~: Reproductibilit\'e compl\`ete}]
+Prenez le projet complet d\'evelopp\'e au fil des chapitres pr\'ec\'edents et
+rendez-le enti\`erement reproductible~:
+\begin{enumerate}
+  \item \textbf{Graines al\'eatoires}~: impl\'ementez la fonction
+    \cli{set\_seed()} compl\`ete et appelez-la au d\'ebut de chaque script.
+  \item \textbf{Conteneurisation}~: cr\'eez un \file{Dockerfile} qui
+    installe toutes les d\'ependances et reproduit l'entra\^inement.
+  \item \textbf{Pipeline DVC}~: d\'efinissez un \file{dvc.yaml} avec les
+    \'etapes preprocess $\to$ train $\to$ evaluate.
+  \item \textbf{Documentation}~:
+    \begin{itemize}
+      \item R\'edigez une Model Card pour votre mod\`ele final.
+      \item R\'edigez une Datasheet pour votre dataset.
+    \end{itemize}
+  \item \textbf{Script de reproduction}~: cr\'eez un \file{reproduce.sh}
+    qui clone le d\'ep\^ot, construit le conteneur, et ex\'ecute le pipeline
+    complet.
+  \item \textbf{Validation}~: demandez \`a un coll\`egue de reproduire vos
+    r\'esultats en suivant uniquement le README. Notez les probl\`emes
+    rencontr\'es et corrigez-les.
+  \item \textbf{Archivage}~: cr\'eez une release GitHub et archivez-la
+    sur Zenodo.
+\end{enumerate}
+\end{miniprojet}
+
+\begin{codeblock}[title=\textbf{reproduce.sh --- Script de reproduction compl\`ete}]
+\begin{minted}{bash}
+#!/bin/bash
+set -euo pipefail
+
+echo "=== Reproduction complete du projet ==="
+
+# 1. Verifier les prerequis
+command -v docker >/dev/null 2>&1 || {
+    echo "Docker requis. Installation: https://docs.docker.com/install/"
+    exit 1
+}
+
+# 2. Construire l'image Docker
+echo "[1/4] Construction de l'image Docker..."
+docker build -t ml-project:reproduce .
+
+# 3. Telecharger les donnees versionnees
+echo "[2/4] Telechargement des donnees (DVC)..."
+docker run --rm -v "$(pwd)/data:/app/data" ml-project:reproduce \
+    dvc pull
+
+# 4. Executer le pipeline complet
+echo "[3/4] Execution du pipeline..."
+docker run --rm \
+    -v "$(pwd)/data:/app/data" \
+    -v "$(pwd)/results:/app/results" \
+    ml-project:reproduce \
+    dvc repro
+
+# 5. Verifier les resultats
+echo "[4/4] Verification des metriques..."
+docker run --rm \
+    -v "$(pwd)/results:/app/results" \
+    ml-project:reproduce \
+    python src/verify_results.py \
+        --expected-accuracy 0.892 \
+        --tolerance 0.005
+
+echo "=== Reproduction terminee avec succes ==="
+\end{minted}
+\end{codeblock}
+
+\section{Exercices}
+\label{sec:exercises-ch11}
+
+\begin{exercice}[$\bigstar$ --- Audit de reproductibilit\'e]
+Choisissez un article r\'ecent sur \emph{Papers with Code}. V\'erifiez~:
+\begin{enumerate}
+  \item Le code est-il disponible~?
+  \item Les d\'ependances sont-elles document\'ees~?
+  \item Les hyperparamm\`etres sont-ils tous rapport\'es~?
+  \item Les graines al\'eatoires sont-elles fix\'ees~?
+  \item Pouvez-vous ex\'ecuter le code avec succ\`es~?
+\end{enumerate}
+R\'edigez un rapport d'audit de 2 pages en utilisant la checklist de la
+section~\ref{sec:checklist}.
+\end{exercice}
+
+\begin{exercice}[$\bigstar\bigstar$ --- Impact de l'al\'eatoire]
+Entra\^inez un r\'eseau de neurones (par exemple un CNN sur CIFAR-10) avec
+10 graines al\'eatoires diff\'erentes. Pour chaque configuration~:
+\begin{enumerate}
+  \item Mesurez l'accuracy finale sur le test set.
+  \item Calculez la moyenne, l'\'ecart-type, le min et le max.
+  \item Comparez les r\'esultats avec et sans
+    \cli{torch.use\_deterministic\_algorithms(True)}.
+  \item Tracez un box plot des performances.
+  \item Mesurez l'impact sur le temps d'entra\^inement.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[$\bigstar\bigstar\bigstar$ --- Pipeline reproductible de bout en bout]
+Construisez un projet ML enti\`erement reproductible~:
+\begin{enumerate}
+  \item Choisissez un probl\`eme de classification (texte ou image).
+  \item Impl\'ementez le code avec la structure modulaire du
+    chapitre~\ref{ch:introduction}.
+  \item Fixez toutes les sources d'al\'eatoire.
+  \item Cr\'eez un pipeline DVC complet.
+  \item Conteneurisez avec Docker.
+  \item R\'edigez une Model Card et une Datasheet.
+  \item \'Ecrivez un \file{reproduce.sh} qui automatise tout.
+  \item Faites reproduire le projet par un coll\`egue et it\'erez
+    sur les probl\`emes rencontr\'es.
+  \item Archivez le tout sur Zenodo et obtenez un DOI.
+  \item Appliquez la checklist NeurIPS et v\'erifiez que toutes les
+    cases sont coch\'ees.
+\end{enumerate}
+\end{exercice}
+
+\section{Aide-m\'emoire}
+
+\begin{cheatsheet}[title=\textbf{R\'esum\'e du chapitre 11}]
+\begin{tabular}{@{}p{4cm}p{8.5cm}@{}}
+\toprule
+\textbf{Concept} & \textbf{Point cl\'e} \\
+\midrule
+R\'ep\'etabilit\'e & M\^eme code, m\^emes donn\'ees, m\^eme environnement
+  $\to$ m\^emes r\'esultats \\
+Reproductibilit\'e & M\^eme code et donn\'ees, environnement
+  diff\'erent $\to$ m\^emes r\'esultats \\
+R\'eplicabilit\'e & Code et donn\'ees diff\'erents $\to$ conclusions
+  similaires \\
+Graines al\'eatoires & Fixer Python, NumPy, PyTorch, CUDA, DataLoader \\
+D\'eterminisme GPU & \cli{torch.use\_deterministic\_algorithms(True)},
+  ralentissement de 10--20\,\% \\
+Model Card & Documentation structur\'ee du mod\`ele (architecture, biais,
+  limites) \\
+Datasheet & Documentation structur\'ee du dataset (collecte, composition,
+  licence) \\
+Archivage & Zenodo (DOI), Hugging Face Hub, Papers with Code \\
+Checklist & Code, donn\'ees, hyperparamm\`etres, variabilit\'e, ressources \\
+Automatisation & \file{reproduce.sh} + Docker + DVC pour reproduction
+  compl\`ete \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}

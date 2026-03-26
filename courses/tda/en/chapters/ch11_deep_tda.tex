@@ -1,0 +1,300 @@
+% ============================================================
+\chapter{TDA and Deep Learning}
+\label{ch:deep_tda}
+% ============================================================
+
+\begin{intuition}
+Integrating TDA into deep learning poses a fundamental challenge:
+the computation of persistence is a priori \textbf{not differentiable}.
+Recent work has shown how to make persistence differentiable, enabling
+end-to-end training of neural networks with topological objectives.
+\end{intuition}
+
+% ============================================================
+\section{Differentiable persistence}
+\label{sec:diff_persistence}
+% ============================================================
+
+\begin{definition}[Persistence as a function of filtrations]
+\index{differentiable persistence}
+Consider a simplicial complex $K$ with a parametric filtration
+$f_\theta : K \to \R$ depending on parameters $\theta \in \R^p$.
+The persistence diagram $\mathrm{Dgm}(f_\theta)$ is a function
+of $\theta$.
+\end{definition}
+
+\begin{theorem}[Differentiability --- Gameiro et al.\ 2016, Poulenard et al.\ 2018]
+\label{thm:diff_persistence}
+\index{differentiability of persistence}
+Let $K$ be a finite simplicial complex and $f : K \to \R$ a generic
+filtration (distinct filtration values). The birth coordinates
+$b_i(\theta)$ and death coordinates $d_i(\theta)$ in the persistence
+diagram are differentiable functions of $\theta$ almost everywhere.
+More precisely:
+\[
+  \frac{\partial b_i}{\partial \theta_j} =
+  \frac{\partial f_\theta(\sigma_{b_i})}{\partial \theta_j}, \qquad
+  \frac{\partial d_i}{\partial \theta_j} =
+  \frac{\partial f_\theta(\sigma_{d_i})}{\partial \theta_j}
+\]
+where $\sigma_{b_i}$ and $\sigma_{d_i}$ are the simplices that
+create and kill class $i$.
+\end{theorem}
+
+\begin{attention}[title=\textbf{Non-differentiability points}]
+Differentiability fails when two filtration values coincide
+(the birth and death simplices may change). In practice, one adds
+a small perturbation or uses subgradients.
+\end{attention}
+
+\begin{keyformulas}[title=\textbf{Persistence gradient}]
+\[
+  \frac{\partial \mathrm{pers}_i}{\partial \theta}
+  = \frac{\partial d_i}{\partial \theta}
+  - \frac{\partial b_i}{\partial \theta}
+  = \nabla_\theta f(\sigma_{d_i}) - \nabla_\theta f(\sigma_{b_i})
+\]
+\end{keyformulas}
+
+\begin{minted}{python}
+import torch
+from topologylayer.nn import RipsLayer
+
+# Differentiable point cloud
+X = torch.randn(50, 2, requires_grad=True)
+
+# Differentiable persistence layer
+rips_layer = RipsLayer(maxdim=1, sublevel=False)
+dgm = rips_layer(X)
+
+# Loss based on H1 persistence
+loss = -dgm[1][:, 1].sum()  # maximize H1 persistences
+loss.backward()
+print(f"Gradient shape: {X.grad.shape}")
+\end{minted}
+
+% ============================================================
+\section{PersLay: a generic persistence layer}
+\label{sec:perslay}
+% ============================================================
+
+\begin{definition}[PersLay --- Carriere et al.\ 2020]
+\index{PersLay}
+\textbf{PersLay} is a neural layer that transforms a persistence
+diagram $D = \{(b_i, d_i)\}_{i=1}^n$ into a fixed-dimension vector
+via:
+\[
+  \mathrm{PersLay}(D) = \mathrm{op}\!\left(
+  w(p_i) \cdot \phi(p_i)\right)_{i=1}^n
+\]
+where:
+\begin{itemize}
+  \item $w : \R^2 \to \R_+$ is a weight function (attenuating
+        points near the diagonal).
+  \item $\phi : \R^2 \to \R^q$ is a pointwise representation
+        function (learned or fixed).
+  \item $\mathrm{op}$ is a permutation-invariant aggregation
+        (sum, max, top-$k$, attention).
+\end{itemize}
+\end{definition}
+
+\begin{proposition}[Universality of PersLay]
+With suitable choices of $w$, $\phi$, and $\mathrm{op}$, PersLay
+can uniformly approximate any continuous, permutation-invariant
+function on persistence diagrams.
+\end{proposition}
+
+\begin{remark}
+PersLay unifies classical representations:
+\begin{itemize}
+  \item \textbf{Landscapes}: $\phi$ is the tent function,
+        $\mathrm{op}$ is top-$k$.
+  \item \textbf{Images}: $\phi$ is a Gaussian,
+        $\mathrm{op}$ is sum.
+  \item \textbf{Silhouettes}: $\phi$ is the tent function,
+        $\mathrm{op}$ is the weighted average.
+\end{itemize}
+\end{remark}
+
+% ============================================================
+\section{Topological regularization}
+\label{sec:regularization}
+% ============================================================
+
+\begin{definition}[Topological loss]
+\index{topological regularization}
+A \textbf{topological loss} is a term added to the cost function
+to encourage or penalize certain topological structures:
+\[
+  \mathcal{L}_{\mathrm{total}} = \mathcal{L}_{\mathrm{task}}
+  + \lambda \cdot \mathcal{L}_{\mathrm{topo}}
+\]
+where $\mathcal{L}_{\mathrm{topo}}$ is computed from the persistence
+diagram.
+\end{definition}
+
+\begin{example}[Topological loss for segmentation]
+In image segmentation, one can penalize spurious small holes in the
+prediction:
+\[
+  \mathcal{L}_{\mathrm{topo}} = \sum_{(b_i, d_i) \in H_1}
+  (d_i - b_i)^2
+\]
+which forces the network to produce simply connected regions.
+\end{example}
+
+\begin{theorem}[Convergence of topological regularization]
+Under regularity conditions (generic filtration, Lipschitz),
+stochastic gradient descent with topological loss converges to a
+critical point of $\mathcal{L}_{\mathrm{total}}$.
+\end{theorem}
+
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+
+class TopologicalLoss(nn.Module):
+    """Penalize spurious holes in segmentation."""
+    def __init__(self, lam=1.0):
+        super().__init__()
+        self.lam = lam
+
+    def forward(self, pred, target, dgm_h1):
+        ce_loss = nn.functional.cross_entropy(pred, target)
+        # H1 persistences = d - b
+        pers = dgm_h1[:, 1] - dgm_h1[:, 0]
+        topo_loss = (pers ** 2).sum()
+        return ce_loss + self.lam * topo_loss
+\end{minted}
+
+% ============================================================
+\section{Topological autoencoders}
+\label{sec:topo_autoencoders}
+% ============================================================
+
+\begin{definition}[Topological autoencoder --- Moor et al.\ 2020]
+\index{topological autoencoder}
+A \textbf{topological autoencoder} is an autoencoder
+$(\mathrm{Enc}, \mathrm{Dec})$ whose loss includes a topological
+term:
+\[
+  \mathcal{L} = \norm{x - \mathrm{Dec}(\mathrm{Enc}(x))}^2
+  + \lambda \cdot d_W\!\left(\mathrm{Dgm}(X),\;
+  \mathrm{Dgm}(\mathrm{Enc}(X))\right)^2
+\]
+where $d_W$ is a Wasserstein distance between the persistence
+diagrams of the input space $X$ and the latent space
+$\mathrm{Enc}(X)$.
+\end{definition}
+
+\begin{intuition}
+The idea is to preserve the \textbf{topology} of the data during
+dimensionality reduction. A standard autoencoder (or VAE) may
+collapse loops or merge connected components. The topological term
+penalizes such distortions.
+\end{intuition}
+
+\begin{proposition}[Topological preservation]
+If $\mathcal{L}_{\mathrm{topo}} = 0$, then the Betti numbers of
+$X$ and $\mathrm{Enc}(X)$ coincide for the Rips filtration used.
+\end{proposition}
+
+% ============================================================
+\section{Graph neural networks and persistent homology}
+\label{sec:gnn_persistence}
+% ============================================================
+
+\begin{definition}[Learned graph filtration]
+\index{learned filtration}
+Let $G = (V, E)$ be a graph with node features $h_v \in \R^d$.
+Define a learned filtration:
+\[
+  f_\theta(v) = g_\theta(h_v), \qquad
+  f_\theta(e_{uv}) = \max(f_\theta(u), f_\theta(v))
+\]
+where $g_\theta : \R^d \to \R$ is a neural network. The persistence
+diagram of this filtration provides topological features of the graph.
+\end{definition}
+
+\begin{example}[Graph classification]
+For molecular graph classification:
+\begin{enumerate}
+  \item A GNN produces node embeddings $h_v$.
+  \item A learned filtration $f_\theta$ is computed.
+  \item The persistence diagram is vectorized via PersLay.
+  \item The resulting vector is concatenated with the GNN readout.
+\end{enumerate}
+This combination improves expressiveness beyond the Weisfeiler-Leman
+test.
+\end{example}
+
+\begin{theorem}[Topological expressiveness --- Horn et al.\ 2022]
+\index{expressiveness}
+There exist pairs of non-isomorphic graphs indistinguishable by
+the $k$-WL test but distinguishable by the persistence of the
+filtration induced by a message-passing GNN.
+\end{theorem}
+
+% ============================================================
+\section{Implementation with PyTorch}
+\label{sec:implementation}
+% ============================================================
+
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+from torch_geometric.nn import GCNConv, global_mean_pool
+
+class TopoGNN(nn.Module):
+    """GNN with topological features."""
+    def __init__(self, in_dim, hidden_dim, out_dim):
+        super().__init__()
+        self.conv1 = GCNConv(in_dim, hidden_dim)
+        self.conv2 = GCNConv(hidden_dim, hidden_dim)
+        self.filtration = nn.Linear(hidden_dim, 1)
+        self.classifier = nn.Linear(hidden_dim + 16, out_dim)
+
+    def forward(self, x, edge_index, batch):
+        h = torch.relu(self.conv1(x, edge_index))
+        h = torch.relu(self.conv2(h, edge_index))
+        # Standard readout
+        graph_emb = global_mean_pool(h, batch)
+        # Learned filtration
+        filt_vals = self.filtration(h).squeeze()
+        # ... persistence computation and PersLay ...
+        return graph_emb  # simplified
+\end{minted}
+
+% ============================================================
+\section{Exercises}
+% ============================================================
+
+\begin{exercise}
+Compute by hand the gradient of the total persistence
+$\sum_i (d_i - b_i)$ with respect to filtration values for the
+complex $\{a, b, c, ab, bc\}$ with $f(a) = 0, f(b) = 1, f(c) = 2,
+f(ab) = 1, f(bc) = 2$.
+\end{exercise}
+
+\begin{exercise}
+Show that PersLay with $\phi(b, d) = (b, d-b)$, $w \equiv 1$, and
+$\mathrm{op} = \mathrm{sum}$ reduces to computing
+$(\sum b_i, \sum(d_i - b_i))$.
+\end{exercise}
+
+\begin{exercise}[Implementation]
+Implement a simple topological autoencoder on a circle-shaped dataset.
+Compare the latent space with and without the topological term.
+\end{exercise}
+
+\begin{exercise}
+Give an example of two non-isomorphic graphs indistinguishable by
+$1$-WL but distinguishable by the $H_0$ persistence of a
+degree-induced filtration.
+\end{exercise}
+
+\begin{exercise}[Project]
+Train an image segmentation network (U-Net) with and without
+topological regularization on a blood vessel dataset. Compare the
+Betti numbers of the predictions.
+\end{exercise}

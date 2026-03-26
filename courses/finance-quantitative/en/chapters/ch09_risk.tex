@@ -1,0 +1,266 @@
+% ============================================================
+\chapter{Risk Measures}
+\label{ch:risk}
+% ============================================================
+
+\section{Introduction}
+
+After the financial crises of the 1990s --- the Orange County debacle (1994), the Barings collapse (1995), the LTCM crisis (1998) --- the question of measuring risk became central. J.P.\,Morgan popularized \emph{Value at Risk} (VaR) in 1994 with its RiskMetrics system: a single number summarizing the maximum probable loss over a given horizon at a given confidence level. But Philippe Artzner and colleagues showed in 1999 that VaR is not \emph{coherent}: it violates subadditivity, meaning that diversifying a portfolio can, paradoxically, increase measured VaR. \emph{Expected Shortfall} (CVaR) corrects this flaw. This chapter traces this history, from empirical measures to theoretical axioms, through copulas and stress testing.
+
+\begin{intuition}
+A risk measure answers the question: ``How much can I lose at most, with a
+given probability, over a given horizon?'' VaR answers with a quantile, but
+says nothing about the severity of losses beyond that threshold. Expected
+Shortfall fills this gap by averaging losses in the tail of the distribution.
+\end{intuition}
+
+\section{Value at Risk (VaR)}
+
+\begin{definition}[Value at Risk]
+\index{Value at Risk}
+Let $L$ be the random variable representing the portfolio loss over a horizon
+$\Delta t$. The \textbf{Value at Risk}\index{VaR} at confidence level
+$\alpha \in (0, 1)$ is
+\[
+    \mathrm{VaR}_\alpha(L) = \inf\{l \in \R : \PP(L > l) \leq 1 - \alpha\}
+    = F_L^{-1}(\alpha),
+\]
+where $F_L^{-1}$ denotes the generalised quantile of $L$.
+\end{definition}
+
+\begin{example}[Gaussian VaR]
+If $L \sim \mathcal{N}(\mu, \sigma^2)$, then
+$\mathrm{VaR}_\alpha = \mu + \sigma\,\Phi^{-1}(\alpha)$,
+where $\Phi$ is the standard normal CDF. For $\alpha = 0.99$:
+$\mathrm{VaR}_{99\%} = \mu + 2.326\,\sigma$.
+\end{example}
+
+\begin{proposition}[VaR computation methods]
+\begin{enumerate}
+    \item \textbf{Historical}: $\mathrm{VaR}_\alpha =$ empirical quantile of
+    past returns.
+    \item \textbf{Parametric (variance-covariance)}: assumes a distribution
+    (often Gaussian) and uses estimated $\mu$, $\sigma$.
+    \item \textbf{Monte Carlo}: simulate scenarios and compute the quantile
+    of simulated losses.
+\end{enumerate}
+\end{proposition}
+
+\begin{attention}[title=\textbf{Limitations of VaR}]
+VaR does not satisfy sub-additivity in general: one can have
+$\mathrm{VaR}_\alpha(L_1 + L_2) > \mathrm{VaR}_\alpha(L_1) + \mathrm{VaR}_\alpha(L_2)$.
+This means diversification can \emph{appear} to increase risk, which is a
+major conceptual flaw.
+\end{attention}
+
+\section{Expected Shortfall (CVaR)}
+
+\begin{definition}[Expected Shortfall]
+\index{Expected Shortfall}\index{CVaR}
+The \textbf{Expected Shortfall} (or CVaR, Conditional Value at Risk) at
+level $\alpha$ is
+\[
+    \mathrm{ES}_\alpha(L) = \frac{1}{1-\alpha}\int_\alpha^1
+    \mathrm{VaR}_u(L)\,\mathrm{d}u.
+\]
+If $F_L$ is continuous,
+$\mathrm{ES}_\alpha(L) = \E[L \mid L \geq \mathrm{VaR}_\alpha(L)]$.
+\end{definition}
+
+\begin{example}[Gaussian ES]
+If $L \sim \mathcal{N}(\mu, \sigma^2)$:
+\[
+    \mathrm{ES}_\alpha = \mu + \sigma\,\frac{\phi(\Phi^{-1}(\alpha))}{1 - \alpha},
+\]
+where $\phi$ is the standard normal density. For $\alpha = 0.99$:
+$\mathrm{ES}_{99\%} \approx \mu + 2.665\,\sigma$.
+\end{example}
+
+\begin{theorem}[Dual representation of ES]
+\index{dual representation}
+\[
+    \mathrm{ES}_\alpha(L) = \sup_{Q \in \mathcal{Q}_\alpha} \E_Q[L],
+\]
+where $\mathcal{Q}_\alpha = \{Q \ll \PP : \mathrm{d}Q/\mathrm{d}\PP \leq
+1/(1-\alpha)\}$. This shows that ES is the worst-case expectation over an
+ambiguity set.
+\end{theorem}
+
+\section{Coherent Risk Measures}
+
+\begin{definition}[Coherent risk measure]
+\index{coherent risk measure}
+A functional $\rho : \mathcal{X} \to \R$ is a \textbf{coherent risk measure}
+(Artzner, Delbaen, Eber, Heath, 1999) if it satisfies:
+\begin{enumerate}
+    \item \textbf{Monotonicity}: $L_1 \leq L_2$ a.s. $\implies$
+    $\rho(L_1) \leq \rho(L_2)$.
+    \item \textbf{Translation invariance}: $\rho(L + c) = \rho(L) + c$ for
+    all $c \in \R$.
+    \item \textbf{Positive homogeneity}: $\rho(\lambda L) = \lambda\rho(L)$
+    for all $\lambda > 0$.
+    \item \textbf{Sub-additivity}: $\rho(L_1 + L_2) \leq \rho(L_1) + \rho(L_2)$.
+\end{enumerate}
+\end{definition}
+
+\begin{theorem}[ADEH, 1999]
+\begin{enumerate}
+    \item Expected Shortfall is a \textbf{coherent} risk measure.
+    \item VaR is \textbf{not} coherent (it violates sub-additivity).
+    \item Every coherent risk measure admits a representation
+    $\rho(L) = \sup_{Q \in \mathcal{Q}} \E_Q[L]$ for a closed convex set
+    $\mathcal{Q}$ of probability measures.
+\end{enumerate}
+\end{theorem}
+
+\begin{keyformulas}[title=\textbf{VaR vs ES Comparison}]
+\begin{center}
+\begin{tabular}{lcc}
+\textbf{Property} & \textbf{VaR} & \textbf{ES} \\
+\hline
+Sub-additivity & No & Yes \\
+Coherence & No & Yes \\
+Tail sensitivity & No & Yes \\
+Basel III+ regulation & No & Yes \\
+Ease of backtesting & Yes & Difficult \\
+\end{tabular}
+\end{center}
+\end{keyformulas}
+
+\section{Stress Testing}
+
+\begin{definition}[Stress test]
+\index{stress test}
+A \textbf{stress test} evaluates portfolio losses under predetermined or
+historical extreme scenarios:
+\[
+    L_{\text{stress}} = \sum_{i=1}^n \Delta_i \cdot S_i^{\text{stress}},
+\]
+where $\Delta_i$ are sensitivities and $S_i^{\text{stress}}$ are shocks
+applied to risk factors.
+\end{definition}
+
+\begin{proposition}[Types of stress tests]
+\begin{enumerate}
+    \item \textbf{Historical}: reproduce past crises (2008, 2020).
+    \item \textbf{Hypothetical}: constructed scenarios (300 bp rate shock,
+    sector collapse).
+    \item \textbf{Reverse stress tests}: find the scenario leading to a given
+    critical loss.
+\end{enumerate}
+\end{proposition}
+
+\section{Copulas and Dependence Modelling}
+
+\begin{definition}[Copula]
+\index{copula}
+A \textbf{copula} $C : [0,1]^d \to [0,1]$ is a joint CDF with uniform
+marginals on $[0,1]$. It captures the dependence structure independently of
+the marginal distributions.
+\end{definition}
+
+\begin{theorem}[Sklar, 1959]
+\index{Sklar's theorem}
+For any joint distribution $F$ with marginals $F_1, \ldots, F_d$, there
+exists a copula $C$ such that
+\[
+    F(x_1, \ldots, x_d) = C(F_1(x_1), \ldots, F_d(x_d)).
+\]
+If the $F_i$ are continuous, $C$ is unique.
+\end{theorem}
+
+\begin{example}[Gaussian copula]
+\index{copula!Gaussian}
+The \textbf{Gaussian copula} with correlation matrix $\Sigma$ is
+\[
+    C_\Sigma^{\mathrm{Ga}}(u_1, \ldots, u_d)
+    = \Phi_\Sigma(\Phi^{-1}(u_1), \ldots, \Phi^{-1}(u_d)),
+\]
+where $\Phi_\Sigma$ is the multivariate normal CDF.
+\end{example}
+
+\begin{definition}[Clayton copula]
+\index{copula!Clayton}
+The \textbf{Clayton copula} (bivariate) is
+\[
+    C_\theta(u, v) = (u^{-\theta} + v^{-\theta} - 1)^{-1/\theta},
+    \quad \theta > 0.
+\]
+It models strong lower tail dependence (co-crash risk).
+\end{definition}
+
+\begin{definition}[Tail dependence]
+\index{tail dependence}
+The \textbf{lower tail dependence coefficient} is
+\[
+    \lambda_L = \lim_{u \to 0^+} \frac{C(u, u)}{u}.
+\]
+For the Gaussian copula, $\lambda_L = 0$ (unless $\rho = 1$). For the Clayton
+copula, $\lambda_L = 2^{-1/\theta} > 0$.
+\end{definition}
+
+\begin{remark}
+The Gaussian copula underestimates tail dependence. This was one of the causes
+of the 2008 subprime crisis, where CDO models used Li's (2000) Gaussian copula
+without accounting for extreme dependence.
+\end{remark}
+
+\begin{codeblock}[title=\textbf{VaR and ES computation via Monte Carlo}]
+\begin{minted}{python}
+import numpy as np
+from scipy.stats import norm
+
+np.random.seed(42)
+n_sim = 100_000
+mu, sigma = 0.0, 0.02
+alpha = 0.99
+
+returns = np.random.normal(mu, sigma, n_sim)
+losses = -returns
+
+var_99 = np.percentile(losses, 100 * alpha)
+es_99 = losses[losses >= var_99].mean()
+
+print(f"VaR 99%: {var_99:.4f}")
+print(f"ES 99%:  {es_99:.4f}")
+print(f"Analytical VaR: {-mu + sigma * norm.ppf(alpha):.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{Exercises}
+
+\begin{exercise}[Portfolio VaR]
+A portfolio worth EUR 10M has daily returns
+$\mathcal{N}(0.05\%, (1.5\%)^2)$. Compute the 99\% VaR at 1 day and 10 days
+(square root of time rule).
+\end{exercise}
+
+\begin{exercise}[Sub-additivity violation]
+Construct an explicit example of two random variables $L_1, L_2$ such that
+$\mathrm{VaR}_{0.95}(L_1 + L_2) > \mathrm{VaR}_{0.95}(L_1) +
+\mathrm{VaR}_{0.95}(L_2)$.
+\textit{Hint}: use concentrated Bernoulli losses.
+\end{exercise}
+
+\begin{exercise}[Clayton copula]
+Simulate 10,000 pairs $(U, V)$ from a Clayton copula with $\theta = 2$.
+Estimate the lower tail dependence coefficient and compare with the
+theoretical value $\lambda_L = 2^{-1/2}$.
+\end{exercise}
+
+\begin{exercise}[Convex risk measures]
+Show that every coherent risk measure is convex. Give an example of a convex
+risk measure that is not coherent (positive homogeneity violated).
+\end{exercise}
+
+\begin{exercise}[Stress test]
+Design a historical stress test based on the 2008 crisis for a portfolio
+containing 60\% equities and 40\% bonds. Compute the loss under this scenario
+and compare with the 99\% VaR.
+\end{exercise}
+
+\begin{exercise}[Backtesting]
+Explain the Kupiec test for VaR backtesting. If over 250 trading days, 5 VaR
+exceedances are observed at the 99\% level, is the VaR correctly calibrated
+at the 5\% significance level?
+\end{exercise}

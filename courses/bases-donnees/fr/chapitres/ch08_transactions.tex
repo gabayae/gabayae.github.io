@@ -1,0 +1,316 @@
+% ============================================================
+\chapter{Transactions et Contr\^ole de Concurrence}
+\label{ch:transactions}
+% ============================================================
+
+Imaginez un virement bancaire~: on d\'ebite un compte et on cr\'edite un autre. Que se passe-t-il si le syst\`eme tombe en panne entre les deux op\'erations~? L'argent a disparu. C'est pour \'eviter ce genre de catastrophe que Jim Gray, dans les ann\'ees 1970 chez IBM, a formalis\'e la notion de \emph{transaction} et les propri\'et\'es ACID (Atomicit\'e, Coh\'erence, Isolation, Durabilit\'e). Une transaction est un ``tout ou rien'' logique~: soit toutes ses op\'erations r\'eussissent, soit aucune n'a d'effet. Quand plusieurs transactions s'ex\'ecutent simultan\'ement, le contr\^ole de concurrence (verrouillage, estampillage, MVCC) garantit que le r\'esultat est \'equivalent \`a une ex\'ecution s\'equentielle. Gray recevra le prix Turing en 1998 pour ces travaux fondamentaux.
+
+\begin{intuition}[title=\textbf{Id\'ee centrale}]
+Une transaction est une unit\'e logique de travail qui doit \^etre ex\'ecut\'ee
+de mani\`ere atomique, coh\'erente, isol\'ee et durable (ACID). Le contr\^ole
+de concurrence garantit que l'ex\'ecution simultan\'ee de plusieurs
+transactions produit un r\'esultat correct, comme si elles avaient \'et\'e
+ex\'ecut\'ees s\'equentiellement.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Notion de transaction}
+% ------------------------------------------------------------
+
+\begin{definition}[Transaction]
+\index{transaction}
+Une \textbf{transaction} est une s\'equence d'op\'erations de lecture et
+d'\'ecriture sur la base de donn\'ees, d\'elimit\'ee par un \texttt{BEGIN}
+et termin\'ee par un \texttt{COMMIT} (validation) ou un \texttt{ROLLBACK}
+(annulation).
+\end{definition}
+
+\begin{minted}{python}
+# Exemple en Python avec psycopg2
+import psycopg2
+
+conn = psycopg2.connect("dbname=banque")
+cur = conn.cursor()
+try:
+    cur.execute("UPDATE comptes SET solde = solde - 100 WHERE id = 1")
+    cur.execute("UPDATE comptes SET solde = solde + 100 WHERE id = 2")
+    conn.commit()   # Les deux operations sont validees ensemble
+except Exception:
+    conn.rollback()  # Aucune modification n'est appliquee
+finally:
+    cur.close()
+    conn.close()
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Propri\'et\'es ACID}
+% ------------------------------------------------------------
+
+\begin{definition}[Propri\'et\'es ACID]
+\index{ACID}
+Les quatre propri\'et\'es fondamentales d'une transaction sont~:
+\begin{enumerate}
+  \item \textbf{Atomicit\'e} --- Toutes les op\'erations sont ex\'ecut\'ees ou aucune.
+  \item \textbf{Coh\'erence} --- La transaction am\`ene la base d'un \'etat
+        coh\'erent \`a un autre \'etat coh\'erent.
+  \item \textbf{Isolation} --- Les transactions concurrentes ne voient pas
+        les modifications interm\'ediaires des autres.
+  \item \textbf{Durabilit\'e} --- Une fois valid\'ee (\texttt{COMMIT}), les
+        modifications survivent \`a toute panne.
+\end{enumerate}
+\end{definition}
+
+\begin{remarque}
+L'atomicit\'e et la durabilit\'e sont assur\'ees par le journal de
+transactions (\emph{Write-Ahead Log}, WAL). La coh\'erence est assur\'ee
+par les contraintes d'int\'egrit\'e. L'isolation est assur\'ee par le
+contr\^ole de concurrence.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Probl\`emes li\'es \`a la concurrence}
+% ------------------------------------------------------------
+
+Sans contr\^ole, l'ex\'ecution concurrente peut produire des anomalies~:
+
+\begin{definition}[Anomalies de concurrence]
+\index{anomalies de concurrence}
+\begin{itemize}
+  \item \textbf{Lecture sale} (\emph{dirty read}) --- $T_2$ lit une donn\'ee
+        modifi\'ee par $T_1$ qui n'a pas encore valid\'e.
+  \item \textbf{Lecture non r\'ep\'etable} (\emph{non-repeatable read}) ---
+        $T_1$ lit une donn\'ee deux fois et obtient des valeurs diff\'erentes
+        car $T_2$ l'a modifi\'ee entre-temps.
+  \item \textbf{Lecture fant\^ome} (\emph{phantom read}) --- $T_1$ ex\'ecute
+        une requ\^ete deux fois et obtient des lignes diff\'erentes car $T_2$
+        a ins\'er\'e ou supprim\'e des lignes.
+  \item \textbf{\'Ecriture perdue} (\emph{lost update}) --- Deux transactions
+        lisent la m\^eme valeur, la modifient et l'\'ecrivent~: une des
+        modifications est perdue.
+\end{itemize}
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Niveaux d'isolation}
+% ------------------------------------------------------------
+
+\begin{definition}[Niveaux d'isolation SQL]
+\index{niveaux d'isolation}
+Le standard SQL d\'efinit quatre niveaux d'isolation~:
+\begin{center}
+\begin{tabular}{lccc}
+\hline
+\textbf{Niveau} & \textbf{Dirty read} & \textbf{Non-repeatable} & \textbf{Phantom} \\
+\hline
+\texttt{READ UNCOMMITTED} & Possible & Possible & Possible \\
+\texttt{READ COMMITTED}   & Non      & Possible & Possible \\
+\texttt{REPEATABLE READ}  & Non      & Non      & Possible \\
+\texttt{SERIALIZABLE}     & Non      & Non      & Non \\
+\hline
+\end{tabular}
+\end{center}
+\end{definition}
+
+\begin{attention}
+Le niveau par d\'efaut varie selon le SGBD~: \texttt{READ COMMITTED} pour
+PostgreSQL et Oracle, \texttt{REPEATABLE READ} pour MySQL/InnoDB. Choisir
+un niveau trop faible expose aux anomalies~; un niveau trop fort r\'eduit
+les performances.
+\end{attention}
+
+\begin{minted}{python}
+-- Fixer le niveau d'isolation en SQL
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+BEGIN;
+    SELECT solde FROM comptes WHERE id = 1;
+    UPDATE comptes SET solde = solde - 100 WHERE id = 1;
+COMMIT;
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Th\'eorie de la s\'erialisabilit\'e}
+% ------------------------------------------------------------
+
+\begin{definition}[Ordonnancement (schedule)]
+\index{ordonnancement}
+Un \textbf{ordonnancement} $S$ est une s\'equence d'op\'erations
+(lectures, \'ecritures, commits, rollbacks) provenant de plusieurs
+transactions, qui pr\'eserve l'ordre interne de chaque transaction.
+\end{definition}
+
+\begin{definition}[S\'erialisabilit\'e par conflit]
+\index{s\'erialisabilit\'e}
+Deux op\'erations sont en \textbf{conflit} si elles portent sur le m\^eme
+objet et au moins l'une est une \'ecriture. Un ordonnancement $S$ est
+\textbf{s\'erialisable par conflit} s'il est \'equivalent par conflit \`a un
+ordonnancement s\'eriel.
+\end{definition}
+
+\begin{theoreme}[Test de s\'erialisabilit\'e par graphe de pr\'ec\'edence]
+\index{graphe de pr\'ec\'edence}
+Construire le \textbf{graphe de pr\'ec\'edence} $G = (V, E)$ o\`u $V$ est
+l'ensemble des transactions et $(T_i, T_j) \in E$ si une op\'eration de
+$T_i$ est en conflit avec une op\'eration de $T_j$ et la pr\'ec\`ede.
+L'ordonnancement est s\'erialisable par conflit si et seulement si $G$ est
+acyclique.
+\end{theoreme}
+
+\begin{exemple}
+Soit $S : r_1(A),\, w_1(A),\, r_2(A),\, w_2(A),\, r_1(B),\, w_1(B),\, r_2(B),\, w_2(B)$.
+Les conflits sont~: $w_1(A) \to r_2(A)$, $w_1(A) \to w_2(A)$,
+$w_1(B) \to r_2(B)$, $w_1(B) \to w_2(B)$. Le graphe a une seule ar\^ete
+$T_1 \to T_2$, donc $S$ est s\'erialisable (\'equivalent \`a $T_1, T_2$).
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Verrouillage \`a deux phases (2PL)}
+% ------------------------------------------------------------
+
+\begin{definition}[Protocole 2PL]
+\index{verrouillage \`a deux phases}
+Le protocole de \textbf{verrouillage \`a deux phases} (2PL) impose que
+chaque transaction passe par deux phases~:
+\begin{enumerate}
+  \item \textbf{Phase de croissance}~: la transaction acquiert des verrous
+        (partag\'es pour lecture, exclusifs pour \'ecriture) sans en lib\'erer.
+  \item \textbf{Phase de d\'ecroissance}~: la transaction lib\`ere des verrous
+        sans en acqu\'erir de nouveaux.
+\end{enumerate}
+\end{definition}
+
+\begin{theoreme}[Correction de 2PL]
+Tout ordonnancement produit par le protocole 2PL est s\'erialisable par conflit.
+\end{theoreme}
+
+\begin{definition}[2PL strict et rigoureux]
+\begin{itemize}
+  \item \textbf{2PL strict}~: les verrous exclusifs ne sont lib\'er\'es qu'au
+        \texttt{COMMIT}/\texttt{ROLLBACK}. \'Evite les annulations en cascade.
+  \item \textbf{2PL rigoureux}~: \emph{tous} les verrous sont lib\'er\'es au
+        \texttt{COMMIT}/\texttt{ROLLBACK}. C'est le mode le plus courant.
+\end{itemize}
+\end{definition}
+
+% ------------------------------------------------------------
+\section{D\'etection et pr\'evention des interblocages}
+% ------------------------------------------------------------
+
+\begin{definition}[Interblocage (deadlock)]
+\index{interblocage}
+Un \textbf{interblocage} se produit lorsque deux ou plusieurs transactions
+s'attendent mutuellement, chacune d\'etenant un verrou demand\'e par l'autre.
+\end{definition}
+
+\begin{proposition}[D\'etection par graphe d'attente]
+Construire le \textbf{graphe d'attente}~: un arc $(T_i, T_j)$ signifie que
+$T_i$ attend un verrou d\'etenu par $T_j$. Il y a interblocage si et
+seulement si le graphe contient un cycle.
+\end{proposition}
+
+Strat\'egies de r\'esolution~:
+\begin{itemize}
+  \item \textbf{D\'etection p\'eriodique}~: v\'erifier les cycles et annuler
+        la transaction la moins co\^uteuse (\emph{victim selection}).
+  \item \textbf{Pr\'evention par estampilles}~: \emph{Wait-Die} ou
+        \emph{Wound-Wait}.
+  \item \textbf{Timeout}~: annuler toute transaction qui attend trop longtemps.
+\end{itemize}
+
+% ------------------------------------------------------------
+\section{Contr\^ole de concurrence multi-versions (MVCC)}
+% ------------------------------------------------------------
+
+\begin{definition}[MVCC]
+\index{MVCC}
+Le \textbf{MVCC} (\emph{Multi-Version Concurrency Control}) maintient
+plusieurs versions de chaque ligne. Une lecture ne bloque jamais une
+\'ecriture et vice versa~:
+\begin{itemize}
+  \item Chaque transaction voit un \emph{snapshot} coh\'erent de la base
+        au moment de son d\'ebut.
+  \item Les \'ecritures cr\'eent de nouvelles versions sans \'ecraser les anciennes.
+  \item Le ramasse-miettes (\emph{vacuum}) supprime les versions obsol\`etes.
+\end{itemize}
+\end{definition}
+
+\begin{remarque}
+PostgreSQL utilise MVCC pour tous les niveaux d'isolation. MySQL/InnoDB
+utilise MVCC pour \texttt{READ COMMITTED} et \texttt{REPEATABLE READ},
+et des verrous suppl\'ementaires pour \texttt{SERIALIZABLE}.
+\end{remarque}
+
+\begin{exemple}
+Sous MVCC, la transaction $T_1$ peut lire la version $v_1$ d'une ligne
+pendant que $T_2$ \'ecrit la version $v_2$~: aucun verrouillage n'est
+n\'ecessaire pour la lecture.
+\begin{minted}{python}
+-- PostgreSQL : observer le MVCC
+BEGIN;
+SELECT xmin, xmax, * FROM comptes WHERE id = 1;
+-- xmin = ID de la transaction qui a cree cette version
+-- xmax = ID de la transaction qui l'a supprimee (0 si active)
+COMMIT;
+\end{minted}
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Journal de transactions (WAL)}
+% ------------------------------------------------------------
+
+\begin{definition}[Write-Ahead Logging]
+\index{WAL}
+Le \textbf{WAL} (\emph{Write-Ahead Log}) est un journal s\'equentiel o\`u
+toute modification est enregistr\'ee \emph{avant} d'\^etre appliqu\'ee aux
+pages de donn\'ees. En cas de panne, le journal permet~:
+\begin{itemize}
+  \item \textbf{REDO}~: rejouer les modifications des transactions valid\'ees.
+  \item \textbf{UNDO}~: annuler les modifications des transactions non valid\'ees.
+\end{itemize}
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Formules cl\'es}
+% ------------------------------------------------------------
+
+\begin{formules}
+\begin{itemize}
+  \item \textbf{ACID}~: Atomicit\'e, Coh\'erence, Isolation, Durabilit\'e
+  \item \textbf{S\'erialisabilit\'e}~: graphe de pr\'ec\'edence acyclique $\Leftrightarrow$ s\'erialisable
+  \item \textbf{2PL}~: phase de croissance $\to$ point de verrouillage $\to$ phase de d\'ecroissance
+  \item \textbf{Deadlock}~: cycle dans le graphe d'attente
+  \item \textbf{MVCC}~: lectures non bloquantes via les snapshots multi-versions
+\end{itemize}
+\end{formules}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}
+Soit l'ordonnancement $S : r_1(A),\, r_2(B),\, w_1(B),\, w_2(A)$.
+Construire le graphe de pr\'ec\'edence. $S$ est-il s\'erialisable~?
+\end{exercice}
+
+\begin{exercice}
+Donner un exemple d'interblocage entre deux transactions portant sur
+deux comptes bancaires. Proposer une solution utilisant un ordre fixe
+d'acquisition des verrous.
+\end{exercice}
+
+\begin{exercice}
+\'Ecrire un script Python qui d\'emontre une lecture fant\^ome sous
+\texttt{READ COMMITTED} dans PostgreSQL, puis montrer qu'elle dispara\^it
+sous \texttt{SERIALIZABLE}.
+\end{exercice}
+
+\begin{exercice}
+Expliquer pourquoi le 2PL strict \'evite les annulations en cascade.
+Donner un contre-exemple avec le 2PL de base.
+\end{exercice}
+
+\begin{exercice}
+Dans un syst\`eme MVCC, une transaction $T_1$ lit la ligne $r$ (version $v_1$),
+puis $T_2$ modifie $r$ et valide (version $v_2$), puis $T_1$ relit $r$.
+Quelle version voit $T_1$ sous \texttt{READ COMMITTED}~? Sous
+\texttt{REPEATABLE READ}~? Justifier.
+\end{exercice}

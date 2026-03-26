@@ -1,0 +1,428 @@
+% ============================================================
+\chapter{SQL --- Aggregation and Window Functions}
+\label{ch:aggregation}
+% ============================================================
+
+Until now, our SQL queries returned individual rows. But often, we want summaries: the total number of students, the average grade by department, the revenue per quarter. This is the role of \emph{aggregate functions} (\texttt{COUNT}, \texttt{SUM}, \texttt{AVG}, \texttt{MAX}, \texttt{MIN}) combined with \texttt{GROUP BY}. \emph{Window functions} (\texttt{OVER}), introduced in SQL:2003, go further: they compute aggregates while preserving individual rows---rank, cumulative sum, moving average---without requiring complex subqueries.
+
+\section{Aggregate Functions}
+
+\begin{definition}[Aggregate Function]
+An \emph{aggregate function} operates on a set of rows and returns a single
+value summarizing that set.
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{Standard Aggregate Functions}]
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Function} & \textbf{Description} & \textbf{Ignores NULL?} \\
+\midrule
+\texttt{COUNT(*)} & Number of rows & No \\
+\texttt{COUNT(col)} & Number of non-NULL values & Yes \\
+\texttt{COUNT(DISTINCT col)} & Number of distinct values & Yes \\
+\texttt{SUM(col)} & Sum & Yes \\
+\texttt{AVG(col)} & Average & Yes \\
+\texttt{MIN(col)} & Minimum & Yes \\
+\texttt{MAX(col)} & Maximum & Yes \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{keyformulas}
+
+\begin{codeblock}[title=\textbf{Simple Aggregations}]
+\begin{minted}{sql}
+SELECT COUNT(*) AS num_enrollments,
+       COUNT(DISTINCT student_id) AS num_students,
+       AVG(grade) AS avg_grade,
+       MIN(grade) AS min_grade,
+       MAX(grade) AS max_grade,
+       SUM(grade) AS total_grades
+FROM Enrollments;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+num_enrollments | num_students | avg_grade | min_grade | max_grade | total_grades
+----------------+--------------+-----------+-----------+-----------+-------------
+8               | 5            | 83.4375   | 55.0      | 97.0      | 667.5
+\end{verbatim}
+\end{codeoutput}
+
+\begin{warning}[title=\textbf{AVG and NULL Values}]
+\texttt{AVG} ignores \texttt{NULL} values. The average of $\{70, \texttt{NULL}, 90\}$
+is $80$, not $53.3$. If you want to treat NULLs as $0$, use
+\texttt{AVG(COALESCE(grade, 0))}.
+\end{warning}
+
+\section{GROUP BY --- Grouping}
+
+\begin{definition}[GROUP BY]
+The \texttt{GROUP BY} clause partitions rows into groups by one or more columns.
+Aggregate functions are then applied to each group separately.
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{Execution Order with GROUP BY}]
+\begin{enumerate}
+    \item \texttt{FROM} / \texttt{JOIN}
+    \item \texttt{WHERE} (filter before grouping)
+    \item \texttt{GROUP BY}
+    \item \texttt{HAVING} (filter after grouping)
+    \item \texttt{SELECT}
+    \item \texttt{DISTINCT}
+    \item \texttt{ORDER BY}
+    \item \texttt{LIMIT}
+\end{enumerate}
+\end{keyformulas}
+
+\begin{codeblock}[title=\textbf{Average per Student}]
+\begin{minted}{sql}
+SELECT s.last_name, s.first_name,
+       COUNT(*) AS num_courses,
+       ROUND(AVG(e.grade), 2) AS avg_grade,
+       MIN(e.grade) AS min_grade,
+       MAX(e.grade) AS max_grade
+FROM Students s
+JOIN Enrollments e ON s.student_id = e.student_id
+GROUP BY s.student_id, s.last_name, s.first_name
+ORDER BY avg_grade DESC;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+last_name | first_name | num_courses | avg_grade | min_grade | max_grade
+----------+------------+-------------+-----------+-----------+----------
+Taylor    | Emma       | 1           | 97.0      | 97.0      | 97.0
+Miller    | Claire     | 2           | 88.75     | 82.0      | 95.5
+Brown     | Alice      | 2           | 82.25     | 76.0      | 88.5
+Davis     | Bob        | 2           | 81.5      | 72.0      | 91.0
+Wilson    | David      | 1           | 55.0      | 55.0      | 55.0
+\end{verbatim}
+\end{codeoutput}
+
+\begin{antipattern}[title=\textbf{Column Outside GROUP BY Without Aggregation}]
+Every column in the \texttt{SELECT} must either appear in \texttt{GROUP BY}
+or be inside an aggregate function:
+\begin{minted}{sql}
+-- ERROR: first_name not in GROUP BY or aggregated
+SELECT last_name, first_name, AVG(grade) FROM Enrollments
+JOIN Students ON ... GROUP BY last_name;
+
+-- CORRECT:
+SELECT last_name, first_name, AVG(grade) FROM Enrollments
+JOIN Students ON ... GROUP BY last_name, first_name;
+\end{minted}
+MySQL in non-strict mode silently accepts this error (indeterminate result).
+PostgreSQL and SQLite correctly reject it.
+\end{antipattern}
+
+\section{HAVING --- Filtering After Grouping}
+
+\begin{definition}[HAVING]
+The \texttt{HAVING} clause filters groups after aggregation. It is to
+\texttt{GROUP BY} what \texttt{WHERE} is to \texttt{FROM}:
+\texttt{WHERE} filters rows, \texttt{HAVING} filters groups.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Filtering with HAVING}]
+\begin{minted}{sql}
+-- Students with average above 80
+SELECT s.last_name, AVG(e.grade) AS avg_grade
+FROM Students s
+JOIN Enrollments e ON s.student_id = e.student_id
+GROUP BY s.student_id, s.last_name
+HAVING AVG(e.grade) > 80
+ORDER BY avg_grade DESC;
+
+-- Courses with at least 2 enrolled students
+SELECT c.title, COUNT(*) AS num_enrolled
+FROM Courses c
+JOIN Enrollments e ON c.course_id = e.course_id
+GROUP BY c.course_id, c.title
+HAVING COUNT(*) >= 2;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+-- Average > 80:
+last_name | avg_grade
+----------+----------
+Taylor    | 97.0
+Miller    | 88.75
+Brown     | 82.25
+Davis     | 81.5
+
+-- Courses with >= 2 enrolled:
+title      | num_enrolled
+-----------+-------------
+Databases  | 3
+Algorithms | 2
+Statistics | 2
+\end{verbatim}
+\end{codeoutput}
+
+\section{Advanced Grouping}
+
+\subsection{GROUPING SETS, ROLLUP, CUBE}
+
+\begin{codeblock}[title=\textbf{ROLLUP --- Hierarchical Subtotals (PostgreSQL)}]
+\begin{minted}{sql}
+SELECT s.major,
+       c.title,
+       AVG(e.grade) AS avg_grade,
+       COUNT(*) AS num
+FROM Students s
+JOIN Enrollments e ON s.student_id = e.student_id
+JOIN Courses c ON e.course_id = c.course_id
+GROUP BY ROLLUP (s.major, c.title)
+ORDER BY s.major, c.title;
+\end{minted}
+\end{codeblock}
+
+\texttt{ROLLUP} generates hierarchical subtotals: by (major, course),
+by major, and the grand total.
+
+\texttt{CUBE} generates all possible combinations of subtotals.
+
+\section{Window Functions}
+
+\begin{definition}[Window Function]
+A \emph{window function} performs a calculation across a set of rows related
+to the current row, \emph{without reducing the number of rows} in the result.
+It uses the \texttt{OVER()} clause.
+\end{definition}
+
+\begin{theorem}[GROUP BY vs.\ Window Function]
+\begin{itemize}
+    \item \texttt{GROUP BY} + aggregation: reduces rows (one row per group).
+    \item Window function: keeps all rows while adding a computed value.
+\end{itemize}
+\end{theorem}
+
+\subsection{OVER Syntax}
+
+\begin{keyformulas}[title=\textbf{Window Function Syntax}]
+\begin{minted}{sql}
+function(args) OVER (
+    [PARTITION BY columns]
+    [ORDER BY columns [ASC|DESC]]
+    [ROWS BETWEEN start AND end]
+)
+\end{minted}
+\end{keyformulas}
+
+\subsection{Windowed Aggregation}
+
+\begin{codeblock}[title=\textbf{Windowed Average by Major}]
+\begin{minted}{sql}
+SELECT s.last_name, s.major, e.grade,
+       AVG(e.grade) OVER (PARTITION BY s.major) AS major_avg,
+       e.grade - AVG(e.grade) OVER (PARTITION BY s.major) AS deviation
+FROM Students s
+JOIN Enrollments e ON s.student_id = e.student_id
+ORDER BY s.major, s.last_name;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+last_name | major | grade | major_avg | deviation
+----------+-------+-------+-----------+----------
+Brown     | CS    | 88.5  | 76.5      | 12.0
+Brown     | CS    | 76.0  | 76.5      | -0.5
+Davis     | CS    | 72.0  | 76.5      | -4.5
+Davis     | CS    | 91.0  | 76.5      | 14.5
+Wilson    | CS    | 55.0  | 76.5      | -21.5
+Miller    | Math  | 95.5  | 91.5      | 4.0
+Miller    | Math  | 82.0  | 91.5      | -9.5
+Taylor    | Math  | 97.0  | 91.5      | 5.5
+\end{verbatim}
+\end{codeoutput}
+
+\subsection{ROW\_NUMBER, RANK, DENSE\_RANK}
+
+\begin{definition}[Ranking Functions]
+\begin{itemize}
+    \item \texttt{ROW\_NUMBER()} --- unique sequential number within the partition.
+    \item \texttt{RANK()} --- rank with gaps (ties receive the same rank; the
+          next rank is incremented by the number of ties).
+    \item \texttt{DENSE\_RANK()} --- rank without gaps.
+\end{itemize}
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Ranking Students by Grade}]
+\begin{minted}{sql}
+SELECT s.last_name, e.grade,
+       ROW_NUMBER() OVER (ORDER BY e.grade DESC) AS row_num,
+       RANK()       OVER (ORDER BY e.grade DESC) AS rnk,
+       DENSE_RANK() OVER (ORDER BY e.grade DESC) AS dense_rnk
+FROM Students s
+JOIN Enrollments e ON s.student_id = e.student_id;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+last_name | grade | row_num | rnk | dense_rnk
+----------+-------+---------+-----+----------
+Taylor    | 97.0  | 1       | 1   | 1
+Miller    | 95.5  | 2       | 2   | 2
+Davis     | 91.0  | 3       | 3   | 3
+Brown     | 88.5  | 4       | 4   | 4
+Miller    | 82.0  | 5       | 5   | 5
+Brown     | 76.0  | 6       | 6   | 6
+Davis     | 72.0  | 7       | 7   | 7
+Wilson    | 55.0  | 8       | 8   | 8
+\end{verbatim}
+\end{codeoutput}
+
+\begin{codeblock}[title=\textbf{Top Student per Major (Top-N per Group)}]
+\begin{minted}{sql}
+WITH Ranked AS (
+    SELECT s.last_name, s.major, e.grade,
+           ROW_NUMBER() OVER (
+               PARTITION BY s.major
+               ORDER BY e.grade DESC
+           ) AS rn
+    FROM Students s
+    JOIN Enrollments e ON s.student_id = e.student_id
+)
+SELECT last_name, major, grade
+FROM Ranked
+WHERE rn = 1;
+\end{minted}
+\end{codeblock}
+
+\subsection{LAG, LEAD}
+
+\begin{definition}[LAG and LEAD]
+\begin{itemize}
+    \item \texttt{LAG(col, n, default)} --- value of \texttt{col} $n$ rows
+          \emph{before} the current row.
+    \item \texttt{LEAD(col, n, default)} --- value of \texttt{col} $n$ rows
+          \emph{after} the current row.
+\end{itemize}
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Comparing with the Previous Row}]
+\begin{minted}{sql}
+SELECT s.last_name, e.grade,
+       LAG(e.grade, 1) OVER (ORDER BY e.grade DESC) AS prev_grade,
+       e.grade - LAG(e.grade, 1) OVER (ORDER BY e.grade DESC) AS diff
+FROM Students s
+JOIN Enrollments e ON s.student_id = e.student_id
+ORDER BY e.grade DESC;
+\end{minted}
+\end{codeblock}
+
+\subsection{Sliding Windows (Frame)}
+
+\begin{codeblock}[title=\textbf{Moving Average over 3 Rows}]
+\begin{minted}{sql}
+SELECT s.last_name, e.grade,
+       AVG(e.grade) OVER (
+           ORDER BY e.grade
+           ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+       ) AS moving_avg
+FROM Students s
+JOIN Enrollments e ON s.student_id = e.student_id
+ORDER BY e.grade;
+\end{minted}
+\end{codeblock}
+
+\begin{keyformulas}[title=\textbf{Window Frame Specifications}]
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Specification} & \textbf{Description} \\
+\midrule
+\texttt{ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW} & From start to current row \\
+\texttt{ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING} & Sliding window of 3 rows \\
+\texttt{ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING} & From current row to end \\
+\texttt{RANGE BETWEEN ...} & Value-based (not position-based) \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{keyformulas}
+
+\subsection{NTILE and Cumulative Percentages}
+
+\begin{codeblock}[title=\textbf{Quartiles and Cumulative Percentage}]
+\begin{minted}{sql}
+SELECT s.last_name, e.grade,
+       NTILE(4) OVER (ORDER BY e.grade DESC) AS quartile,
+       ROUND(100.0 * SUM(e.grade) OVER (ORDER BY e.grade DESC
+           ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+           / SUM(e.grade) OVER (), 1) AS cumul_pct
+FROM Students s
+JOIN Enrollments e ON s.student_id = e.student_id
+ORDER BY e.grade DESC;
+\end{minted}
+\end{codeblock}
+
+\section{Python Integration}
+
+\begin{codeblock}[title=\textbf{Aggregation and Window Functions with Python}]
+\begin{minted}{python}
+import sqlite3
+
+conn = sqlite3.connect('university.db')
+cur = conn.cursor()
+
+# Aggregation with GROUP BY
+cur.execute('''
+    SELECT s.last_name, COUNT(*) as num, ROUND(AVG(e.grade), 2) as avg
+    FROM Students s
+    JOIN Enrollments e ON s.student_id = e.student_id
+    GROUP BY s.student_id, s.last_name
+    HAVING AVG(e.grade) > 80
+    ORDER BY avg DESC
+''')
+print("Averages > 80:")
+for row in cur.fetchall():
+    print(f"  {row[0]:10} | {row[1]} courses | avg {row[2]}")
+
+# Window function (SQLite >= 3.25)
+cur.execute('''
+    SELECT s.last_name, e.grade,
+           RANK() OVER (ORDER BY e.grade DESC) as rnk
+    FROM Students s
+    JOIN Enrollments e ON s.student_id = e.student_id
+''')
+print("\nRankings:")
+for name, grade, rnk in cur.fetchall():
+    print(f"  #{rnk} {name:10} : {grade}")
+
+conn.close()
+\end{minted}
+\end{codeblock}
+
+\section*{Exercises}
+
+\begin{exercise}
+For each course, display the number of enrolled students, the average grade,
+the minimum, and the maximum. Only show courses with at least 2 students.
+\end{exercise}
+
+\begin{exercise}
+Rank students by their overall average and display their rank.
+Use \texttt{DENSE\_RANK} to handle ties.
+\end{exercise}
+
+\begin{exercise}
+For each enrollment, display the student's grade, their major's average,
+and the deviation from that average. Use a window function.
+\end{exercise}
+
+\begin{exercise}
+Display the top 2 grades per course. Use \texttt{ROW\_NUMBER} with
+\texttt{PARTITION BY}.
+\end{exercise}
+
+\begin{exercise}
+Calculate the cumulative sum of grades per student, ordered by course ID,
+using a sliding window.
+\end{exercise}

@@ -1,0 +1,257 @@
+% ============================================================
+\chapter{Programmation en Nombres Entiers}
+\label{ch:nombres_entiers}
+% ============================================================
+
+\section{Introduction}
+
+En programmation lin\'eaire, les solutions optimales vivent dans un monde continu~: on peut affecter $3{,}7$ camions \`a une route. Mais dans le monde r\'eel, un camion est entier. On ne peut pas couper un avion en deux pour desservir deux lignes. Cette contrainte d'int\'egralit\'e, apparemment anodine, transforme radicalement la nature du probl\`eme~: la programmation en nombres entiers est NP-difficile dans le cas g\'en\'eral, et les m\'ethodes de r\'esolution sont fondamentalement diff\'erentes. La m\'ethode de \emph{branch and bound}, d\'evelopp\'ee par Ailsa Land et Alison Doig en 1960, explore intelligemment un arbre de sous-probl\`emes~; les \emph{coupes de Gomory} (1958) ajoutent des contraintes pour resserrer la relaxation continue~; le \emph{branch and cut} combine les deux. Ces algorithmes sont au c\oe ur des solveurs modernes (CPLEX, Gurobi) qui r\'esolvent des probl\`emes industriels \`a des millions de variables.
+
+\begin{intuition}
+La programmation lin\'eaire continue produit des solutions qui peuvent \^etre
+fractionnaires (par exemple, fabriquer 3.7 tables). Arrondir na\"ivement la
+solution n'est en g\'en\'eral ni optimal ni m\^eme r\'ealisable. La PNE
+fournit des m\'ethodes syst\'ematiques pour trouver la meilleure solution
+enti\`ere.
+\end{intuition}
+
+\section{Formulation}
+
+\begin{definition}[Programme lin\'eaire en nombres entiers]
+\index{programmation en nombres entiers}
+Un \textbf{programme lin\'eaire en nombres entiers} (PLNE) est~:
+\[
+  \min\; c^\top x \quad \text{s.c.} \quad Ax \leq b, \quad x \in \Z^n_+.
+\]
+Si seules certaines variables sont enti\`eres, on parle de \textbf{programme
+mixte} (PLNEM). Si toutes les variables sont binaires ($x \in \{0,1\}^n$), on
+parle de \textbf{programme en 0-1}.
+\end{definition}
+
+\begin{definition}[Relaxation lin\'eaire]
+\index{relaxation lin\'eaire}
+La \textbf{relaxation lin\'eaire} d'un PLNE est le programme lin\'eaire obtenu
+en rempla\c{c}ant $x \in \Z^n_+$ par $x \in \R^n_+$. Sa valeur optimale
+fournit une \textbf{borne inf\'erieure} (pour un probl\`eme de minimisation)
+de la valeur optimale du PLNE.
+\end{definition}
+
+\begin{proposition}[Borne de relaxation]
+Soit $z^*_{\mathrm{LP}}$ la valeur optimale de la relaxation et
+$z^*_{\mathrm{IP}}$ celle du PLNE. Alors~:
+\[
+  z^*_{\mathrm{LP}} \leq z^*_{\mathrm{IP}}.
+\]
+Si la solution optimale de la relaxation est enti\`ere, elle est aussi optimale
+pour le PLNE.
+\end{proposition}
+
+\begin{formules}[title=\textbf{Mod\'elisation classique en 0-1}]
+\begin{itemize}
+  \item \textbf{S\'election}~: $x_j = 1$ si l'objet $j$ est s\'electionn\'e.
+  \item \textbf{Implication}~: $x_i = 1 \Rightarrow x_j = 1$ se mod\'elise
+        par $x_i \leq x_j$.
+  \item \textbf{Disjonction}~: au moins un parmi $x_1, \ldots, x_k$~:
+        $x_1 + \cdots + x_k \geq 1$.
+  \item \textbf{Big-M}~: $y \leq M x$ force $y = 0$ quand $x = 0$.
+\end{itemize}
+\end{formules}
+
+\section{M\'ethode de Branch and Bound}
+
+\begin{definition}[Branch and Bound]
+\index{branch and bound}
+La m\'ethode de \textbf{Branch and Bound} (s\'eparation et \'evaluation)
+r\'esout un PLNE par \'enum\'eration implicite en explorant un arbre de
+recherche. \`A chaque n\oe ud, on r\'esout la relaxation lin\'eaire et on
+utilise des r\`egles d'\'elagage pour \'eviter d'explorer des branches
+sous-optimales.
+\end{definition}
+
+\begin{algorithme}[title=\textbf{Branch and Bound}]
+\begin{enumerate}
+  \item R\'esoudre la relaxation lin\'eaire du probl\`eme initial.
+  \item Si la solution est enti\`ere, c'est l'optimum. \textbf{Stop}.
+  \item Sinon, choisir une variable $x_j$ fractionnaire (valeur $\bar{x}_j$).
+  \item \textbf{S\'eparation}~: cr\'eer deux sous-probl\`emes~:
+    \begin{itemize}
+      \item Branche gauche~: ajouter $x_j \leq \lfloor \bar{x}_j \rfloor$.
+      \item Branche droite~: ajouter $x_j \geq \lceil \bar{x}_j \rceil$.
+    \end{itemize}
+  \item \textbf{\'Evaluation}~: r\'esoudre la relaxation de chaque
+        sous-probl\`eme.
+  \item \textbf{\'Elagage}~: \'eliminer un n\oe ud si~:
+    \begin{itemize}
+      \item le sous-probl\`eme est infaisable,
+      \item sa borne inf\'erieure $\geq$ meilleure solution connue,
+      \item sa solution est enti\`ere (mettre \`a jour la meilleure solution).
+    \end{itemize}
+  \item R\'ep\'eter jusqu'\`a ce que tous les n\oe uds soient \'elagu\'es.
+\end{enumerate}
+\end{algorithme}
+
+\begin{exemple}[Branch and Bound]
+Consid\'erons le PLNE~:
+\[
+  \max\; 5x_1 + 4x_2 \quad \text{s.c.} \quad
+  6x_1 + 4x_2 \leq 24, \quad x_1 + 2x_2 \leq 6, \quad
+  x_1, x_2 \in \Z_+.
+\]
+La relaxation donne $x_1 = 3.6$, $x_2 = 0.6$, $z = 20.4$.
+
+On s\'epare sur $x_1$~:
+\begin{itemize}
+  \item Branche $x_1 \leq 3$~: optimum LP en $x_1 = 3, x_2 = 1.5$,
+        $z = 21$.
+  \item Branche $x_1 \geq 4$~: optimum LP en $x_1 = 4, x_2 = 0$,
+        $z = 20$ (solution enti\`ere).
+\end{itemize}
+On continue sur la branche gauche en s\'eparant sur $x_2$~:
+$x_2 \leq 1$ donne $x_1 = 3, x_2 = 1$, $z = 19$ (enti\`ere) et
+$x_2 \geq 2$ donne $x_1 = 2\tfrac{2}{3}, x_2 = 2$, $z \approx 21.3$.
+On s\'epare encore~: $x_1 \leq 2$ donne $z = 18$~; $x_1 \geq 3$ est
+infaisable. L'optimum est $x_1 = 4, x_2 = 0$ avec $z^* = 20$.
+\end{exemple}
+
+\section{M\'ethodes de coupes}
+
+\begin{definition}[Coupe valide]
+\index{coupe valide}
+Une \textbf{coupe valide} (ou in\'egalit\'e valide) est une contrainte
+lin\'eaire satisfaite par toutes les solutions enti\`eres r\'ealisables mais
+qui \'elimine la solution fractionnaire courante de la relaxation.
+\end{definition}
+
+\subsection{Coupes de Gomory}
+
+\begin{theoreme}[Coupe de Gomory]
+\index{coupes de Gomory}
+Soit $x_i = \bar{b}_i - \sum_j \bar{a}_{ij} x_j$ une ligne du tableau
+simplexe final (avec $\bar{b}_i \notin \Z$). Alors la coupe~:
+\[
+  \sum_j \{\bar{a}_{ij}\} \, x_j \geq \{\bar{b}_i\}
+\]
+est valide, o\`u $\{y\} = y - \lfloor y \rfloor$ d\'esigne la partie
+fractionnaire.
+\end{theoreme}
+
+\begin{proof}
+La ligne du tableau donne $x_i + \sum_j \bar{a}_{ij} x_j = \bar{b}_i$.
+Comme $x_i \in \Z$ et les variables hors base $x_j \geq 0$, on d\'ecompose~:
+\[
+  \underbrace{x_i + \sum_j \lfloor \bar{a}_{ij} \rfloor x_j
+  - \lfloor \bar{b}_i \rfloor}_{\in \Z}
+  = \{\bar{b}_i\} - \sum_j \{\bar{a}_{ij}\} x_j.
+\]
+Le membre gauche est entier. Or $\{\bar{b}_i\} > 0$ et chaque
+$\{\bar{a}_{ij}\} x_j \geq 0$. Pour que le membre droit soit un entier
+non-n\'egatif (\`a droite, le terme $x_i + \cdots$ pourrait \^etre n\'egatif),
+on obtient $\sum_j \{\bar{a}_{ij}\} x_j \geq \{\bar{b}_i\}$ en
+consid\'erant le cas le plus restrictif.
+\end{proof}
+
+\begin{remarque}
+L'algorithme de Gomory ajoute it\'erativement des coupes \`a la relaxation
+lin\'eaire. En th\'eorie, un nombre fini de coupes suffit pour les PLNE purs.
+En pratique, les m\'ethodes de \textbf{Branch and Cut} combinent Branch and
+Bound et g\'en\'eration de coupes \`a chaque n\oe ud.
+\end{remarque}
+
+\section{Unimodularit\'e totale}
+
+\begin{definition}[Matrice totalement unimodulaire]
+\index{unimodularit\'e totale}
+Une matrice $A \in \Z^{m \times n}$ est \textbf{totalement unimodulaire} (TU)
+si le d\'eterminant de toute sous-matrice carr\'ee est dans $\{-1, 0, 1\}$.
+\end{definition}
+
+\begin{theoreme}[Relaxation exacte]
+Si $A$ est totalement unimodulaire et $b \in \Z^m$, alors le poly\`edre
+$\{x \in \R^n : Ax \leq b, x \geq 0\}$ a tous ses sommets entiers. La
+relaxation lin\'eaire fournit donc automatiquement une solution enti\`ere.
+\end{theoreme}
+
+\begin{proof}
+Tout sommet du poly\`edre est solution d'un syst\`eme $A' x = b'$ o\`u
+$A'$ est une sous-matrice carr\'ee inversible de la matrice des contraintes
+actives. Comme $A$ est TU, $\det(A') \in \{-1, 1\}$ et par la r\`egle de
+Cramer, $x = (A')^{-1} b'$ est entier puisque
+$(A')^{-1} = \frac{1}{\det(A')} \mathrm{adj}(A')$ avec $\mathrm{adj}(A')$
+enti\`ere.
+\end{proof}
+
+\begin{exemple}[Matrices TU classiques]
+\begin{itemize}
+  \item La matrice d'incidence sommets-arcs d'un graphe orient\'e est TU.
+  \item La matrice de contraintes du probl\`eme de transport est TU.
+  \item Cons\'equence~: les probl\`emes de flots et de transport se r\'esolvent
+        par le simplexe et donnent des solutions enti\`eres.
+\end{itemize}
+\end{exemple}
+
+\section{Applications classiques}
+
+\subsection{Probl\`eme du sac \`a dos}
+
+\begin{definition}[Sac \`a dos 0-1]
+\index{sac \`a dos}
+\'Etant donn\'es $n$ objets de valeurs $v_1, \ldots, v_n$ et de poids
+$w_1, \ldots, w_n$, et un sac de capacit\'e $W$~:
+\[
+  \max \sum_{j=1}^n v_j x_j \quad \text{s.c.} \quad
+  \sum_{j=1}^n w_j x_j \leq W, \quad x_j \in \{0, 1\}.
+\]
+\end{definition}
+
+\subsection{Probl\`eme du voyageur de commerce}
+
+\begin{definition}[TSP -- formulation]
+\index{voyageur de commerce (TSP)}
+Le \textbf{probl\`eme du voyageur de commerce} (TSP) sur $n$ villes~:
+\[
+  \min \sum_{i \ne j} d_{ij} x_{ij} \quad \text{s.c.} \quad
+  \sum_{j \ne i} x_{ij} = 1 \;\forall i, \quad
+  \sum_{i \ne j} x_{ij} = 1 \;\forall j, \quad
+  x_{ij} \in \{0,1\},
+\]
+plus des contraintes d'\'elimination de sous-tours.
+\end{definition}
+
+\begin{attention}[title=\textbf{Complexit\'e du TSP}]
+Le TSP est NP-difficile. Les solveurs modernes (Concorde) utilisent des
+m\'ethodes de Branch and Cut avanc\'ees et peuvent r\'esoudre des instances
+de plusieurs milliers de villes.
+\end{attention}
+
+\section{Exercices}
+
+\begin{exercice}[$\star$ -- Branch and Bound]
+R\'esoudre par Branch and Bound~:
+$\max\; 3x_1 + 2x_2$ s.c. $2x_1 + x_2 \leq 6$, $x_1 + 3x_2 \leq 9$,
+$x_1, x_2 \in \Z_+$. Dessiner l'arbre d'exploration.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- Coupes de Gomory]
+Consid\'erer $\max\; x_1 + x_2$ s.c. $3x_1 + 2x_2 \leq 6$,
+$x_1 + 4x_2 \leq 4$, $x_1, x_2 \geq 0$ entiers. G\'en\'erer une coupe de
+Gomory \`a partir du tableau simplexe final et r\'esoudre.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- Sac \`a dos]
+R\'esoudre le sac \`a dos 0-1~: objets de valeurs $(10, 6, 12, 7)$, poids
+$(3, 2, 5, 3)$, capacit\'e $W = 8$. Comparer Branch and Bound et
+programmation dynamique.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Formulation TSP]
+Formuler le TSP sur 5 villes avec les contraintes de Miller-Tucker-Zemlin
+(MTZ). R\'esoudre la relaxation lin\'eaire et mesurer le \emph{gap}
+d'int\'egralit\'e.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Unimodularit\'e]
+Montrer que la matrice d'incidence sommets-arcs d'un graphe orient\'e est
+totalement unimodulaire. En d\'eduire que le probl\`eme de flot \`a co\^ut
+minimum admet toujours une solution enti\`ere optimale quand les donn\'ees
+sont enti\`eres.
+\end{exercice}

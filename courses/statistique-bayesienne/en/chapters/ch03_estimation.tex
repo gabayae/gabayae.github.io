@@ -1,0 +1,470 @@
+% ============================================================
+\chapter{Bayesian Estimation and Loss Functions}
+\label{ch:estimation}
+% ============================================================
+
+In frequentist statistics, an estimator is ``good'' if it is unbiased and has minimum variance. In Bayesian statistics, the question is framed differently: which summary of the posterior distribution should one choose, and at what cost? The answer depends on what one considers a serious error. Is being far off proportionally worse than being slightly off (quadratic loss), or is any error beyond a threshold equally unacceptable (0-1 loss)? Abraham Wald, in his foundational work on decision theory in the 1940s, showed that this question of the \emph{loss function} is unavoidable: every estimator is, consciously or not, the solution to a decision problem.
+
+This chapter explores the link between estimation and decision, and shows how each loss function leads to a different optimal estimator: the posterior mean, the posterior median, the posterior mode.
+
+\begin{intuition}[title=\textbf{Central idea}]
+Bayesian estimation is not limited to a single point estimator: it
+delivers the entire posterior distribution. Nevertheless, when a point
+summary is needed, the optimal estimator depends on the chosen
+\textbf{loss function}.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Bayesian decision theory}
+% ------------------------------------------------------------
+
+\begin{definition}[Decision problem]
+A \textbf{decision problem} is a triple $(\Theta, \mathcal{A}, L)$
+where:
+\begin{itemize}
+  \item $\Theta$ is the parameter space,
+  \item $\mathcal{A}$ is the action (decision) space,
+  \item $L : \Theta \times \mathcal{A} \to \R^+$ is the loss function.
+\end{itemize}
+\end{definition}
+
+\begin{definition}[Posterior risk]
+The \textbf{posterior risk} (or posterior expected loss) of an action
+$a \in \mathcal{A}$ is:
+\[
+  \rho(\pi, a \mid x) = \E_{\theta \mid x}[L(\theta, a)]
+  = \int_\Theta L(\theta, a)\,\pi(\theta \mid x)\,d\theta.
+\]
+\end{definition}
+
+\begin{definition}[Bayes estimator]
+The \textbf{Bayes estimator} under loss $L$ is the action minimizing
+the posterior risk:
+\[
+  \hat{\theta}_B(x) = \argmin_{a \in \mathcal{A}} \rho(\pi, a \mid x).
+\]
+\end{definition}
+
+\begin{definition}[Integrated Bayes risk]
+The \textbf{Bayes risk} of an estimator $\delta(x)$ is:
+\[
+  r(\pi, \delta) = \E_x\left[\rho(\pi, \delta(x) \mid x)\right]
+  = \int \int L(\theta, \delta(x))\,f(x \mid \theta)\,\pi(\theta)\,dx\,d\theta.
+\]
+\end{definition}
+
+\begin{theorem}[Optimality of the Bayes estimator]
+The Bayes estimator $\hat{\theta}_B$ minimizes the Bayes risk
+$r(\pi, \delta)$ among all estimators.
+\end{theorem}
+
+\begin{proof}
+The Bayes risk can be written as:
+\[
+  r(\pi, \delta) = \int \rho(\pi, \delta(x) \mid x)\,m(x)\,dx,
+\]
+where $m(x)$ is the marginal likelihood. Since $m(x) \geq 0$,
+minimizing $r(\pi, \delta)$ amounts to minimizing
+$\rho(\pi, \delta(x) \mid x)$ for each $x$, yielding $\hat{\theta}_B(x)$.
+\end{proof}
+
+% ------------------------------------------------------------
+\section{Classical loss functions}
+% ------------------------------------------------------------
+
+\begin{keyformulas}[title=\textbf{Bayes estimators by loss function}]
+\begin{center}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{p{4.5cm} p{4cm} p{5cm}}
+\toprule
+\textbf{Loss function} & \textbf{Expression} & \textbf{Bayes estimator} \\
+\midrule
+Quadratic & $L(\theta, a) = (\theta - a)^2$ &
+  $\E[\theta \mid x]$ (posterior mean) \\
+Absolute value & $L(\theta, a) = \abs{\theta - a}$ &
+  $\text{Med}[\theta \mid x]$ (posterior median) \\
+0--1 (all-or-nothing) & $L(\theta, a) = \mathbf{1}(\abs{\theta - a} > \varepsilon)$ &
+  Mode$[\theta \mid x]$ (MAP) \\
+LINEX & $L(\theta, a) = e^{c(\theta-a)} - c(\theta-a) - 1$ &
+  $\frac{1}{c}\log \E[e^{c\theta} \mid x]$ \\
+Weighted quadratic & $L(\theta, a) = w(\theta)(\theta - a)^2$ &
+  $\frac{\E[w(\theta)\theta \mid x]}{\E[w(\theta) \mid x]}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{keyformulas}
+
+\subsection{Quadratic loss}
+
+\begin{theorem}[Bayes estimator under quadratic loss]
+\label{thm:bayes_quad}
+Under quadratic loss $L(\theta, a) = (\theta - a)^2$, the Bayes
+estimator is the posterior mean:
+\[
+  \hat{\theta}_B(x) = \E[\theta \mid x].
+\]
+\end{theorem}
+
+\begin{proof}
+\begin{align*}
+  \frac{\partial}{\partial a} \E[(\theta - a)^2 \mid x]
+  &= -2\,\E[\theta - a \mid x]
+  = -2\big(\E[\theta \mid x] - a\big).
+\end{align*}
+This vanishes at $a = \E[\theta \mid x]$. The second derivative is
+$2 > 0$, confirming a minimum.
+\end{proof}
+
+\begin{corollary}
+The posterior risk under quadratic loss is the posterior variance:
+\[
+  \rho(\pi, \hat{\theta}_B \mid x) = \Var[\theta \mid x].
+\]
+\end{corollary}
+
+\subsection{Absolute value loss}
+
+\begin{theorem}[Bayes estimator under absolute loss]
+Under $L(\theta, a) = \abs{\theta - a}$, the Bayes estimator is the
+posterior median.
+\end{theorem}
+
+\begin{proof}
+The generalized derivative of the posterior risk is:
+\[
+  \frac{\partial}{\partial a} \E[\abs{\theta - a} \mid x]
+  = \PP(\theta < a \mid x) - \PP(\theta > a \mid x),
+\]
+which vanishes when $\PP(\theta < a \mid x) = 1/2$, i.e., $a$ is the
+median of $\pi(\theta \mid x)$.
+\end{proof}
+
+\subsection{Maximum a posteriori (MAP)}
+
+\begin{definition}[MAP estimator]
+The \textbf{maximum a posteriori} (MAP) estimator is:
+\[
+  \hat{\theta}_{\text{MAP}} = \argmax_\theta \pi(\theta \mid x)
+  = \argmax_\theta \big[\log L(\theta \mid x) + \log \pi(\theta)\big].
+\]
+\end{definition}
+
+\begin{remark}
+The MAP coincides with the MLE when the prior is uniform. With a
+Gaussian prior $\mathcal{N}(0, \tau^2)$, the MAP corresponds to Ridge
+regularization:
+\[
+  \hat{\theta}_{\text{MAP}} = \argmin_\theta \left[
+  -\log L(\theta \mid x) + \frac{\norm{\theta}^2}{2\tau^2}\right].
+\]
+\end{remark}
+
+\begin{proposition}[MAP and Lasso regularization]
+If the prior is a Laplace distribution
+$\pi(\theta) \propto e^{-\lambda \abs{\theta}}$, the MAP corresponds
+to Lasso ($\ell_1$) regularization.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Credible intervals}
+% ------------------------------------------------------------
+
+\begin{definition}[Credible interval]
+A $100(1-\alpha)\%$ \textbf{credible interval} is an interval $[a, b]$
+such that:
+\[
+  \PP(\theta \in [a, b] \mid x) = 1 - \alpha.
+\]
+\end{definition}
+
+\begin{definition}[HDI --- Highest Density Interval]
+The \textbf{highest density interval} (HDI) is the shortest credible
+interval:
+\[
+  \text{HDI}_{1-\alpha} = \{
+  \theta : \pi(\theta \mid x) \geq c_\alpha\},
+\]
+where $c_\alpha$ is chosen so that
+$\PP(\pi(\theta \mid x) \geq c_\alpha \mid x) = 1 - \alpha$.
+\end{definition}
+
+\begin{warning}[title=\textbf{Credible vs.\ confidence}]
+A $95\%$ credible interval means that $\theta$ belongs to the interval
+with probability $0.95$ \textit{conditional on the observed data}. A
+$95\%$ confidence interval means that the procedure contains $\theta$
+in $95\%$ of \textit{hypothetical} repetitions.
+\end{warning}
+
+\begin{example}
+For the Bernoulli--Beta model with $n = 100$, $s = 30$,
+$\theta \sim \text{Be}(1,1)$, the posterior is $\text{Be}(31, 71)$.
+
+The equal-tailed $95\%$ credible interval is:
+\[
+  [F^{-1}_{31,71}(0.025),\; F^{-1}_{31,71}(0.975)]
+  \approx [0.216,\; 0.397].
+\]
+\end{example}
+
+% ------------------------------------------------------------
+\section{Bayesian vs.\ frequentist comparison}
+% ------------------------------------------------------------
+
+\begin{definition}[Frequentist risk]
+The frequentist risk of an estimator $\delta(x)$ is:
+\[
+  R(\theta, \delta) = \E_{x \mid \theta}[L(\theta, \delta(x))].
+\]
+\end{definition}
+
+\begin{definition}[Admissibility]
+An estimator $\delta$ is \textbf{admissible} if there is no estimator
+$\delta'$ such that $R(\theta, \delta') \leq R(\theta, \delta)$ for
+all $\theta$, with strict inequality for at least one $\theta$.
+\end{definition}
+
+\begin{theorem}[Admissibility of Bayes estimators]
+Under regularity conditions, every Bayes estimator with finite Bayes
+risk is admissible.
+\end{theorem}
+
+\begin{theorem}[Complete class]
+Under general conditions, the class of Bayes estimators (proper and
+limits) forms a \textbf{complete class}: every admissible estimator is
+a Bayes estimator (possibly generalized).
+\end{theorem}
+
+\begin{example}
+\textbf{James--Stein estimator.} For $X \sim \mathcal{N}_p(\theta, I_p)$
+with $p \geq 3$, the estimator
+$\hat{\theta}_{\text{JS}} = (1 - \frac{p-2}{\norm{X}^2})X$ dominates
+the MLE $\hat{\theta} = X$ under quadratic loss. It is a generalized
+Bayes estimator.
+\end{example}
+
+% ------------------------------------------------------------
+\section{Point estimation: examples}
+% ------------------------------------------------------------
+
+\begin{example}
+\textbf{Poisson--Gamma model.}
+With $X_i \sim \text{Poi}(\lambda)$ and $\lambda \sim \text{Ga}(\alpha, \beta)$,
+the posterior is $\text{Ga}(\alpha + \sum x_i, \beta + n)$. The point
+estimators are:
+\begin{align*}
+  \hat{\lambda}_{\text{mean}} &= \frac{\alpha + \sum x_i}{\beta + n}, \\
+  \hat{\lambda}_{\text{MAP}} &= \frac{\alpha + \sum x_i - 1}{\beta + n}
+  \quad (\text{if } \alpha + \sum x_i > 1), \\
+  \hat{\lambda}_{\text{median}} &\approx \hat{\lambda}_{\text{mean}}
+  - \frac{1}{3(\beta + n)} \quad (\text{approx.\ for large } \alpha').
+\end{align*}
+\end{example}
+
+\begin{example}
+\textbf{Normal--Normal model.}
+With $X_i \sim \mathcal{N}(\mu, \sigma^2)$, $\sigma^2$ known, and
+$\mu \sim \mathcal{N}(\mu_0, \tau_0^2)$: the posterior is Gaussian
+hence symmetric, and all three estimators coincide:
+\[
+  \hat{\mu}_{\text{mean}} = \hat{\mu}_{\text{MAP}} = \hat{\mu}_{\text{median}}
+  = \mu_n = \tau_n^2\left(\frac{\mu_0}{\tau_0^2} + \frac{n\bar{x}}{\sigma^2}\right).
+\]
+\end{example}
+
+% ------------------------------------------------------------
+\section{LINEX loss and asymmetric estimation}
+% ------------------------------------------------------------
+
+\begin{definition}[LINEX loss]
+The LINEX (\textit{LINear-EXponential}) loss is:
+\[
+  L(\theta, a) = e^{c(\theta - a)} - c(\theta - a) - 1, \qquad c \neq 0.
+\]
+For $c > 0$, overestimation is penalized exponentially. For $c < 0$,
+underestimation is penalized.
+\end{definition}
+
+\begin{theorem}[Bayes estimator under LINEX loss]
+The Bayes estimator under LINEX loss is:
+\[
+  \hat{\theta}_{\text{LINEX}} = -\frac{1}{c}\log \E[e^{-c\theta} \mid x].
+\]
+\end{theorem}
+
+\begin{proof}
+The posterior risk is:
+\[
+  \rho(a) = \E[e^{c(\theta-a)} \mid x] - c\,\E[\theta - a \mid x] - 1.
+\]
+Differentiating with respect to $a$ and setting to zero:
+\[
+  -c\,e^{-ca}\,\E[e^{c\theta} \mid x] + c = 0
+  \implies e^{ca} = \E[e^{c\theta} \mid x],
+\]
+whence $a = \frac{1}{c}\log \E[e^{c\theta} \mid x]$.
+\end{proof}
+
+% ------------------------------------------------------------
+\section{Bayesian shrinkage}
+% ------------------------------------------------------------
+
+\begin{proposition}[Shrinkage toward the prior mean]
+In the Normal--Normal model, the posterior mean can be written as:
+\[
+  \E[\mu \mid x] = (1 - B)\bar{x} + B\mu_0,
+  \qquad B = \frac{\sigma^2/n}{\tau_0^2 + \sigma^2/n},
+\]
+where $B \in (0,1)$ is the \textbf{shrinkage factor}. The Bayesian
+estimator is shrunk toward the prior mean $\mu_0$.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Python implementation}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Bayesian estimation and credible intervals}]
+\begin{minted}{python}
+import numpy as np
+from scipy import stats
+import matplotlib.pyplot as plt
+
+# Bernoulli data
+np.random.seed(42)
+n, s = 100, 30
+
+# Posterior Beta(31, 71)
+a_post, b_post = 1 + s, 1 + n - s
+posterior = stats.beta(a_post, b_post)
+
+# Point estimators
+mean_post = posterior.mean()
+median_post = posterior.median()
+mode_post = (a_post - 1) / (a_post + b_post - 2)
+
+print(f"Posterior mean: {mean_post:.4f}")
+print(f"Posterior median: {median_post:.4f}")
+print(f"MAP: {mode_post:.4f}")
+print(f"MLE: {s/n:.4f}")
+
+# Credible intervals
+ci_equi = posterior.ppf([0.025, 0.975])
+print(f"Equal-tailed 95% CI: [{ci_equi[0]:.4f}, {ci_equi[1]:.4f}]")
+
+# HDI (via ArviZ)
+import arviz as az
+samples = posterior.rvs(100000)
+hdi = az.hdi(samples, hdi_prob=0.95)
+print(f"95% HDI: [{hdi[0]:.4f}, {hdi[1]:.4f}]")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Comparing loss functions}]
+\begin{minted}{python}
+delta = np.linspace(-3, 3, 500)
+
+fig, axes = plt.subplots(1, 3, figsize=(14, 4))
+
+# Quadratic loss
+axes[0].plot(delta, delta**2)
+axes[0].set_title("Quadratic loss")
+axes[0].set_xlabel(r"$\theta - a$")
+
+# Absolute value loss
+axes[1].plot(delta, np.abs(delta))
+axes[1].set_title("Absolute value loss")
+axes[1].set_xlabel(r"$\theta - a$")
+
+# LINEX loss (c=1 and c=-1)
+for c in [1, -1]:
+    loss = np.exp(c*delta) - c*delta - 1
+    axes[2].plot(delta, loss, label=f"c={c}")
+axes[2].set_title("LINEX loss")
+axes[2].set_xlabel(r"$\theta - a$")
+axes[2].legend()
+
+for ax in axes:
+    ax.set_ylabel("Loss")
+
+plt.tight_layout()
+plt.savefig("loss_functions.pdf")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Bayesian shrinkage effect}]
+\begin{minted}{python}
+import pymc as pm
+import arviz as az
+
+# Simulation: J groups, simultaneous estimation
+np.random.seed(0)
+J = 8
+true_mu = np.array([-2, -1, 0, 0.5, 1, 1.5, 2, 3])
+sigma = 1.0
+n_per_group = 5
+
+data = [np.random.normal(mu, sigma, n_per_group)
+        for mu in true_mu]
+x_bar = np.array([d.mean() for d in data])
+
+# MLE vs Bayes estimators (prior N(0, 4))
+tau0 = 2.0
+B = (sigma**2 / n_per_group) / (tau0**2 + sigma**2 / n_per_group)
+bayes_est = (1 - B) * x_bar + B * 0  # mu_0 = 0
+
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.scatter(range(J), true_mu, marker="*", s=150,
+           label=r"True $\mu_j$", zorder=3)
+ax.scatter(range(J), x_bar, marker="o",
+           label=r"MLE $\bar{x}_j$")
+ax.scatter(range(J), bayes_est, marker="s",
+           label="Bayes (shrinkage)")
+ax.axhline(0, color="gray", linestyle=":", alpha=0.5)
+ax.set_xlabel("Group $j$")
+ax.set_ylabel(r"$\mu_j$")
+ax.legend()
+ax.set_title("Bayesian shrinkage")
+plt.tight_layout()
+plt.savefig("shrinkage.pdf")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+Prove that the Bayes estimator under the weighted loss
+$L(\theta, a) = w(\theta)(\theta - a)^2$ is:
+\[
+  \hat{\theta}_B = \frac{\E[w(\theta)\theta \mid x]}{\E[w(\theta) \mid x]}.
+\]
+\end{exercise}
+
+\begin{exercise}
+For the Poisson--Gamma model, compute the Bayes estimator under LINEX
+loss with $c = 1$ and compare with the posterior mean.
+\end{exercise}
+
+\begin{exercise}
+Show that in the univariate Gaussian case, the HDI coincides with the
+equal-tailed interval.
+\end{exercise}
+
+\begin{exercise}
+Let $X \sim \mathcal{N}_p(\theta, I_p)$ with
+$\theta \sim \mathcal{N}_p(0, \tau^2 I_p)$.
+\begin{enumerate}
+  \item Compute the Bayes estimator under quadratic loss.
+  \item Show that it is a shrinkage estimator of the form $c \cdot X$
+        with $c \in (0,1)$.
+  \item Compare with the James--Stein estimator.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}
+\textbf{(Numerical)} Simulate $n = 50$ observations from
+$\mathcal{N}(3, 4)$. Compare the Bayesian estimators of $\mu$ (mean,
+median, MAP) with the MLE for different priors:
+$\mathcal{N}(0, 100)$ (vague), $\mathcal{N}(0, 1)$ (informative,
+centered), $\mathcal{N}(10, 1)$ (informative, off-center).
+\end{exercise}

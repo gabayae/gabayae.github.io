@@ -1,0 +1,130 @@
+% ============================================================
+\chapter{Quadrature de Gauss}
+\label{ch:gauss}
+% ============================================================
+
+\section{Exemple motivant}
+Les formules de Newton--Cotes (n\oe uds fix\'es) atteignent un degr\'e d'exactitude $n$ ou $n+1$. En choisissant \textbf{les n\oe uds librement}, on peut atteindre le degr\'e $2n+1$ avec $n+1$ points --- c'est la quadrature de Gauss.
+
+\section{Principe}
+
+\begin{definition}[Quadrature de Gauss]\index{quadrature de Gauss}
+Trouver $n+1$ n\oe uds $x_0,\ldots,x_n$ et poids $w_0,\ldots,w_n$ tels que :
+\[
+\int_{-1}^1 f(x)\,dx \approx \sum_{i=0}^n w_i f(x_i)
+\]
+soit exacte pour tout $f\in\mathcal{P}_{2n+1}$.
+\end{definition}
+
+\begin{theoreme}[Th\'eor\`eme fondamental]
+Les n\oe uds de la quadrature de Gauss--Legendre \`a $n+1$ points sont les racines du polyn\^ome de Legendre $P_{n+1}$. Le degr\'e d'exactitude est $2n+1$.
+\end{theoreme}
+
+\begin{proof}[Esquisse]
+Soit $f\in\mathcal{P}_{2n+1}$. Division euclidienne : $f=q\cdot P_{n+1}+r$ avec $\deg q\leq n$, $\deg r\leq n$. Alors $\int_{-1}^1 f=\int_{-1}^1 qP_{n+1}+\int_{-1}^1 r$. Par orthogonalit\'e de $P_{n+1}$ \`a $\mathcal{P}_n$ : $\int qP_{n+1}=0$. Et $\sum w_i f(x_i)=\sum w_i r(x_i)$ car $P_{n+1}(x_i)=0$. Les poids sont choisis pour que la formule soit exacte sur $\mathcal{P}_n$, donc $\sum w_i r(x_i)=\int r$.
+\end{proof}
+
+\section{N\oe uds et poids}
+
+\begin{center}
+\begin{tabular}{cll}
+\toprule
+$n+1$ & N\oe uds $x_i$ & Poids $w_i$ \\
+\midrule
+1 & $0$ & $2$ \\
+2 & $\pm 1/\sqrt{3}$ & $1,\;1$ \\
+3 & $0,\;\pm\sqrt{3/5}$ & $8/9,\;5/9,\;5/9$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Gauss--Legendre, Gauss--Laguerre, Gauss--Hermite}
+
+\begin{definition}
+Pour $\int_a^b f(x)w(x)\,dx$ avec poids $w$ :
+\begin{itemize}
+\item \textbf{Gauss--Legendre} : $w(x)=1$ sur $[-1,1]$.
+\item \textbf{Gauss--Laguerre} : $w(x)=e^{-x}$ sur $[0,\infty)$.
+\item \textbf{Gauss--Hermite} : $w(x)=e^{-x^2}$ sur $(-\infty,\infty)$.
+\end{itemize}
+\end{definition}
+
+\section{Erreur}
+
+\begin{theoreme}
+L'erreur de Gauss--Legendre \`a $n+1$ points est :
+\[
+E_n(f) = \frac{2^{2n+3}[(n+1)!]^4}{(2n+3)[(2n+2)!]^3}f^{(2n+2)}(\xi).
+\]
+\end{theoreme}
+
+\section{Changement d'intervalle}
+
+Pour $\int_a^b f(x)\,dx$, le changement $x=\frac{b-a}{2}t+\frac{a+b}{2}$ ram\`ene \`a $[-1,1]$ :
+\[
+\int_a^b f(x)\,dx = \frac{b-a}{2}\int_{-1}^1 f\!\left(\frac{b-a}{2}t+\frac{a+b}{2}\right)dt.
+\]
+
+\section{Impl\'ementation}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+from numpy.polynomial.legendre import leggauss
+
+def gauss_legendre(f, a, b, n):
+    """Quadrature de Gauss-Legendre a n points sur [a,b]."""
+    nodes, weights = leggauss(n)
+    # Changement d'intervalle [-1,1] -> [a,b]
+    x = 0.5*(b-a)*nodes + 0.5*(a+b)
+    w = 0.5*(b-a)*weights
+    return np.sum(w * f(x))
+
+f = lambda x: np.exp(-x**2)
+exact = 0.7468241328124271
+
+for n in [2, 3, 5, 10]:
+    approx = gauss_legendre(f, 0, 1, n)
+    print(f"n={n:2d}: I={approx:.15f}, erreur={abs(approx-exact):.2e}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Julia}]
+\begin{minted}{julia}
+using FastGaussQuadrature
+
+function gauss_legendre_ab(f, a, b, n)
+    nodes, weights = gausslegendre(n)
+    x = 0.5(b-a) .* nodes .+ 0.5(a+b)
+    w = 0.5(b-a) .* weights
+    return sum(w .* f.(x))
+end
+
+f(x) = exp(-x^2)
+for n in [2, 3, 5, 10]
+    I = gauss_legendre_ab(f, 0, 1, n)
+    println("n=$n: I=$I")
+end
+\end{minted}
+\end{codeblock}
+
+\section{Exercices}
+
+\begin{exercice}[$\star$]
+Calculer $\int_0^1 x^3\,dx$ par Gauss--Legendre \`a 2 points. V\'erifier l'exactitude.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Montrer que les poids de Gauss sont toujours positifs.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Projet]
+Comparer la convergence de Simpson composite ($n$ points) et Gauss--Legendre ($n$ points) pour $\int_0^1 e^{-x^2}dx$. Tracer l'erreur en \'echelle log-log.
+\end{exercice}
+
+\begin{formules}
+\begin{align*}
+\int_{-1}^1 f(x)\,dx &\approx \sum_{i=0}^n w_i f(x_i), \quad \text{exacte pour }\mathcal{P}_{2n+1} \\
+\int_a^b f(x)\,dx &= \frac{b-a}{2}\int_{-1}^1 f\!\left(\frac{b-a}{2}t+\frac{a+b}{2}\right)dt
+\end{align*}
+\end{formules}

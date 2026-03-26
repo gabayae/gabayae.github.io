@@ -1,0 +1,465 @@
+% ============================================================
+\chapter{Introduction au MLOps --- Du Notebook \`a la Production}
+\label{ch:introduction}
+\index{MLOps!introduction}
+% ============================================================
+
+\section{Qu'est-ce que le MLOps~?}
+\label{sec:mlops-definition}
+
+Le \textbf{MLOps}\index{MLOps} d\'esigne l'ensemble des pratiques, outils et
+principes culturels qui visent \`a d\'eployer et maintenir des mod\`eles de
+machine learning en production de mani\`ere fiable et efficace. Le terme est
+un mot-valise combinant \emph{Machine Learning} et \emph{Operations}, par
+analogie avec le \emph{DevOps}\index{DevOps} du g\'enie logiciel.
+
+\begin{definition}[MLOps]
+Le MLOps est la discipline qui applique les principes du DevOps (int\'egration
+continue, d\'eploiement continu, monitoring, automatisation) au cycle de vie
+des mod\`eles de machine learning, en y ajoutant les sp\'ecificit\'es li\'ees
+aux donn\'ees, aux exp\'eriences et \`a la d\'erive des mod\`eles.
+\end{definition}
+
+\subsection{DevOps vs MLOps}
+
+Le DevOps traditionnel g\`ere du code. Le MLOps g\`ere du code \textbf{et}
+des donn\'ees \textbf{et} des mod\`eles --- trois artefacts dont l'interaction
+cr\'ee une complexit\'e suppl\'ementaire.
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, rounded corners, minimum width=3cm,
+    minimum height=1.5cm, align=center, font=\small},
+  arr/.style={-{Stealth[length=2.5mm]}, thick}
+]
+  % DevOps
+  \node[box, fill=blue!10] (devops) {\textbf{DevOps}\\Code};
+  % MLOps
+  \node[box, fill=green!10, right=3cm of devops] (mlops) {\textbf{MLOps}\\Code + Donn\'ees\\+ Mod\`eles};
+
+  % Shared
+  \node[above=1.5cm of devops, font=\small\bfseries] (shared) {Pratiques partag\'ees};
+  \node[below=0.3cm of shared, font=\scriptsize, align=center] {CI/CD, conteneurisation,\\monitoring, IaC};
+
+  \draw[arr, steelblue] (shared.south) -- (devops.north);
+  \draw[arr, steelblue] (shared.south) -- (mlops.north);
+
+  % MLOps specific
+  \node[below=0.8cm of mlops, font=\scriptsize, align=center, text=deepred] {+ Versionnement donn\'ees\\+ Suivi exp\'eriences\\+ D\'etection de drift\\+ Feature engineering};
+\end{tikzpicture}
+\end{center}
+
+\begin{remarque}
+La diff\'erence fondamentale est que le comportement d'un syst\`eme ML
+d\'epend non seulement du code mais aussi des donn\'ees. Un m\^eme code
+entra\^in\'e sur des donn\'ees diff\'erentes produit un mod\`ele diff\'erent.
+Cela n\'ecessite de versionner les donn\'ees au m\^eme titre que le code.
+\end{remarque}
+
+\section{Les niveaux de maturit\'e MLOps}
+\label{sec:maturity-levels}
+\index{MLOps!niveaux de maturit\'e}
+
+Google a propos\'e trois niveaux de maturit\'e pour les syst\`emes ML en
+production~:
+
+\begin{center}
+\begin{tabular}{@{}llp{7cm}@{}}
+\toprule
+\textbf{Niveau} & \textbf{Nom} & \textbf{Description} \\
+\midrule
+0 & Manuel & Processus enti\`erement manuel. Notebooks, pas de pipeline.
+  S\'eparation compl\`ete entre data scientists et ops. \\
+1 & Pipeline ML & Pipeline automatis\'e d'entra\^inement. D\'eploiement
+  continu du mod\`ele. Monitoring basique. \\
+2 & Pipeline CI/CD & Pipeline CI/CD pour le code ML. Entra\^inement
+  automatis\'e d\'eclench\'e par les donn\'ees. R\'e-entra\^inement
+  automatique en cas de drift. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}
+\begin{tikzpicture}[
+  level/.style={rectangle, draw, rounded corners, minimum width=10cm,
+    minimum height=1.2cm, align=center, font=\small},
+  arr/.style={-{Stealth[length=2.5mm]}, thick, steelblue}
+]
+  \node[level, fill=red!10] (l0) {\textbf{Niveau 0~: Manuel}\\
+    Notebooks $\to$ export mod\`ele $\to$ d\'eploiement manuel};
+  \node[level, fill=yellow!10, above=0.5cm of l0] (l1) {\textbf{Niveau 1~: Pipeline ML}\\
+    Pipeline automatis\'e $\to$ d\'eploiement continu $\to$ monitoring};
+  \node[level, fill=green!10, above=0.5cm of l1] (l2) {\textbf{Niveau 2~: CI/CD + ML}\\
+    CI/CD code + donn\'ees $\to$ r\'e-entra\^inement auto $\to$ A/B testing};
+
+  \draw[arr] (l0) -- (l1);
+  \draw[arr] (l1) -- (l2);
+\end{tikzpicture}
+\end{center}
+
+\section{Le cycle de vie ML}
+\label{sec:ml-lifecycle}
+\index{cycle de vie ML}
+
+Un projet ML en production traverse plusieurs phases, qui forment un cycle
+(et non une s\'equence lin\'eaire)~:
+
+\begin{enumerate}
+  \item \textbf{D\'efinition du probl\`eme}~: quel est l'objectif m\'etier~?
+    Quel est le crit\`ere de succ\`es~?
+  \item \textbf{Collecte et pr\'eparation des donn\'ees}~: acquisition,
+    nettoyage, labellisation, feature engineering.
+  \item \textbf{Exp\'erimentation}~: choix du mod\`ele, optimisation des
+    hyperparam\`etres, \'evaluation.
+  \item \textbf{D\'eveloppement du pipeline}~: transformation du notebook
+    en code modulaire, test\'e et versionn\'e.
+  \item \textbf{D\'eploiement}~: mise en production du mod\`ele (API,
+    batch, edge).
+  \item \textbf{Monitoring}~: surveillance de la performance, d\'etection
+    de drift, alertes.
+  \item \textbf{R\'e-entra\^inement}~: mise \`a jour du mod\`ele quand les
+    donn\'ees ou les performances \'evoluent.
+\end{enumerate}
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance=1.8cm,
+  phase/.style={circle, draw, minimum size=1.6cm, align=center,
+    font=\scriptsize\bfseries, inner sep=1pt},
+  arr/.style={-{Stealth[length=2mm]}, thick, steelblue}
+]
+  \node[phase, fill=blue!15] (prob) {Probl\`eme};
+  \node[phase, fill=blue!10, right=1.5cm of prob] (data) {Donn\'ees};
+  \node[phase, fill=green!10, below right=1cm and 1cm of data] (exp) {Exp\'erim.};
+  \node[phase, fill=green!15, below=1.5cm of exp] (pipe) {Pipeline};
+  \node[phase, fill=orange!10, below left=1cm and 1cm of pipe] (deploy) {D\'eploie.};
+  \node[phase, fill=red!10, left=1.5cm of deploy] (monitor) {Monitoring};
+  \node[phase, fill=red!15, above left=1cm and 1cm of monitor] (retrain) {R\'e-entra\^in.};
+
+  \draw[arr] (prob) -- (data);
+  \draw[arr] (data) -- (exp);
+  \draw[arr] (exp) -- (pipe);
+  \draw[arr] (pipe) -- (deploy);
+  \draw[arr] (deploy) -- (monitor);
+  \draw[arr] (monitor) -- (retrain);
+  \draw[arr] (retrain) -- (data);
+\end{tikzpicture}
+\end{center}
+
+\section{La dette technique en ML}
+\label{sec:technical-debt}
+\index{dette technique}
+
+Sculley et al.~\cite{sculley2015} ont identifi\'e que le code ML ne
+repr\'esente qu'une petite fraction d'un syst\`eme ML en production. Le reste
+est de l'infrastructure~:
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, minimum height=0.8cm, align=center,
+    font=\scriptsize}
+]
+  % Central ML code
+  \node[box, fill=black!80, text=white, minimum width=2cm] (ml) {Code ML};
+
+  % Surrounding infrastructure
+  \node[box, fill=yellow!20, minimum width=3.5cm, above=0.1cm of ml] (config) {Configuration};
+  \node[box, fill=yellow!20, minimum width=3.5cm, below=0.1cm of ml] (data) {Collecte de donn\'ees};
+  \node[box, fill=yellow!20, minimum width=1.5cm, left=0.1cm of ml] (feat) {Feature\\engineering};
+  \node[box, fill=yellow!20, minimum width=1.5cm, right=0.1cm of ml] (serve) {Infrastructure\\de serving};
+  \node[box, fill=orange!20, minimum width=6.5cm, above=0.1cm of config] (monitor) {Monitoring \quad Outils de processus \quad Gestion des ressources};
+  \node[box, fill=orange!20, minimum width=6.5cm, below=0.1cm of data] (valid) {V\'erification donn\'ees \quad Analyse \quad Tests};
+\end{tikzpicture}
+\end{center}
+
+\begin{attention}[title=\textbf{Le pi\`ege du notebook}]
+Le notebook Jupyter est un excellent outil d'exploration, mais un pi\`etre
+outil de production. Les probl\`emes classiques~:
+\begin{itemize}
+  \item Ex\'ecution non lin\'eaire (cellules ex\'ecut\'ees dans le d\'esordre)
+  \item \'Etat cach\'e (variables globales qui persistent)
+  \item Pas de tests unitaires
+  \item Difficult\'e de versionnement (fichiers JSON volumineux)
+  \item Pas de modularit\'e (fonctions et classes non r\'eutilisables)
+\end{itemize}
+\end{attention}
+
+\section{Architecture d'un syst\`eme MLOps}
+\label{sec:mlops-architecture}
+
+Un syst\`eme MLOps mature comprend les composants suivants~:
+
+\begin{toolbox}[title=\textbf{Composants d'un syst\`eme MLOps}]
+\begin{description}
+  \item[Gestion de code] Git, GitHub/GitLab
+  \item[Gestion de donn\'ees] DVC, Delta Lake, LakeFS
+  \item[Gestion d'environnements] Conda, pip, venv, Poetry
+  \item[Suivi d'exp\'eriences] MLflow, Weights \& Biases, Neptune
+  \item[Pipeline d'entra\^inement] Airflow, Prefect, Kubeflow Pipelines
+  \item[Feature store] Feast, Tecton, Hopsworks
+  \item[Conteneurisation] Docker, Kubernetes
+  \item[Serving] FastAPI, TorchServe, TensorFlow Serving, Triton
+  \item[CI/CD] GitHub Actions, GitLab CI, Jenkins
+  \item[Monitoring] Prometheus, Grafana, Evidently, WhyLabs
+\end{description}
+\end{toolbox}
+
+\section{Tutoriel~: du notebook au script modulaire}
+\label{sec:notebook-to-script}
+
+\subsection{Le notebook de d\'epart}
+
+Consid\'erons un notebook typique de classification~:
+
+\begin{codeblock}[title=\textbf{Notebook typique (anti-pattern)}]
+\begin{minted}{python}
+# Cellule 1
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+# Cellule 2
+df = pd.read_csv("data.csv")
+X = df.drop("target", axis=1)
+y = df["target"]
+
+# Cellule 3
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# Cellule 4
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+print(f"Accuracy: {accuracy_score(y_test, model.predict(X_test)):.4f}")
+\end{minted}
+\end{codeblock}
+
+\subsection{Le script modulaire}
+
+\begin{bonnepratique}[title=\textbf{Structure de projet recommand\'ee}]
+\begin{minted}{text}
+my_ml_project/
+  src/
+    __init__.py
+    data.py          # Chargement et preprocessing
+    model.py         # Definition du modele
+    train.py         # Boucle d'entrainement
+    evaluate.py      # Metriques d'evaluation
+  tests/
+    test_data.py
+    test_model.py
+  configs/
+    config.yaml      # Hyperparametres
+  requirements.txt
+  Makefile
+  README.md
+\end{minted}
+\end{bonnepratique}
+
+\begin{codeblock}[title=\textbf{src/data.py --- Module de donn\'ees}]
+\begin{minted}{python}
+"""Data loading and preprocessing module."""
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
+
+def load_data(path: str) -> pd.DataFrame:
+    """Load dataset from CSV file."""
+    df = pd.read_csv(path)
+    return df
+
+
+def split_data(
+    df: pd.DataFrame,
+    target_col: str = "target",
+    test_size: float = 0.2,
+    random_state: int = 42,
+) -> tuple:
+    """Split data into train and test sets."""
+    X = df.drop(target_col, axis=1)
+    y = df[target_col]
+    return train_test_split(
+        X, y, test_size=test_size, random_state=random_state
+    )
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{src/train.py --- Script d'entra\^inement}]
+\begin{minted}{python}
+"""Training script with configuration."""
+import argparse
+import yaml
+import joblib
+from data import load_data, split_data
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+
+
+def train(config: dict) -> None:
+    """Train model with given configuration."""
+    # Data
+    df = load_data(config["data"]["path"])
+    X_train, X_test, y_train, y_test = split_data(
+        df,
+        target_col=config["data"]["target_col"],
+        test_size=config["data"]["test_size"],
+    )
+
+    # Model
+    model = RandomForestClassifier(**config["model"])
+    model.fit(X_train, y_train)
+
+    # Evaluate
+    y_pred = model.predict(X_test)
+    acc = accuracy_score(y_test, y_pred)
+    print(f"Accuracy: {acc:.4f}")
+
+    # Save
+    joblib.dump(model, config["output"]["model_path"])
+    print(f"Model saved to {config['output']['model_path']}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="configs/config.yaml")
+    args = parser.parse_args()
+
+    with open(args.config) as f:
+        config = yaml.safe_load(f)
+
+    train(config)
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{configs/config.yaml}]
+\begin{minted}{yaml}
+data:
+  path: "data/dataset.csv"
+  target_col: "target"
+  test_size: 0.2
+
+model:
+  n_estimators: 100
+  max_depth: 10
+  random_state: 42
+
+output:
+  model_path: "models/rf_model.joblib"
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Makefile}]
+\begin{minted}{makefile}
+.PHONY: install train test clean
+
+install:
+	pip install -r requirements.txt
+
+train:
+	python src/train.py --config configs/config.yaml
+
+test:
+	pytest tests/ -v
+
+clean:
+	rm -rf models/*.joblib __pycache__ .pytest_cache
+\end{minted}
+\end{codeblock}
+
+\section{Bonnes pratiques et anti-patterns}
+
+\begin{bonnepratique}[title=\textbf{Principes fondamentaux}]
+\begin{enumerate}
+  \item \textbf{S\'eparation des pr\'eoccupations}~: donn\'ees, mod\`ele,
+    entra\^inement, \'evaluation dans des modules distincts.
+  \item \textbf{Configuration externalis\'ee}~: hyperparamm\`etres dans des
+    fichiers YAML, pas en dur dans le code.
+  \item \textbf{Reproductibilit\'e par d\'efaut}~: fixer les graines
+    al\'eatoires, versionner les donn\'ees et le code.
+  \item \textbf{Tests automatiques}~: tester le chargement des donn\'ees,
+    la forme des tenseurs, la convergence sur un petit \'echantillon.
+  \item \textbf{Automatisation}~: Makefile ou scripts pour toutes les
+    op\'erations r\'ep\'etitives.
+\end{enumerate}
+\end{bonnepratique}
+
+\begin{antipattern}[title=\textbf{\`A \'eviter absolument}]
+\begin{itemize}
+  \item Hardcoder des chemins absolus~: \cli{/home/alice/data/train.csv}
+  \item Committer des donn\'ees volumineuses dans Git
+  \item Committer des secrets (cl\'es API, mots de passe)
+  \item Travailler exclusivement en notebooks sans code modulaire
+  \item Ignorer les tests sous pr\'etexte que <<~c'est du ML~>>
+  \item D\'eployer un mod\`ele sans monitoring
+\end{itemize}
+\end{antipattern}
+
+\section{Mini-projet~: structurer un projet ML}
+\label{sec:mini-project-ch1}
+
+\begin{miniprojet}[title=\textbf{Mini-projet 1~: Du notebook au projet structur\'e}]
+\begin{enumerate}
+  \item Cr\'eez la structure de r\'epertoires recommand\'ee.
+  \item Transformez le notebook de classification ci-dessus en modules
+    Python s\'epar\'es.
+  \item \'Ecrivez un fichier \file{config.yaml} pour les hyperparamm\`etres.
+  \item Cr\'eez un \file{Makefile} avec les cibles \cli{install},
+    \cli{train}, \cli{test}, \cli{clean}.
+  \item \'Ecrivez au moins deux tests unitaires (un pour le chargement des
+    donn\'ees, un pour la forme de la sortie du mod\`ele).
+  \item V\'erifiez que \cli{make train} fonctionne de bout en bout.
+\end{enumerate}
+\end{miniprojet}
+
+\section{Exercices}
+\label{sec:exercises-ch1}
+
+\begin{exercice}[$\bigstar$ --- Structure de projet]
+Cr\'eez un squelette de projet ML pour un probl\`eme de r\'egression avec
+la structure recommand\'ee. Incluez un \file{README.md} d\'ecrivant le
+projet et un \file{.gitignore} adapt\'e au ML (ignorer \file{data/},
+\file{models/}, \file{*.pyc}, \file{.ipynb\_checkpoints/}).
+\end{exercice}
+
+\begin{exercice}[$\bigstar\bigstar$ --- Refactoring de notebook]
+Prenez un notebook Jupyter existant (le v\^otre ou un notebook Kaggle) et
+transformez-le en projet structur\'e~:
+\begin{enumerate}
+  \item Identifiez les fonctions r\'eutilisables
+  \item Cr\'eez les modules Python correspondants
+  \item Externalisez la configuration
+  \item \'Ecrivez des tests pour les fonctions critiques
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[$\bigstar\bigstar\bigstar$ --- Projet complet]
+Construisez un projet ML complet pour la classification de texte
+(par exemple, analyse de sentiment sur le dataset IMDb)~:
+\begin{enumerate}
+  \item Structure modulaire compl\`ete
+  \item Configuration YAML
+  \item Tests unitaires avec \pkg{pytest}
+  \item Script d'entra\^inement avec arguments en ligne de commande
+  \item Rapport automatique des m\'etriques (pr\'ecision, rappel, F1)
+  \item \file{Makefile} complet
+\end{enumerate}
+\end{exercice}
+
+\section{Aide-m\'emoire}
+
+\begin{cheatsheet}[title=\textbf{R\'esum\'e du chapitre 1}]
+\begin{tabular}{@{}p{4cm}p{8.5cm}@{}}
+\toprule
+\textbf{Concept} & \textbf{Point cl\'e} \\
+\midrule
+MLOps & DevOps + donn\'ees + mod\`eles \\
+Niveaux de maturit\'e & 0 (manuel) $\to$ 1 (pipeline) $\to$ 2 (CI/CD) \\
+Dette technique & Le code ML est une petite fraction du syst\`eme \\
+Anti-pattern notebook & \'Etat cach\'e, pas de tests, pas de modularit\'e \\
+Structure projet & \file{src/}, \file{tests/}, \file{configs/}, Makefile \\
+Config externalis\'ee & YAML pour les hyperparamm\`etres \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}

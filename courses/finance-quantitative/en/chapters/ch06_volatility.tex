@@ -1,0 +1,307 @@
+% ============================================================
+\chapter{Stochastic Volatility Models}
+\label{ch:volatility}
+% ============================================================
+
+The Black-Scholes model assumes constant volatility. But markets tell a different story: when one computes implied volatility from observed option prices, it varies with strike and maturity, drawing the celebrated ``volatility smile.'' This phenomenon, which became glaring after the 1987 crash, motivated a new generation of models where volatility itself is a stochastic process. The Heston model (1993), the SABR model (Hagan et al., 2002), and Dupire's local volatility models (1994) each attempt to capture this dynamic.
+
+\section{Motivation: The Volatility Smile}
+
+The Black--Scholes model assumes constant volatility $\sigma$. In practice,
+however, the implied volatility $\sigma_{\text{impl}}(K,T)$ depends on the
+strike $K$ and maturity $T$, forming a \textbf{volatility surface} with a
+characteristic \textit{smile} or \textit{skew}.
+
+\begin{definition}[Volatility Smile]
+The \textbf{volatility smile} is the curve
+$K \mapsto \sigma_{\text{impl}}(K, T)$ for a fixed maturity.
+In equity markets, one typically observes a negative \textit{skew}:
+implied volatility is higher for OTM puts (low strikes) than for
+OTM calls (high strikes).
+\end{definition}
+
+\begin{remark}
+The smile is incompatible with the Black--Scholes model and motivates the
+introduction of stochastic volatility or jump-diffusion models.
+\end{remark}
+
+\section{Local Volatility (Dupire)}
+
+\begin{theorem}[Dupire's Equation (1994)]
+If European option prices $C(K,T)$ are known for all $(K,T)$, the
+\textbf{local volatility} $\sigma_{\text{loc}}(K,T)$ is defined by:
+\[
+    \sigma_{\text{loc}}^2(K,T) = \frac{\partial_T C + rK\partial_K C}
+    {\frac{1}{2}K^2\partial_{KK}C}.
+\]
+The underlying then satisfies:
+$dS_t = rS_t\,dt + \sigma_{\text{loc}}(S_t, t)S_t\,dW_t^\mathbb{Q}$.
+\end{theorem}
+
+\begin{warning}[title=\textbf{Limitations of Local Volatility}]
+Dupire's model reproduces today's volatility surface exactly, but its
+predictions of future smile dynamics are often unrealistic (the smile
+flattens too quickly). Stochastic volatility models offer better dynamics.
+\end{warning}
+
+\section{The Heston Model}
+
+\begin{definition}[Heston Model (1993)]
+The \textbf{Heston model} describes the underlying and its variance by
+the system:
+\begin{align}
+    dS_t &= rS_t\,dt + \sqrt{v_t}\,S_t\,dW_t^1, \\
+    dv_t &= \kappa(\bar{v} - v_t)\,dt + \xi\sqrt{v_t}\,dW_t^2,
+\end{align}
+with $d\langle W^1, W^2\rangle_t = \rho\,dt$ and parameters:
+\begin{itemize}
+    \item $v_0 > 0$: initial variance,
+    \item $\kappa > 0$: mean-reversion speed,
+    \item $\bar{v} > 0$: long-run variance,
+    \item $\xi > 0$: volatility of variance (vol of vol),
+    \item $\rho \in [-1,1]$: correlation ($\rho < 0$ generates skew).
+\end{itemize}
+\end{definition}
+
+\begin{theorem}[Feller Condition]
+The variance $v_t$ remains strictly positive if and only if the
+\textbf{Feller condition} is satisfied:
+\[
+    2\kappa\bar{v} \geq \xi^2.
+\]
+\end{theorem}
+
+\subsection{Pricing via Characteristic Function}
+
+\begin{theorem}[Heston Semi-Analytical Formula]
+The European call price in the Heston model is:
+\[
+    C = S_0 P_1 - Ke^{-rT}P_2,
+\]
+where the probabilities $P_j$ are obtained by Fourier inversion:
+\[
+    P_j = \frac{1}{2} + \frac{1}{\pi}\int_0^\infty
+    \text{Re}\!\left[\frac{e^{-iu\ln K}\varphi_j(u)}{iu}\right]du,
+\]
+and $\varphi_j(u)$ is the characteristic function of the log-price under
+the associated measures.
+\end{theorem}
+
+\begin{codeblock}[title=\textbf{Heston Pricing via Fourier Transform}]
+\begin{minted}{python}
+import numpy as np
+from scipy.integrate import quad
+
+def heston_char_func(u, T, r, v0, kappa, vbar, xi, rho):
+    """Characteristic function of the log-price under Heston."""
+    d = np.sqrt((rho*xi*1j*u - kappa)**2 + xi**2*(1j*u + u**2))
+    g = (kappa - rho*xi*1j*u - d) / (kappa - rho*xi*1j*u + d)
+
+    C = r*1j*u*T + (kappa*vbar/xi**2) * (
+        (kappa - rho*xi*1j*u - d)*T
+        - 2*np.log((1 - g*np.exp(-d*T))/(1 - g))
+    )
+    D = ((kappa - rho*xi*1j*u - d)/xi**2) * (
+        (1 - np.exp(-d*T))/(1 - g*np.exp(-d*T))
+    )
+    return np.exp(C + D*v0)
+
+def heston_call(S0, K, T, r, v0, kappa, vbar, xi, rho):
+    """European call price under the Heston model."""
+    ln_K = np.log(K)
+
+    def integrand(u):
+        phi = heston_char_func(u - 0.5j, T, r, v0,
+                               kappa, vbar, xi, rho)
+        return np.real(np.exp(-1j*u*ln_K) * phi / (u**2 + 0.25))
+
+    integral, _ = quad(integrand, 0, 200, limit=200)
+    return S0 - np.sqrt(S0*K)*np.exp(-r*T)/np.pi * integral
+
+# Heston parameters
+S0, K, T, r = 100, 100, 1.0, 0.05
+v0, kappa, vbar, xi, rho = 0.04, 2.0, 0.04, 0.3, -0.7
+
+price = heston_call(S0, K, T, r, v0, kappa, vbar, xi, rho)
+print(f"Heston price: {price:.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{The SABR Model}
+
+\begin{definition}[SABR Model]
+The \textbf{SABR} model (Stochastic Alpha Beta Rho, Hagan et al., 2002)
+is defined by:
+\begin{align}
+    dF_t &= \alpha_t F_t^\beta\,dW_t^1, \\
+    d\alpha_t &= \nu\alpha_t\,dW_t^2,
+\end{align}
+with $d\langle W^1, W^2\rangle_t = \rho\,dt$, $F_0 = f$ (forward rate),
+$\alpha_0 = \alpha$, and $\beta \in [0,1]$.
+\end{definition}
+
+\begin{theorem}[Hagan's Approximation for Implied Volatility]
+The Black implied volatility in the SABR model is approximated by:
+\[
+    \sigma_B(K, f) \approx \frac{\alpha}{(fK)^{(1-\beta)/2}
+    \left[1 + \frac{(1-\beta)^2}{24}\ln^2\!\frac{f}{K} + \cdots\right]}
+    \cdot \frac{z}{x(z)} \cdot \left[1 + \left(\frac{(1-\beta)^2}{24}
+    \frac{\alpha^2}{(fK)^{1-\beta}} + \frac{1}{4}\frac{\rho\beta\nu\alpha}
+    {(fK)^{(1-\beta)/2}} + \frac{2-3\rho^2}{24}\nu^2\right)T\right],
+\]
+where $z = \frac{\nu}{\alpha}(fK)^{(1-\beta)/2}\ln\frac{f}{K}$ and
+$x(z) = \ln\!\frac{\sqrt{1 - 2\rho z + z^2} + z - \rho}{1 - \rho}$.
+\end{theorem}
+
+\begin{codeblock}[title=\textbf{SABR Implied Volatility}]
+\begin{minted}{python}
+import numpy as np
+
+def sabr_vol(K, f, T, alpha, beta, rho, nu):
+    """Hagan approximation for SABR implied volatility."""
+    if abs(f - K) < 1e-10:
+        # ATM case
+        fk = f**(1 - beta)
+        vol = (alpha / fk) * (
+            1 + ((1-beta)**2/24 * alpha**2/fk**2
+                 + 0.25*rho*beta*nu*alpha/fk
+                 + (2-3*rho**2)/24 * nu**2) * T
+        )
+        return vol
+
+    fk_mid = (f * K)**((1 - beta)/2)
+    ln_fk = np.log(f / K)
+    z = nu / alpha * fk_mid * ln_fk
+    x_z = np.log((np.sqrt(1 - 2*rho*z + z**2) + z - rho)
+                 / (1 - rho))
+
+    prefix = alpha / (fk_mid * (1 + (1-beta)**2/24 * ln_fk**2
+                                + (1-beta)**4/1920 * ln_fk**4))
+    correction = 1 + ((1-beta)**2/24 * alpha**2 / (f*K)**(1-beta)
+                      + 0.25*rho*beta*nu*alpha / fk_mid
+                      + (2-3*rho**2)/24 * nu**2) * T
+
+    return prefix * z / x_z * correction
+
+# Example: SABR smile
+f, T = 0.03, 5.0
+alpha, beta, rho, nu = 0.02, 0.5, -0.3, 0.4
+strikes = np.linspace(0.01, 0.06, 50)
+vols = [sabr_vol(K, f, T, alpha, beta, rho, nu) for K in strikes]
+\end{minted}
+\end{codeblock}
+
+\section{Calibration}
+
+\begin{definition}[Calibration Problem]
+\textbf{Calibration} consists of determining model parameters $\theta^*$
+that minimise the discrepancy with market prices (or implied volatilities):
+\[
+    \theta^* = \arg\min_\theta \sum_{i=1}^{N}
+    w_i \bigl(\sigma_{\text{mod}}(K_i, T_i; \theta)
+    - \sigma_{\text{mkt}}(K_i, T_i)\bigr)^2.
+\]
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Heston Model Calibration}]
+\begin{minted}{python}
+from scipy.optimize import minimize
+
+def calibrate_heston(market_data, S0, r):
+    """Calibrate Heston to market implied volatilities.
+
+    market_data: list of (K, T, sigma_mkt)
+    """
+    def objective(params):
+        v0, kappa, vbar, xi, rho = params
+        if v0<0 or kappa<0 or vbar<0 or xi<0 or abs(rho)>1:
+            return 1e10
+        total = 0
+        for K, T, sigma_mkt in market_data:
+            try:
+                C_mod = heston_call(S0, K, T, r, v0, kappa,
+                                    vbar, xi, rho)
+                sigma_mod = implied_vol_from_price(
+                    C_mod, S0, K, T, r)
+                total += (sigma_mod - sigma_mkt)**2
+            except:
+                total += 1e6
+        return total
+
+    x0 = [0.04, 1.5, 0.04, 0.3, -0.5]
+    bounds = [(0.001,1), (0.01,10), (0.001,1),
+              (0.01,2), (-0.99,0.99)]
+    result = minimize(objective, x0, method='L-BFGS-B',
+                      bounds=bounds)
+    return result.x
+\end{minted}
+\end{codeblock}
+
+\section{Local vs Stochastic Volatility}
+
+\begin{center}
+\begin{tabular}{lcc}
+    \toprule
+    \textbf{Property} & \textbf{Local (Dupire)}
+    & \textbf{Stochastic (Heston)} \\
+    \midrule
+    Exact calibration & Yes & Approximate \\
+    Smile dynamics & Unrealistic & Realistic \\
+    Number of factors & 1 & 2 \\
+    Market & Complete & Incomplete \\
+    Greeks & Simple & Complex \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+\section{Stochastic Local Volatility (SLV) Models}
+
+\begin{definition}[SLV Model]
+\textbf{SLV models} combine local and stochastic volatility:
+\[
+    dS_t = rS_t\,dt + L(S_t, t)\sqrt{v_t}\,S_t\,dW_t^1,
+\]
+where $L(S,t)$ is the leverage function calibrated to reproduce the
+volatility surface exactly, while the dynamics of $v_t$ control the
+future behaviour of the smile.
+\end{definition}
+
+\section{Exercises}
+
+\begin{exercise}[Volatility Surface]
+\begin{enumerate}
+    \item Generate option prices in the Heston model for
+          $K/S_0 \in \{0.8, 0.9, 1.0, 1.1, 1.2\}$ and $T \in \{0.25, 0.5, 1, 2\}$.
+    \item Compute Black--Scholes implied volatility for each price.
+    \item Plot the smile for each maturity and comment on the impact of $\rho$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Feller Condition]
+\begin{enumerate}
+    \item For $\kappa = 2$, $\bar{v} = 0.04$, determine the maximum value
+          of $\xi$ satisfying Feller.
+    \item Simulate paths of $v_t$ with and without Feller and observe
+          behaviour near zero.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[SABR Calibration]
+\begin{enumerate}
+    \item Calibrate the SABR model to swaption data (implied volatilities
+          for different strikes).
+    \item Analyse the stability of parameters $(\alpha, \rho, \nu)$ as a
+          function of maturity.
+    \item Compare with Heston calibration on the same data.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Monte Carlo for Heston]
+\begin{enumerate}
+    \item Implement the truncated Euler scheme for Heston:
+          $v_{t+\Delta t} = \max(v_t + \kappa(\bar{v} - v_t)\Delta t
+          + \xi\sqrt{v_t^+}\Delta W^2, 0)$.
+    \item Compare with the characteristic function method.
+    \item Study the impact of $\rho$ on the smile skew.
+\end{enumerate}
+\end{exercise}

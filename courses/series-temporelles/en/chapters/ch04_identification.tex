@@ -1,0 +1,188 @@
+% ============================================================
+\chapter{Identification, Estimation, and Diagnostics}
+\label{ch:identification}
+% ============================================================
+
+\section{Motivating example}
+Given a real time series, how does one choose the orders $p$ and $q$ of an ARMA$(p,q)$, estimate the parameters, and verify that the model is adequate? This is the \textbf{Box--Jenkins methodology}\index{Box--Jenkins}.
+
+\section{The Box--Jenkins methodology}
+
+\begin{method}
+\begin{enumerate}
+\item \textbf{Identification}: examine the ACF and PACF to propose orders $(p,q)$.
+\item \textbf{Estimation}: estimate $(\phi_1,\ldots,\phi_p,\theta_1,\ldots,\theta_q,\sigma^2)$ by maximum likelihood or conditional least squares.
+\item \textbf{Diagnostics}: verify that the residuals behave as white noise.
+\item \textbf{Forecasting}: use the validated model for prediction.
+\end{enumerate}
+\end{method}
+
+\section{Identification}\index{identification}
+
+\subsection{Examining the ACF and PACF}
+
+Practical rules (summarised in Chapter~\ref{ch:arma}):
+\begin{itemize}
+\item ACF truncates at $q$ $\Rightarrow$ MA$(q)$.
+\item PACF truncates at $p$ $\Rightarrow$ AR$(p)$.
+\item Both decay $\Rightarrow$ ARMA$(p,q)$.
+\end{itemize}
+
+\subsection{Information criteria}\index{AIC}\index{BIC}
+
+\begin{definition}[AIC and BIC]
+\begin{align}
+\AIC(p,q) &= -2\ln L(\hat{\bm\theta}) + 2(p+q+1), \\
+\BIC(p,q) &= -2\ln L(\hat{\bm\theta}) + (p+q+1)\ln n.
+\end{align}
+One selects the model that \textbf{minimises} the criterion. The BIC penalises complexity more heavily.
+\end{definition}
+
+\begin{theorem}[Asymptotic properties]
+\begin{itemize}
+\item The AIC is asymptotically equivalent to leave-one-out cross-validation.
+\item The BIC is \textbf{consistent}: it selects the true model with probability $\to 1$.
+\item The AIC tends to over-parameterise.
+\end{itemize}
+\end{theorem}
+
+\section{Estimation}\index{estimation}
+
+\subsection{Maximum likelihood}\index{maximum likelihood}
+
+\begin{definition}
+For a Gaussian ARMA$(p,q)$, the exact log-likelihood is:
+\[
+\ln L(\bm\theta) = -\frac{n}{2}\ln(2\pi) - \frac{1}{2}\sum_{t=1}^n\ln v_t - \frac{1}{2}\sum_{t=1}^n\frac{e_t^2}{v_t},
+\]
+where $e_t = X_t - \hat{X}_{t|t-1}$ is the one-step-ahead prediction error and $v_t=\Var(e_t)$, computed recursively (innovations algorithm or Kalman filter).
+\end{definition}
+
+\begin{theorem}[Properties of the MLE]
+Under regularity conditions, the MLE $\hat{\bm\theta}_n$ is:
+\begin{itemize}
+\item Consistent: $\hat{\bm\theta}_n\pto\bm\theta_0$.
+\item Asymptotically normal: $\sqrt{n}(\hat{\bm\theta}_n-\bm\theta_0)\dto\mathcal{N}(0,I(\bm\theta_0)^{-1})$.
+\item Asymptotically efficient.
+\end{itemize}
+\end{theorem}
+
+\subsection{Conditional least squares}
+
+\begin{definition}
+Conditioning on the first observations, one minimises:
+\[
+S(\bm\theta) = \sum_{t=p+1}^n\left(X_t - \phi_1 X_{t-1}-\cdots - \phi_p X_{t-p} - \theta_1\hat{\eps}_{t-1}-\cdots-\theta_q\hat{\eps}_{t-q}\right)^2.
+\]
+\end{definition}
+
+\section{Diagnostics}\index{diagnostics}
+
+\subsection{Residual analysis}
+
+\begin{definition}
+The model residuals are $\hat{\eps}_t = X_t - \hat{X}_{t|t-1}$. If the model is correct, the $\hat{\eps}_t$ should behave as white noise.
+\end{definition}
+
+Checks:
+\begin{enumerate}
+\item \textbf{ACF of residuals}: no significant autocorrelation.
+\item \textbf{Ljung--Box test}\index{test!Ljung--Box}:
+\[
+Q(m) = n(n+2)\sum_{h=1}^m\frac{\hat{\rho}_{\hat\eps}(h)^2}{n-h} \stackrel{H_0}{\sim}\chi^2(m-p-q).
+\]
+\item \textbf{Normality}: QQ-plot, Jarque--Bera test\index{test!Jarque--Bera}.
+\item \textbf{Heteroscedasticity}: ARCH effect (cf.\ Chapter~\ref{ch:garch}).
+\end{enumerate}
+
+\begin{theorem}[Ljung--Box]
+Under $H_0$ (residuals = white noise), $Q(m)\sim\chi^2(m-p-q)$ asymptotically. One rejects $H_0$ if $Q(m)>\chi^2_{1-\alpha}(m-p-q)$.
+\end{theorem}
+
+\section{Implementation}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.stats.diagnostic import acorr_ljungbox
+from statsmodels.graphics.tsaplots import plot_acf
+
+# Simuler un ARMA(1,1) connu
+np.random.seed(42)
+from statsmodels.tsa.arima_process import ArmaProcess
+true_ar = np.array([1, -0.7])
+true_ma = np.array([1, 0.3])
+process = ArmaProcess(true_ar, true_ma)
+data = process.generate_sample(nsample=500)
+
+# Étape 1 : Identification (ACF/PACF déjà examinée)
+
+# Étape 2 : Estimation par MLE
+model = ARIMA(data, order=(1, 0, 1))
+results = model.fit()
+print(results.summary())
+print(f"\nphi_1 = {results.arparams[0]:.4f} (vrai: 0.7)")
+print(f"theta_1 = {results.maparams[0]:.4f} (vrai: 0.3)")
+
+# Étape 3 : Diagnostic
+residuals = results.resid
+
+fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+axes[0,0].plot(residuals, lw=0.5)
+axes[0,0].set_title('Résidus')
+plot_acf(residuals, lags=25, ax=axes[0,1], title='ACF des résidus')
+axes[1,0].hist(residuals, bins=30, density=True, alpha=0.7)
+axes[1,0].set_title('Distribution des résidus')
+from scipy import stats
+stats.probplot(residuals, dist='norm', plot=axes[1,1])
+axes[1,1].set_title('QQ-plot')
+plt.tight_layout()
+plt.savefig('ch04_diagnostic.pdf')
+plt.show()
+
+# Test de Ljung-Box
+lb_test = acorr_ljungbox(residuals, lags=20, return_df=True)
+print(lb_test)
+
+# Sélection par AIC/BIC
+results_table = []
+for p in range(4):
+    for q in range(4):
+        try:
+            m = ARIMA(data, order=(p, 0, q)).fit()
+            results_table.append({'p': p, 'q': q,
+                                  'AIC': m.aic, 'BIC': m.bic})
+        except:
+            pass
+df = pd.DataFrame(results_table).sort_values('BIC')
+print(df.head(5))
+\end{minted}
+\end{codeblock}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+Simulate an AR(2) and apply the complete methodology: identification, estimation, diagnostics.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Show that the Ljung--Box test with $m$ lags follows asymptotically a $\chi^2(m-p-q)$ distribution under $H_0$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Compare AIC and BIC on 1000 simulations of an AR(1). Which one selects the correct order most often? Does the BIC over-penalise in small samples?
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Project]
+Apply the complete Box--Jenkins methodology to the French monthly unemployment rate series. Present each step with justification.
+\end{exercise}
+
+\begin{keyformulas}
+\begin{align*}
+\AIC &= -2\ln L + 2k, \quad \BIC = -2\ln L + k\ln n \\
+Q(m) &= n(n+2)\sum_{h=1}^m\frac{\hat\rho_{\hat\eps}(h)^2}{n-h}\sim\chi^2(m-p-q)
+\end{align*}
+\end{keyformulas}

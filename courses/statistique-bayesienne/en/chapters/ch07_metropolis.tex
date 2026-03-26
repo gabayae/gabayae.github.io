@@ -1,0 +1,360 @@
+% ============================================================
+\chapter{MCMC --- Metropolis-Hastings}
+\label{ch:metropolis}
+% ============================================================
+
+In 1953, at Los Alamos National Laboratory, Nicholas Metropolis, Arianna and Marshall Rosenbluth, and Augusta and Edward Teller published a paper on simulating molecules using a particular Monte Carlo method: instead of sampling the Boltzmann distribution directly (impossible in high dimensions), they constructed a Markov chain whose stationary distribution \emph{is} the target distribution. Twenty years later, W.\,Keith Hastings generalized the algorithm by allowing asymmetric proposal kernels. It would take until the 1990s for Bayesian statisticians --- notably Alan Gelfand and Adrian Smith --- to realize that this method solved \emph{their} fundamental problem: sampling from complex posterior distributions. The Metropolis--Hastings algorithm thus became the keystone of computational Bayesian inference, making tractable models that had seemed beyond reach.
+
+\begin{intuition}[title=\textbf{Central idea}]
+When the posterior has no closed form, we construct a Markov chain
+whose stationary distribution is the posterior. The Metropolis--Hastings
+algorithm is the foundational MCMC method: it proposes transitions and
+accepts or rejects them according to a ratio that guarantees convergence
+to the target.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Markov chain background}
+% ------------------------------------------------------------
+
+\begin{definition}[Markov chain]
+A sequence $(\theta^{(t)})_{t \geq 0}$ is a \textbf{Markov chain} if
+$\PP(\theta^{(t+1)} \in A \mid \theta^{(0)}, \ldots, \theta^{(t)})
+= \PP(\theta^{(t+1)} \in A \mid \theta^{(t)})$ for all measurable $A$.
+\end{definition}
+
+\begin{definition}[Reversibility and detailed balance]
+A transition kernel $K(\theta, \theta')$ satisfies \textbf{detailed
+balance} with respect to $\pi$ if:
+\[
+  \pi(\theta)\,K(\theta, \theta') = \pi(\theta')\,K(\theta', \theta)
+  \quad \forall \theta, \theta'.
+\]
+This implies that $\pi$ is the stationary distribution of the chain.
+\end{definition}
+
+\begin{theorem}[Ergodic theorem]
+If the chain is irreducible and aperiodic with stationary distribution
+$\pi$, then for every integrable function $g$:
+\[
+  \frac{1}{T}\sum_{t=1}^T g(\theta^{(t)}) \xrightarrow{\text{a.s.}}
+  \int g(\theta)\,\pi(\theta)\,d\theta
+  \quad \text{as } T \to \infty.
+\]
+\end{theorem}
+
+% ------------------------------------------------------------
+\section{Metropolis--Hastings algorithm}
+% ------------------------------------------------------------
+
+\begin{algorithme}[title=\textbf{Metropolis--Hastings algorithm}]
+\begin{enumerate}
+  \item Initialize $\theta^{(0)}$.
+  \item For $t = 0, 1, 2, \ldots, T-1$:
+  \begin{enumerate}
+    \item Propose $\theta^* \sim q(\theta^* \mid \theta^{(t)})$.
+    \item Compute the acceptance ratio:
+    \[
+      \alpha(\theta^{(t)}, \theta^*) = \min\!\left(1,\;
+      \frac{\pi(\theta^* \mid x)\,q(\theta^{(t)} \mid \theta^*)}
+           {\pi(\theta^{(t)} \mid x)\,q(\theta^* \mid \theta^{(t)})}\right).
+    \]
+    \item Draw $u \sim \text{Unif}(0, 1)$.
+    \item If $u \leq \alpha$: set $\theta^{(t+1)} = \theta^*$ (accept).
+          Else: set $\theta^{(t+1)} = \theta^{(t)}$ (reject).
+  \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+\begin{theorem}[Validity of Metropolis--Hastings]
+The Metropolis--Hastings kernel satisfies detailed balance with
+respect to $\pi(\theta \mid x)$. If the chain is irreducible and
+aperiodic, it converges to $\pi(\theta \mid x)$.
+\end{theorem}
+
+\begin{proof}
+The transition kernel is:
+\[
+  K(\theta, \theta') = q(\theta' \mid \theta)\,\alpha(\theta, \theta')
+  \quad (\theta' \neq \theta).
+\]
+To verify detailed balance, assume without loss of generality that
+$\pi(\theta \mid x)\,q(\theta' \mid \theta) \leq
+\pi(\theta' \mid x)\,q(\theta \mid \theta')$. Then
+$\alpha(\theta, \theta') = 1$ and:
+\begin{align*}
+  \pi(\theta \mid x)\,K(\theta, \theta')
+  &= \pi(\theta \mid x)\,q(\theta' \mid \theta) \\
+  &= \pi(\theta' \mid x)\,q(\theta \mid \theta')
+  \cdot \frac{\pi(\theta \mid x)\,q(\theta' \mid \theta)}
+             {\pi(\theta' \mid x)\,q(\theta \mid \theta')} \\
+  &= \pi(\theta' \mid x)\,q(\theta \mid \theta')\,\alpha(\theta', \theta) \\
+  &= \pi(\theta' \mid x)\,K(\theta', \theta).
+\end{align*}
+\end{proof}
+
+\begin{remark}
+Only the ratio $\pi(\theta^*)/\pi(\theta^{(t)})$ is needed, so the
+normalizing constant $m(x)$ cancels. It suffices to know the posterior
+up to a constant.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Special cases}
+% ------------------------------------------------------------
+
+\subsection{Metropolis algorithm (symmetric)}
+
+\begin{definition}[Metropolis]
+When the proposal is symmetric,
+$q(\theta^* \mid \theta) = q(\theta \mid \theta^*)$, the ratio
+simplifies to:
+\[
+  \alpha = \min\!\left(1,\; \frac{\pi(\theta^* \mid x)}{\pi(\theta^{(t)} \mid x)}\right).
+\]
+\end{definition}
+
+\begin{example}
+\textbf{Gaussian random walk.}
+$q(\theta^* \mid \theta^{(t)}) = \mathcal{N}(\theta^{(t)}, \sigma_q^2 I)$.
+Symmetry is immediate. The step size $\sigma_q$ must be calibrated: an
+acceptance rate of $\approx 23\%$ is optimal in high dimensions.
+\end{example}
+
+\subsection{Independence sampler}
+
+\begin{definition}[Independent Metropolis--Hastings]
+The proposal does not depend on the current state:
+$q(\theta^* \mid \theta^{(t)}) = q(\theta^*)$. The ratio becomes:
+\[
+  \alpha = \min\!\left(1,\;
+  \frac{\pi(\theta^* \mid x)\,q(\theta^{(t)})}
+       {\pi(\theta^{(t)} \mid x)\,q(\theta^*)}\right).
+\]
+\end{definition}
+
+\begin{warning}[title=\textbf{Domination condition}]
+The independence sampler works well only if $q$ dominates
+$\pi(\cdot \mid x)$ in the sense that the tails of $q$ are at least as
+heavy as those of $\pi$.
+\end{warning}
+
+% ------------------------------------------------------------
+\section{Calibration and adaptation}
+% ------------------------------------------------------------
+
+\begin{keyformulas}[title=\textbf{Optimal acceptance rate}]
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{ll}
+\toprule
+\textbf{Dimension} & \textbf{Optimal rate} \\
+\midrule
+$d = 1$ & $\approx 44\%$ \\
+$d \geq 2$ (Gaussian target) & $\approx 23.4\%$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+Rule of thumb: adjust $\sigma_q$ to achieve an acceptance rate between
+$20\%$ and $50\%$.
+\end{keyformulas}
+
+\begin{definition}[Adaptive Metropolis (AM)]
+The AM algorithm adjusts the proposal covariance during burn-in:
+\[
+  \Sigma_q^{(t)} = \frac{2.38^2}{d}\,\hat{\Sigma}_t + \varepsilon I_d,
+\]
+where $\hat{\Sigma}_t$ is the empirical covariance of
+$\theta^{(1)}, \ldots, \theta^{(t)}$.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Convergence diagnostics}
+% ------------------------------------------------------------
+
+\begin{definition}[Trace plot]
+A \textbf{trace plot} displays $\theta^{(t)}$ versus $t$. One looks
+for ``white noise'' behavior (good mixing) with no visible trend or
+correlation.
+\end{definition}
+
+\begin{definition}[$\hat{R}$ (Gelman--Rubin)]
+The $\hat{R}$ diagnostic compares within-chain variance $W$ and
+between-chain variance $B$ for $M$ chains:
+\[
+  \hat{R} = \sqrt{\frac{\hat{V}}{W}}, \qquad
+  \hat{V} = \frac{n-1}{n}\,W + \frac{1}{n}\,B.
+\]
+Convergence if $\hat{R} < 1.01$ (strict criterion).
+\end{definition}
+
+\begin{definition}[Effective sample size (ESS)]
+The \textbf{ESS} measures the number of equivalent independent samples:
+\[
+  \text{ESS} = \frac{T}{1 + 2\sum_{k=1}^\infty \rho_k},
+\]
+where $\rho_k$ is the lag-$k$ autocorrelation. The recommendation is
+$\text{ESS} > 400$ per parameter.
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{MCMC diagnostics checklist}]
+\begin{enumerate}
+  \item Check trace plots (no trends).
+  \item $\hat{R} < 1.01$ for all parameters.
+  \item $\text{ESS} > 400$ (or $> 100$ per chain).
+  \item No divergences (for HMC/NUTS).
+  \item Consistency across multiple chains.
+\end{enumerate}
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Python implementation}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Metropolis--Hastings from scratch}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import stats
+
+# Target: Beta-Binomial posterior
+n_data, s = 50, 15  # 15 successes out of 50
+a_prior, b_prior = 1, 1
+
+def log_posterior(theta):
+    if theta <= 0 or theta >= 1:
+        return -np.inf
+    return (a_prior + s - 1) * np.log(theta) \
+         + (b_prior + n_data - s - 1) * np.log(1 - theta)
+
+# MH random walk
+T = 50000
+sigma_q = 0.1
+samples = np.zeros(T)
+samples[0] = 0.5
+accepted = 0
+
+for t in range(1, T):
+    # Proposal
+    theta_star = samples[t-1] + sigma_q * np.random.randn()
+    # Ratio (Metropolis since symmetric)
+    log_alpha = log_posterior(theta_star) \
+              - log_posterior(samples[t-1])
+    if np.log(np.random.rand()) < log_alpha:
+        samples[t] = theta_star
+        accepted += 1
+    else:
+        samples[t] = samples[t-1]
+
+burn_in = 5000
+samples_post = samples[burn_in:]
+print(f"Acceptance rate: {accepted/T:.2%}")
+print(f"Posterior mean: {samples_post.mean():.4f}")
+print(f"Analytic: {(a_prior+s)/(a_prior+b_prior+n_data):.4f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{MCMC diagnostics}]
+\begin{minted}{python}
+fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+
+# Trace plot
+axes[0, 0].plot(samples[:2000], alpha=0.7)
+axes[0, 0].set_title("Trace plot (first 2000 iterations)")
+axes[0, 0].set_xlabel("Iteration")
+axes[0, 0].set_ylabel(r"$\theta$")
+
+# Histogram vs analytic
+theta_grid = np.linspace(0, 1, 200)
+a_post, b_post = a_prior + s, b_prior + n_data - s
+axes[0, 1].hist(samples_post, bins=50, density=True,
+                alpha=0.5, label="MCMC")
+axes[0, 1].plot(theta_grid,
+                stats.beta.pdf(theta_grid, a_post, b_post),
+                label="Analytic", color="red")
+axes[0, 1].legend()
+axes[0, 1].set_title("Posterior")
+
+# Autocorrelation
+from statsmodels.graphics.tsaplots import plot_acf
+plot_acf(samples_post, lags=50, ax=axes[1, 0])
+axes[1, 0].set_title("Autocorrelation")
+
+# Running mean
+running_mean = np.cumsum(samples_post) / \
+               np.arange(1, len(samples_post) + 1)
+axes[1, 1].plot(running_mean)
+axes[1, 1].axhline((a_prior+s)/(a_prior+b_prior+n_data),
+                    color="red", linestyle="--")
+axes[1, 1].set_title("Running mean")
+axes[1, 1].set_xlabel("Iteration")
+
+plt.tight_layout()
+plt.savefig("mcmc_diagnostics.pdf")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Multidimensional MH with PyMC}]
+\begin{minted}{python}
+import pymc as pm
+import arviz as az
+
+# Bayesian regression model
+np.random.seed(42)
+n = 100
+x = np.random.randn(n)
+y = 2.5 + 1.3 * x + np.random.randn(n) * 0.8
+
+with pm.Model() as model_reg:
+    beta0 = pm.Normal("beta0", 0, 10)
+    beta1 = pm.Normal("beta1", 0, 10)
+    sigma = pm.HalfNormal("sigma", 5)
+    mu = beta0 + beta1 * x
+    y_obs = pm.Normal("y_obs", mu=mu, sigma=sigma,
+                      observed=y)
+    # Use Metropolis explicitly
+    step = pm.Metropolis()
+    trace_mh = pm.sample(20000, step=step,
+                         tune=5000, random_seed=42)
+
+# Diagnostics
+az.plot_trace(trace_mh, var_names=["beta0", "beta1", "sigma"])
+plt.savefig("trace_regression.pdf")
+
+print(az.summary(trace_mh,
+                 var_names=["beta0", "beta1", "sigma"]))
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+Implement the Metropolis random walk algorithm to sample from a
+$t_3(0, 1)$ distribution. Study the effect of the step size $\sigma_q$
+on the acceptance rate and ESS.
+\end{exercise}
+
+\begin{exercise}
+Prove that the Metropolis--Hastings algorithm satisfies detailed
+balance (complete proof).
+\end{exercise}
+
+\begin{exercise}
+Implement the Adaptive Metropolis (AM) algorithm and compare with
+standard Metropolis on a two-dimensional Gaussian posterior with strong
+correlation ($\rho = 0.95$).
+\end{exercise}
+
+\begin{exercise}
+For a two-component Gaussian mixture model, implement MH and observe
+the multimodality problem. Propose solutions (parallel tempering,
+large-jump proposals).
+\end{exercise}
+
+\begin{exercise}
+\textbf{(Numerical)} Compare the efficiency (ESS per second) of
+Metropolis--Hastings with NUTS (PyMC default) on a logistic regression
+model with $p = 10$ predictors.
+\end{exercise}

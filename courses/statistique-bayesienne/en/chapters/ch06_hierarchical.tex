@@ -1,0 +1,310 @@
+% ============================================================
+\chapter{Hierarchical Models}
+\label{ch:hierarchical}
+% ============================================================
+
+Suppose you are studying school performance across 50 schools. Each school has its own characteristics, but they also share a common environment. Should you model each school independently (many parameters, little data per school) or all together (ignoring differences)? Hierarchical models offer an elegant compromise: the parameters of each school are drawn from a common distribution, whose hyperparameters are themselves estimated. This is Bayesian \emph{shrinkage}: individual estimates are ``pulled'' toward the group mean, the more so when they are uncertain. This mechanism, formalised by Efron and Morris (1973), is one of the most compelling arguments in favour of the Bayesian approach.
+
+\begin{intuition}[title=\textbf{Central idea}]
+Hierarchical (or multilevel) models structure parameters across multiple
+levels, enabling information sharing between groups. The resulting
+shrinkage typically improves estimates compared to either separate or
+fully pooled approaches.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Motivation and structure}
+% ------------------------------------------------------------
+
+\begin{definition}[Hierarchical model]
+A two-level \textbf{hierarchical model} has the structure:
+\begin{align*}
+  \text{Level 1 (data)} &: \quad X_{ij} \mid \theta_j \sim f(x \mid \theta_j), \\
+  \text{Level 2 (parameters)} &: \quad \theta_j \mid \phi \sim g(\theta \mid \phi), \\
+  \text{Level 3 (hyperparameters)} &: \quad \phi \sim h(\phi),
+\end{align*}
+where $j = 1, \ldots, J$ indexes groups and $i = 1, \ldots, n_j$ the
+observations within group $j$.
+\end{definition}
+
+\begin{remark}
+Hierarchical models lie between two extremes:
+\begin{itemize}
+  \item \textbf{Complete pooling}: $\theta_1 = \cdots = \theta_J = \theta$,
+        a single parameter for all.
+  \item \textbf{No pooling}: each $\theta_j$ is estimated independently.
+\end{itemize}
+The hierarchical model achieves optimal \textit{partial pooling}.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Normal hierarchical model}
+% ------------------------------------------------------------
+
+\begin{theorem}[Normal hierarchical model]
+\label{thm:hierarch_normal}
+Consider:
+\begin{align*}
+  X_{ij} \mid \mu_j, \sigma^2 &\sim \mathcal{N}(\mu_j, \sigma^2),
+  \quad i = 1, \ldots, n_j, \\
+  \mu_j \mid \mu, \tau^2 &\sim \mathcal{N}(\mu, \tau^2), \\
+  (\mu, \tau, \sigma) &\sim \pi(\mu, \tau, \sigma).
+\end{align*}
+The posterior mean of $\mu_j$ is:
+\[
+  \E[\mu_j \mid x] \approx (1 - B_j)\,\bar{x}_j + B_j\,\hat{\mu},
+\]
+where $B_j = \sigma^2/(n_j\tau^2 + \sigma^2)$ is the shrinkage factor
+and $\hat{\mu}$ is the estimated overall mean.
+\end{theorem}
+
+\begin{keyformulas}[title=\textbf{Hierarchical shrinkage}]
+\[
+  \hat{\mu}_j^{\text{Bayes}} = \frac{n_j/\sigma^2}{n_j/\sigma^2 + 1/\tau^2}\,\bar{x}_j
+  + \frac{1/\tau^2}{n_j/\sigma^2 + 1/\tau^2}\,\mu.
+\]
+\begin{itemize}
+  \item If $\tau^2 \gg \sigma^2/n_j$: little shrinkage
+        ($\hat{\mu}_j \approx \bar{x}_j$).
+  \item If $\tau^2 \ll \sigma^2/n_j$: strong shrinkage
+        ($\hat{\mu}_j \approx \mu$).
+\end{itemize}
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Foundational example: eight schools}
+% ------------------------------------------------------------
+
+\begin{example}
+The classic ``eight schools'' example (Rubin, 1981) analyzes the
+effect of a coaching program on SAT scores across $J = 8$ schools.
+The data are the estimated effects $y_j$ and their standard errors
+$\sigma_j$:
+\[
+  y_j \mid \theta_j \sim \mathcal{N}(\theta_j, \sigma_j^2), \qquad
+  \theta_j \mid \mu, \tau \sim \mathcal{N}(\mu, \tau^2).
+\]
+The $\sigma_j$ are known (estimated with high precision).
+\end{example}
+
+% ------------------------------------------------------------
+\section{Inference in hierarchical models}
+% ------------------------------------------------------------
+
+\subsection{Full conditionals}
+
+\begin{proposition}[Full conditionals]
+In the normal hierarchical model, the full conditionals are:
+\begin{align*}
+  \mu_j \mid \text{rest} &\sim \mathcal{N}\!\left(
+  \frac{n_j\bar{x}_j/\sigma^2 + \mu/\tau^2}{n_j/\sigma^2 + 1/\tau^2},\;
+  \frac{1}{n_j/\sigma^2 + 1/\tau^2}\right), \\
+  \mu \mid \text{rest} &\sim \mathcal{N}\!\left(
+  \frac{\sum_j \mu_j / \tau^2}{J/\tau^2 + 1/\sigma_\mu^2},\;
+  \frac{1}{J/\tau^2 + 1/\sigma_\mu^2}\right).
+\end{align*}
+These expressions enable Gibbs sampling
+(Chapter~\ref{ch:gibbs}).
+\end{proposition}
+
+\subsection{Estimating between-group variance}
+
+\begin{warning}[title=\textbf{Difficulty of estimating $\tau$}]
+Estimating the between-group variance $\tau^2$ is delicate, especially
+when $J$ is small. The choice of prior on $\tau$ has a significant
+impact. Recommendations include:
+\begin{itemize}
+  \item $\tau \sim \text{Half-Cauchy}(0, A)$ (Gelman, 2006),
+  \item $\tau \sim \text{Half-Normal}(0, A)$,
+  \item $\tau \sim \text{Exp}(\lambda)$.
+\end{itemize}
+Avoid the conjugate prior $\tau^2 \sim \text{IG}(\varepsilon, \varepsilon)$
+with small $\varepsilon$, which is informative near zero.
+\end{warning}
+
+% ------------------------------------------------------------
+\section{Hierarchical model for binomial data}
+% ------------------------------------------------------------
+
+\begin{example}
+\textbf{Meta-analysis of success rates.}
+Let $X_j \sim \text{Bin}(n_j, \theta_j)$ with
+$\theta_j \sim \text{Be}(\alpha, \beta)$ and hyperpriors on
+$(\alpha, \beta)$:
+\[
+  \alpha \sim \text{Exp}(1), \qquad \beta \sim \text{Exp}(1).
+\]
+This model shares information across $J$ studies while allowing
+heterogeneity.
+\end{example}
+
+% ------------------------------------------------------------
+\section{Parameterization and MCMC convergence}
+% ------------------------------------------------------------
+
+\begin{definition}[Centered vs.\ non-centered parameterization]
+\begin{itemize}
+  \item \textbf{Centered}: $\theta_j \sim \mathcal{N}(\mu, \tau^2)$.
+  \item \textbf{Non-centered}: $\theta_j = \mu + \tau\,\eta_j$,
+        $\eta_j \sim \mathcal{N}(0, 1)$.
+\end{itemize}
+The non-centered parameterization often improves MCMC convergence,
+especially when $\tau$ is small or the data are weakly informative.
+\end{definition}
+
+\begin{remark}
+The non-centered parameterization removes the posterior dependence
+between $\tau$ and $\theta_j$, reducing the ``funnel'' geometry
+(Neal's funnel) that causes mixing difficulties for MCMC samplers.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{General multilevel models}
+% ------------------------------------------------------------
+
+\begin{definition}[Bayesian linear mixed model]
+\[
+  y_i = X_i \beta + Z_i b_j + \varepsilon_i,
+\]
+where $\beta$ are fixed effects,
+$b_j \sim \mathcal{N}(0, \Sigma_b)$ are random effects, and
+$\varepsilon_i \sim \mathcal{N}(0, \sigma^2)$. The priors are:
+\[
+  \beta \sim \mathcal{N}(0, \sigma_\beta^2 I), \quad
+  \Sigma_b \sim \text{InvWishart}(\nu, \Psi), \quad
+  \sigma^2 \sim \text{IG}(a, b).
+\]
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Python implementation}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Eight schools model with PyMC}]
+\begin{minted}{python}
+import pymc as pm
+import arviz as az
+import numpy as np
+
+# Eight schools data
+y = np.array([28, 8, -3, 7, -1, 1, 18, 12])
+sigma = np.array([15, 10, 16, 11, 9, 11, 10, 18])
+J = len(y)
+
+# Non-centered parameterization
+with pm.Model() as eight_schools_ncp:
+    mu = pm.Normal("mu", 0, sigma=10)
+    tau = pm.HalfCauchy("tau", beta=5)
+    eta = pm.Normal("eta", 0, 1, shape=J)
+    theta = pm.Deterministic("theta", mu + tau * eta)
+    obs = pm.Normal("obs", mu=theta, sigma=sigma,
+                    observed=y)
+    trace = pm.sample(4000, tune=2000,
+                      target_accept=0.95,
+                      random_seed=42)
+
+# Diagnostics
+print(az.summary(trace, var_names=["mu", "tau", "theta"]))
+
+# R-hat and ESS
+rhat = az.rhat(trace)
+print("Max R-hat:", max(rhat["theta"].values))
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Visualizing hierarchical shrinkage}]
+\begin{minted}{python}
+import matplotlib.pyplot as plt
+
+theta_post = trace.posterior["theta"].mean(
+    dim=["chain", "draw"]).values
+mu_post = trace.posterior["mu"].mean().item()
+
+fig, ax = plt.subplots(figsize=(8, 5))
+schools = [f"School {j+1}" for j in range(J)]
+x_pos = np.arange(J)
+
+ax.scatter(x_pos, y, marker="o", s=100,
+           label="Observed effect $y_j$", zorder=3)
+ax.scatter(x_pos, theta_post, marker="s", s=100,
+           label=r"Posterior $\hat{\theta}_j$", zorder=3)
+ax.axhline(mu_post, color="gray", linestyle="--",
+           label=f"$\\hat{{\\mu}}$ = {mu_post:.1f}")
+# Shrinkage arrows
+for j in range(J):
+    ax.annotate("", xy=(j, theta_post[j]),
+                xytext=(j, y[j]),
+                arrowprops=dict(arrowstyle="->",
+                                color="red", alpha=0.5))
+ax.set_xticks(x_pos)
+ax.set_xticklabels(schools, rotation=45, ha="right")
+ax.set_ylabel("Coaching effect")
+ax.legend()
+ax.set_title("Hierarchical shrinkage: Eight Schools")
+plt.tight_layout()
+plt.savefig("eight_schools_shrinkage.pdf")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Centered vs.\ non-centered comparison}]
+\begin{minted}{python}
+# Centered parameterization (for comparison)
+with pm.Model() as eight_schools_cp:
+    mu = pm.Normal("mu", 0, sigma=10)
+    tau = pm.HalfCauchy("tau", beta=5)
+    theta = pm.Normal("theta", mu=mu, sigma=tau, shape=J)
+    obs = pm.Normal("obs", mu=theta, sigma=sigma,
+                    observed=y)
+    trace_cp = pm.sample(4000, tune=2000,
+                         target_accept=0.95,
+                         random_seed=42)
+
+# Compare ESS
+ess_ncp = az.ess(trace, var_names=["theta"])
+ess_cp = az.ess(trace_cp, var_names=["theta"])
+print("ESS (non-centered):", ess_ncp["theta"].values.mean())
+print("ESS (centered):", ess_cp["theta"].values.mean())
+
+# Divergences
+div_ncp = trace.sample_stats["diverging"].sum().item()
+div_cp = trace_cp.sample_stats["diverging"].sum().item()
+print(f"Divergences NCP: {div_ncp}, CP: {div_cp}")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+Derive the full conditionals for the normal hierarchical model and
+write a Gibbs sampler.
+\end{exercise}
+
+\begin{exercise}
+Show that hierarchical shrinkage reduces the total mean squared error
+$\sum_j \E[(\hat{\mu}_j - \mu_j)^2]$ compared to separate estimation
+$\hat{\mu}_j = \bar{x}_j$.
+\end{exercise}
+
+\begin{exercise}
+Implement a hierarchical beta-binomial model for click-through rate
+data from $J = 10$ advertisements.
+\end{exercise}
+
+\begin{exercise}
+Empirically compare centered and non-centered parameterizations for
+different values of $\tau/\sigma$ ($0.1$, $1$, $10$). Measure the
+number of divergences and the ESS.
+\end{exercise}
+
+\begin{exercise}
+\textbf{(Theoretical)} Show that the normal hierarchical model admits
+the marginal likelihood:
+\[
+  f(y_j \mid \mu, \tau, \sigma_j)
+  = \mathcal{N}(y_j \mid \mu, \sigma_j^2 + \tau^2).
+\]
+Derive an analytic expression for the marginal posterior of
+$(\mu, \tau)$ in the eight schools model.
+\end{exercise}

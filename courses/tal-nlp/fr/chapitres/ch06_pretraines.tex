@@ -1,0 +1,314 @@
+% ============================================================
+\chapter{Mod\`eles Pr\'e-entra\^in\'es}
+\label{ch:pretraines}
+% ============================================================
+
+En 2018, trois articles transforment le TAL~: ELMo (Peters et al.), GPT (Radford et al.) et surtout BERT (Devlin et al.). Leur id\'ee commune~: pr\'e-entra\^iner un grand mod\`ele de langage sur des milliards de mots non \'etiquet\'es, puis l'adapter (\emph{fine-tune}) sur la t\^ache cible avec tr\`es peu de donn\'ees supervis\'ees. Ce paradigme \og pr\'e-entra\^inement / adaptation \fg r\'evolutionne la discipline~: les repr\'esentations apprises capturent la syntaxe, la s\'emantique, et m\^eme des connaissances factuelles du monde, rendant les approches sp\'ecialis\'ees ant\'erieures largement obsol\`etes. C'est le d\'ebut de l'\`ere des \emph{foundation models}.
+
+\begin{intuition}[title=\textbf{Le paradigme pr\'e-entra\^inement / adaptation}]
+Plut\^ot que d'entra\^iner un mod\`ele de z\'ero pour chaque t\^ache, on
+pr\'e-entra\^ine un grand mod\`ele sur des donn\'ees non \'etiquet\'ees, puis on
+l'adapte (\emph{fine-tune}) sur des donn\'ees sp\'ecifiques. Ce paradigme,
+inaugur\'e par ELMo (2018) et popularis\'e par BERT (2018), a transform\'e le TAL.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Apprentissage de repr\'esentations contextuelles}
+\label{sec:pre:contextuelles}
+% ------------------------------------------------------------
+
+\begin{definition}[Repr\'esentation contextuelle]
+Une \emph{repr\'esentation contextuelle} est une fonction
+$\phi : \mathcal{V}^T \times \{1, \ldots, T\} \to \R^d$ qui associe \`a
+chaque token $x_t$ un vecteur $\mathbf{h}_t$ d\'ependant du contexte
+$(x_1, \ldots, x_T)$ :
+\[
+\mathbf{h}_t = \phi(\mathbf{x}, t) \neq \phi(\mathbf{x}', t) \quad \text{si } \mathbf{x} \neq \mathbf{x}'
+\]
+m\^eme si $x_t = x'_t$.
+\end{definition}
+
+Cela contraste avec les plongements statiques o\`u $\phi(w)$ est ind\'ependant
+du contexte.
+
+% ------------------------------------------------------------
+\section{ELMo : contexte par RNN bidirectionnel}
+\label{sec:pre:elmo}
+% ------------------------------------------------------------
+
+\begin{definition}[ELMo]
+ELMo (Embeddings from Language Models, Peters et al., 2018) produit des
+repr\'esentations contextuelles en combinant les couches d'un BiLSTM
+pr\'e-entra\^in\'e comme mod\`ele de langue bidirectionnel :
+\[
+\text{ELMo}_t = \gamma \sum_{\ell=0}^{L} s_\ell \mathbf{h}_t^\ell
+\]
+o\`u $\mathbf{h}_t^\ell$ est l'\'etat cach\'e de la couche $\ell$ \`a la
+position $t$, $s_\ell$ sont des poids appris sp\'ecifiques \`a la t\^ache, et
+$\gamma$ est un facteur d'\'echelle.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{BERT : Bidirectional Encoder Representations from Transformers}
+\label{sec:pre:bert}
+% ------------------------------------------------------------
+
+\subsection{Architecture}
+
+BERT utilise un Transformer encodeur (auto-attention bidirectionnelle) avec
+les configurations suivantes :
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+& \textbf{BERT-base} & \textbf{BERT-large} \\
+\midrule
+Couches $N$ & 12 & 24 \\
+Dimension $d$ & 768 & 1024 \\
+T\^etes $H$ & 12 & 16 \\
+Param\`etres & 110M & 340M \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Objectifs de pr\'e-entra\^inement}
+
+\begin{definition}[Masked Language Model (MLM)]
+L'objectif MLM masque al\'eatoirement $15\%$ des tokens d'entr\'ee et
+entra\^ine le mod\`ele \`a les pr\'edire :
+\[
+\mathcal{L}_{\text{MLM}} = -\sum_{t \in \mathcal{M}} \log P(x_t \mid \mathbf{x}_{\setminus \mathcal{M}})
+\]
+o\`u $\mathcal{M}$ est l'ensemble des positions masqu\'ees. Parmi les tokens
+s\'electionn\'es : $80\%$ sont remplac\'es par \texttt{[MASK]}, $10\%$ par un
+token al\'eatoire, $10\%$ inchang\'es.
+\end{definition}
+
+\begin{definition}[Next Sentence Prediction (NSP)]
+L'objectif NSP entra\^ine le mod\`ele \`a pr\'edire si la phrase $B$ suit
+la phrase $A$ dans le corpus original :
+\[
+\mathcal{L}_{\text{NSP}} = -\log P(\text{IsNext} \mid \texttt{[CLS]}, A, \texttt{[SEP]}, B)
+\]
+\end{definition}
+
+\begin{attention}[title=\textbf{Limites du MLM}]
+Le masquage cr\'ee un d\'ecalage entre pr\'e-entra\^inement (tokens
+\texttt{[MASK]} pr\'esents) et inf\'erence (pas de \texttt{[MASK]}). Des
+travaux ult\'erieurs (RoBERTa, ALBERT) ont montr\'e que le NSP n'est pas
+n\'ecessaire et que l'entra\^inement b\'en\'eficie de s\'equences plus longues
+et de plus de donn\'ees.
+\end{attention}
+
+\subsection{Tokenisation WordPiece}
+
+BERT utilise WordPiece, une variante de BPE qui maximise la vraisemblance :
+\[
+\text{score}(a, b) = \frac{\text{count}(ab)}{\text{count}(a) \cdot \text{count}(b)}
+\]
+
+% ------------------------------------------------------------
+\section{GPT : Generative Pre-trained Transformer}
+\label{sec:pre:gpt}
+% ------------------------------------------------------------
+
+\begin{definition}[GPT]
+GPT (Radford et al., 2018) utilise un Transformer d\'ecodeur (auto-attention
+causale) pr\'e-entra\^in\'e avec un objectif auto-r\'egressif :
+\[
+\mathcal{L}_{\text{GPT}} = -\sum_{t=1}^{T} \log P(x_t \mid x_1, \ldots, x_{t-1})
+\]
+\end{definition}
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Mod\`ele} & \textbf{Param\`etres} & \textbf{Couches} & \textbf{Contexte} \\
+\midrule
+GPT-1 & 117M & 12 & 512 \\
+GPT-2 & 1.5B & 48 & 1024 \\
+GPT-3 & 175B & 96 & 2048 \\
+GPT-4 & non divulgu\'e & --- & 128K \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{remarque}
+GPT-3 a d\'emontr\'e des capacit\'es \'emergentes en \emph{few-shot learning} :
+la capacit\'e de r\'esoudre de nouvelles t\^aches \`a partir de quelques
+exemples pr\'esent\'es dans le prompt, sans mise \`a jour des poids.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{T5 : Text-to-Text Transfer Transformer}
+\label{sec:pre:t5}
+% ------------------------------------------------------------
+
+\begin{definition}[T5]
+T5 (Raffel et al., 2020) reformule toutes les t\^aches de TAL comme des
+probl\`emes texte-vers-texte. Le mod\`ele est un Transformer encodeur-d\'ecodeur
+pr\'e-entra\^in\'e avec un objectif de d\'ebruitage (\emph{span corruption}) :
+des segments contigus de tokens sont remplac\'es par des sentinelles, et le
+d\'ecodeur doit reconstruire les segments masqu\'es.
+\end{definition}
+
+\begin{formules}[title=\textbf{Comparaison des architectures}]
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+& \textbf{BERT} & \textbf{GPT} & \textbf{T5} \\
+\midrule
+Architecture & Encodeur & D\'ecodeur & Enc-D\'ec \\
+Attention & Bidirectionnelle & Causale & Bid. + Causale \\
+Objectif & MLM + NSP & Auto-r\'egressif & Span corruption \\
+Utilisation & Compr\'ehension & G\'en\'eration & Les deux \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{formules}
+
+% ------------------------------------------------------------
+\section{Lois d'\'echelle (Scaling Laws)}
+\label{sec:pre:scaling}
+% ------------------------------------------------------------
+
+\begin{theoreme}[Lois d'\'echelle de Kaplan et al.]
+La perte de test $L$ d'un mod\`ele de langue suit des lois de puissance par
+rapport au nombre de param\`etres $N$, \`a la taille du dataset $D$ et au
+budget de calcul $C$ :
+\begin{align}
+L(N) &\propto N^{-\alpha_N} & \alpha_N &\approx 0.076 \\
+L(D) &\propto D^{-\alpha_D} & \alpha_D &\approx 0.095 \\
+L(C) &\propto C^{-\alpha_C} & \alpha_C &\approx 0.050
+\end{align}
+(pour les mod\`eles de type GPT sur des donn\'ees en anglais).
+\end{theoreme}
+
+\begin{remarque}
+Les lois Chinchilla (Hoffmann et al., 2022) montrent que l'allocation optimale
+du budget calcul suit $N \propto D$ : il faut augmenter la taille du mod\`ele
+et des donn\'ees \`a la m\^eme vitesse.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Utilisation avec Hugging Face}
+\label{sec:pre:hf}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{BERT pour la classification de texte}]
+\begin{minted}{python}
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import pipeline
+
+# Pipeline de sentiment
+clf = pipeline("sentiment-analysis", model="nlptown/bert-base-multilingual-uncased-sentiment")
+result = clf("Ce cours de NLP est vraiment excellent !")
+print(result)
+# [{'label': '5 stars', 'score': 0.73}]
+
+# Utilisation directe
+tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+model = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=2)
+inputs = tokenizer("This is a great course!", return_tensors="pt")
+outputs = model(**inputs)
+logits = outputs.logits  # (1, 2)
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{GPT-2 pour la g\'en\'eration de texte}]
+\begin{minted}{python}
+from transformers import pipeline
+
+generator = pipeline("text-generation", model="gpt2")
+text = generator(
+    "Natural language processing is",
+    max_length=50,
+    num_return_sequences=1,
+    temperature=0.7
+)
+print(text[0]["generated_text"])
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{T5 pour le r\'esum\'e}]
+\begin{minted}{python}
+from transformers import pipeline
+
+summarizer = pipeline("summarization", model="t5-base")
+article = """
+Natural language processing (NLP) is a subfield of linguistics,
+computer science, and artificial intelligence concerned with the
+interactions between computers and human language. The goal is to
+enable computers to understand, interpret, and generate human language.
+"""
+summary = summarizer(article, max_length=30, min_length=10)
+print(summary[0]["summary_text"])
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Variantes et \'evolution}
+\label{sec:pre:variantes}
+% ------------------------------------------------------------
+
+\begin{description}
+    \item[RoBERTa] (Liu et al., 2019) : supprime NSP, entra\^ine plus longtemps
+          avec plus de donn\'ees et des s\'equences plus longues.
+    \item[ALBERT] (Lan et al., 2020) : factorisation des plongements et partage
+          de param\`etres inter-couches pour r\'eduire la taille.
+    \item[DeBERTa] (He et al., 2021) : attention d\'ecoupl\'ee avec position
+          relative.
+    \item[LLaMA] (Touvron et al., 2023) : famille de mod\`eles ouverts de
+          Meta, avec RMSNorm, RoPE, et SwiGLU.
+    \item[Mistral / Mixtral] (2023--2024) : attention group\'ee (GQA),
+          m\'elange d'experts (MoE).
+\end{description}
+
+% ------------------------------------------------------------
+\section{Extraction de features et probing}
+\label{sec:pre:probing}
+% ------------------------------------------------------------
+
+\begin{definition}[Probing classifiers]
+Les \emph{probing classifiers} sont des classifieurs simples (r\'egression
+logistique) entra\^in\'es sur les repr\'esentations gel\'ees d'un mod\`ele
+pr\'e-entra\^in\'e pour \'evaluer quelles informations linguistiques sont
+captur\'ees par chaque couche.
+\end{definition}
+
+Des \'etudes ont montr\'e que les couches inf\'erieures capturent la morphologie
+et la syntaxe, tandis que les couches sup\'erieures encodent davantage
+d'information s\'emantique.
+
+% ------------------------------------------------------------
+\section{Exercices}
+\label{sec:pre:exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}[$\star$]
+Comparez le nombre de param\`etres de BERT-base et GPT-2 (117M). Quelles
+diff\'erences architecturales expliquent les \'ecarts ?
+\end{exercice}
+
+\begin{exercice}[$\star$]
+Expliquez pourquoi BERT ne peut pas \^etre utilis\'e directement pour la
+g\'en\'eration de texte auto-r\'egressive.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Impl\'ementez un probing classifier pour \'evaluer si les repr\'esentations
+BERT de la couche 6 encodent l'information de POS tagging. Utilisez le
+dataset Universal Dependencies.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Reproduisez l'exp\'erience de masquage de BERT : calculez la perplexit\'e
+pseudo-log-vraisemblance $\text{PLL}(\mathbf{x}) = \sum_{t=1}^{T} \log P(x_t \mid \mathbf{x}_{\setminus t})$
+sur un ensemble de phrases.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$]
+\'Etudiez l'impact des lois d'\'echelle : entra\^inez des mod\`eles de langue
+Transformer de tailles croissantes (1M, 10M, 100M param\`etres) sur le m\^eme
+corpus et tracez la courbe perte vs.\ param\`etres en \'echelle log-log.
+\end{exercice}

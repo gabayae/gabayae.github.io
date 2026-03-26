@@ -1,0 +1,282 @@
+% ============================================================
+\chapter{Fine-tuning et Apprentissage par Instruction}
+\label{ch:finetuning}
+% ============================================================
+
+En 2018, GPT et BERT d\'emontrent qu'un mod\`ele pr\'e-entra\^in\'e sur d'\'enormes corpus de texte acquiert une compr\'ehension g\'en\'erale du langage, transf\'erable \`a des t\^aches sp\'ecifiques. Mais comment passer du g\'en\'eraliste au sp\'ecialiste~? Le \emph{fine-tuning} --- l'ajustement des poids du mod\`ele sur un jeu de donn\'ees cibl\'e --- est la r\'eponse classique. Pourtant, \`a mesure que les mod\`eles grossissent (des milliards de param\`etres), le fine-tuning complet devient prohibitif. Deux r\'evolutions se succ\`edent alors~: d'abord les m\'ethodes \og efficientes en param\`etres \fg{} comme LoRA (Hu et al., 2022), qui ne modifient qu'une infime fraction des poids~; puis l'\emph{instruction tuning} et le RLHF (Reinforcement Learning from Human Feedback), qui alignent le mod\`ele non plus sur une t\^ache mais sur des \emph{pr\'ef\'erences humaines}. C'est ce dernier ingr\'edient qui transforme un mod\`ele de langage en assistant conversationnel. Ce chapitre parcourt cette trajectoire, du fine-tuning classique \`a l'alignement par renforcement.
+
+\begin{intuition}[title=\textbf{Adapter un mod\`ele g\'en\'eraliste}]
+Un mod\`ele pr\'e-entra\^in\'e est un \og g\'en\'eraliste \fg du langage.
+Le fine-tuning et l'instruction tuning le transforment en sp\'ecialiste d'une
+t\^ache ou d'un comportement souhait\'e, souvent avec des donn\'ees
+\'etiquet\'ees limit\'ees.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Fine-tuning classique}
+\label{sec:ft:classique}
+% ------------------------------------------------------------
+
+\begin{definition}[Fine-tuning]
+Le \emph{fine-tuning} consiste \`a r\'e-entra\^iner un mod\`ele pr\'e-entra\^in\'e
+$\theta_{\text{pre}}$ sur un jeu de donn\'ees sp\'ecifique \`a la t\^ache
+$\mathcal{D}_{\text{task}} = \{(\mathbf{x}_i, y_i)\}_{i=1}^{N}$ :
+\[
+\theta^* = \argmin_\theta \sum_{i=1}^{N} \mathcal{L}(f_\theta(\mathbf{x}_i), y_i), \quad \theta_0 = \theta_{\text{pre}}
+\]
+\end{definition}
+
+\begin{bonnepratique}[title=\textbf{Strat\'egies de fine-tuning}]
+\begin{itemize}
+    \item \textbf{Taux d'apprentissage} : utiliser un learning rate faible
+          ($2\times 10^{-5}$ \`a $5\times 10^{-5}$ pour BERT).
+    \item \textbf{Warmup} : augmentation progressive du learning rate sur les
+          premi\`eres it\'erations.
+    \item \textbf{\'Epoques} : 2--4 \'epoques suffisent g\'en\'eralement.
+    \item \textbf{Gel partiel} : geler les couches inf\'erieures et ne
+          fine-tuner que les couches sup\'erieures pour de petits datasets.
+\end{itemize}
+\end{bonnepratique}
+
+\begin{codeblock}[title=\textbf{Fine-tuning BERT avec Hugging Face Trainer}]
+\begin{minted}{python}
+from transformers import (AutoTokenizer, AutoModelForSequenceClassification,
+                          Trainer, TrainingArguments)
+from datasets import load_dataset
+
+dataset = load_dataset("imdb")
+tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+
+def tokenize_fn(examples):
+    return tokenizer(examples["text"], truncation=True, padding="max_length",
+                     max_length=256)
+
+tokenized = dataset.map(tokenize_fn, batched=True)
+model = AutoModelForSequenceClassification.from_pretrained(
+    "bert-base-uncased", num_labels=2
+)
+
+training_args = TrainingArguments(
+    output_dir="./results",
+    num_train_epochs=3,
+    per_device_train_batch_size=16,
+    per_device_eval_batch_size=32,
+    learning_rate=2e-5,
+    warmup_steps=500,
+    weight_decay=0.01,
+    evaluation_strategy="epoch",
+    save_strategy="epoch",
+    load_best_model_at_end=True,
+)
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized["train"],
+    eval_dataset=tokenized["test"],
+)
+trainer.train()
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{M\'ethodes d'adaptation efficace en param\`etres (PEFT)}
+\label{sec:ft:peft}
+% ------------------------------------------------------------
+
+Le fine-tuning complet de grands mod\`eles est co\^uteux en m\'emoire et en
+calcul. Les m\'ethodes PEFT (\emph{Parameter-Efficient Fine-Tuning}) ne mettent
+\`a jour qu'une petite fraction des param\`etres.
+
+\subsection{LoRA : Low-Rank Adaptation}
+
+\begin{definition}[LoRA]
+LoRA (Hu et al., 2022) injecte des matrices de faible rang dans les couches
+d'attention. Pour une matrice de poids $\mathbf{W}_0 \in \R^{d \times d}$,
+la mise \`a jour est :
+\[
+\mathbf{W} = \mathbf{W}_0 + \Delta \mathbf{W} = \mathbf{W}_0 + \mathbf{B}\mathbf{A}
+\]
+o\`u $\mathbf{B} \in \R^{d \times r}$, $\mathbf{A} \in \R^{r \times d}$ avec
+$r \ll d$ (typiquement $r \in [4, 64]$). Seuls $\mathbf{A}$ et $\mathbf{B}$
+sont entra\^in\'es ; $\mathbf{W}_0$ est gel\'e.
+\end{definition}
+
+\begin{proposition}[Complexit\'e param\'etrique de LoRA]
+Le nombre de param\`etres entra\^inables pour une couche est $2rd$ au lieu
+de $d^2$. Le ratio de compression est :
+\[
+\frac{2rd}{d^2} = \frac{2r}{d}
+\]
+Pour $d = 4096$ et $r = 16$ : $0.78\%$ des param\`etres originaux.
+\end{proposition}
+
+\begin{codeblock}[title=\textbf{LoRA avec PEFT}]
+\begin{minted}{python}
+from peft import LoraConfig, get_peft_model, TaskType
+from transformers import AutoModelForCausalLM
+
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf")
+
+lora_config = LoraConfig(
+    task_type=TaskType.CAUSAL_LM,
+    r=16,
+    lora_alpha=32,
+    lora_dropout=0.1,
+    target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
+)
+
+model = get_peft_model(model, lora_config)
+model.print_trainable_parameters()
+# trainable params: 4,194,304 || all params: 6,742,609,920 || trainable%: 0.062
+\end{minted}
+\end{codeblock}
+
+\subsection{QLoRA}
+
+\begin{definition}[QLoRA]
+QLoRA (Dettmers et al., 2023) combine LoRA avec la quantification 4-bit du
+mod\`ele de base, permettant le fine-tuning de mod\`eles de 65B param\`etres
+sur un seul GPU de 48~Go.
+\end{definition}
+
+\subsection{Autres m\'ethodes PEFT}
+
+\begin{itemize}
+    \item \textbf{Prefix tuning} (Li \& Liang, 2021) : ajout de vecteurs
+          apprenables au d\'ebut des cl\'es et valeurs d'attention.
+    \item \textbf{Adapters} (Houlsby et al., 2019) : insertion de petits
+          r\'eseaux feed-forward entre les couches du Transformer.
+    \item \textbf{IA$^3$} (Liu et al., 2022) : vecteurs de mise \`a l'\'echelle
+          appris pour les cl\'es, valeurs et FFN.
+\end{itemize}
+
+% ------------------------------------------------------------
+\section{Instruction tuning}
+\label{sec:ft:instruction}
+% ------------------------------------------------------------
+
+\begin{definition}[Instruction tuning]
+L'\emph{instruction tuning} entra\^ine un mod\`ele de langue sur un ensemble
+d'instructions formul\'ees en langage naturel, avec les r\'eponses attendues :
+\[
+\mathcal{D}_{\text{inst}} = \{(\text{instruction}_i, \text{r\'eponse}_i)\}_{i=1}^{N}
+\]
+Le mod\`ele apprend \`a suivre des instructions g\'en\'erales plut\^ot qu'\`a
+r\'esoudre une t\^ache unique.
+\end{definition}
+
+Exemples de mod\`eles : FLAN-T5 (Chung et al., 2022), InstructGPT (Ouyang et
+al., 2022).
+
+% ------------------------------------------------------------
+\section{RLHF : Apprentissage par renforcement \`a partir de retours humains}
+\label{sec:ft:rlhf}
+% ------------------------------------------------------------
+
+\begin{definition}[RLHF]
+Le RLHF (\emph{Reinforcement Learning from Human Feedback}) aligne un mod\`ele
+de langue avec les pr\'ef\'erences humaines en trois \'etapes :
+\begin{enumerate}
+    \item \textbf{SFT} (Supervised Fine-Tuning) : fine-tuning supervis\'e sur
+          des d\'emonstrations humaines.
+    \item \textbf{Mod\`ele de r\'ecompense} : entra\^iner un mod\`ele $r_\phi$
+          qui pr\'edit la pr\'ef\'erence humaine entre deux r\'eponses :
+          \[
+          \mathcal{L}_{\text{RM}} = -\E_{(y_w, y_l)}\left[\log \sigma(r_\phi(y_w) - r_\phi(y_l))\right]
+          \]
+          o\`u $y_w$ est la r\'eponse pr\'ef\'er\'ee et $y_l$ la moins bonne.
+    \item \textbf{Optimisation PPO} : optimiser la politique $\pi_\theta$ par
+          proximal policy optimization :
+          \[
+          \mathcal{L}_{\text{PPO}} = \E\left[r_\phi(y) - \beta \KL(\pi_\theta \| \pi_{\text{ref}})\right]
+          \]
+          o\`u le terme KL emp\^eche la d\'erive par rapport au mod\`ele de
+          r\'ef\'erence $\pi_{\text{ref}}$.
+\end{enumerate}
+\end{definition}
+
+\begin{formules}[title=\textbf{Objectif DPO (Direct Preference Optimization)}]
+DPO (Rafailov et al., 2023) \'elimine le mod\`ele de r\'ecompense explicite :
+\[
+\mathcal{L}_{\text{DPO}} = -\E_{(x, y_w, y_l)}\left[\log \sigma\!\left(\beta \log \frac{\pi_\theta(y_w \mid x)}{\pi_{\text{ref}}(y_w \mid x)} - \beta \log \frac{\pi_\theta(y_l \mid x)}{\pi_{\text{ref}}(y_l \mid x)}\right)\right]
+\]
+\end{formules}
+
+% ------------------------------------------------------------
+\section{Alignement et s\'ecurit\'e}
+\label{sec:ft:alignement}
+% ------------------------------------------------------------
+
+\begin{definition}[Mod\`ele align\'e]
+Un mod\`ele de langue est dit \emph{align\'e} s'il satisfait les crit\`eres
+\textbf{HHH} (Helpful, Honest, Harmless) :
+\begin{itemize}
+    \item \textbf{Utile} (\emph{Helpful}) : r\'epond aux demandes de mani\`ere
+          informative.
+    \item \textbf{Honn\^ete} (\emph{Honest}) : ne fabrique pas d'information,
+          exprime son incertitude.
+    \item \textbf{Inoffensif} (\emph{Harmless}) : refuse les requ\^etes
+          dangereuses, \'evite les contenus toxiques.
+\end{itemize}
+\end{definition}
+
+\begin{attention}[title=\textbf{Red teaming et jailbreaking}]
+Le \emph{red teaming} consiste \`a tester syst\'ematiquement les limites d'un
+mod\`ele align\'e. Le \emph{jailbreaking} d\'esigne les techniques
+d'\'evasion des garde-fous (prompt injection, manipulation du r\^ole syst\`eme).
+L'alignement est un processus continu, pas un \'etat final.
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Transfer learning et adaptation de domaine}
+\label{sec:ft:transfer}
+% ------------------------------------------------------------
+
+\begin{definition}[Adaptation de domaine]
+L'\emph{adaptation de domaine} consiste \`a pr\'e-entra\^iner davantage un
+mod\`ele sur des donn\'ees du domaine cible avant le fine-tuning sp\'ecifique.
+Exemples : BioBERT (biom\'edical), SciBERT (scientifique), FinBERT (finance).
+\end{definition}
+
+\begin{theoreme}[Borne de g\'en\'eralisation en transfer learning]
+Soit $\epsilon_S(\theta)$ l'erreur sur le domaine source et
+$\epsilon_T(\theta)$ l'erreur sur le domaine cible. Sous des hypoth\`eses de
+divergence born\'ee $d_{\mathcal{H}}(\mathcal{D}_S, \mathcal{D}_T)$ :
+\[
+\epsilon_T(\theta) \leq \epsilon_S(\theta) + d_{\mathcal{H}}(\mathcal{D}_S, \mathcal{D}_T) + \lambda
+\]
+o\`u $\lambda$ est la somme des erreurs optimales sur les deux domaines.
+\end{theoreme}
+
+% ------------------------------------------------------------
+\section{Exercices}
+\label{sec:ft:exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}[$\star$]
+Calculez le nombre de param\`etres entra\^inables avec LoRA ($r=8$) appliqu\'e
+aux 4 projections d'attention d'un mod\`ele avec $d = 4096$ et $N = 32$ couches.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Impl\'ementez le fine-tuning de BERT pour la classification de sentiments sur
+IMDB avec Hugging Face \texttt{Trainer}. Comparez les performances avec gel
+total, gel partiel (6 premi\`eres couches), et fine-tuning complet.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+D\'erivez l'objectif DPO \`a partir de l'objectif RLHF en montrant que la
+solution optimale de la politique sous contrainte KL a une forme analytique.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Comparez LoRA et le fine-tuning complet en termes de performance et de temps
+d'entra\^inement sur une t\^ache de NER.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$]
+Impl\'ementez un pipeline RLHF simplifi\'e : (1) SFT sur un petit jeu de
+donn\'ees d'instructions, (2) mod\`ele de r\'ecompense par pr\'ef\'erences
+binaires, (3) optimisation avec PPO (utilisez \texttt{trl}).
+\end{exercice}

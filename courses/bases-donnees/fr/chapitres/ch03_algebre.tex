@@ -1,0 +1,410 @@
+% ============================================================
+\chapter{Alg\`ebre Relationnelle}
+\label{ch:algebre}
+% ============================================================
+
+\section{Introduction}
+
+Quand vous \'ecrivez \texttt{SELECT nom FROM etudiants WHERE note > 15}, vous pensez en SQL. Mais derri\`ere cette syntaxe se cache un langage math\'ematique d'une pr\'ecision remarquable~: l'\emph{alg\`ebre relationnelle}, invent\'ee par Edgar F.\ Codd dans son article fondateur de 1970. Codd a eu l'intuition g\'eniale de voir les tables comme des \emph{relations} au sens math\'ematique (des sous-ensembles de produits cart\'esiens) et les requ\^etes comme des \emph{op\'erations} sur ces relations~: s\'election, projection, jointure, union, diff\'erence. L'alg\`ebre relationnelle est \`a SQL ce que la logique formelle est au langage naturel~: un socle rigoureux qui garantit que chaque requ\^ete a une s\'emantique pr\'ecise et non ambigu\"e.
+
+Comprendre l'alg\`ebre relationnelle, c'est comprendre \emph{pourquoi} SQL fonctionne --- et comment l'optimiseur de requ\^etes transforme vos instructions en un plan d'ex\'ecution efficace.
+
+\begin{definition}[Alg\`ebre relationnelle]
+L'\emph{alg\`ebre relationnelle} est un ensemble d'op\'erateurs qui prennent
+une ou deux relations en entr\'ee et produisent une relation en sortie.
+C'est un langage \emph{proc\'edural}~: on sp\'ecifie \emph{comment}
+obtenir le r\'esultat (s\'equence d'op\'erations).
+\end{definition}
+
+Les op\'erateurs se divisent en deux cat\'egories~:
+\begin{itemize}
+    \item \textbf{Op\'erateurs ensemblistes}~: union ($\cup$), intersection ($\cap$),
+          diff\'erence ($-$), produit cart\'esien ($\times$).
+    \item \textbf{Op\'erateurs sp\'ecifiques}~: s\'election ($\sigma$), projection ($\pi$),
+          jointure ($\bowtie$), renommage ($\rho$), division ($\div$).
+\end{itemize}
+
+\section{S\'election ($\sigma$)}
+
+\begin{definition}[S\'election]
+La \emph{s\'election} $\sigma_\theta(R)$ retourne les tuples de $R$ qui satisfont
+la condition $\theta$. La condition $\theta$ est une expression bool\'eenne
+portant sur les attributs de $R$.
+\[
+\sigma_\theta(R) = \{ t \in R \mid \theta(t) = \text{vrai} \}
+\]
+\end{definition}
+
+\begin{formules}[title=\textbf{Propri\'et\'es de la s\'election}]
+\begin{align}
+\sigma_{\theta_1 \land \theta_2}(R) &= \sigma_{\theta_1}(\sigma_{\theta_2}(R)) \tag{cascade}\\
+\sigma_{\theta_1}(\sigma_{\theta_2}(R)) &= \sigma_{\theta_2}(\sigma_{\theta_1}(R)) \tag{commutativit\'e}\\
+|\sigma_\theta(R)| &\leq |R| \tag{cardinalit\'e}
+\end{align}
+\end{formules}
+
+\begin{exemple}
+S\'electionner les \'etudiants de la fili\`ere Informatique~:
+\[
+\sigma_{\text{filiere} = \text{'Info'}}(\text{Etudiants})
+\]
+
+Cela correspond en SQL \`a~:
+\begin{codeblock}[title=\textbf{\'Equivalent SQL de la s\'election}]
+\begin{minted}{sql}
+SELECT * FROM Etudiants WHERE filiere = 'Info';
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+id_etudiant | nom     | prenom | date_naissance | filiere
+-----------+---------+--------+----------------+--------
+1           | Bernard | Alice  | 2004-03-15     | Info
+2           | Petit   | Bob    | 2003-11-22     | Info
+4           | Leroy   | David  | 2003-01-30     | Info
+\end{verbatim}
+\end{codeoutput}
+\end{exemple}
+
+\section{Projection ($\pi$)}
+
+\begin{definition}[Projection]
+La \emph{projection} $\pi_{A_1, A_2, \ldots, A_k}(R)$ retourne la relation
+obtenue en ne conservant que les attributs $A_1, \ldots, A_k$ de $R$,
+et en \'eliminant les doublons.
+\[
+\pi_{A_1, \ldots, A_k}(R) = \{ t[A_1, \ldots, A_k] \mid t \in R \}
+\]
+\end{definition}
+
+\begin{exemple}
+Projeter les noms et pr\'enoms des \'etudiants~:
+\[
+\pi_{\text{nom}, \text{prenom}}(\text{Etudiants})
+\]
+
+\begin{codeblock}[title=\textbf{\'Equivalent SQL de la projection}]
+\begin{minted}{sql}
+SELECT DISTINCT nom, prenom FROM Etudiants;
+\end{minted}
+\end{codeblock}
+\end{exemple}
+
+\begin{attention}[title=\textbf{Projection et doublons}]
+En alg\`ebre relationnelle, la projection \'elimine automatiquement les doublons
+(car une relation est un ensemble). En SQL, il faut utiliser \texttt{DISTINCT}
+explicitement, car SQL travaille avec des \emph{multi-ensembles} (bags).
+\end{attention}
+
+\section{Op\'erateurs ensemblistes}
+
+\begin{definition}[Union, Intersection, Diff\'erence]
+Soient $R$ et $S$ deux relations de m\^eme sch\'ema (\emph{union-compatibles})~:
+\begin{align}
+R \cup S &= \{ t \mid t \in R \lor t \in S \} \tag{union}\\
+R \cap S &= \{ t \mid t \in R \land t \in S \} \tag{intersection}\\
+R - S &= \{ t \mid t \in R \land t \notin S \} \tag{diff\'erence}
+\end{align}
+\end{definition}
+
+\begin{theoreme}[Propri\'et\'es ensemblistes]
+\begin{itemize}
+    \item $\cup$ et $\cap$ sont commutatives et associatives.
+    \item $-$ n'est ni commutative ni associative.
+    \item $R \cap S = R - (R - S)$.
+\end{itemize}
+\end{theoreme}
+
+\begin{codeblock}[title=\textbf{Op\'erateurs ensemblistes en SQL}]
+\begin{minted}{sql}
+-- Union (elimine les doublons)
+SELECT nom FROM Etudiants WHERE filiere = 'Info'
+UNION
+SELECT nom FROM Etudiants WHERE filiere = 'Maths';
+
+-- Intersection
+SELECT id_etudiant FROM Inscriptions WHERE id_cours = 101
+INTERSECT
+SELECT id_etudiant FROM Inscriptions WHERE id_cours = 102;
+
+-- Difference
+SELECT id_etudiant FROM Inscriptions WHERE id_cours = 101
+EXCEPT
+SELECT id_etudiant FROM Inscriptions WHERE id_cours = 103;
+\end{minted}
+\end{codeblock}
+
+\section{Produit cart\'esien ($\times$)}
+
+\begin{definition}[Produit cart\'esien]
+Le \emph{produit cart\'esien} $R \times S$ produit toutes les combinaisons possibles
+de tuples de $R$ avec des tuples de $S$.
+\[
+R \times S = \{ (t_r, t_s) \mid t_r \in R \land t_s \in S \}
+\]
+Si $|R| = n$ et $|S| = m$, alors $|R \times S| = n \times m$.
+\end{definition}
+
+\begin{attention}[title=\textbf{Co\^ut du produit cart\'esien}]
+Le produit cart\'esien est tr\`es co\^uteux~: il multiplie les cardinalit\'es.
+En pratique, on l'utilise rarement seul~; on le combine avec une s\'election
+pour obtenir une \emph{jointure}.
+\end{attention}
+
+\section{Jointure ($\bowtie$)}
+
+\begin{definition}[Jointure naturelle]
+La \emph{jointure naturelle} $R \bowtie S$ combine les tuples de $R$ et $S$
+qui ont les m\^emes valeurs sur les attributs communs.
+\[
+R \bowtie S = \sigma_{\text{attributs communs \'egaux}}(R \times S)
+\]
+avec \'elimination des colonnes dupliqu\'ees.
+\end{definition}
+
+\begin{definition}[Theta-jointure]
+La \emph{theta-jointure} $R \bowtie_\theta S$ est d\'efinie par~:
+\[
+R \bowtie_\theta S = \sigma_\theta(R \times S)
+\]
+o\`u $\theta$ est une condition quelconque portant sur les attributs de $R$ et $S$.
+Cas particulier~: l'\emph{\'equi-jointure} utilise uniquement des \'egalit\'es.
+\end{definition}
+
+\begin{exemple}
+Trouver les noms des \'etudiants et les intitul\'es des cours auxquels ils sont inscrits~:
+\[
+\pi_{\text{nom}, \text{intitule}}(\text{Etudiants} \bowtie \text{Inscriptions} \bowtie \text{Cours})
+\]
+
+\begin{codeblock}[title=\textbf{Jointure en SQL}]
+\begin{minted}{sql}
+SELECT e.nom, c.intitule
+FROM Etudiants e
+JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+JOIN Cours c ON i.id_cours = c.id_cours;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+nom     | intitule
+--------+------------------
+Bernard | Bases de donnees
+Bernard | Algorithmes
+Petit   | Bases de donnees
+Petit   | Reseaux
+Moreau  | Algorithmes
+Moreau  | Statistiques
+Leroy   | Bases de donnees
+Roux    | Statistiques
+\end{verbatim}
+\end{codeoutput}
+\end{exemple}
+
+\begin{proposition}[Propri\'et\'es de la jointure]
+\begin{itemize}
+    \item La jointure naturelle est commutative~: $R \bowtie S = S \bowtie R$.
+    \item La jointure naturelle est associative~: $(R \bowtie S) \bowtie T = R \bowtie (S \bowtie T)$.
+    \item Si $R$ et $S$ n'ont aucun attribut commun, $R \bowtie S = R \times S$.
+\end{itemize}
+\end{proposition}
+
+\section{Renommage ($\rho$)}
+
+\begin{definition}[Renommage]
+L'op\'erateur de \emph{renommage} $\rho_{B/A}(R)$ renomme l'attribut $A$ en $B$
+dans la relation $R$. On peut aussi renommer la relation elle-m\^eme~:
+$\rho_S(R)$.
+\end{definition}
+
+Le renommage est utile pour~:
+\begin{itemize}
+    \item Rendre deux relations union-compatibles.
+    \item R\'ealiser une auto-jointure (jointure d'une relation avec elle-m\^eme).
+\end{itemize}
+
+\begin{exemple}
+Trouver les paires d'\'etudiants inscrits au m\^eme cours~:
+\[
+\pi_{i_1.\text{id\_etud}, i_2.\text{id\_etud}}(
+    \sigma_{i_1.\text{id\_etud} < i_2.\text{id\_etud}}(
+        \rho_{i_1}(\text{Inscriptions}) \bowtie_{\text{id\_cours}} \rho_{i_2}(\text{Inscriptions})
+    )
+)
+\]
+\end{exemple}
+
+\section{Division ($\div$)}
+
+\begin{definition}[Division]
+Soient $R(A, B)$ et $S(B)$ deux relations. La \emph{division} $R \div S$ retourne
+les valeurs de $A$ dans $R$ qui sont associ\'ees \`a \emph{toutes} les valeurs de $B$ dans $S$.
+\[
+R \div S = \{ t[A] \mid t \in R \land \forall s \in S, (t[A], s[B]) \in R \}
+\]
+\end{definition}
+
+\begin{theoreme}[Expression de la division]
+La division peut s'exprimer en termes des autres op\'erateurs~:
+\[
+R \div S = \pi_A(R) - \pi_A\big((\pi_A(R) \times S) - R\big)
+\]
+\end{theoreme}
+
+\begin{exemple}
+Trouver les \'etudiants inscrits \`a \emph{tous} les cours du professeur 2~:
+
+Soit $S = \pi_{\text{id\_cours}}(\sigma_{\text{id\_prof}=2}(\text{Cours}))$
+(les cours du professeur 2).
+
+$\pi_{\text{id\_etudiant}, \text{id\_cours}}(\text{Inscriptions}) \div S$
+
+donne les \'etudiants inscrits \`a tous ces cours.
+
+\begin{codeblock}[title=\textbf{Division en SQL (NOT EXISTS)}]
+\begin{minted}{sql}
+SELECT DISTINCT i.id_etudiant
+FROM Inscriptions i
+WHERE NOT EXISTS (
+    SELECT c.id_cours
+    FROM Cours c
+    WHERE c.id_prof = 2
+    AND NOT EXISTS (
+        SELECT 1
+        FROM Inscriptions i2
+        WHERE i2.id_etudiant = i.id_etudiant
+        AND i2.id_cours = c.id_cours
+    )
+);
+\end{minted}
+\end{codeblock}
+\end{exemple}
+
+\section{Arbre alg\'ebrique et optimisation}
+
+Une expression d'alg\`ebre relationnelle peut \^etre repr\'esent\'ee sous forme
+d'arbre~: les feuilles sont les relations de base, les n\oe{}uds internes
+sont les op\'erateurs.
+
+\begin{theoreme}[R\`egles d'optimisation heuristique]
+\begin{enumerate}
+    \item \textbf{Descendre les s\'elections}~: appliquer les s\'elections le plus
+          t\^ot possible pour r\'eduire la taille des relations interm\'ediaires.
+    \item \textbf{Descendre les projections}~: projeter le plus t\^ot possible
+          pour r\'eduire le nombre d'attributs.
+    \item \textbf{Regrouper s\'election + produit cart\'esien en jointure}~:
+          $\sigma_\theta(R \times S) \to R \bowtie_\theta S$.
+    \item \textbf{R\'eordonner les jointures}~: commencer par les jointures
+          qui produisent les plus petits r\'esultats interm\'ediaires.
+\end{enumerate}
+\end{theoreme}
+
+\begin{exemple}
+Consid\'erons la requ\^ete~: \og noms des \'etudiants en Info inscrits au cours 101 \fg.
+
+Expression na\"ive~:
+\[
+\pi_{\text{nom}}(\sigma_{\text{filiere='Info'} \land \text{id\_cours}=101}(\text{Etudiants} \times \text{Inscriptions}))
+\]
+
+Expression optimis\'ee~:
+\[
+\pi_{\text{nom}}(\sigma_{\text{filiere='Info'}}(\text{Etudiants}) \bowtie \sigma_{\text{id\_cours}=101}(\text{Inscriptions}))
+\]
+
+La version optimis\'ee \'evite le produit cart\'esien complet et filtre au plus t\^ot.
+\end{exemple}
+
+\section{R\'esum\'e des correspondances alg\`ebre--SQL}
+
+\begin{formules}[title=\textbf{Correspondance Alg\`ebre Relationnelle $\leftrightarrow$ SQL}]
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Alg\`ebre} & \textbf{SQL} \\
+\midrule
+$\sigma_\theta(R)$ & \texttt{SELECT * FROM R WHERE $\theta$} \\
+$\pi_{A_1,\ldots,A_k}(R)$ & \texttt{SELECT DISTINCT $A_1$, \ldots, $A_k$ FROM R} \\
+$R \cup S$ & \texttt{R UNION S} \\
+$R \cap S$ & \texttt{R INTERSECT S} \\
+$R - S$ & \texttt{R EXCEPT S} \\
+$R \times S$ & \texttt{SELECT * FROM R, S} \\
+$R \bowtie S$ & \texttt{SELECT * FROM R NATURAL JOIN S} \\
+$R \bowtie_\theta S$ & \texttt{SELECT * FROM R JOIN S ON $\theta$} \\
+$R \div S$ & Double \texttt{NOT EXISTS} \\
+$\rho_{B/A}(R)$ & \texttt{SELECT A AS B FROM R} \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{formules}
+
+\section{Int\'egration Python}
+
+\begin{codeblock}[title=\textbf{Simulation de l'alg\`ebre relationnelle avec pandas}]
+\begin{minted}{python}
+import pandas as pd
+
+# Relations comme DataFrames
+etudiants = pd.DataFrame({
+    'id_etudiant': [1, 2, 3, 4, 5],
+    'nom': ['Bernard', 'Petit', 'Moreau', 'Leroy', 'Roux'],
+    'filiere': ['Info', 'Info', 'Maths', 'Info', 'Maths']
+})
+inscriptions = pd.DataFrame({
+    'id_etudiant': [1, 1, 2, 2, 3, 3, 4, 5],
+    'id_cours': [101, 102, 101, 103, 102, 104, 101, 104],
+    'note': [15.5, 13.0, 12.0, 16.0, 17.5, 14.0, 9.0, 18.0]
+})
+
+# Selection : sigma_{filiere='Info'}(Etudiants)
+info = etudiants[etudiants['filiere'] == 'Info']
+print("Selection :\n", info)
+
+# Projection : pi_{nom}(Etudiants)
+noms = etudiants[['nom']].drop_duplicates()
+print("\nProjection :\n", noms)
+
+# Jointure naturelle
+resultat = pd.merge(etudiants, inscriptions, on='id_etudiant')
+print("\nJointure :\n", resultat[['nom', 'id_cours', 'note']])
+\end{minted}
+\end{codeblock}
+
+\section*{Exercices}
+
+\begin{exercice}
+Exprimez en alg\`ebre relationnelle les requ\^etes suivantes, puis traduisez-les en SQL~:
+\begin{enumerate}
+    \item Les noms des professeurs du d\'epartement ``Informatique''.
+    \item Les intitul\'es des cours ayant au moins 4 cr\'edits.
+    \item Les noms des \'etudiants inscrits au cours ``Bases de donn\'ees''.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}
+Soit $R(A, B, C)$ et $S(C, D, E)$. Simplifiez l'expression~:
+\[
+\pi_{A, D}(\sigma_{B > 10 \land D = 'x'}(R \bowtie S))
+\]
+en descendant les s\'elections et projections.
+\end{exercice}
+
+\begin{exercice}
+Exprimez la division suivante en SQL~: \og trouver les \'etudiants inscrits
+\`a tous les cours du d\'epartement Informatique \fg.
+\end{exercice}
+
+\begin{exercice}
+Dessinez l'arbre alg\'ebrique correspondant \`a l'expression~:
+\[
+\pi_{\text{nom}}(\sigma_{\text{note} > 15}(\text{Etudiants} \bowtie \text{Inscriptions} \bowtie \text{Cours}))
+\]
+Puis proposez un arbre optimis\'e en appliquant les r\`egles heuristiques.
+\end{exercice}
+
+\begin{exercice}
+Prouvez que $R \cap S = R - (R - S)$ en utilisant la d\'efinition ensembliste
+des op\'erateurs.
+\end{exercice}

@@ -1,0 +1,348 @@
+% ============================================================
+\chapter{Introduction to NLP}
+\label{ch:introduction}
+% ============================================================
+
+In 1950, Alan Turing posed the founding question of artificial intelligence:
+can a machine ``think''? And he proposed an operational criterion: if a
+human, conversing with a machine via text, cannot tell it apart from another
+human, then the machine ``thinks'' in a functional sense. This ``Turing
+test'' is fundamentally a \emph{natural language processing} challenge: to
+pass it, a machine must understand syntax, semantics, context, irony, and
+subtext. Seventy-five years later, large language models (GPT, Claude, LLaMA)
+seem to be approaching this threshold --- yet the fundamental challenges
+remain intact.
+
+\begin{intuition}[title=\textbf{Why study NLP?}]
+Language is the primary vehicle for human communication. Teaching machines to
+understand, produce, and reason about natural language is one of the fundamental
+challenges of artificial intelligence. Applications range from machine
+translation to information extraction, conversational agents, and text
+generation.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{What is NLP?}
+\label{sec:intro:what}
+% ------------------------------------------------------------
+
+\begin{definition}[Natural Language Processing]
+\emph{Natural Language Processing} (NLP) is the subfield of artificial
+intelligence that studies interactions between computers and human language. It
+encompasses the analysis, understanding, and generation of text and speech in
+natural languages.
+\end{definition}
+
+NLP is distinguished from \emph{computational linguistics} by its
+application-oriented focus, although both fields share a common theoretical
+foundation. Formally, we can view language as a generative system defined over
+a vocabulary $\mathcal{V}$:
+\[
+\mathcal{L} \subseteq \mathcal{V}^* = \bigcup_{n=0}^{\infty} \mathcal{V}^n
+\]
+where $\mathcal{V}^*$ denotes the set of all finite sequences over $\mathcal{V}$.
+
+% ------------------------------------------------------------
+\section{Levels of Linguistic Analysis}
+\label{sec:intro:levels}
+% ------------------------------------------------------------
+
+Natural language processing operates at several levels of analysis:
+
+\begin{enumerate}
+    \item \textbf{Phonetics and phonology}: study of speech sounds (primarily
+          for speech processing).
+    \item \textbf{Morphology}: internal structure of words (prefixes, suffixes,
+          inflections). For example, ``un-believe-able'' decomposes into
+          \texttt{un-} + \texttt{believe} + \texttt{-able}.
+    \item \textbf{Syntax}: sentence structure, grammatical relations.
+    \item \textbf{Semantics}: meaning of words and sentences.
+    \item \textbf{Pragmatics}: meaning in context, speaker intentions.
+    \item \textbf{Discourse}: coherence and structure beyond the sentence.
+\end{enumerate}
+
+\begin{remark}
+In modern NLP, deep models implicitly learn these levels of analysis from data,
+without explicit segmentation. However, understanding these levels remains
+essential for diagnosing errors and designing relevant evaluations.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Fundamental NLP Tasks}
+\label{sec:intro:tasks}
+% ------------------------------------------------------------
+
+\subsection{Text Classification}
+
+Text classification assigns a label $y \in \mathcal{Y}$ to a document
+$\mathbf{x} = (x_1, x_2, \ldots, x_T)$. The model learns a function
+$f : \mathcal{V}^* \to \mathcal{Y}$ from a training set
+$\{(\mathbf{x}_i, y_i)\}_{i=1}^{N}$.
+
+Applications: sentiment analysis, spam detection, topic classification.
+
+\subsection{Sequence Labeling}
+
+Sequence labeling assigns a label $y_t \in \mathcal{Y}$ to each token $x_t$
+in a sequence:
+\[
+f : \mathcal{V}^T \to \mathcal{Y}^T
+\]
+
+Applications: named entity recognition (NER), part-of-speech (POS) tagging.
+
+\begin{example}
+Consider the sentence ``Mary lives in Paris'' with the following NER labeling:
+\begin{center}
+\begin{tabular}{cccc}
+Mary & lives & in & Paris \\
+\texttt{B-PER} & \texttt{O} & \texttt{O} & \texttt{B-LOC}
+\end{tabular}
+\end{center}
+\end{example}
+
+\subsection{Machine Translation}
+
+Machine translation is a sequence-to-sequence transduction task:
+\[
+f : \mathcal{V}_{\text{source}}^* \to \mathcal{V}_{\text{target}}^*
+\]
+It is historically one of the driving tasks of NLP.
+
+\subsection{Question Answering}
+
+Given a context $C$ and a question $Q$, the system must extract or generate an
+answer $A$:
+\[
+f : (C, Q) \to A
+\]
+
+\subsection{Automatic Summarization}
+
+Automatic summarization produces a condensed version $S$ of a document $D$,
+preserving essential information: $f : D \to S$ with $\abs{S} \ll \abs{D}$.
+
+% ------------------------------------------------------------
+\section{Probabilistic Foundations}
+\label{sec:intro:proba}
+% ------------------------------------------------------------
+
+Probabilistic language modeling is at the heart of NLP. A \emph{language model}
+defines a probability distribution over token sequences.
+
+\begin{definition}[Language Model]
+A \emph{language model} is a probability distribution $P$ over $\mathcal{V}^*$
+such that:
+\[
+P(\mathbf{x}) = P(x_1, x_2, \ldots, x_T) = \prod_{t=1}^{T} P(x_t \mid x_1, \ldots, x_{t-1})
+\]
+where the factorization follows from the chain rule of probability.
+\end{definition}
+
+\begin{theorem}[Chain Rule]
+For any joint distribution $P(x_1, \ldots, x_T)$:
+\[
+P(x_1, \ldots, x_T) = \prod_{t=1}^{T} P(x_t \mid x_{<t})
+\]
+where $x_{<t} = (x_1, \ldots, x_{t-1})$ denotes the \emph{context} at step $t$.
+\end{theorem}
+
+\begin{proof}
+By successive applications of the definition of conditional probability
+$P(A \mid B) = P(A, B) / P(B)$:
+\begin{align*}
+P(x_1, x_2, \ldots, x_T) &= P(x_1) \cdot P(x_2 \mid x_1) \cdot P(x_3 \mid x_1, x_2) \cdots \\
+                           &= \prod_{t=1}^{T} P(x_t \mid x_{<t}). \qedhere
+\end{align*}
+\end{proof}
+
+% ------------------------------------------------------------
+\section{Information Theory and Language}
+\label{sec:intro:info}
+% ------------------------------------------------------------
+
+\begin{definition}[Entropy]
+The \emph{entropy} of a discrete random variable $X$ taking values in
+$\mathcal{X}$ is:
+\[
+H(X) = -\sum_{x \in \mathcal{X}} P(x) \log_2 P(x)
+\]
+It measures the average uncertainty associated with $X$.
+\end{definition}
+
+\begin{definition}[Cross-Entropy]
+The \emph{cross-entropy} between the true distribution $p$ and a model $q$ is:
+\[
+H(p, q) = -\sum_{x} p(x) \log q(x) = H(p) + \KL(p \| q)
+\]
+\end{definition}
+
+\begin{proposition}[Lower Bound]
+For any model $q$, we have $H(p, q) \geq H(p)$, with equality if and only if
+$q = p$.
+\end{proposition}
+
+The \emph{perplexity} of a language model $q$ is defined as:
+\[
+\text{PPL}(q) = 2^{H(p, q)}
+\]
+
+\begin{keyformulas}[title=\textbf{Key Information-Theoretic Metrics}]
+\begin{align}
+H(X) &= -\sum_{x} P(x) \log P(x) & \text{(entropy)} \\
+\KL(p \| q) &= \sum_{x} p(x) \log \frac{p(x)}{q(x)} & \text{(KL divergence)} \\
+\text{PPL} &= \exp\!\left(-\frac{1}{T}\sum_{t=1}^{T} \log q(x_t \mid x_{<t})\right) & \text{(perplexity)}
+\end{align}
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Classical NLP Pipeline}
+\label{sec:intro:pipeline}
+% ------------------------------------------------------------
+
+A classical NLP pipeline comprises the following stages:
+
+\begin{enumerate}
+    \item \textbf{Data collection}: text corpora, web scraping, APIs.
+    \item \textbf{Preprocessing}:
+    \begin{itemize}
+        \item Tokenization (splitting into lexical units)
+        \item Normalization (lowercasing, accent removal)
+        \item Stopword removal
+        \item Stemming or lemmatization
+    \end{itemize}
+    \item \textbf{Representation}: converting text to numerical vectors.
+    \item \textbf{Modeling}: training a model.
+    \item \textbf{Evaluation}: measuring performance on a test set.
+    \item \textbf{Deployment}: putting the model into production.
+\end{enumerate}
+
+\begin{warning}[title=\textbf{Preprocessing and modern models}]
+With pre-trained models (BERT, GPT), preprocessing is generally minimal: the
+model's tokenizer (BPE, WordPiece) replaces classical stemming and stopword
+removal steps. Applying aggressive preprocessing can actually degrade
+performance.
+\end{warning}
+
+% ------------------------------------------------------------
+\section{Tokenization}
+\label{sec:intro:tokenization}
+% ------------------------------------------------------------
+
+\begin{definition}[Tokenization]
+\emph{Tokenization} is the process of splitting text into elementary units
+called \emph{tokens}. A token can be a word, a subword, a character, or a byte.
+\end{definition}
+
+\subsection{Subword Tokenization}
+
+Modern subword tokenization algorithms (BPE, WordPiece, Unigram) offer a
+trade-off between word tokenization (very large vocabulary) and character
+tokenization (very long sequences).
+
+\begin{algorithme}[title=\textbf{Byte Pair Encoding (BPE)}]
+\begin{enumerate}
+    \item Initialize the vocabulary with all individual characters.
+    \item Repeat $k$ times:
+    \begin{enumerate}
+        \item Count all adjacent symbol pairs in the corpus.
+        \item Merge the most frequent pair into a new symbol.
+        \item Add this symbol to the vocabulary.
+    \end{enumerate}
+    \item Return the final vocabulary of size $\abs{\mathcal{V}_0} + k$.
+\end{enumerate}
+\end{algorithme}
+
+\begin{codeblock}[title=\textbf{Tokenization with Hugging Face}]
+\begin{minted}{python}
+from transformers import AutoTokenizer
+
+tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+text = "Natural language processing is fascinating."
+tokens = tokenizer.tokenize(text)
+print(tokens)
+# ['natural', 'language', 'processing', 'is', 'fascinating', '.']
+
+ids = tokenizer.encode(text, return_tensors="pt")
+print(ids)
+# tensor([[ 101, 3019, 2653, 6364, 2003, 15281, 1012,  102]])
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Brief History of NLP}
+\label{sec:intro:history}
+% ------------------------------------------------------------
+
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lll}
+\toprule
+\textbf{Period} & \textbf{Paradigm} & \textbf{Examples} \\
+\midrule
+1950--1970 & Symbolic rules & ELIZA, SHRDLU \\
+1970--1990 & Formal grammars & ATN, LFG, HPSG \\
+1990--2010 & Statistical methods & HMM, CRF, $n$-grams \\
+2010--2017 & Deep learning & Word2Vec, LSTM, Seq2Seq \\
+2017--      & Transformers \& LLMs & BERT, GPT, T5, LLaMA \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{remark}
+The transition from the statistical paradigm to the neural paradigm does not
+represent a complete break: the concepts of cross-entropy, language modeling,
+and regularization remain at the heart of modern approaches.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Open Challenges}
+\label{sec:intro:challenges}
+% ------------------------------------------------------------
+
+Despite spectacular progress, many challenges remain open:
+
+\begin{itemize}
+    \item \textbf{Real understanding vs.\ statistical correlations}: do LLMs
+          capture \emph{meaning} or merely surface regularities?
+    \item \textbf{Low-resource languages}: the majority of resources are
+          available in English; approximately 7,000 languages are spoken
+          worldwide.
+    \item \textbf{Robustness}: sensitivity to adversarial perturbations,
+          neologisms, out-of-distribution domains.
+    \item \textbf{Efficiency}: LLMs require considerable computational
+          resources.
+    \item \textbf{Ethics}: bias, toxicity, privacy, misinformation.
+\end{itemize}
+
+% ------------------------------------------------------------
+\section{Exercises}
+\label{sec:intro:exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}[$\star$]
+Compute the entropy of a uniform language model over a vocabulary of size
+$V = 50{,}000$. What is the corresponding perplexity?
+\end{exercise}
+
+\begin{exercise}[$\star$]
+Consider the sentence ``The cat eats the mouse.'' Apply the chain rule to
+express $P(\text{The, cat, eats, the, mouse})$ as a product of conditional
+probabilities.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Implement a simple BPE tokenizer in Python. Start with a small corpus of 10
+sentences and show the vocabulary evolution after 20 merges.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Show that the Kullback-Leibler divergence $\KL(p \| q)$ is always non-negative
+(Gibbs' inequality). \emph{Hint:} use the inequality $\log x \leq x - 1$.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+Compare the perplexity of an $n$-gram model (for $n = 1, 2, 3$) and a neural
+model (GPT-2) on a corpus of your choice. Analyze the results as a function of
+training corpus size.
+\end{exercise}

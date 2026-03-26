@@ -1,0 +1,445 @@
+% ch06_numpy.tex — NumPy : Tableaux et Calcul Num\'erique
+\chapter{NumPy --- Tableaux et Calcul Num\'erique}
+\label{ch:numpy}
+
+\begin{intuition}
+Imaginez devoir mesurer la temp\'erature en 1\,000 points d'une plaque chauffante.
+Avec une liste Python, chaque op\'eration n\'ecessite une boucle. NumPy\index{NumPy}
+permet de traiter \emph{tous les points en une seule instruction}, comme un instrument
+qui mesure toute la plaque d'un coup. C'est la diff\'erence entre compter des grains
+de sable un par un et peser le tas entier.
+\end{intuition}
+
+% ============================================================
+\section{Pourquoi NumPy~?}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import time
+
+# Comparaison : somme des carrés de 1 à 1 000 000
+n = 1_000_000
+
+# Avec une liste Python
+debut = time.time()
+resultat_liste = sum([i**2 for i in range(n)])
+temps_liste = time.time() - debut
+
+# Avec NumPy
+import numpy as np
+debut = time.time()
+resultat_numpy = np.sum(np.arange(n)**2)
+temps_numpy = time.time() - debut
+
+print(f"Liste Python : {temps_liste:.4f} s")
+print(f"NumPy        : {temps_numpy:.4f} s")
+print(f"Accélération : ×{temps_liste/temps_numpy:.0f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Liste Python : 0.2851 s
+NumPy        : 0.0032 s
+Accélération : ×89
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Cr\'eation de tableaux}
+\index{np.array}\index{np.zeros}\index{np.ones}\index{np.linspace}\index{np.arange}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+
+# À partir d'une liste
+a = np.array([1.0, 2.0, 3.0, 4.0])
+print(f"Array     : {a}")
+
+# Tableaux spéciaux
+zeros = np.zeros(5)
+print(f"Zéros     : {zeros}")
+
+uns = np.ones(4)
+print(f"Uns       : {uns}")
+
+# Séquence régulière
+x = np.arange(0, 10, 2)
+print(f"Arange    : {x}")
+
+# N points équidistants
+t = np.linspace(0, 1, 5)
+print(f"Linspace  : {t}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Array     : [1. 2. 3. 4.]
+Zéros     : [0. 0. 0. 0. 0.]
+Uns       : [1. 1. 1. 1.]
+Arange    : [0 2 4 6 8]
+Linspace  : [0.   0.25 0.5  0.75 1.  ]
+\end{verbatim}
+\end{codeoutput}
+
+% --- TikZ array indexing ---
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+    cell/.style={rectangle, draw, minimum width=1.2cm, minimum height=0.8cm,
+        fill=blue!10, align=center},
+    idx/.style={font=\small\ttfamily, text=red!70!black},
+]
+\foreach \val [count=\i from 0] in {1.0, 2.0, 3.0, 4.0, 5.0} {
+    \node[cell] (c\i) at (\i*1.3, 0) {\val};
+    \node[idx, above=2pt of c\i] {\i};
+    \pgfmathtruncatemacro{\neg}{\i - 5}
+    \node[idx, below=2pt of c\i] {\neg};
+}
+\node[font=\small, left=0.5cm of c0, text=red!70!black] {indices};
+\end{tikzpicture}
+\caption{Indexation d'un tableau NumPy~: indices positifs (haut) et n\'egatifs (bas).}
+\label{fig:numpy-indexation}
+\end{figure}
+
+% ============================================================
+\section{Op\'erations \'el\'ement par \'el\'ement}
+\index{op\'eration \'el\'ement par \'el\'ement}\index{broadcasting}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+
+a = np.array([1, 2, 3, 4])
+b = np.array([10, 20, 30, 40])
+
+print(f"a + b   = {a + b}")
+print(f"a * b   = {a * b}")
+print(f"a ** 2  = {a ** 2}")
+print(f"a + 100 = {a + 100}")    # broadcasting
+print(f"a > 2   = {a > 2}")       # comparaison
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+a + b   = [11 22 33 44]
+a * b   = [ 10  40  90 160]
+a ** 2  = [ 1  4  9 16]
+a + 100 = [101 102 103 104]
+a > 2   = [False False  True  True]
+\end{verbatim}
+\end{codeoutput}
+
+\begin{definition}[Broadcasting]
+Le \textbf{broadcasting}\index{broadcasting} permet \`a NumPy d'appliquer des op\'erations
+entre tableaux de tailles diff\'erentes. Un scalaire est automatiquement
+<<~\'etendu~>> \`a la taille du tableau.
+\end{definition}
+
+% ============================================================
+\section{Indexation et slicing}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+
+x = np.array([10, 20, 30, 40, 50, 60, 70])
+
+print(f"Élément 3     : {x[3]}")
+print(f"Slice [2:5]   : {x[2:5]}")
+
+# Indexation booléenne (fancy indexing)
+masque = x > 35
+print(f"Masque        : {masque}")
+print(f"Valeurs > 35  : {x[masque]}")
+
+# Modification conditionnelle
+x[x < 30] = 0
+print(f"Après modif   : {x}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Élément 3     : 40
+Slice [2:5]   : [30 40 50]
+Masque        : [False False False  True  True  True  True]
+Valeurs > 35  : [40 50 60 70]
+Après modif   : [ 0  0 30 40 50 60 70]
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Fonctions math\'ematiques}
+\index{np.sin}\index{np.cos}\index{np.exp}\index{np.log}\index{np.sqrt}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+
+x = np.linspace(0, 2 * np.pi, 5)
+
+print(f"x       = {np.round(x, 2)}")
+print(f"sin(x)  = {np.round(np.sin(x), 4)}")
+print(f"cos(x)  = {np.round(np.cos(x), 4)}")
+print(f"exp(x)  = {np.round(np.exp(x), 2)}")
+
+# Application : signal amorti
+t = np.linspace(0, 5, 6)
+signal = np.exp(-0.5 * t) * np.sin(2 * np.pi * t)
+print(f"\nt       = {np.round(t, 1)}")
+print(f"signal  = {np.round(signal, 4)}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+x       = [0.   1.57 3.14 4.71 6.28]
+sin(x)  = [ 0.      1.      0.     -1.     -0.    ]
+cos(x)  = [ 1.      0.     -1.     -0.      1.    ]
+exp(x)  = [  1.     4.81  23.14 111.32 535.49]
+
+t       = [0. 1. 2. 3. 4. 5.]
+signal  = [ 0.     -0.      0.     -0.      0.     -0.    ]
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Statistiques descriptives}
+\index{np.mean}\index{np.std}\index{np.min}\index{np.max}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+
+# Mesures expérimentales (concentration en mg/L)
+mesures = np.array([12.3, 11.8, 12.5, 11.9, 12.1, 12.4, 12.0, 11.7])
+
+print(f"Moyenne     : {np.mean(mesures):.2f} mg/L")
+print(f"Écart-type  : {np.std(mesures):.2f} mg/L")
+print(f"Minimum     : {np.min(mesures):.2f} mg/L")
+print(f"Maximum     : {np.max(mesures):.2f} mg/L")
+print(f"Médiane     : {np.median(mesures):.2f} mg/L")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Moyenne     : 12.09 mg/L
+Écart-type  : 0.27 mg/L
+Minimum     : 11.70 mg/L
+Maximum     : 12.50 mg/L
+Médiane     : 12.05 mg/L
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Alg\`ebre lin\'eaire \'el\'ementaire}
+\index{np.dot}\index{multiplication matricielle}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+
+# Matrices 2×2
+A = np.array([[1, 2],
+              [3, 4]])
+
+B = np.array([[5, 6],
+              [7, 8]])
+
+# Produit matriciel
+C = A @ B    # équivalent à np.dot(A, B)
+print("A @ B =")
+print(C)
+
+# Déterminant et inverse
+det_A = np.linalg.det(A)
+inv_A = np.linalg.inv(A)
+print(f"\ndet(A) = {det_A:.1f}")
+print(f"A⁻¹ =\n{inv_A}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+A @ B =
+[[19 22]
+ [43 50]]
+
+det(A) = -2.0
+A⁻¹ =
+[[-2.   1. ]
+ [ 1.5 -0.5]]
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Nombres al\'eatoires}
+\index{np.random}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+
+rng = np.random.default_rng(seed=42)
+
+# Uniforme entre 0 et 1
+u = rng.uniform(0, 1, size=5)
+print(f"Uniforme  : {np.round(u, 3)}")
+
+# Distribution normale (moyenne=0, écart-type=1)
+n = rng.normal(0, 1, size=5)
+print(f"Normale   : {np.round(n, 3)}")
+
+# Entiers aléatoires (lancer de dé)
+des = rng.integers(1, 7, size=10)
+print(f"Lancers   : {des}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Uniforme  : [0.773 0.438 0.859 0.697 0.094]
+Normale   : [ 0.314  0.459 -0.537  0.268 -0.232]
+Lancers   : [5 2 3 6 1 4 2 5 3 6]
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Erreurs courantes}
+
+\begin{errmark}
+\begin{enumerate}
+    \item \textbf{Incompatibilit\'e de dimensions (\py{shape mismatch})}~: op\'erer sur
+    des tableaux de tailles incompatibles provoque une \py{ValueError}.
+    \begin{minted}{python}
+a = np.array([1, 2, 3])
+b = np.array([1, 2])
+# a + b → ValueError: operands could not be broadcast
+    \end{minted}
+
+    \item \textbf{Oublier les op\'erations \'el\'ement par \'el\'ement}~: l'op\'erateur \py{*}
+    entre deux tableaux fait une multiplication \'el\'ement par \'el\'ement, \emph{pas}
+    un produit matriciel. Utilisez \py{@} ou \py{np.dot} pour le produit matriciel.
+
+    \item \textbf{Confusion \py{np.arange} / \py{np.linspace}}~:
+    \py{np.arange(0, 1, 0.1)} sp\'ecifie un \emph{pas},
+    \py{np.linspace(0, 1, 10)} sp\'ecifie un \emph{nombre de points}.
+
+    \item \textbf{Modifier une vue au lieu d'une copie}~: le slicing NumPy cr\'ee une
+    \emph{vue} (pas une copie). Modifier la vue modifie l'original~!
+    \begin{minted}{python}
+a = np.array([1, 2, 3, 4])
+b = a[1:3]     # vue, pas copie
+b[0] = 99      # a devient [1, 99, 3, 4] !
+b = a[1:3].copy()  # copie indépendante
+    \end{minted}
+\end{enumerate}
+\end{errmark}
+
+% ============================================================
+\section{Mini-projet~: Estimation de $\pi$ par Monte Carlo}
+
+\begin{projet}
+La m\'ethode de Monte Carlo\index{Monte Carlo} estime $\pi$ en tirant des points
+al\'eatoires dans un carr\'e $[-1, 1]^2$ et en comptant ceux qui tombent dans le
+cercle unit\'e ($x^2 + y^2 \leq 1$). Le rapport donne~:
+\[
+    \pi \approx 4 \times \frac{\text{points dans le cercle}}{\text{points totaux}}
+\]
+\end{projet}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+
+rng = np.random.default_rng(seed=42)
+N = 1_000_000
+
+# Tirer N points aléatoires dans [-1, 1] × [-1, 1]
+x = rng.uniform(-1, 1, size=N)
+y = rng.uniform(-1, 1, size=N)
+
+# Compter les points dans le cercle unité
+dans_cercle = x**2 + y**2 <= 1
+nb_dans_cercle = np.sum(dans_cercle)
+
+# Estimation de pi
+pi_estime = 4 * nb_dans_cercle / N
+erreur = abs(pi_estime - np.pi)
+
+print(f"Points totaux     : {N:,}")
+print(f"Points dans cercle: {nb_dans_cercle:,}")
+print(f"π estimé          : {pi_estime:.6f}")
+print(f"π exact           : {np.pi:.6f}")
+print(f"Erreur            : {erreur:.6f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Points totaux     : 1,000,000
+Points dans cercle: 785,436
+π estimé          : 3.141744
+π exact           : 3.141593
+Erreur            : 0.000151
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Exercices}
+
+\begin{exercice}[$\star$ --- Cr\'eation de tableaux]
+Cr\'eez les tableaux suivants~: (a) les entiers de 0 \`a 99, (b) 50 valeurs
+\'equidistantes entre $-\pi$ et $\pi$, (c) une matrice $3\times 3$ de z\'eros
+avec des 1 sur la diagonale (matrice identit\'e).
+\end{exercice}
+
+\begin{exercice}[$\star$ --- Conversion de temp\'eratures]
+Cr\'eez un tableau de temp\'eratures en Celsius de $-40$ \`a $100$ (pas de 10).
+Convertissez-le en Fahrenheit ($F = 1{,}8 \times C + 32$) \emph{sans boucle}.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ --- Analyse de donn\'ees exp\'erimentales]
+G\'en\'erez 1000 mesures simul\'ees d'une distribution normale ($\mu = 50$, $\sigma = 5$).
+Calculez la moyenne, l'\'ecart-type, et comptez combien de mesures sont \`a plus de
+$2\sigma$ de la moyenne. Comparez avec la pr\'ediction th\'eorique ($\approx 5\%$).
+\end{exercice}
+
+\begin{exercice}[$\star\star$ --- Produit scalaire]
+Calculez l'angle entre les vecteurs $\vec{u} = (1, 2, 3)$ et $\vec{v} = (4, 5, 6)$
+en utilisant la formule $\cos\theta = \frac{\vec{u}\cdot\vec{v}}{|\vec{u}||\vec{v}|}$.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ --- R\'esolution de syst\`eme lin\'eaire]
+R\'esolvez le syst\`eme d'\'equations lin\'eaires suivant avec \py{np.linalg.solve}~:
+\[
+\begin{cases}
+2x + 3y - z = 1 \\
+4x + y + 2z = 2 \\
+-x + 2y + 3z = 3
+\end{cases}
+\]
+V\'erifiez votre r\'esultat en calculant $A\vec{x}$ et en comparant avec $\vec{b}$.
+\end{exercice}
+
+% ============================================================
+\begin{formules}{R\'esum\'e du chapitre~: NumPy}
+\begin{itemize}
+    \item \textbf{Cr\'eation}~: \py{np.array}, \py{np.zeros}, \py{np.ones},
+    \py{np.linspace}, \py{np.arange}
+    \item \textbf{Op\'erations}~: \py{+}, \py{-}, \py{*}, \py{/}, \py{**}
+    s'appliquent \'el\'ement par \'el\'ement
+    \item \textbf{Broadcasting}~: un scalaire est \'etendu automatiquement
+    \item \textbf{Maths}~: \py{np.sin}, \py{np.cos}, \py{np.exp}, \py{np.log}, \py{np.sqrt}
+    \item \textbf{Stats}~: \py{np.mean}, \py{np.std}, \py{np.min}, \py{np.max}, \py{np.median}
+    \item \textbf{Alg\`ebre}~: \py{A @ B} (produit matriciel), \py{np.linalg.det},
+    \py{np.linalg.inv}, \py{np.linalg.solve}
+    \item \textbf{Al\'eatoire}~: \py{rng = np.random.default\_rng(seed)}
+    \item \textbf{Indexation bool\'eenne}~: \py{x[x > 0]} filtre les \'el\'ements positifs
+\end{itemize}
+\end{formules}

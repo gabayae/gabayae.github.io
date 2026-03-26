@@ -1,0 +1,325 @@
+% ============================================================
+\chapter{Ethics, Bias, and Safety}
+\label{ch:ethics}
+% ============================================================
+
+\begin{intuition}[title=\textbf{Responsibility in NLP}]
+Language models are deployed at massive scale and influence consequential
+decisions: hiring, justice, healthcare, education. They reproduce and
+amplify biases present in their training data. Understanding, measuring,
+and mitigating these biases is a fundamental responsibility of the NLP
+practitioner.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Bias in Word Embeddings}
+\label{sec:ethics:embeddings}
+% ------------------------------------------------------------
+
+\begin{definition}[Embedding Bias]
+\index{bias!embeddings}
+Word embeddings capture the statistical regularities of the corpus,
+including social stereotypes. For example, in Word2Vec trained on Google
+News:
+\[
+    \vec{\text{man}} - \vec{\text{woman}} \approx
+    \vec{\text{computer programmer}} - \vec{\text{homemaker}}
+\]
+\end{definition}
+
+\begin{theorem}[WEAT --- Word Embedding Association Test]
+\index{WEAT}
+The WEAT test (Caliskan et al., 2017) measures the association between
+two sets of target words $X, Y$ and two sets of attribute words $A, B$:
+\[
+    d(X, Y, A, B) = \sum_{x \in X} s(x, A, B) - \sum_{y \in Y} s(y, A, B)
+\]
+where $s(w, A, B) = \frac{1}{\abs{A}} \sum_{a \in A} \cos(w, a)
+- \frac{1}{\abs{B}} \sum_{b \in B} \cos(w, b)$.
+Statistical significance is assessed via a permutation test.
+\end{theorem}
+
+\begin{example}[Gender Bias]
+Applying WEAT with $X = \{\text{math, science, engineering}\}$,
+$Y = \{\text{arts, literature, humanities}\}$,
+$A = \text{male names}$, $B = \text{female names}$, reveals a
+significant association between science and male, reproducing a gender
+stereotype.
+\end{example}
+
+% ------------------------------------------------------------
+\section{Bias in Language Models}
+\label{sec:ethics:lm_bias}
+% ------------------------------------------------------------
+
+\begin{definition}[LLM Bias]
+\index{bias!LLM}
+LLMs exhibit bias at multiple levels:
+\begin{enumerate}
+    \item \textbf{Representational}: certain groups are underrepresented
+    or stereotyped.
+    \item \textbf{Allocative}: the model performs better for some groups
+    (e.g., resume summaries favoring certain names).
+    \item \textbf{Generative}: producing toxic, discriminatory, or
+    inaccurate content about certain groups.
+\end{enumerate}
+\end{definition}
+
+\begin{proposition}[Sources of Bias]
+\begin{itemize}
+    \item \textbf{Training data}: the web contains biased, sexist, and
+    racist content.
+    \item \textbf{Annotation}: annotators bring their own cultural and
+    linguistic biases.
+    \item \textbf{Training objective}: maximizing likelihood reproduces
+    dominant patterns.
+    \item \textbf{Deployment}: feedback biases (users interact more with
+    certain content) amplify existing biases.
+\end{itemize}
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Fairness Metrics}
+\label{sec:ethics:metrics}
+% ------------------------------------------------------------
+
+\begin{definition}[Equalized Odds]
+\index{equalized odds}
+A classifier satisfies \textbf{equalized odds} if its performance is
+identical across all demographic groups $g$:
+\[
+    P(\hat{Y} = 1 | Y = y, G = g) = P(\hat{Y} = 1 | Y = y)
+    \quad \forall g, \forall y \in \{0, 1\}
+\]
+\end{definition}
+
+\begin{definition}[Demographic Parity]
+\index{demographic parity}
+\textbf{Demographic parity} requires that the decision be independent
+of the group:
+\[
+    P(\hat{Y} = 1 | G = g) = P(\hat{Y} = 1) \quad \forall g
+\]
+\end{definition}
+
+\begin{attention}[title=\textbf{Incompatibility of Fairness Criteria}]
+It is generally impossible to simultaneously satisfy demographic parity,
+equalized odds, and calibration (impossibility theorems of
+Chouldechova, 2017, and Kleinberg et al., 2016). The choice of criterion
+depends on the application context.
+\end{attention}
+
+\begin{definition}[Toxicity Bias]
+\index{toxicity}
+\textbf{Toxicity bias} measures a model's propensity to generate toxic
+content (insults, threats, hate speech). The RealToxicityPrompts score
+(Gehman et al., 2020) measures the probability of generating toxic
+content from neutral prompts.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Debiasing Techniques}
+\label{sec:ethics:debiasing}
+% ------------------------------------------------------------
+
+\begin{definition}[Embedding Debiasing]
+\index{debiasing}
+The method of Bolukbasi et al.\ (2016) identifies the bias direction
+$\mathbf{b}$ (e.g., the man-woman direction) and projects embeddings to
+remove this component:
+\[
+    \mathbf{w}_{\text{debias}} = \mathbf{w} -
+    (\mathbf{w} \cdot \mathbf{b}) \mathbf{b}
+\]
+for gender-neutral words (not definitionally gendered).
+\end{definition}
+
+\begin{remark}
+Geometric embedding debiasing has been criticized: Gonen and Gold (2019)
+show that biases persist in neighborhood structure even after projection.
+More recent approaches intervene at the data or training level.
+\end{remark}
+
+\begin{definition}[LLM Debiasing Strategies]
+\index{debiasing!LLM}
+\begin{enumerate}
+    \item \textbf{Data curation}: filtering toxic content, balancing
+    representation.
+    \item \textbf{Instruction tuning}: fine-tuning with explicit fairness
+    instructions.
+    \item \textbf{RLHF/DPO}: training the model to prefer unbiased
+    responses via human feedback.
+    \item \textbf{Prompting}: system instructions specifying equitable
+    behavior.
+    \item \textbf{Controlled decoding}: modifying generation
+    probabilities to reduce toxicity.
+\end{enumerate}
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Toxicity Detection}
+\label{sec:ethics:toxicity}
+% ------------------------------------------------------------
+
+\begin{definition}[Toxicity Classifier]
+\index{toxicity detection}
+A \textbf{toxicity classifier} is a supervised model trained to detect
+offensive, hateful, or dangerous content. Examples: Perspective API
+(Google), OpenAI Moderation API.
+\end{definition}
+
+\begin{proposition}[Challenges of Toxicity Detection]
+\begin{enumerate}
+    \item \textbf{Subjective definition}: toxicity depends on context,
+    culture, and intent.
+    \item \textbf{Classifier bias}: toxicity models themselves can be
+    biased (e.g., classifying African-American English as more toxic).
+    \item \textbf{Evasion}: users circumvent filters through creative
+    rephrasing.
+    \item \textbf{Over-filtering}: aggressive filtering censors
+    legitimate content.
+\end{enumerate}
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Environmental Impact}
+\label{sec:ethics:environment}
+% ------------------------------------------------------------
+
+\begin{definition}[Carbon Cost of Training]
+\index{environmental impact}
+Training large language models consumes substantial energy. Strubell
+et al.\ (2019) estimated the carbon footprint of training a Transformer
+at $\sim$284 tonnes of CO$_2$ (comparable to 5 times the lifetime
+emissions of an American car).
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{Carbon Footprint Estimation}]
+\[
+    \text{CO}_2 \approx \text{PUE} \times \text{kWh} \times
+    \text{carbon intensity (g CO}_2\text{/kWh)}
+\]
+where PUE (Power Usage Effectiveness) $\approx 1.1$--$1.4$ for modern
+data centers.
+\end{keyformulas}
+
+\begin{proposition}[Reduction Strategies]
+\begin{itemize}
+    \item \textbf{Smaller models}: distillation, pruning, quantization.
+    \item \textbf{Efficient training}: mixed precision, gradient
+    checkpointing, architecture search.
+    \item \textbf{Location}: train in regions with low-carbon electricity.
+    \item \textbf{Reuse}: share pretrained models (HuggingFace Hub).
+\end{itemize}
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Responsible AI Practices}
+\label{sec:ethics:practices}
+% ------------------------------------------------------------
+
+\begin{definition}[Model Cards]
+\index{model cards}
+A \textbf{model card} (Mitchell et al., 2019) documents a model:
+intended use, limitations, known biases, evaluation metrics, training
+data, and ethical considerations.
+\end{definition}
+
+\begin{definition}[Datasheets for Datasets]
+\index{datasheets}
+\textbf{Datasheets} (Gebru et al., 2021) document datasets: motivation,
+composition, collection process, preprocessing, recommended uses, and
+demographic distributions.
+\end{definition}
+
+\begin{remark}
+Regulations are evolving rapidly:
+\begin{itemize}
+    \item \textbf{EU AI Act} (2024): risk-based classification of AI
+    systems, transparency obligations.
+    \item \textbf{US Executive Order on AI} (2023): safety and testing
+    requirements for foundation models.
+    \item Companies adopt \emph{Responsible AI frameworks} integrating
+    risk assessment, regular audits, and ethics committees.
+\end{itemize}
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Python Implementation}
+\label{sec:ethics:code}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Bias Detection in Embeddings}]
+\begin{minted}{python}
+import numpy as np
+from gensim.models import KeyedVectors
+
+def weat_score(model, X, Y, A, B):
+    """Compute WEAT effect size."""
+    def s(w, A_set, B_set):
+        a_sims = [model.similarity(w, a) for a in A_set
+                  if a in model]
+        b_sims = [model.similarity(w, b) for b in B_set
+                  if b in model]
+        return np.mean(a_sims) - np.mean(b_sims)
+
+    x_scores = [s(x, A, B) for x in X if x in model]
+    y_scores = [s(y, A, B) for y in Y if y in model]
+    d = np.mean(x_scores) - np.mean(y_scores)
+    std = np.std(x_scores + y_scores)
+    return d / std if std > 0 else 0.0
+
+# Example: gender bias in professions
+X = ["programmer", "engineer", "scientist"]
+Y = ["nurse", "teacher", "librarian"]
+A = ["man", "male", "boy", "he"]
+B = ["woman", "female", "girl", "she"]
+# score = weat_score(model, X, Y, A, B)
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Geometric Debiasing}]
+\begin{minted}{python}
+def debias_embedding(embedding, bias_direction):
+    """Project out the bias direction from an embedding."""
+    projection = (np.dot(embedding, bias_direction)
+                  * bias_direction)
+    return embedding - projection
+
+# Compute bias direction (e.g., he - she)
+bias_dir = model["he"] - model["she"]
+bias_dir = bias_dir / np.linalg.norm(bias_dir)
+
+# Debias a neutral word
+debiased = debias_embedding(model["programmer"], bias_dir)
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+\label{sec:ethics:exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}[Bias Analysis]
+Download pretrained Word2Vec or FastText embeddings. Compute the WEAT
+score for gender bias in professions. Compare results between embeddings
+trained on different corpora (Wikipedia vs Common Crawl).
+\end{exercise}
+
+\begin{exercise}[Debiasing]
+Implement the Bolukbasi et al.\ debiasing method. Verify that biased
+analogies are reduced. Test whether debiasing affects performance on a
+semantic similarity task (e.g., STS-B).
+\end{exercise}
+
+\begin{exercise}[LLM Toxicity]
+Use the OpenAI Moderation API (or a HuggingFace classifier) to evaluate
+the toxicity of 100 generations from a language model using neutral
+prompts. Which types of toxicity are most frequent?
+\end{exercise}
+
+\begin{exercise}[Model Card]
+Write a complete model card for a sentiment classifier trained on
+English movie reviews. Include limitations, potential biases, and usage
+recommendations.
+\end{exercise}

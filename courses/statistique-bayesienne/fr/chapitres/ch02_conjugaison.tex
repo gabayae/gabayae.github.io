@@ -1,0 +1,393 @@
+% ============================================================
+\chapter{Lois A Priori et A Posteriori --- Conjugaison}
+\label{ch:conjugaison}
+% ============================================================
+
+Le th\'eor\`eme de Bayes nous dit \emph{comment} passer du prior au
+posterior, mais il ne nous dit pas \emph{quel} prior choisir. Ce choix est
+le c\oe ur du paradigme bay\'esien, et la famille des \emph{lois
+conjugu\'ees} offre une r\'eponse \'el\'egante~: si le prior et la
+vraisemblance \og s'accordent\fg{} bien, le posterior appartient \`a la m\^eme
+famille param\'etrique que le prior, et la mise \`a jour se r\'eduit \`a une
+simple modification des hyperparam\`etres. C'est une id\'ee ancienne --- elle
+remonte \`a Raiffa et Schlaifer (1961) --- mais toujours aussi utile
+aujourd'hui, y compris comme brique de base des m\'ethodes variationnelles.
+
+\begin{intuition}[title=\textbf{Id\'ee centrale}]
+Une famille conjugu\'ee est un couple (vraisemblance, prior) tel que le
+posterior appartient \`a la m\^eme famille param\'etrique que le prior.
+Cela garantit des calculs analytiques et une interpr\'etation
+transparente de la mise \`a jour bay\'esienne.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Famille exponentielle}
+% ------------------------------------------------------------
+
+\begin{definition}[Famille exponentielle naturelle]
+Une famille de lois $\{f(x \mid \theta) : \theta \in \Theta\}$
+appartient \`a la \textbf{famille exponentielle} si elle s'\'ecrit~:
+\[
+  f(x \mid \theta) = h(x)\,\exp\!\big(\eta(\theta)^\top T(x) - A(\theta)\big),
+\]
+o\`u $T(x)$ est la statistique suffisante, $\eta(\theta)$ le param\`etre
+naturel et $A(\theta)$ le log-normalisateur.
+\end{definition}
+
+\begin{proposition}[Propri\'et\'es du log-normalisateur]
+\begin{enumerate}
+  \item $\E[T(X)] = \nabla_\eta A(\eta)$.
+  \item $\Var[T(X)] = \nabla^2_\eta A(\eta)$ (matrice hessienne).
+  \item $A(\eta)$ est convexe.
+\end{enumerate}
+\end{proposition}
+
+\begin{theoreme}[Existence de la conjugu\'ee]
+Toute famille exponentielle admet un prior conjugu\'e de la forme~:
+\[
+  \pi(\theta \mid \chi_0, \nu_0) \propto
+  \exp\!\big(\eta(\theta)^\top \chi_0 - \nu_0\,A(\theta)\big),
+\]
+o\`u $\chi_0$ et $\nu_0$ sont les hyperParam\`etres. Apr\`es observation
+de $x_1, \ldots, x_n$, le posterior est de la m\^eme forme avec~:
+\[
+  \chi_n = \chi_0 + \sum_{i=1}^n T(x_i), \qquad
+  \nu_n = \nu_0 + n.
+\]
+\end{theoreme}
+
+\begin{proof}
+La vraisemblance de l'\'echantillon s'\'ecrit~:
+\[
+  L(\theta \mid x) = \prod_{i=1}^n h(x_i) \cdot
+  \exp\!\left(\eta(\theta)^\top \sum_{i=1}^n T(x_i) - n\,A(\theta)\right).
+\]
+En multipliant par le prior conjugu\'e~:
+\[
+  \pi(\theta \mid x) \propto
+  \exp\!\big(\eta(\theta)^\top (\chi_0 + \textstyle\sum T(x_i))
+  - (\nu_0 + n)\,A(\theta)\big),
+\]
+qui est de la m\^eme forme avec $(\chi_n, \nu_n)$.
+\end{proof}
+
+% ------------------------------------------------------------
+\section{Table des familles conjugu\'ees}
+% ------------------------------------------------------------
+
+\begin{formules}[title=\textbf{Principales familles conjugu\'ees}]
+\begin{center}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{llll}
+\toprule
+\textbf{Vraisemblance} & \textbf{Prior} & \textbf{Posterior} & \textbf{Mise \`a jour} \\
+\midrule
+$\text{Ber}(\theta)$ & $\text{Be}(a,b)$ & $\text{Be}(a',b')$ &
+  $a'=a+s,\; b'=b+n-s$ \\
+$\text{Bin}(m,\theta)$ & $\text{Be}(a,b)$ & $\text{Be}(a',b')$ &
+  $a'=a+\sum x_i,\; b'=b+nm-\sum x_i$ \\
+$\text{Poi}(\lambda)$ & $\text{Ga}(\alpha,\beta)$ & $\text{Ga}(\alpha',\beta')$ &
+  $\alpha'=\alpha+\sum x_i,\; \beta'=\beta+n$ \\
+$\text{Exp}(\lambda)$ & $\text{Ga}(\alpha,\beta)$ & $\text{Ga}(\alpha',\beta')$ &
+  $\alpha'=\alpha+n,\; \beta'=\beta+\sum x_i$ \\
+$\mathcal{N}(\mu,\sigma^2_0)$ & $\mathcal{N}(\mu_0,\tau^2_0)$ &
+  $\mathcal{N}(\mu_n,\tau^2_n)$ & voir ci-dessous \\
+$\mathcal{N}(\mu_0,\sigma^2)$ & $\text{IG}(\alpha,\beta)$ &
+  $\text{IG}(\alpha',\beta')$ & voir ci-dessous \\
+$\text{Mult}(n,\boldsymbol{p})$ & $\text{Dir}(\boldsymbol{\alpha})$ &
+  $\text{Dir}(\boldsymbol{\alpha}')$ &
+  $\alpha'_k = \alpha_k + x_k$ \\
+$\text{Geom}(\theta)$ & $\text{Be}(a,b)$ & $\text{Be}(a',b')$ &
+  $a'=a+n,\; b'=b+\sum x_i$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{formules}
+
+% ------------------------------------------------------------
+\section{Exemples d\'etaill\'es}
+% ------------------------------------------------------------
+
+\subsection{Bernoulli--B\^eta}
+
+\begin{exemple}
+Soit $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \text{Ber}(\theta)$
+avec $\theta \sim \text{Be}(a, b)$. La statistique suffisante est
+$s = \sum x_i$. Le posterior est $\text{Be}(a + s, b + n - s)$.
+
+\textbf{Interpr\'etation}~: le prior $\text{Be}(a,b)$ \'equivaut \`a
+$a - 1$ \og succ\`es \fg virtuels et $b - 1$ \og \'echecs \fg
+virtuels. L'observation ajoute $s$ succ\`es et $n - s$ \'echecs.
+
+Moments a posteriori~:
+\begin{align*}
+  \E[\theta \mid x] &= \frac{a + s}{a + b + n}, \\
+  \Var[\theta \mid x] &= \frac{(a+s)(b+n-s)}{(a+b+n)^2(a+b+n+1)}.
+\end{align*}
+\end{exemple}
+
+\subsection{Poisson--Gamma}
+
+\begin{exemple}
+Soit $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \text{Poi}(\lambda)$
+avec $\lambda \sim \text{Ga}(\alpha, \beta)$. Alors~:
+\begin{align*}
+  \pi(\lambda \mid x) &\propto
+  \lambda^{\sum x_i} e^{-n\lambda} \cdot \lambda^{\alpha-1} e^{-\beta\lambda} \\
+  &= \lambda^{\alpha + \sum x_i - 1} e^{-(\beta + n)\lambda}.
+\end{align*}
+Donc $\lambda \mid x \sim \text{Ga}(\alpha + \sum x_i, \beta + n)$.
+
+La moyenne a posteriori est~:
+\[
+  \E[\lambda \mid x] = \frac{\alpha + \sum x_i}{\beta + n}
+  = \frac{\beta}{\beta + n} \cdot \frac{\alpha}{\beta}
+  + \frac{n}{\beta + n} \cdot \bar{x}.
+\]
+C'est une moyenne pond\'er\'ee de la moyenne a priori $\alpha/\beta$
+et de la moyenne empirique $\bar{x}$.
+\end{exemple}
+
+\subsection{Normal--Normal (variance connue)}
+
+\begin{theoreme}[Conjugaison Normal--Normal]
+Soit $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \mathcal{N}(\mu, \sigma^2)$
+avec $\sigma^2$ connu et $\mu \sim \mathcal{N}(\mu_0, \tau_0^2)$.
+Alors $\mu \mid x \sim \mathcal{N}(\mu_n, \tau_n^2)$ avec~:
+\[
+  \frac{1}{\tau_n^2} = \frac{1}{\tau_0^2} + \frac{n}{\sigma^2},
+  \qquad
+  \mu_n = \tau_n^2\left(\frac{\mu_0}{\tau_0^2} + \frac{n\bar{x}}{\sigma^2}\right).
+\]
+\end{theoreme}
+
+\begin{proof}
+La log-densit\'e a posteriori (en ignorant les constantes) est~:
+\begin{align*}
+  \log \pi(\mu \mid x)
+  &\propto -\frac{1}{2\tau_0^2}(\mu - \mu_0)^2
+  - \frac{n}{2\sigma^2}(\mu - \bar{x})^2 \\
+  &= -\frac{1}{2}\left(\frac{1}{\tau_0^2} + \frac{n}{\sigma^2}\right)
+  \mu^2 + \left(\frac{\mu_0}{\tau_0^2} + \frac{n\bar{x}}{\sigma^2}\right)\mu
+  + C,
+\end{align*}
+ce qui correspond \`a une gaussienne de pr\'ecision
+$1/\tau_n^2 = 1/\tau_0^2 + n/\sigma^2$ et de moyenne $\mu_n$.
+\end{proof}
+
+\subsection{Normal--Inverse-Gamma (moyenne connue)}
+
+\begin{theoreme}[Conjugaison pour la variance]
+Soit $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \mathcal{N}(\mu_0, \sigma^2)$
+avec $\mu_0$ connu et $\sigma^2 \sim \text{IG}(\alpha, \beta)$. Alors~:
+\[
+  \sigma^2 \mid x \sim \text{IG}\!\left(\alpha + \frac{n}{2},\;
+  \beta + \frac{1}{2}\sum_{i=1}^n (x_i - \mu_0)^2\right).
+\]
+\end{theoreme}
+
+\subsection{Normale--Normale-Inverse-Gamma (cas g\'en\'eral)}
+
+\begin{theoreme}[Conjugaison NIG]
+Soit $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \mathcal{N}(\mu, \sigma^2)$
+avec prior conjoint $(\mu, \sigma^2) \sim \text{NIG}(\mu_0, \kappa_0, \alpha_0, \beta_0)$~:
+\[
+  \mu \mid \sigma^2 \sim \mathcal{N}(\mu_0, \sigma^2/\kappa_0), \qquad
+  \sigma^2 \sim \text{IG}(\alpha_0, \beta_0).
+\]
+Le posterior est $\text{NIG}(\mu_n, \kappa_n, \alpha_n, \beta_n)$ avec~:
+\begin{align*}
+  \kappa_n &= \kappa_0 + n, \\
+  \mu_n &= \frac{\kappa_0 \mu_0 + n\bar{x}}{\kappa_n}, \\
+  \alpha_n &= \alpha_0 + n/2, \\
+  \beta_n &= \beta_0 + \tfrac{1}{2}\sum(x_i-\bar{x})^2
+  + \frac{\kappa_0 n(\bar{x}-\mu_0)^2}{2\kappa_n}.
+\end{align*}
+\end{theoreme}
+
+\subsection{Multinomiale--Dirichlet}
+
+\begin{exemple}
+Soit $\mathbf{x} \sim \text{Mult}(n, \mathbf{p})$ avec
+$\mathbf{p} \sim \text{Dir}(\boldsymbol{\alpha})$. Le posterior est~:
+\[
+  \mathbf{p} \mid \mathbf{x} \sim \text{Dir}(\alpha_1 + x_1, \ldots, \alpha_K + x_K).
+\]
+La moyenne a posteriori de $p_k$ est~:
+\[
+  \E[p_k \mid \mathbf{x}] = \frac{\alpha_k + x_k}{\sum_j (\alpha_j + x_j)}.
+\]
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Priors non conjugu\'es}
+% ------------------------------------------------------------
+
+\begin{remarque}
+Quand le prior n'est pas conjugu\'e, le posterior n'a pas de forme
+ferm\'ee. On doit alors recourir \`a~:
+\begin{itemize}
+  \item l'approximation de Laplace,
+  \item les m\'ethodes MCMC (chapitres~\ref{ch:metropolis}--\ref{ch:gibbs}),
+  \item l'inf\'erence variationnelle (chapitre~\ref{ch:variationnelle}).
+\end{itemize}
+\end{remarque}
+
+\begin{definition}[Approximation de Laplace]
+L'approximation de Laplace approche le posterior par une gaussienne
+centr\'ee sur le MAP (Maximum A Posteriori)~:
+\[
+  \pi(\theta \mid x) \approx \mathcal{N}\!\left(\hat{\theta}_{\text{MAP}},\;
+  \left[-\nabla^2 \log \pi(\theta \mid x)\big|_{\hat{\theta}_{\text{MAP}}}\right]^{-1}\right).
+\]
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Hyperpriors et priors hi\'erarchiques}
+% ------------------------------------------------------------
+
+\begin{definition}[Hyperprior]
+Un \textbf{hyperprior} est une loi plac\'ee sur les hyperparam\`etres du
+prior. Par exemple, si $\theta \sim \text{Be}(a, b)$, on peut poser
+$a \sim \text{Ga}(1, 1)$ et $b \sim \text{Ga}(1, 1)$.
+\end{definition}
+
+\begin{remarque}
+Les hyperpriors m\`enent aux mod\`eles hi\'erarchiques, trait\'es en
+d\'etail au chapitre~\ref{ch:hierarchiques}.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Sensibilit\'e au prior}
+% ------------------------------------------------------------
+
+\begin{definition}[Analyse de sensibilit\'e]
+L'\textbf{analyse de sensibilit\'e} consiste \`a \'evaluer la robustesse
+des conclusions bay\'esiennes en faisant varier le prior dans une classe
+$\Gamma = \{\pi_\gamma : \gamma \in \mathcal{G}\}$ et en \'etudiant
+l'\'etendue des quantit\'es a posteriori.
+\end{definition}
+
+\begin{proposition}[Convergence au MLE]
+Pour tout prior $\pi(\theta)$ absolument continu avec
+$\pi(\theta_0) > 0$, la moyenne a posteriori converge vers le MLE
+quand $n \to \infty$. Ainsi, l'influence du prior dispara\^it
+asymptotiquement.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Impl\'ementation Python}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Conjugaison Poisson--Gamma}]
+\begin{minted}{python}
+import numpy as np
+from scipy import stats
+import matplotlib.pyplot as plt
+
+# Données Poisson
+np.random.seed(123)
+n = 30
+lam_true = 4.5
+data = np.random.poisson(lam_true, size=n)
+
+# Prior Gamma(2, 0.5) => E[lambda] = 4
+alpha_prior, beta_prior = 2, 0.5
+
+# Posterior analytique
+alpha_post = alpha_prior + data.sum()
+beta_post = beta_prior + n
+print(f"Prior: Ga({alpha_prior}, {beta_prior})")
+print(f"Posterior: Ga({alpha_post}, {beta_post})")
+print(f"Moyenne post: {alpha_post/beta_post:.3f}")
+print(f"MLE: {data.mean():.3f}")
+
+# Visualisation
+lam_grid = np.linspace(0, 10, 500)
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.plot(lam_grid,
+        stats.gamma.pdf(lam_grid, alpha_prior,
+                        scale=1/beta_prior),
+        label="Prior", linestyle="--")
+ax.plot(lam_grid,
+        stats.gamma.pdf(lam_grid, alpha_post,
+                        scale=1/beta_post),
+        label="Posterior")
+ax.axvline(lam_true, color="red", alpha=0.5,
+           label=f"Vraie valeur ({lam_true})")
+ax.set_xlabel(r"$\lambda$")
+ax.set_ylabel("Densité")
+ax.legend()
+ax.set_title("Conjugaison Poisson-Gamma")
+plt.tight_layout()
+plt.savefig("poisson_gamma.pdf")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Conjugaison Multinomiale--Dirichlet}]
+\begin{minted}{python}
+import pymc as pm
+import arviz as az
+
+# Données catégorielles (K=4 catégories)
+counts = np.array([45, 30, 15, 10])
+K = len(counts)
+alpha_prior = np.ones(K)  # Dirichlet(1,...,1) = uniforme
+
+# Posterior analytique
+alpha_post = alpha_prior + counts
+p_post_mean = alpha_post / alpha_post.sum()
+print("Posterior Dirichlet:", alpha_post)
+print("Moyenne posterior:", p_post_mean)
+
+# Vérification PyMC
+with pm.Model() as model_dir:
+    p = pm.Dirichlet("p", a=alpha_prior)
+    obs = pm.Multinomial("obs", n=counts.sum(),
+                         p=p, observed=counts)
+    trace = pm.sample(3000, random_seed=42)
+
+print(az.summary(trace, var_names=["p"]))
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}
+Montrer que la famille exponentielle $X \sim \text{Exp}(\lambda)$ admet
+le prior conjugu\'e $\text{Ga}(\alpha, \beta)$ et d\'eterminer le posterior.
+\end{exercice}
+
+\begin{exercice}
+Soit $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \mathcal{N}(\mu, \sigma^2)$
+avec $(\mu, \sigma^2)$ tous deux inconnus. Utiliser le prior NIG et
+calculer le posterior. Montrer que la loi marginale a posteriori de $\mu$
+est une Student.
+\end{exercice}
+
+\begin{exercice}
+Pour le mod\`ele g\'eom\'etrique $X \sim \text{Geom}(\theta)$ avec
+$\PP(X = k) = \theta(1-\theta)^k$ pour $k = 0, 1, 2, \ldots$~:
+\begin{enumerate}
+  \item V\'erifier que ce mod\`ele appartient \`a la famille exponentielle.
+  \item D\'eterminer le prior conjugu\'e.
+  \item Calculer la moyenne a posteriori.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}
+Effectuer une analyse de sensibilit\'e pour le mod\`ele Bernoulli--B\^eta
+avec $n = 10$ et $s = 3$. Comparer les posteriors obtenus avec les
+priors $\text{Be}(1,1)$, $\text{Be}(0.5, 0.5)$, $\text{Be}(2, 8)$
+et $\text{Be}(5, 5)$. Tracer les quatre posteriors sur un m\^eme
+graphique.
+\end{exercice}
+
+\begin{exercice}
+\textbf{(Th\'eorique)} D\'emontrer que le prior conjugu\'e pour la
+famille exponentielle g\'en\'erale est de la forme donn\'ee dans le
+th\'eor\`eme de cette section. V\'erifier sur les cas Bernoulli,
+Poisson et Normal.
+\end{exercice}

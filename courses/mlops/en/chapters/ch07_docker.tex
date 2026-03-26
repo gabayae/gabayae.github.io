@@ -1,0 +1,489 @@
+% ============================================================
+\chapter{Containerization --- Docker for ML}
+\label{ch:docker}
+\index{Docker}
+% ============================================================
+
+\section{Why Containers?}
+\label{sec:why-containers}
+
+Virtual environments solve Python dependency isolation, but they do
+\emph{not} capture system-level dependencies: OS libraries, CUDA
+drivers, compilers, or specific tool versions. Containers solve this
+by packaging an entire filesystem snapshot that runs identically
+everywhere.
+
+\begin{definition}[Container]
+A \textbf{container}\index{container} is a lightweight, standalone,
+executable unit of software that includes everything needed to run an
+application: code, runtime, system tools, libraries, and settings.
+Unlike virtual machines, containers share the host kernel, making them
+much faster to start and smaller in footprint.
+\end{definition}
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, rounded corners, align=center,
+    font=\small, minimum width=2.8cm},
+  layer/.style={rectangle, draw, minimum height=0.7cm, align=center,
+    font=\scriptsize},
+  arr/.style={-{Stealth[length=2mm]}, thick}
+]
+  % VM side
+  \node[font=\small\bfseries] (vmtitle) {Virtual Machines};
+  \node[layer, fill=gray!20, minimum width=6cm, below=0.2cm of vmtitle]
+    (hw1) {Infrastructure (Hardware)};
+  \node[layer, fill=orange!20, minimum width=6cm, above=0cm of hw1.north]
+    (hyp) {Hypervisor};
+  \node[layer, fill=blue!10, minimum width=1.7cm, above=0cm of hyp.north,
+    xshift=-2cm] (os1) {Guest OS};
+  \node[layer, fill=blue!10, minimum width=1.7cm, above=0cm of hyp.north]
+    (os2) {Guest OS};
+  \node[layer, fill=blue!10, minimum width=1.7cm, above=0cm of hyp.north,
+    xshift=2cm] (os3) {Guest OS};
+  \node[layer, fill=green!15, minimum width=1.7cm, above=0cm of os1.north]
+    (a1) {App A};
+  \node[layer, fill=green!15, minimum width=1.7cm, above=0cm of os2.north]
+    (a2) {App B};
+  \node[layer, fill=green!15, minimum width=1.7cm, above=0cm of os3.north]
+    (a3) {App C};
+
+  % Container side
+  \node[font=\small\bfseries, right=3.5cm of vmtitle] (ctitle) {Containers};
+  \node[layer, fill=gray!20, minimum width=6cm, below=0.2cm of ctitle]
+    (hw2) {Infrastructure (Hardware)};
+  \node[layer, fill=orange!10, minimum width=6cm, above=0cm of hw2.north]
+    (hos) {Host OS};
+  \node[layer, fill=cyan!15, minimum width=6cm, above=0cm of hos.north]
+    (dock) {Container Engine (Docker)};
+  \node[layer, fill=green!15, minimum width=1.7cm, above=0cm of dock.north,
+    xshift=-2cm] (c1) {App A};
+  \node[layer, fill=green!15, minimum width=1.7cm, above=0cm of dock.north]
+    (c2) {App B};
+  \node[layer, fill=green!15, minimum width=1.7cm, above=0cm of dock.north,
+    xshift=2cm] (c3) {App C};
+\end{tikzpicture}
+\end{center}
+
+\begin{remark}
+Containers are \emph{not} lightweight VMs. They share the host kernel
+and use Linux namespaces and cgroups for isolation. This makes them
+start in milliseconds rather than minutes, and use megabytes rather
+than gigabytes of overhead.
+\end{remark}
+
+\section{Docker Core Concepts}
+\label{sec:docker-concepts}
+\index{Docker!concepts}
+
+\begin{keyformulas}[title=\textbf{Docker vocabulary}]
+\begin{description}
+  \item[Image] A read-only template with instructions for creating a
+    container. Built from a \file{Dockerfile}.
+  \item[Container] A running instance of an image. Ephemeral by default.
+  \item[Layer] Each instruction in a Dockerfile creates a layer. Layers
+    are cached and shared between images.
+  \item[Registry] A repository for storing and distributing images
+    (Docker Hub, GitHub Container Registry, AWS ECR).
+  \item[Volume] Persistent storage that survives container destruction.
+  \item[Dockerfile] A text file with instructions to assemble an image.
+\end{description}
+\end{keyformulas}
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, rounded corners, minimum width=2.5cm,
+    minimum height=1cm, align=center, font=\small},
+  arr/.style={-{Stealth[length=2.5mm]}, thick, steelblue}
+]
+  \node[box, fill=blue!10] (df) {\textbf{Dockerfile}\\(instructions)};
+  \node[box, fill=green!10, right=2.5cm of df] (img) {\textbf{Image}\\(read-only)};
+  \node[box, fill=orange!10, right=2.5cm of img] (ctr) {\textbf{Container}\\(running)};
+  \node[box, fill=purple!10, above=1.2cm of img] (reg) {\textbf{Registry}\\(Docker Hub)};
+
+  \draw[arr] (df) -- node[above, font=\scriptsize] {\cli{docker build}} (img);
+  \draw[arr] (img) -- node[above, font=\scriptsize] {\cli{docker run}} (ctr);
+  \draw[arr] (img) -- node[left, font=\scriptsize] {\cli{docker push}} (reg);
+  \draw[arr] (reg) -- node[right, font=\scriptsize] {\cli{docker pull}} (img);
+\end{tikzpicture}
+\end{center}
+
+\section{Essential Docker Commands}
+\label{sec:docker-commands}
+
+\begin{codeblock}[title=\textbf{Docker command reference}]
+\begin{minted}{bash}
+# Build an image from a Dockerfile
+docker build -t my-ml-app:v1 .
+
+# Run a container
+docker run -p 8000:8000 my-ml-app:v1
+
+# Run interactively with GPU support
+docker run -it --gpus all my-ml-app:v1 bash
+
+# List running containers
+docker ps
+
+# Stop and remove a container
+docker stop <container_id>
+docker rm <container_id>
+
+# List images
+docker images
+
+# Remove an image
+docker rmi my-ml-app:v1
+
+# View container logs
+docker logs -f <container_id>
+
+# Execute a command in a running container
+docker exec -it <container_id> bash
+\end{minted}
+\end{codeblock}
+
+\section{Dockerfile for ML Projects}
+\label{sec:dockerfile-ml}
+\index{Dockerfile}
+
+\begin{codeblock}[title=\textbf{Complete ML Dockerfile with Python and CUDA}]
+\begin{minted}{dockerfile}
+# Use NVIDIA CUDA base image for GPU support
+FROM nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04
+
+# Prevent interactive prompts during build
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3.11-venv \
+    python3-pip \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Python 3.11 as default
+RUN ln -sf /usr/bin/python3.11 /usr/bin/python
+
+# Create non-root user
+RUN useradd -m -s /bin/bash mluser
+WORKDIR /app
+
+# Copy and install dependencies first (layer caching)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY src/ ./src/
+COPY models/ ./models/
+COPY configs/ ./configs/
+
+# Switch to non-root user
+USER mluser
+
+# Expose API port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Default command
+CMD ["python", "-m", "uvicorn", "src.api:app", \
+     "--host", "0.0.0.0", "--port", "8000"]
+\end{minted}
+\end{codeblock}
+
+\begin{remark}
+The order of \texttt{COPY} instructions matters for layer caching.
+Dependencies change less often than source code, so
+\file{requirements.txt} is copied and installed \emph{before} the
+application code. This way, rebuilding after a code change does not
+re-install all packages.
+\end{remark}
+
+\section{Multi-stage Builds}
+\label{sec:multi-stage}
+\index{Docker!multi-stage}
+
+Multi-stage builds produce smaller production images by separating the
+build environment from the runtime environment.
+
+\begin{codeblock}[title=\textbf{Multi-stage Dockerfile for ML}]
+\begin{minted}{dockerfile}
+# ---------- Stage 1: Builder ----------
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install \
+    -r requirements.txt
+
+# ---------- Stage 2: Training ----------
+FROM python:3.11-slim AS trainer
+
+WORKDIR /app
+COPY --from=builder /install /usr/local
+COPY src/ ./src/
+COPY configs/ ./configs/
+COPY data/ ./data/
+
+RUN python src/train.py --config configs/config.yaml
+
+# ---------- Stage 3: Production ----------
+FROM python:3.11-slim AS production
+
+RUN useradd -m mluser
+WORKDIR /app
+
+COPY --from=builder /install /usr/local
+COPY --from=trainer /app/models/ ./models/
+COPY src/api.py ./src/
+COPY src/predict.py ./src/
+
+USER mluser
+EXPOSE 8000
+CMD ["uvicorn", "src.api:app", "--host", "0.0.0.0", \
+     "--port", "8000"]
+\end{minted}
+\end{codeblock}
+
+\begin{bestpractice}[title=\textbf{Multi-stage build benefits}]
+\begin{itemize}
+  \item The final image contains only runtime dependencies---no
+    compilers, build tools, or training data.
+  \item A typical ML image drops from 5--8\,GB to 500\,MB--1\,GB.
+  \item Smaller images mean faster deployments and reduced attack
+    surface.
+\end{itemize}
+\end{bestpractice}
+
+\section{Docker Compose for ML Stacks}
+\label{sec:docker-compose}
+\index{Docker Compose}
+
+Docker Compose orchestrates multi-container applications with a single
+YAML file.
+
+\begin{codeblock}[title=\textbf{docker-compose.yml --- ML application stack}]
+\begin{minted}{yaml}
+version: "3.9"
+
+services:
+  # ML API service
+  ml-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - model-store:/app/models
+    environment:
+      - MODEL_PATH=/app/models/model.joblib
+      - LOG_LEVEL=info
+    depends_on:
+      db:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # PostgreSQL for metadata
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: mlops
+      POSTGRES_USER: mluser
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mluser"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # MLflow tracking server
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.10.0
+    ports:
+      - "5000:5000"
+    command: >
+      mlflow server
+      --backend-store-uri postgresql://mluser:${DB_PASSWORD}@db/mlops
+      --default-artifact-root /mlflow/artifacts
+      --host 0.0.0.0
+    volumes:
+      - mlflow-artifacts:/mlflow/artifacts
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  model-store:
+  pg-data:
+  mlflow-artifacts:
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Docker Compose commands}]
+\begin{minted}{bash}
+# Start all services
+docker compose up -d
+
+# View logs
+docker compose logs -f ml-api
+
+# Rebuild after code change
+docker compose up -d --build ml-api
+
+# Stop all services
+docker compose down
+
+# Stop and remove volumes (destructive)
+docker compose down -v
+\end{minted}
+\end{codeblock}
+
+\section{Best Practices}
+\label{sec:docker-best-practices}
+
+\begin{bestpractice}[title=\textbf{Docker best practices for ML}]
+\begin{enumerate}
+  \item \textbf{Use \file{.dockerignore}}: exclude data, notebooks,
+    \file{.git}, \file{\_\_pycache\_\_}, virtual environments.
+  \item \textbf{Layer caching}: copy dependency files before source code.
+  \item \textbf{Non-root user}: always switch to a non-root user with
+    \texttt{USER}.
+  \item \textbf{Pin base image versions}: use
+    \texttt{python:3.11.7-slim}, not \texttt{python:latest}.
+  \item \textbf{Minimize layers}: combine related \texttt{RUN}
+    commands with \texttt{\&\&}.
+  \item \textbf{Clean up}: remove apt caches with
+    \cli{rm -rf /var/lib/apt/lists/*}.
+  \item \textbf{Use \texttt{--no-cache-dir}}: prevent pip from storing
+    downloaded packages in the image.
+  \item \textbf{Health checks}: add \texttt{HEALTHCHECK} for
+    production images.
+  \item \textbf{Label images}: use \texttt{LABEL} for metadata
+    (version, maintainer).
+\end{enumerate}
+\end{bestpractice}
+
+\begin{codeblock}[title=\textbf{.dockerignore}]
+\begin{minted}{text}
+.git
+.gitignore
+__pycache__
+*.pyc
+.venv/
+data/raw/
+notebooks/
+*.ipynb
+.env
+.dockerignore
+Dockerfile
+docker-compose.yml
+README.md
+\end{minted}
+\end{codeblock}
+
+\begin{antipattern}[title=\textbf{Docker anti-patterns for ML}]
+\begin{itemize}
+  \item Using \texttt{latest} tag for base images---builds become
+    non-reproducible.
+  \item Running containers as root in production.
+  \item Copying the entire project tree including data and notebooks.
+  \item Installing dev tools (Jupyter, pytest) in production images.
+  \item Storing secrets in the Dockerfile or image layers.
+  \item Building images without \file{.dockerignore}---context upload
+    takes minutes.
+  \item Using a single monolithic container for training, serving, and
+    monitoring.
+\end{itemize}
+\end{antipattern}
+
+\section{Mini-project: Containerized ML Application}
+\label{sec:mini-project-ch7}
+
+\begin{miniproject}[title=\textbf{Mini-project 7: Docker for ML}]
+\begin{enumerate}
+  \item Write a \file{Dockerfile} for the structured ML project from
+    Chapter~\ref{ch:introduction}.
+  \item Use multi-stage builds: one stage for training, one for
+    serving.
+  \item Create a \file{.dockerignore} file.
+  \item Write a \file{docker-compose.yml} that includes the ML API,
+    a PostgreSQL database, and an MLflow tracking server.
+  \item Verify that \cli{docker compose up} starts all services and
+    that the API responds to prediction requests.
+  \item Measure the image size before and after multi-stage
+    optimization.
+\end{enumerate}
+\end{miniproject}
+
+\section{Exercises}
+\label{sec:exercises-ch7}
+
+\begin{exercise}[$\bigstar$ --- Basic Dockerfile]
+Write a Dockerfile for a scikit-learn project that:
+\begin{enumerate}
+  \item Uses \texttt{python:3.11-slim} as the base image
+  \item Installs dependencies from \file{requirements.txt}
+  \item Copies the source code
+  \item Runs the training script as the default command
+\end{enumerate}
+Build the image and verify it runs correctly.
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar$ --- Multi-stage optimization]
+Starting from a single-stage Dockerfile for a PyTorch project:
+\begin{enumerate}
+  \item Measure the original image size with \cli{docker images}
+  \item Convert to a multi-stage build separating build and runtime
+  \item Add a \file{.dockerignore} file
+  \item Compare the final image sizes and document the savings
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar\bigstar$ --- Full ML stack with Compose]
+Create a complete Docker Compose stack for an ML project:
+\begin{enumerate}
+  \item ML API (FastAPI) with GPU support
+  \item PostgreSQL database for predictions logging
+  \item MLflow tracking server backed by PostgreSQL
+  \item Prometheus for metrics collection
+  \item Grafana dashboard for monitoring
+\end{enumerate}
+All services must have health checks, use named volumes for
+persistence, and communicate through a custom Docker network.
+\end{exercise}
+
+\section{Cheatsheet}
+
+\begin{cheatsheet}[title=\textbf{Chapter 7 Summary}]
+\begin{tabular}{@{}p{4cm}p{8.5cm}@{}}
+\toprule
+\textbf{Concept} & \textbf{Key Point} \\
+\midrule
+Image vs Container & Image = template (read-only); Container = running instance \\
+\cli{docker build} & Build image from Dockerfile \\
+\cli{docker run} & Create and start a container \\
+Multi-stage & Separate build/runtime for smaller images \\
+Layer caching & Copy \file{requirements.txt} before source code \\
+\file{.dockerignore} & Exclude data, notebooks, \file{.git} \\
+Non-root user & \texttt{USER mluser} for security \\
+Docker Compose & Multi-container orchestration via YAML \\
+GPU access & \cli{docker run --gpus all} or Compose \texttt{deploy} \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}

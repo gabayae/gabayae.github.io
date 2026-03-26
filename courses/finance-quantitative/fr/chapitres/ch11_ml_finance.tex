@@ -1,0 +1,268 @@
+% ============================================================
+\chapter{Apprentissage Machine en Finance}
+\label{ch:ml_finance}
+% ============================================================
+
+\section{Introduction}
+
+L'apprentissage machine\index{machine learning!finance} (ML) transforme la
+finance quantitative en permettant de d\'ecouvrir des structures non lin\'eaires
+dans les donn\'ees de march\'e. Ce chapitre pr\'esente les principales
+applications : trading algorithmique, pricing d'options par r\'eseaux de
+neurones, gestion de portefeuille par apprentissage par renforcement, analyse
+de sentiment par NLP, ainsi que les risques et la r\'eglementation.
+
+\begin{intuition}
+Les mod\`eles classiques (Black-Scholes, GARCH) imposent une structure
+param\'etrique. Le ML permet de \og laisser parler les donn\'ees \fg en
+apprenant des relations complexes directement, au prix d'un risque de
+surapprentissage accru et d'une moindre interpr\'etabilit\'e.
+\end{intuition}
+
+\section{Trading algorithmique}
+
+\begin{definition}[Strat\'egie de trading algorithmique]
+\index{trading algorithmique}
+Une \textbf{strat\'egie de trading algorithmique} est une r\`egle syst\'ematique
+$\delta_t = g(x_t; \theta)$ qui d\'etermine la position $\delta_t$ \`a
+l'instant $t$ en fonction de features observables $x_t$ et de param\`etres
+$\theta$ optimis\'es sur donn\'ees historiques.
+\end{definition}
+
+\begin{proposition}[Features classiques]
+Les pr\'edicteurs typiques incluent :
+\begin{enumerate}
+    \item \textbf{Indicateurs techniques} : moyennes mobiles, RSI, bandes de
+    Bollinger, MACD.
+    \item \textbf{Microstructure} : d\'es\'equilibre du carnet d'ordres (order
+    flow imbalance), spread bid-ask, volume.
+    \item \textbf{Features fondamentaux} : ratios financiers, earnings
+    surprises.
+    \item \textbf{Features alternatifs} : donn\'ees satellites, trafic web,
+    sentiment de r\'eseaux sociaux.
+\end{enumerate}
+\end{proposition}
+
+\begin{attention}[title=\textbf{Surapprentissage et data snooping}]
+Le backtesting massif sur donn\'ees historiques produit des strat\'egies qui
+performent parfaitement in-sample mais \'echouent out-of-sample. Il faut :
+validation crois\'ee temporelle (walk-forward), correction de Bonferroni pour
+les tests multiples, et r\'eserve de donn\'ees fraïches pour le test final.
+\end{attention}
+
+\begin{theoreme}[Borne de g\'en\'eralisation]
+\index{borne de g\'en\'eralisation}
+Pour une classe d'hypoth\`eses $\mathcal{H}$ de dimension de Vapnik-Chervonenkis
+$d_{\mathrm{VC}}$, avec probabilit\'e au moins $1 - \delta$ sur un \'echantillon
+de taille $n$ :
+\[
+    R(h) \leq \hat{R}(h) + \sqrt{\frac{d_{\mathrm{VC}}(\ln(2n/d_{\mathrm{VC}}) + 1) + \ln(4/\delta)}{n}},
+\]
+o\`u $R(h)$ est le risque r\'eel et $\hat{R}(h)$ le risque empirique.
+\end{theoreme}
+
+\section{R\'eseaux de neurones pour le pricing d'options}
+
+\begin{definition}[R\'eseau de neurones feedforward]
+\index{r\'eseau de neurones}
+Un \textbf{r\'eseau de neurones feedforward} \`a $L$ couches est une fonction
+\[
+    f_\theta(x) = W_L\,\sigma(W_{L-1}\,\sigma(\cdots\sigma(W_1 x + b_1)\cdots) + b_{L-1}) + b_L,
+\]
+o\`u $\sigma$ est une fonction d'activation non lin\'eaire (ReLU, tanh, etc.),
+$W_\ell$ les matrices de poids et $b_\ell$ les biais.
+\end{definition}
+
+\begin{theoreme}[Approximation universelle]
+\index{approximation universelle}
+Pour toute fonction continue $g : \R^d \to \R$ sur un compact $K$ et tout
+$\epsilon > 0$, il existe un r\'eseau feedforward \`a une couche cach\'ee avec
+activation sigmo\"ide tel que $\sup_{x \in K}\abs{f_\theta(x) - g(x)} < \epsilon$.
+\end{theoreme}
+
+\begin{proposition}[Pricing par r\'eseau de neurones]
+L'approche consiste \`a :
+\begin{enumerate}
+    \item G\'en\'erer $N$ jeux de param\`etres $(S_0^{(i)}, K^{(i)}, T^{(i)},
+    \sigma^{(i)}, r^{(i)})$ et calculer les prix $V^{(i)}$ par Black-Scholes
+    ou Monte Carlo.
+    \item Entra\^iner un r\'eseau $f_\theta$ minimisant
+    $\frac{1}{N}\sum_{i=1}^N (f_\theta(x^{(i)}) - V^{(i)})^2$.
+    \item En inf\'erence, $f_\theta$ donne le prix et les grecs
+    ($\Delta = \partial f_\theta/\partial S$) quasi instantan\'ement.
+\end{enumerate}
+\end{proposition}
+
+\begin{remarque}
+Les r\'eseaux de neurones acc\'el\`erent le pricing d'un facteur $10^3$ \`a
+$10^5$ par rapport \`a Monte Carlo, ce qui est crucial pour le calcul de la
+XVA (CVA, DVA, FVA) sur des portefeuilles contenant des milliers de
+transactions.
+\end{remarque}
+
+\section{Apprentissage par renforcement pour la gestion de portefeuille}
+
+\begin{definition}[Processus de d\'ecision markovien (MDP)]
+\index{MDP}
+Un \textbf{MDP} est un tuple $(\mathcal{S}, \mathcal{A}, P, R, \gamma)$ o\`u
+$\mathcal{S}$ est l'espace d'\'etats, $\mathcal{A}$ l'espace d'actions,
+$P(s'|s, a)$ la dynamique de transition, $R(s, a)$ la r\'ecompense, et
+$\gamma \in [0, 1)$ le facteur d'actualisation.
+\end{definition}
+
+\begin{definition}[Politique et fonction de valeur]
+\index{politique!apprentissage par renforcement}
+Une \textbf{politique} $\pi : \mathcal{S} \to \mathcal{A}$ sp\'ecifie l'action
+\`a chaque \'etat. La \textbf{fonction de valeur} est
+$V^\pi(s) = \E_\pi\left[\sum_{t=0}^\infty \gamma^t R(s_t, a_t) \mid s_0 = s\right]$.
+La politique optimale satisfait $V^*(s) = \max_\pi V^\pi(s)$.
+\end{definition}
+
+\begin{theoreme}[\'Equation de Bellman]
+\index{\'equation de Bellman}
+La fonction de valeur optimale satisfait
+\[
+    V^*(s) = \max_{a \in \mathcal{A}} \left[R(s, a)
+    + \gamma \sum_{s'} P(s'|s, a)\,V^*(s')\right].
+\]
+\end{theoreme}
+
+\begin{proposition}[Application \`a la gestion de portefeuille]
+\begin{itemize}
+    \item \textbf{\'Etat} : $s_t = (w_t, S_t, \text{features}_t)$ (richesse,
+    prix, indicateurs).
+    \item \textbf{Action} : $a_t = (\delta_1, \ldots, \delta_d)$ (allocations
+    dans $d$ actifs).
+    \item \textbf{R\'ecompense} : $R_t = \ln(w_{t+1}/w_t)$ (rendement
+    logarithmique) ou ratio de Sharpe diff\'erentiel.
+    \item \textbf{Algorithmes} : DDPG, PPO, SAC pour actions continues.
+\end{itemize}
+\end{proposition}
+
+\section{NLP et analyse de sentiment}
+
+\begin{definition}[Analyse de sentiment financi\`ere]
+\index{analyse de sentiment}
+L'\textbf{analyse de sentiment} en finance consiste \`a extraire un signal
+haussier/baissier \`a partir de sources textuelles : communiqu\'es de presse,
+rapports d'analystes, tweets, transcriptions d'appels de r\'esultats.
+\end{definition}
+
+\begin{proposition}[Pipeline NLP pour la finance]
+\begin{enumerate}
+    \item \textbf{Collecte} : flux Reuters/Bloomberg, API Twitter/Reddit.
+    \item \textbf{Pr\'etraitement} : tokenisation, suppression des stop words,
+    lemmatisation.
+    \item \textbf{Mod\`ele} : FinBERT (BERT fine-tun\'e sur du texte financier)
+    ou GPT sp\'ecialis\'e.
+    \item \textbf{Agr\'egation} : score de sentiment moyen pond\'er\'e par
+    source et par r\'ecence.
+    \item \textbf{Signal de trading} : combinaison avec des features quantitatifs.
+\end{enumerate}
+\end{proposition}
+
+\begin{formules}[title=\textbf{M\'etriques de performance des strat\'egies ML}]
+\begin{align*}
+    \text{Ratio de Sharpe} &= \frac{\E[R_p] - r_f}{\sqrt{\Var(R_p)}} \\
+    \text{Ratio de Sortino} &= \frac{\E[R_p] - r_f}{\sqrt{\E[\min(R_p - r_f, 0)^2]}} \\
+    \text{Maximum Drawdown} &= \max_{t} \frac{\max_{s \leq t} W_s - W_t}{\max_{s \leq t} W_s}
+\end{align*}
+\end{formules}
+
+\section{Risques et r\'eglementation}
+
+\begin{definition}[Risque de mod\`ele]
+\index{risque de mod\`ele}
+Le \textbf{risque de mod\`ele} en ML inclut :
+\begin{itemize}
+    \item \textbf{Surapprentissage} : le mod\`ele m\'emorise le bruit.
+    \item \textbf{Distribution shift} : les donn\'ees futures diff\`erent des
+    donn\'ees d'entra\^inement (changements de r\'egime).
+    \item \textbf{Bo\^ite noire} : impossibilit\'e d'expliquer les d\'ecisions
+    (probl\`eme d'interpr\'etabilit\'e).
+    \item \textbf{Attaques adversariales} : manipulation d\'elib\'er\'ee des
+    inputs pour tromper le mod\`ele.
+\end{itemize}
+\end{definition}
+
+\begin{remarque}
+Le r\`eglement europ\'een AI Act (2024) classe les syst\`emes de scoring de
+cr\'edit et de trading algorithmique comme \`a \og haut risque \fg, imposant
+des exigences de transparence, de documentation et de supervision humaine.
+\end{remarque}
+
+\begin{codeblock}[title=\textbf{Pricing d'options par r\'eseau de neurones}]
+\begin{minted}{python}
+import numpy as np
+import torch
+import torch.nn as nn
+from scipy.stats import norm
+
+def bs_call(S, K, T, r, sigma):
+    d1 = (np.log(S/K) + (r + sigma**2/2)*T) / (sigma*np.sqrt(T))
+    d2 = d1 - sigma*np.sqrt(T)
+    return S*norm.cdf(d1) - K*np.exp(-r*T)*norm.cdf(d2)
+
+# Generate training data
+n_train = 50_000
+S = np.random.uniform(50, 150, n_train)
+K = np.random.uniform(50, 150, n_train)
+T = np.random.uniform(0.1, 2.0, n_train)
+sigma = np.random.uniform(0.1, 0.5, n_train)
+r_rate = np.full(n_train, 0.05)
+prices = bs_call(S, K, T, r_rate, sigma)
+
+X = torch.tensor(np.column_stack([S, K, T, sigma]), dtype=torch.float32)
+y = torch.tensor(prices, dtype=torch.float32).unsqueeze(1)
+
+model = nn.Sequential(
+    nn.Linear(4, 64), nn.ReLU(),
+    nn.Linear(64, 64), nn.ReLU(),
+    nn.Linear(64, 1))
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+for epoch in range(200):
+    pred = model(X)
+    loss = nn.MSELoss()(pred, y)
+    optimizer.zero_grad(); loss.backward(); optimizer.step()
+print(f"MSE finale: {loss.item():.6f}")
+\end{minted}
+\end{codeblock}
+
+\section{Exercices}
+
+\begin{exercice}[Feature engineering]
+Pour une strat\'egie de trading sur le S\&P 500, proposer 10 features
+pertinents. Discuter les probl\`emes de look-ahead bias et de
+multicollin\'earit\'e.
+\end{exercice}
+
+\begin{exercice}[R\'eseau pour les grecs]
+Entra\^iner un r\'eseau de neurones pour pricer des calls europ\'eens. Calculer
+le delta par diff\'erentiation automatique et comparer avec la formule
+analytique.
+\end{exercice}
+
+\begin{exercice}[RL pour allocation]
+Impl\'ementer un agent DQN simple pour l'allocation entre un actif risqu\'e
+(rendement $\mathcal{N}(8\%, 20\%)$) et un actif sans risque (3\%). Comparer
+la politique apprise avec la r\`egle de Merton.
+\end{exercice}
+
+\begin{exercice}[Analyse de sentiment]
+Collecter 1000 titres d'actualit\'es financi\`eres et les classifier en
+positif/n\'egatif/neutre. Mesurer la corr\'elation entre le score de sentiment
+agr\'eg\'e et les rendements du lendemain.
+\end{exercice}
+
+\begin{exercice}[Validation temporelle]
+Expliquer pourquoi la validation crois\'ee standard (k-fold) est
+inappropri\'ee en finance. Impl\'ementer une validation walk-forward avec une
+fen\^etre glissante de 2 ans d'entra\^inement et 6 mois de test.
+\end{exercice}
+
+\begin{exercice}[Interpr\'etabilit\'e]
+Appliquer les valeurs de Shapley (SHAP) \`a un mod\`ele XGBoost de pr\'ediction
+de rendements. Identifier les features les plus importants et discuter la
+stabilit\'e des explications au cours du temps.
+\end{exercice}

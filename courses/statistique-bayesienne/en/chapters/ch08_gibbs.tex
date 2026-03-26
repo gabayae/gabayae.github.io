@@ -1,0 +1,359 @@
+% ============================================================
+\chapter{Gibbs Sampler}
+\label{ch:gibbs}
+% ============================================================
+
+In 1984, Stuart and Donald Geman published a paper on image restoration that introduced a particularly elegant MCMC algorithm: the \emph{Gibbs sampler}. Instead of proposing moves in the full parameter space (as Metropolis--Hastings does), the algorithm updates each component separately, drawing directly from its \emph{full conditional distribution} --- the distribution of that component given all the others. The beauty of the procedure is that the acceptance rate is always $100\%$, eliminating the need to calibrate a proposal distribution. Alan Gelfand and Adrian Smith (1990) then showed that the Gibbs sampler applies to a vast class of hierarchical Bayesian models, triggering the MCMC revolution in statistics.
+
+\begin{intuition}[title=\textbf{Central idea}]
+The Gibbs sampler is a special case of Metropolis--Hastings where each
+component of the parameter is updated by drawing directly from its
+\textbf{full conditional distribution}. The acceptance rate is always
+$1$, eliminating the need to tune the proposal.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Full conditional distributions}
+% ------------------------------------------------------------
+
+\begin{definition}[Full conditional]
+Let $\theta = (\theta_1, \ldots, \theta_d)$. The \textbf{full
+conditional} of $\theta_k$ is:
+\[
+  \pi(\theta_k \mid \theta_{-k}, x)
+  \propto \pi(\theta_1, \ldots, \theta_d \mid x)
+  \quad \text{as a function of } \theta_k,
+\]
+where $\theta_{-k} = (\theta_1, \ldots, \theta_{k-1}, \theta_{k+1}, \ldots, \theta_d)$.
+\end{definition}
+
+\begin{remark}
+To identify the full conditional, fix all components except $\theta_k$
+in the joint posterior and recognize the distribution in $\theta_k$.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Gibbs sampling algorithm}
+% ------------------------------------------------------------
+
+\begin{algorithme}[title=\textbf{Gibbs sampler}]
+\begin{enumerate}
+  \item Initialize $\theta^{(0)} = (\theta_1^{(0)}, \ldots, \theta_d^{(0)})$.
+  \item For $t = 0, 1, \ldots, T-1$:
+  \begin{enumerate}
+    \item Draw $\theta_1^{(t+1)} \sim \pi(\theta_1 \mid \theta_2^{(t)}, \ldots, \theta_d^{(t)}, x)$.
+    \item Draw $\theta_2^{(t+1)} \sim \pi(\theta_2 \mid \theta_1^{(t+1)}, \theta_3^{(t)}, \ldots, \theta_d^{(t)}, x)$.
+    \item[$\vdots$]
+    \item Draw $\theta_d^{(t+1)} \sim \pi(\theta_d \mid \theta_1^{(t+1)}, \ldots, \theta_{d-1}^{(t+1)}, x)$.
+  \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+\begin{theorem}[Gibbs as a special case of MH]
+The Gibbs sampler is a Metropolis--Hastings algorithm where the
+proposal for $\theta_k$ is
+$q_k(\theta_k^* \mid \theta_{-k}) = \pi(\theta_k^* \mid \theta_{-k}, x)$.
+The acceptance ratio is always~$1$.
+\end{theorem}
+
+\begin{proof}
+The acceptance ratio for the update of $\theta_k$ is:
+\begin{align*}
+  \alpha &= \frac{\pi(\theta_k^*, \theta_{-k} \mid x)\,\pi(\theta_k^{(t)} \mid \theta_{-k}, x)}
+                 {\pi(\theta_k^{(t)}, \theta_{-k} \mid x)\,\pi(\theta_k^* \mid \theta_{-k}, x)} \\
+  &= \frac{\pi(\theta_k^* \mid \theta_{-k}, x)\,\pi(\theta_{-k} \mid x)
+            \cdot \pi(\theta_k^{(t)} \mid \theta_{-k}, x)}
+          {\pi(\theta_k^{(t)} \mid \theta_{-k}, x)\,\pi(\theta_{-k} \mid x)
+            \cdot \pi(\theta_k^* \mid \theta_{-k}, x)}
+  = 1.
+\end{align*}
+\end{proof}
+
+\begin{theorem}[Convergence of the Gibbs sampler]
+Under regularity conditions (positivity of the posterior on the full
+space), the Gibbs sampler converges to the target distribution
+$\pi(\theta \mid x)$.
+\end{theorem}
+
+% ------------------------------------------------------------
+\section{Fundamental examples}
+% ------------------------------------------------------------
+
+\subsection{Bivariate normal model}
+
+\begin{example}
+Let $(\theta_1, \theta_2) \sim \mathcal{N}_2(\boldsymbol{\mu}, \boldsymbol{\Sigma})$
+with $\boldsymbol{\Sigma} = \begin{pmatrix} 1 & \rho \\ \rho & 1 \end{pmatrix}$.
+The full conditionals are:
+\begin{align*}
+  \theta_1 \mid \theta_2 &\sim \mathcal{N}(\mu_1 + \rho(\theta_2 - \mu_2),\; 1 - \rho^2), \\
+  \theta_2 \mid \theta_1 &\sim \mathcal{N}(\mu_2 + \rho(\theta_1 - \mu_1),\; 1 - \rho^2).
+\end{align*}
+\end{example}
+
+\begin{warning}[title=\textbf{High correlation}]
+When $\rho$ is close to $\pm 1$, the Gibbs sampler mixes slowly because
+component-wise updates cannot efficiently explore the elongated
+distribution. HMC/NUTS or reparameterization is preferred.
+\end{warning}
+
+\subsection{Normal model with unknown mean and variance}
+
+\begin{example}
+Let $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \mathcal{N}(\mu, \sigma^2)$
+with priors $\mu \sim \mathcal{N}(\mu_0, \tau_0^2)$ and
+$\sigma^2 \sim \text{IG}(\alpha_0, \beta_0)$. The conditionals are:
+\begin{align*}
+  \mu \mid \sigma^2, x &\sim \mathcal{N}\!\left(
+  \frac{\mu_0/\tau_0^2 + n\bar{x}/\sigma^2}{1/\tau_0^2 + n/\sigma^2},\;
+  \frac{1}{1/\tau_0^2 + n/\sigma^2}\right), \\
+  \sigma^2 \mid \mu, x &\sim \text{IG}\!\left(
+  \alpha_0 + \frac{n}{2},\;
+  \beta_0 + \frac{1}{2}\sum_{i=1}^n (x_i - \mu)^2\right).
+\end{align*}
+\end{example}
+
+\subsection{Mixture model}
+
+\begin{example}
+\textbf{Mixture of $K$ Gaussians.} Given data $x_1, \ldots, x_n$
+with latent variables $z_i \in \{1, \ldots, K\}$ and parameters
+$(\boldsymbol{\pi}, \boldsymbol{\mu}, \boldsymbol{\sigma}^2)$.
+The conditionals are:
+
+\textbf{Allocation}:
+$\PP(z_i = k \mid \cdot) \propto \pi_k\,\mathcal{N}(x_i \mid \mu_k, \sigma_k^2)$.
+
+\textbf{Proportions}:
+$\boldsymbol{\pi} \mid \cdot \sim \text{Dir}(\alpha_1 + n_1, \ldots, \alpha_K + n_K)$,
+where $n_k = \#\{i : z_i = k\}$.
+
+\textbf{Means}:
+$\mu_k \mid \cdot \sim \mathcal{N}\!\left(\frac{\mu_0/\tau^2 + \sum_{z_i=k} x_i/\sigma_k^2}{1/\tau^2 + n_k/\sigma_k^2},\;
+\frac{1}{1/\tau^2 + n_k/\sigma_k^2}\right)$.
+
+\textbf{Variances}:
+$\sigma_k^2 \mid \cdot \sim \text{IG}\!\left(a + n_k/2,\;
+b + \frac{1}{2}\sum_{z_i=k}(x_i - \mu_k)^2\right)$.
+\end{example}
+
+% ------------------------------------------------------------
+\section{Gibbs variants}
+% ------------------------------------------------------------
+
+\begin{definition}[Block Gibbs]
+Instead of updating each component separately, \textbf{block Gibbs}
+updates groups of components simultaneously. This improves mixing when
+the components within a block are strongly correlated.
+\end{definition}
+
+\begin{definition}[Collapsed Gibbs / Rao--Blackwellization]
+\textbf{Collapsed Gibbs} analytically marginalizes some parameters
+before sampling, reducing dimensionality and improving efficiency.
+\end{definition}
+
+\begin{theorem}[Rao--Blackwellization]
+If $g(\theta)$ is a function of interest and
+$\E[g(\theta_1) \mid \theta_2, x]$ can be computed analytically, then
+the Rao--Blackwellized estimator:
+\[
+  \hat{g}_{\text{RB}} = \frac{1}{T}\sum_{t=1}^T
+  \E[g(\theta_1) \mid \theta_2^{(t)}, x]
+\]
+has variance less than or equal to
+$\hat{g} = \frac{1}{T}\sum_t g(\theta_1^{(t)})$.
+\end{theorem}
+
+% ------------------------------------------------------------
+\section{Data augmentation}
+% ------------------------------------------------------------
+
+\begin{definition}[Data augmentation]
+\textbf{Data augmentation} introduces latent variables $z$ to
+simplify sampling. One alternates:
+\begin{enumerate}
+  \item Draw $z \mid \theta, x$ (I-step).
+  \item Draw $\theta \mid z, x$ (P-step).
+\end{enumerate}
+\end{definition}
+
+\begin{example}
+\textbf{Probit model.} For $Y_i \in \{0, 1\}$ with
+$\PP(Y_i = 1) = \Phi(X_i^\top \beta)$, introduce
+$Z_i \sim \mathcal{N}(X_i^\top \beta, 1)$ and
+$Y_i = \mathbf{1}(Z_i > 0)$. Conditional on the $Z_i$, $\beta$ has a
+Gaussian posterior. Sampling $Z_i$ is done by truncation.
+\end{example}
+
+% ------------------------------------------------------------
+\section{Python implementation}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Gibbs sampler for the normal model}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import stats
+
+# Data
+np.random.seed(42)
+n = 50
+mu_true, sigma_true = 5.0, 2.0
+data = np.random.normal(mu_true, sigma_true, n)
+xbar = data.mean()
+S2 = ((data - data.mean())**2).sum()
+
+# Hyperparameters
+mu_0, tau_0 = 0, 10
+alpha_0, beta_0 = 1, 1
+
+# Gibbs sampler
+T = 10000
+mu_samples = np.zeros(T)
+sigma2_samples = np.zeros(T)
+mu_samples[0] = 0
+sigma2_samples[0] = 1
+
+for t in range(1, T):
+    # Draw mu | sigma^2, x
+    prec_post = 1/tau_0**2 + n/sigma2_samples[t-1]
+    mu_post = (mu_0/tau_0**2 + n*xbar/sigma2_samples[t-1]) \
+              / prec_post
+    mu_samples[t] = np.random.normal(mu_post,
+                                      1/np.sqrt(prec_post))
+
+    # Draw sigma^2 | mu, x
+    alpha_post = alpha_0 + n/2
+    beta_post = beta_0 + 0.5 * np.sum(
+        (data - mu_samples[t])**2)
+    sigma2_samples[t] = 1 / np.random.gamma(alpha_post,
+                                              1/beta_post)
+
+burn_in = 1000
+print(f"mu: {mu_samples[burn_in:].mean():.3f} "
+      f"(true: {mu_true})")
+print(f"sigma: {np.sqrt(sigma2_samples[burn_in:]).mean():.3f} "
+      f"(true: {sigma_true})")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Gibbs for Gaussian mixture}]
+\begin{minted}{python}
+# Mixture of 2 Gaussians
+np.random.seed(42)
+n = 200
+z_true = np.random.choice([0, 1], size=n, p=[0.4, 0.6])
+data_mix = np.where(z_true == 0,
+                     np.random.normal(0, 1, n),
+                     np.random.normal(5, 1.5, n))
+
+K = 2
+T = 5000
+pi_samples = np.zeros((T, K))
+mu_mix = np.zeros((T, K))
+sigma2_mix = np.zeros((T, K))
+z_samples = np.zeros((T, n), dtype=int)
+
+# Initialization
+mu_mix[0] = [-1, 6]
+sigma2_mix[0] = [1, 1]
+pi_samples[0] = [0.5, 0.5]
+
+for t in range(1, T):
+    # E-step: draw z_i
+    for i in range(n):
+        probs = np.array([
+            pi_samples[t-1, k] *
+            stats.norm.pdf(data_mix[i], mu_mix[t-1, k],
+                           np.sqrt(sigma2_mix[t-1, k]))
+            for k in range(K)])
+        probs /= probs.sum()
+        z_samples[t, i] = np.random.choice(K, p=probs)
+
+    # M-step: draw parameters
+    for k in range(K):
+        idx = z_samples[t] == k
+        nk = idx.sum()
+        if nk > 0:
+            xk = data_mix[idx]
+            prec = 1/100 + nk/sigma2_mix[t-1, k]
+            m = (nk * xk.mean() / sigma2_mix[t-1, k]) / prec
+            mu_mix[t, k] = np.random.normal(m, 1/np.sqrt(prec))
+            a = 1 + nk/2
+            b = 1 + 0.5 * np.sum((xk - mu_mix[t, k])**2)
+            sigma2_mix[t, k] = 1/np.random.gamma(a, 1/b)
+        else:
+            mu_mix[t, k] = mu_mix[t-1, k]
+            sigma2_mix[t, k] = sigma2_mix[t-1, k]
+
+    counts = np.array([(z_samples[t]==k).sum()
+                        for k in range(K)])
+    pi_samples[t] = np.random.dirichlet(1 + counts)
+
+burn = 1000
+print("mu estimates:", mu_mix[burn:].mean(axis=0))
+print("pi estimates:", pi_samples[burn:].mean(axis=0))
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Diagnostics and visualization}]
+\begin{minted}{python}
+fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+
+# Trace plots
+axes[0, 0].plot(mu_samples[:3000])
+axes[0, 0].set_title(r"Trace of $\mu$")
+axes[0, 1].plot(sigma2_samples[:3000])
+axes[0, 1].set_title(r"Trace of $\sigma^2$")
+
+# Joint posterior
+axes[1, 0].scatter(mu_samples[burn_in::10],
+                    sigma2_samples[burn_in::10],
+                    alpha=0.1, s=1)
+axes[1, 0].set_xlabel(r"$\mu$")
+axes[1, 0].set_ylabel(r"$\sigma^2$")
+axes[1, 0].set_title("Joint posterior")
+
+# Marginal of sigma
+axes[1, 1].hist(np.sqrt(sigma2_samples[burn_in:]),
+                bins=50, density=True, alpha=0.5)
+axes[1, 1].axvline(sigma_true, color="red",
+                    linestyle="--")
+axes[1, 1].set_title(r"Marginal of $\sigma$")
+
+plt.tight_layout()
+plt.savefig("gibbs_diagnostics.pdf")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+Derive the full conditionals for the Bayesian linear regression model
+$y = X\beta + \varepsilon$ with $\beta \sim \mathcal{N}(0, \sigma_\beta^2 I)$
+and $\sigma^2 \sim \text{IG}(\alpha, \beta)$.
+\end{exercise}
+
+\begin{exercise}
+Implement the Albert and Chib (1993) data augmentation for the probit
+model and compare with PyMC.
+\end{exercise}
+
+\begin{exercise}
+For the bivariate Gaussian Gibbs sampler, show analytically that the
+lag-$k$ autocorrelation is $\rho^{2k}$ and compute the ESS as a
+function of $\rho$.
+\end{exercise}
+
+\begin{exercise}
+Compare standard Gibbs and block Gibbs on the multivariate normal
+model with different correlation structures.
+\end{exercise}
+
+\begin{exercise}
+\textbf{(Advanced)} Implement collapsed Gibbs for the mixture model by
+marginalizing the proportions $\pi_k$. Compare the ESS with standard
+Gibbs.
+\end{exercise}

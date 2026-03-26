@@ -1,0 +1,187 @@
+% ============================================================
+\chapter{Floating-Point Arithmetic, Errors and Stability}
+\label{ch:floating}
+% ============================================================
+
+\begin{center}
+\textit{``Numerical computation is the art of giving the right answer to a slightly different problem.''}
+\end{center}
+
+\section{Motivating example}
+
+Let us compute $f(x)=\frac{1-\cos x}{x^2}$ for $x=10^{-8}$ in double precision. The theoretical result is $\approx 0.5$, but Python returns $0.0$! The \textbf{catastrophic cancellation} between $1$ and $\cos x$ eliminates all significant digits. Understanding floating-point arithmetic is essential.
+
+\section{Representation of numbers in a computer}
+
+\begin{definition}[Floating-point number]\index{floating-point number}
+In base $\beta$ with $t$ significant digits, a floating-point number is written:
+\[
+x = \pm m \times \beta^e, \quad m = d_0.d_1d_2\cdots d_{t-1}, \quad d_0\neq 0,
+\]
+where $e_{\min}\leq e\leq e_{\max}$ and $0\leq d_i<\beta$.
+\end{definition}
+
+\begin{definition}[IEEE 754 Standard]\index{IEEE 754}
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Format} & \textbf{Bits} & \textbf{Mantissa} & \textbf{$\eps_{\mathrm{mach}}$} \\
+\midrule
+Single precision & 32 & 23+1 bits & $\approx 1.19\times 10^{-7}$ \\
+Double precision & 64 & 52+1 bits & $\approx 2.22\times 10^{-16}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{definition}
+
+\begin{definition}[Machine epsilon]\index{machine epsilon}
+The \textbf{machine epsilon} $\eps_{\mathrm{mach}}$ is the smallest $\eps>0$ such that $\fl(1+\eps)>1$:
+\[
+\eps_{\mathrm{mach}} = \frac{1}{2}\beta^{1-t}.
+\]
+For every representable $x\in\R$, $\fl(x)=x(1+\delta)$ with $|\delta|\leq\eps_{\mathrm{mach}}$.
+\end{definition}
+
+\section{Rounding errors and propagation}
+
+\begin{definition}[Absolute and relative error]\index{absolute error}\index{relative error}
+\begin{align}
+\text{Absolute error} &: E_a = |x-\tilde{x}|, \\
+\text{Relative error} &: E_r = \frac{|x-\tilde{x}|}{|x|} \quad (x\neq 0).
+\end{align}
+\end{definition}
+
+\begin{theorem}[Error propagation]
+If $\tilde{x}=x(1+\eps_x)$ and $\tilde{y}=y(1+\eps_y)$:
+\begin{itemize}
+\item $\tilde{x}\cdot\tilde{y}\approx xy(1+\eps_x+\eps_y)$: relative errors add up.
+\item $\tilde{x}-\tilde{y}\approx(x-y)+x\eps_x-y\eps_y$: if $x\approx y$, the relative error blows up.
+\end{itemize}
+\end{theorem}
+
+\begin{warning}
+\textbf{Catastrophic cancellation} occurs when subtracting nearly equal numbers. Example: $1-\cos x$ for small $x$. Remedy: use $2\sin^2(x/2)$.
+\end{warning}
+
+\section{Conditioning of a problem}
+
+\begin{definition}[Condition number]\index{condition number}
+The \textbf{condition number} of a problem $f$ at the point $x$ is:
+\[
+\kappa(f,x) = \left|\frac{xf'(x)}{f(x)}\right|.
+\]
+A problem is \textbf{well-conditioned} if $\kappa\sim 1$, \textbf{ill-conditioned} if $\kappa\gg 1$.
+\end{definition}
+
+\begin{definition}[Matrix condition number]\index{matrix condition number}
+For $Ax=b$:
+\[
+\cond(A) = \|A\|\cdot\|A^{-1}\|.
+\]
+The relative error on $x$ is amplified by $\cond(A)$:
+\[
+\frac{\|\delta x\|}{\|x\|} \leq \cond(A)\frac{\|\delta b\|}{\|b\|}.
+\]
+\end{definition}
+
+\section{Numerical stability}
+
+\begin{definition}[Stable algorithm]\index{stability}
+An algorithm is \textbf{stable} if it gives the exact solution of a \textbf{slightly perturbed} problem. It is \textbf{backward stable} if the perturbation is of order $\eps_{\mathrm{mach}}$.
+\end{definition}
+
+\begin{method}
+The accuracy of the result depends on two factors:
+\begin{enumerate}
+\item The \textbf{conditioning} of the problem (inherent, cannot be changed).
+\item The \textbf{stability} of the algorithm (the programmer's choice).
+\end{enumerate}
+Rule: error $\lesssim \cond \times \eps_{\mathrm{mach}}$.
+\end{method}
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, rounded corners, minimum width=2.5cm, minimum height=1.2cm, text centered, font=\small},
+  arr/.style={-{Stealth}, thick}
+]
+\node[box,fill=blue!10,align=center] (prob) at (0,0) {Problem\\$f(x)$};
+\node[box,fill=green!10,align=center] (algo) at (5,0) {Algorithm\\$\tilde{f}(\tilde{x})$};
+\node[box,fill=orange!10,align=center] (res) at (10,0) {Result\\$\tilde{y}$};
+\draw[arr] (prob) -- node[above]{\small Conditioning $\kappa$} (algo);
+\draw[arr] (algo) -- node[above]{\small Stability} (res);
+\draw[arr,dashed,red] (prob) to[bend left=30] node[above]{\small Total error $\leq\kappa\cdot\eps$} (res);
+\end{tikzpicture}
+\end{center}
+
+\section{Implementation}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+
+# Epsilon machine
+eps = np.finfo(float).eps
+print(f"eps_mach = {eps}")  # 2.220446049250313e-16
+
+# Cancellation catastrophique
+x = 1e-8
+f_bad = (1 - np.cos(x)) / x**2
+f_good = 2 * np.sin(x/2)**2 / x**2
+print(f"Mauvais : {f_bad}")   # 0.0
+print(f"Bon     : {f_good}")  # 0.49999999...
+
+# Conditionnement d'une matrice
+A = np.array([[1, 1], [1, 1.0001]])
+print(f"cond(A) = {np.linalg.cond(A):.1f}")  # ~40000
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Julia}]
+\begin{minted}{julia}
+# Epsilon machine
+println("eps_mach = ", eps(Float64))
+
+# Cancellation
+x = 1e-8
+f_bad = (1 - cos(x)) / x^2
+f_good = 2sin(x/2)^2 / x^2
+println("Mauvais : $f_bad")
+println("Bon     : $f_good")
+
+# Conditionnement
+using LinearAlgebra
+A = [1.0 1.0; 1.0 1.0001]
+println("cond(A) = ", cond(A))
+\end{minted}
+\end{codeblock}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$ -- Machine epsilon]
+Write a program that computes $\eps_{\mathrm{mach}}$ by bisection. Compare with \texttt{np.finfo(float).eps}.
+\end{exercise}
+
+\begin{exercise}[$\star$ -- Cancellation]
+Propose a stable computation of $\sqrt{x+1}-\sqrt{x}$ for large $x$. Verify numerically.
+\end{exercise}
+
+\begin{exercise}[$\star\star$ -- Condition number]
+Compute the condition number of the problem $f(x)=\ln x$ at the point $x=1$. Interpret.
+\end{exercise}
+
+\begin{exercise}[$\star\star$ -- Hilbert matrix]
+Let $H_n$ be the Hilbert matrix ($h_{ij}=1/(i+j-1)$). Compute $\cond(H_n)$ for $n=2,\ldots,15$. What do you observe?
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Project]
+Study the numerical stability of evaluating the polynomial $p(x)=\sum a_ix^i$ using Horner's algorithm vs.\ naive evaluation. Compare relative errors for high-degree polynomials.
+\end{exercise}
+
+\begin{keyformulas}
+\begin{align*}
+\fl(x) &= x(1+\delta),\;|\delta|\leq\eps_{\mathrm{mach}} &
+\eps_{\mathrm{mach}} &= \tfrac{1}{2}\beta^{1-t} \\
+\kappa(f,x) &= |xf'(x)/f(x)| &
+\cond(A) &= \|A\|\cdot\|A^{-1}\|
+\end{align*}
+\end{keyformulas}

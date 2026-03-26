@@ -1,0 +1,346 @@
+% ============================================================
+\chapter{Mod\`eles de Diffusion et de Transport}
+\label{ch:diffusion}
+% ============================================================
+
+\section{Introduction}
+
+La diffusion est partout~: un colorant se disperse dans l'eau, la chaleur se r\'epand dans un m\'etal, un polluant se diss\'emine dans l'atmosph\`ere. Ce ph\'enom\`ene fondamental, \'etudi\'e pour la premi\`ere fois quantitativement par Adolf Fick en 1855 (par analogie avec la loi de Fourier pour la chaleur), ob\'eit \`a l'\'equation de diffusion --- la m\^eme \'equation de la chaleur, mais interpr\'et\'ee en termes de concentration plut\^ot que de temp\'erature. Coupl\'ee \`a un champ de vitesse, elle devient l'\'equation d'advection-diffusion, qui mod\'elise le transport de substances dans un milieu en mouvement. Ce chapitre d\'eveloppe ces mod\`eles et leurs applications.
+
+Les ph\'enom\`enes de diffusion et de transport sont omnipr\'esents :
+conduction thermique, dispersion de polluants, migration cellulaire.
+Ce chapitre d\'erive l'\'equation de la chaleur \`a partir de la loi
+de Fick, \'etudie l'\'equation d'advection-diffusion et propose des
+m\'ethodes num\'eriques pour les EDP paraboliques.
+
+% ------------------------------------------------------------
+\section{Loi de Fick et \'equation de diffusion}
+\label{sec:fick}
+% ------------------------------------------------------------
+
+\begin{definition}[Loi de Fick]
+Le flux de diffusion $J$ d'une substance de concentration $c(x,t)$
+est proportionnel et oppos\'e au gradient de concentration :
+\[
+  J = -D\frac{\partial c}{\partial x},
+\]
+o\`u $D>0$ est le \textbf{coefficient de diffusion} (en m$^2$/s).
+\end{definition}
+
+\begin{theoreme}[\'Equation de diffusion (chaleur)]
+En combinant la loi de Fick avec la conservation de la masse
+$\partial c/\partial t = -\partial J/\partial x$, on obtient :
+\[
+  \frac{\partial c}{\partial t} = D\frac{\partial^2 c}{\partial x^2}.
+\]
+C'est l'\'equation de la chaleur en une dimension spatiale.
+\end{theoreme}
+
+\begin{proof}
+Conservation locale :
+\[
+  \frac{\partial c}{\partial t} = -\frac{\partial J}{\partial x}
+  = -\frac{\partial}{\partial x}\left(-D\frac{\partial c}{\partial x}\right)
+  = D\frac{\partial^2 c}{\partial x^2}.
+\]
+\end{proof}
+
+\begin{formules}[title=\textbf{Solution fondamentale (noyau de la chaleur)}]
+Pour le probl\`eme sur $\R$ avec condition initiale $c(x,0)=\delta(x)$ :
+\[
+  c(x,t) = \frac{1}{\sqrt{4\pi Dt}}\,\exp\!\left(-\frac{x^2}{4Dt}\right),
+  \qquad t>0.
+\]
+C'est une gaussienne dont l'\'ecart-type cro\^it comme $\sigma(t)=\sqrt{2Dt}$.
+\end{formules}
+
+\begin{intuition}[title=\textbf{Diffusion et marche al\'eatoire}]
+La diffusion est la limite macroscopique d'une marche al\'eatoire.
+Si une particule effectue des pas de longueur $\ell$ au rythme $\Delta t$,
+le coefficient de diffusion est $D=\ell^2/(2\Delta t)$.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Conditions aux limites}
+% ------------------------------------------------------------
+
+\begin{definition}[Conditions aux limites classiques]
+Sur un domaine $[0,L]$, les conditions aux limites les plus courantes
+sont :
+\begin{itemize}
+  \item \textbf{Dirichlet :} $c(0,t)=c_0$, $c(L,t)=c_L$ (concentration
+    impos\'ee).
+  \item \textbf{Neumann :} $\partial c/\partial x(0,t)=0$ (flux nul,
+    paroi isolante).
+  \item \textbf{Robin :} $-D\partial c/\partial x + hc = h c_\infty$
+    (transfert convectif).
+\end{itemize}
+\end{definition}
+
+% ------------------------------------------------------------
+\section{M\'ethode des diff\'erences finies}
+\label{sec:differences_finies}
+% ------------------------------------------------------------
+
+\begin{definition}[Discr\'etisation]
+On discr\'etise $[0,L]$ en $N+1$ points $x_j=j\Delta x$ et le temps
+en pas $\Delta t$.  La d\'eriv\'ee seconde est approch\'ee par :
+\[
+  \frac{\partial^2 c}{\partial x^2}\bigg|_{x_j}
+  \approx \frac{c_{j-1}-2c_j+c_{j+1}}{(\Delta x)^2}.
+\]
+\end{definition}
+
+\begin{theoreme}[Sch\'ema explicite (FTCS)]
+Le sch\'ema \textit{Forward Time, Central Space} est :
+\[
+  c_j^{n+1} = c_j^n + \mu(c_{j-1}^n - 2c_j^n + c_{j+1}^n),
+  \qquad \mu = \frac{D\Delta t}{(\Delta x)^2}.
+\]
+Ce sch\'ema est stable si et seulement si $\mu\leq 1/2$.
+\end{theoreme}
+
+\begin{attention}[title=\textbf{Condition CFL}]
+La condition de stabilit\'e $\mu = D\Delta t/(\Delta x)^2 \leq 1/2$
+impose une relation entre les pas de temps et d'espace.  Pour des
+maillages fins, $\Delta t$ doit \^etre tr\`es petit, rendant le
+sch\'ema explicite co\^uteux.  Les sch\'emas implicites (Crank--Nicolson)
+lev\`ent cette contrainte.
+\end{attention}
+
+\begin{codeblock}[title=\textbf{Diffusion 1D --- sch\'ema explicite}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+L, D, T_final = 1.0, 0.01, 2.0
+Nx = 50; dx = L / Nx
+dt = 0.4 * dx**2 / D  # CFL : mu = 0.4 < 0.5
+Nt = int(T_final / dt)
+mu = D * dt / dx**2
+
+x = np.linspace(0, L, Nx + 1)
+c = np.exp(-((x - 0.5)**2) / (2 * 0.05**2))  # CI gaussienne
+
+plt.figure(figsize=(10, 6))
+plt.plot(x, c, label='$t=0$')
+
+for n in range(Nt):
+    c_new = c.copy()
+    c_new[1:-1] = c[1:-1] + mu * (c[:-2] - 2*c[1:-1] + c[2:])
+    c_new[0] = 0; c_new[-1] = 0  # Dirichlet
+    c = c_new
+    if (n+1) * dt in [0.05, 0.2, 0.5, 1.0, 2.0]:
+        plt.plot(x, c, label=f'$t={((n+1)*dt):.2f}$')
+
+plt.xlabel('$x$'); plt.ylabel('$c(x,t)$')
+plt.legend(); plt.title('Diffusion 1D (schéma explicite)')
+plt.tight_layout(); plt.savefig('diffusion_explicite.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{\'Equation d'advection-diffusion}
+\label{sec:advection_diffusion}
+% ------------------------------------------------------------
+
+\begin{definition}[\'Equation d'advection-diffusion]
+Lorsque la substance est \'egalement transport\'ee par un champ de
+vitesse $v$ :
+\[
+  \frac{\partial c}{\partial t} + v\frac{\partial c}{\partial x}
+  = D\frac{\partial^2 c}{\partial x^2}.
+\]
+Le nombre de P\'eclet $\mathrm{Pe}=vL/D$ mesure l'importance relative
+de l'advection par rapport \`a la diffusion.
+\end{definition}
+
+\begin{proposition}[R\'egimes limites]
+\begin{itemize}
+  \item $\mathrm{Pe}\ll 1$ : la diffusion domine (\'equation de la chaleur).
+  \item $\mathrm{Pe}\gg 1$ : l'advection domine (\'equation de transport).
+  \item $\mathrm{Pe}\sim 1$ : les deux effets sont comparables.
+\end{itemize}
+\end{proposition}
+
+\begin{codeblock}[title=\textbf{Advection-diffusion}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+L, D, v = 1.0, 0.005, 0.5
+Nx = 200; dx = L / Nx
+dt = 0.001
+Nt = 1000
+
+x = np.linspace(0, L, Nx + 1)
+c = np.exp(-((x - 0.2)**2) / (2 * 0.03**2))
+
+plt.figure(figsize=(10, 5))
+plt.plot(x, c, 'k--', label='$t=0$')
+
+for n in range(Nt):
+    c_new = c.copy()
+    # Upwind pour l'advection + centré pour la diffusion
+    c_new[1:-1] = (c[1:-1]
+                   - v * dt / dx * (c[1:-1] - c[:-2])
+                   + D * dt / dx**2 * (c[:-2] - 2*c[1:-1] + c[2:]))
+    c_new[0] = 0; c_new[-1] = 0
+    c = c_new
+    if (n+1) in [200, 500, 800, 1000]:
+        plt.plot(x, c, label=f'$t={(n+1)*dt:.2f}$')
+
+plt.xlabel('$x$'); plt.ylabel('$c(x,t)$')
+plt.legend(); plt.title(f'Advection-diffusion (Pe = {v*L/D:.0f})')
+plt.tight_layout(); plt.savefig('advection_diffusion.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Diffusion en dimensions sup\'erieures}
+% ------------------------------------------------------------
+
+\begin{definition}[\'Equation de diffusion en 2D/3D]
+En $d$ dimensions spatiales :
+\[
+  \frac{\partial c}{\partial t} = D\nabla^2 c
+  = D\sum_{i=1}^d \frac{\partial^2 c}{\partial x_i^2}.
+\]
+La solution fondamentale en $d$ dimensions est :
+\[
+  c(\mathbf{x},t) = \frac{1}{(4\pi Dt)^{d/2}}
+  \exp\!\left(-\frac{\norm{\mathbf{x}}^2}{4Dt}\right).
+\]
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Mod\`ele de r\'eaction-diffusion}
+\label{sec:reaction_diffusion}
+% ------------------------------------------------------------
+
+\begin{definition}[\'Equation de r\'eaction-diffusion]
+En ajoutant un terme de r\'eaction $f(c)$ :
+\[
+  \frac{\partial c}{\partial t} = D\frac{\partial^2 c}{\partial x^2}
+  + f(c).
+\]
+\end{definition}
+
+\begin{exemple}[\'Equation de Fisher--KPP]
+Avec $f(c)=rc(1-c)$ (croissance logistique), on obtient l'\'equation
+de Fisher :
+\[
+  \frac{\partial c}{\partial t} = D\frac{\partial^2 c}{\partial x^2}
+  + rc(1-c).
+\]
+Elle admet des \textbf{fronts d'onde progressifs} de vitesse
+$v_{\min}=2\sqrt{Dr}$.
+\end{exemple}
+
+\begin{theoreme}[Vitesse minimale du front de Fisher]
+L'\'equation de Fisher--KPP admet des solutions en onde progressive
+$c(x,t)=\phi(x-vt)$ pour toute vitesse $v\geq v_{\min}=2\sqrt{Dr}$.
+Pour des conditions initiales \`a support compact, le front se propage
+\`a la vitesse $v_{\min}$.
+\end{theoreme}
+
+\begin{codeblock}[title=\textbf{Front d'onde de Fisher}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+L, D, r = 20.0, 1.0, 1.0
+Nx = 400; dx = L / Nx
+dt = 0.4 * dx**2 / D
+x = np.linspace(0, L, Nx + 1)
+
+# CI : front initial
+c = np.where(x < 2, 1.0, 0.0)
+
+plt.figure(figsize=(10, 5))
+times_to_plot = [0, 2, 4, 6, 8]
+t_current = 0
+
+for t_target in times_to_plot:
+    while t_current < t_target:
+        c_new = c.copy()
+        c_new[1:-1] = (c[1:-1]
+            + dt * D * (c[:-2] - 2*c[1:-1] + c[2:]) / dx**2
+            + dt * r * c[1:-1] * (1 - c[1:-1]))
+        c_new[0] = 1.0; c_new[-1] = 0.0
+        c = c_new
+        t_current += dt
+    plt.plot(x, c, label=f'$t = {t_target}$')
+
+v_min = 2 * np.sqrt(D * r)
+plt.xlabel('$x$'); plt.ylabel('$c(x,t)$')
+plt.title(f'Front de Fisher ($v_{{\\min}} = {v_min:.2f}$)')
+plt.legend(); plt.tight_layout()
+plt.savefig('fisher_front.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Syst\`emes de Turing}
+% ------------------------------------------------------------
+
+\begin{definition}[Instabilit\'e de Turing]
+Un syst\`eme de r\'eaction-diffusion \`a deux esp\`eces :
+\begin{align}
+  \frac{\partial u}{\partial t} &= D_u\nabla^2 u + f(u,v), \\
+  \frac{\partial v}{\partial t} &= D_v\nabla^2 v + g(u,v),
+\end{align}
+peut pr\'esenter une \textbf{instabilit\'e de Turing} : un \'equilibre
+homog\`ene stable en l'absence de diffusion peut devenir instable en
+pr\'esence de diffusion si $D_v \gg D_u$.  Cela donne naissance \`a
+des \textbf{motifs spatiaux} (taches, rayures).
+\end{definition}
+
+\begin{remarque}
+L'instabilit\'e de Turing n\'ecessite typiquement un activateur
+(diffusion lente, $D_u$ petit) et un inhibiteur (diffusion rapide,
+$D_v$ grand).
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}
+V\'erifier que le noyau de la chaleur
+$c(x,t)=\frac{1}{\sqrt{4\pi Dt}}\exp(-x^2/(4Dt))$ est bien
+solution de l'\'equation de diffusion.
+\end{exercice}
+
+\begin{exercice}
+R\'esoudre l'\'equation de la chaleur sur $[0,L]$ avec conditions
+de Dirichlet homog\`enes par s\'eparation des variables.  Montrer
+que la solution g\'en\'erale est :
+\[
+  c(x,t) = \sum_{n=1}^\infty B_n \sin\!\left(\frac{n\pi x}{L}\right)
+  \exp\!\left(-\frac{n^2\pi^2 D}{L^2}t\right).
+\]
+\end{exercice}
+
+\begin{exercice}
+Impl\'ementer le sch\'ema de Crank--Nicolson pour l'\'equation de
+diffusion 1D et comparer avec le sch\'ema explicite en termes de
+pr\'ecision et de stabilit\'e.
+\end{exercice}
+
+\begin{exercice}
+Simuler l'\'equation d'advection-diffusion pour diff\'erentes valeurs
+de Pe et observer la transition entre le r\'egime diffusif et le
+r\'egime advectif.
+\end{exercice}
+
+\begin{exercice}
+Pour l'\'equation de Fisher--KPP, v\'erifier num\'eriquement que la
+vitesse du front converge vers $v_{\min}=2\sqrt{Dr}$ pour des
+conditions initiales \`a support compact.
+\end{exercice}
+
+\begin{exercice}
+Impl\'ementer un syst\`eme de r\'eaction-diffusion de type
+Schnakenberg en 2D et observer la formation de motifs de Turing.
+\end{exercice}

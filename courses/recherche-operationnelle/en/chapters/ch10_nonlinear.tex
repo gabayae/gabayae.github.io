@@ -1,0 +1,248 @@
+% ============================================================
+\chapter{Nonlinear Programming}
+\label{ch:nonlinear}
+% ============================================================
+
+\section{Introduction}
+
+When the objective function or constraints are nonlinear, we enter the realm
+of \textbf{nonlinear optimization}. This chapter covers optimality conditions,
+classical descent methods, and approaches for constrained problems.
+
+\begin{intuition}
+In linear programming, the optimum always lies at a vertex of the polyhedron.
+In nonlinear optimization, the optimum can be anywhere --- inside the feasible
+region, on its boundary, or even at a saddle point. More sophisticated
+analytical tools are needed.
+\end{intuition}
+
+\section{Unconstrained optimization}
+
+\subsection{Optimality conditions}
+
+\begin{theorem}[First-order necessary condition]
+\index{optimality conditions}
+If $f : \R^n \to \R$ is differentiable and $x^*$ is a local minimum, then:
+\[
+  \nabla f(x^*) = 0.
+\]
+\end{theorem}
+
+\begin{theorem}[Second-order sufficient condition]
+If $f$ is twice differentiable, $\nabla f(x^*) = 0$, and the Hessian
+$\nabla^2 f(x^*)$ is \textbf{positive definite}, then $x^*$ is a
+\textbf{strict local minimum}.
+\end{theorem}
+
+\begin{warning}[title=\textbf{Local vs.\ global minima}]
+For a nonconvex function, a point satisfying first- and second-order
+conditions is only a \textbf{local} minimum. Only convexity of $f$ guarantees
+that every local minimum is global.
+\end{warning}
+
+\subsection{Gradient descent}
+
+\begin{definition}[Gradient descent]
+\index{gradient descent}
+\textbf{Gradient descent} generates a sequence $(x_k)$ by:
+\[
+  x_{k+1} = x_k - \alpha_k \nabla f(x_k),
+\]
+where $\alpha_k > 0$ is the \textbf{step size} (or learning rate).
+\end{definition}
+
+\begin{theorem}[Convergence for $L$-smooth convex functions]
+If $f$ is convex and $\nabla f$ is $L$-Lipschitz, gradient descent with
+constant step $\alpha = 1/L$ satisfies:
+\[
+  f(x_k) - f(x^*) \leq \frac{L \norm{x_0 - x^*}^2}{2k}.
+\]
+The convergence rate is $\mathcal{O}(1/k)$.
+\end{theorem}
+
+\begin{keyformulas}[title=\textbf{Step size selection}]
+\begin{itemize}
+  \item \textbf{Constant step}: $\alpha_k = \alpha < 2/L$ (simple,
+        convergent).
+  \item \textbf{Exact line search}:
+        $\alpha_k = \argmin_{\alpha > 0} f(x_k - \alpha \nabla f(x_k))$.
+  \item \textbf{Backtracking (Armijo)}: reduce $\alpha$ by factor
+        $\beta \in (0,1)$ until
+        $f(x_k - \alpha \nabla f(x_k)) \leq f(x_k) -
+        c \alpha \norm{\nabla f(x_k)}^2$, $c \in (0,1)$.
+\end{itemize}
+\end{keyformulas}
+
+\subsection{Newton's method}
+
+\begin{definition}[Newton's method]
+\index{Newton's method}
+\textbf{Newton's method} uses second-order information:
+\[
+  x_{k+1} = x_k - [\nabla^2 f(x_k)]^{-1} \nabla f(x_k).
+\]
+\end{definition}
+
+\begin{theorem}[Quadratic convergence]
+If $f$ is twice continuously differentiable, $\nabla^2 f$ is Lipschitz, and
+$x_0$ is sufficiently close to $x^*$ (where $\nabla^2 f(x^*)$ is positive
+definite), the convergence is \textbf{quadratic}:
+\[
+  \norm{x_{k+1} - x^*} \leq C \norm{x_k - x^*}^2.
+\]
+\end{theorem}
+
+\begin{remark}
+Newton's method converges very fast near the solution but requires computing
+and inverting the Hessian ($\mathcal{O}(n^3)$ per iteration).
+\textbf{Quasi-Newton} methods (BFGS, L-BFGS) approximate the Hessian to
+reduce cost.
+\end{remark}
+
+\begin{example}[Gradient descent vs.\ Newton]
+Consider $f(x_1, x_2) = 10x_1^2 + x_2^2$ (ill-conditioned quadratic,
+$L/\mu = 10$). From $x_0 = (10, 1)^\top$:
+\begin{itemize}
+  \item Gradient ($\alpha = 1/L = 1/20$): slow convergence, zigzag
+        trajectory.
+  \item Newton: converges in \textbf{one iteration} since $f$ is quadratic.
+\end{itemize}
+\end{example}
+
+\section{Constrained optimization: KKT conditions}
+
+\begin{definition}[Constrained optimization problem]
+\[
+  \min_{x \in \R^n} f(x) \quad \text{s.t.} \quad
+  g_i(x) \leq 0,\; i = 1,\ldots,m, \qquad
+  h_j(x) = 0,\; j = 1,\ldots,p.
+\]
+\end{definition}
+
+\begin{theorem}[Karush-Kuhn-Tucker conditions]
+\index{KKT conditions}
+If $x^*$ is a local minimum and a constraint qualification holds (e.g., LICQ),
+then there exist multipliers $\lambda^* \in \R^m_+$ and $\nu^* \in \R^p$
+such that:
+\begin{enumerate}
+  \item \textbf{Stationarity}:
+        $\nabla f(x^*) + \sum_{i} \lambda_i^* \nabla g_i(x^*)
+        + \sum_{j} \nu_j^* \nabla h_j(x^*) = 0$.
+  \item \textbf{Primal feasibility}: $g_i(x^*) \leq 0$, $h_j(x^*) = 0$.
+  \item \textbf{Dual feasibility}: $\lambda_i^* \geq 0$.
+  \item \textbf{Complementary slackness}: $\lambda_i^* g_i(x^*) = 0$.
+\end{enumerate}
+\end{theorem}
+
+\begin{remark}
+For convex problems (convex objective, convex inequality constraints, affine
+equalities), the KKT conditions are also \textbf{sufficient} for global
+optimality.
+\end{remark}
+
+\section{Penalty and barrier methods}
+
+\subsection{Exterior penalty method}
+
+\begin{definition}[Quadratic penalty]
+\index{penalty method}
+Replace the constrained problem by the sequence of unconstrained problems:
+\[
+  \min_{x}\; f(x) + \frac{\rho}{2} \sum_{i=1}^m [\max(0, g_i(x))]^2
+  + \frac{\rho}{2} \sum_{j=1}^p [h_j(x)]^2,
+\]
+with $\rho \to +\infty$.
+\end{definition}
+
+\begin{theorem}[Penalty convergence]
+If $\rho_k \to +\infty$ and $x_k$ is an (approximate) minimizer of the
+penalized problem with parameter $\rho_k$, then every accumulation point of
+$(x_k)$ solves the constrained problem.
+\end{theorem}
+
+\subsection{Barrier method (interior point)}
+
+\begin{definition}[Logarithmic barrier]
+\index{barrier method}
+For inequality constraints $g_i(x) \leq 0$:
+\[
+  \min_{x}\; f(x) - \frac{1}{t} \sum_{i=1}^m \ln(-g_i(x)),
+\]
+with $t \to +\infty$. The barrier prevents leaving the interior of the
+feasible region.
+\end{definition}
+
+\section{Sequential quadratic programming (SQP)}
+
+\begin{definition}[SQP]
+\index{SQP}
+\textbf{Sequential Quadratic Programming} solves a nonlinear constrained
+problem by solving at each iteration a \textbf{quadratic subproblem}:
+\[
+  \min_{d}\; \nabla f(x_k)^\top d + \frac{1}{2} d^\top H_k d \quad
+  \text{s.t.} \quad g_i(x_k) + \nabla g_i(x_k)^\top d \leq 0,
+\]
+where $H_k$ approximates the Hessian of the Lagrangian. Then
+$x_{k+1} = x_k + d_k$.
+\end{definition}
+
+\begin{remark}
+SQP generalizes Newton's method to the constrained case. It is one of the most
+efficient methods for medium-scale nonlinear optimization, with superlinear
+convergence near the solution.
+\end{remark}
+
+\section{Python implementation}
+
+\begin{codeblock}[title=\textbf{Nonlinear optimization with SciPy}]
+\begin{minted}{python}
+import numpy as np
+from scipy.optimize import minimize
+
+# Rosenbrock function
+def rosenbrock(x):
+    return (1 - x[0])**2 + 100*(x[1] - x[0]**2)**2
+
+x0 = np.array([-1.0, 1.0])
+
+# Quasi-Newton (L-BFGS-B)
+res = minimize(rosenbrock, x0, method='L-BFGS-B')
+print("L-BFGS-B:", res.x, "in", res.nit, "iterations")
+
+# With constraints (SQP via SLSQP)
+cons = ({'type': 'ineq', 'fun': lambda x: x[0] + x[1] - 1})
+res_c = minimize(rosenbrock, x0, method='SLSQP',
+                 constraints=cons)
+print("SLSQP:", res_c.x)
+\end{minted}
+\end{codeblock}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$ -- KKT conditions]
+Find the KKT points of: $\min\; x_1^2 + x_2^2$ s.t.\ $x_1 + x_2 \geq 1$.
+Verify that the solution is the global minimum.
+\end{exercise}
+
+\begin{exercise}[$\star\star$ -- Gradient descent]
+Implement gradient descent with backtracking for
+$f(x) = x_1^4 + x_2^4 - 2x_1 x_2$ from $x_0 = (2, 2)^\top$. Plot the
+trajectory and the decrease of $f$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$ -- Newton's method]
+Apply Newton's method to $f(x) = e^{x_1 + x_2} + x_1^2 + x_2^2$ from
+$x_0 = (1, 1)^\top$. Compute the first three iterations by hand.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Penalty method]
+Solve $\min\; x_1^2 + x_2^2$ s.t.\ $x_1 + x_2 = 1$ by quadratic penalty
+for $\rho \in \{1, 10, 100, 1000\}$. Observe convergence to the exact
+solution.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- SQP]
+Formulate the QP subproblem of SQP for:
+$\min\; (x_1 - 2)^2 + (x_2 - 1)^2$ s.t.\ $x_1^2 + x_2^2 \leq 1$.
+Perform two iterations from $x_0 = (0, 0)^\top$.
+\end{exercise}

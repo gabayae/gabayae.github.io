@@ -1,0 +1,430 @@
+% ============================================================
+\chapter{SQL --- Agr\'egation et Fonctions de Fen\^etre}
+\label{ch:agregation}
+% ============================================================
+
+Jusqu'ici, nos requ\^etes SQL retournaient des lignes individuelles. Mais souvent, on veut des r\'esum\'es~: le nombre total d'\'etudiants, la moyenne des notes par d\'epartement, le chiffre d'affaires par trimestre. C'est le r\^ole des \emph{fonctions d'agr\'egation} (\texttt{COUNT}, \texttt{SUM}, \texttt{AVG}, \texttt{MAX}, \texttt{MIN}) combin\'ees avec \texttt{GROUP BY}. Les \emph{fonctions de fen\^etre} (\texttt{OVER}), introduites dans SQL:2003, vont plus loin~: elles calculent des agr\'egats tout en conservant les lignes individuelles --- rang, cumul, moyenne mobile --- sans n\'ecessiter de sous-requ\^etes complexes.
+
+\section{Fonctions d'agr\'egation}
+
+\begin{definition}[Fonction d'agr\'egation]
+Une \emph{fonction d'agr\'egation} op\`ere sur un ensemble de lignes et retourne
+une valeur unique r\'esumant cet ensemble.
+\end{definition}
+
+\begin{formules}[title=\textbf{Fonctions d'agr\'egation standard}]
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Fonction} & \textbf{Description} & \textbf{Ignore NULL ?} \\
+\midrule
+\texttt{COUNT(*)} & Nombre de lignes & Non \\
+\texttt{COUNT(col)} & Nombre de valeurs non NULL & Oui \\
+\texttt{COUNT(DISTINCT col)} & Nombre de valeurs distinctes & Oui \\
+\texttt{SUM(col)} & Somme & Oui \\
+\texttt{AVG(col)} & Moyenne & Oui \\
+\texttt{MIN(col)} & Minimum & Oui \\
+\texttt{MAX(col)} & Maximum & Oui \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{formules}
+
+\begin{codeblock}[title=\textbf{Agr\'egations simples}]
+\begin{minted}{sql}
+SELECT COUNT(*) AS nb_inscriptions,
+       COUNT(DISTINCT id_etudiant) AS nb_etudiants,
+       AVG(note) AS moyenne,
+       MIN(note) AS note_min,
+       MAX(note) AS note_max,
+       SUM(note) AS somme_notes
+FROM Inscriptions;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+nb_inscriptions | nb_etudiants | moyenne | note_min | note_max | somme_notes
+----------------+--------------+---------+----------+----------+------------
+8               | 5            | 14.375  | 9.0      | 18.0     | 115.0
+\end{verbatim}
+\end{codeoutput}
+
+\begin{attention}[title=\textbf{AVG et les valeurs NULL}]
+\texttt{AVG} ignore les valeurs \texttt{NULL}. La moyenne de $\{10, \texttt{NULL}, 20\}$
+est $15$, pas $10$. Si vous souhaitez traiter les NULL comme $0$, utilisez
+\texttt{AVG(COALESCE(note, 0))}.
+\end{attention}
+
+\section{GROUP BY --- Regroupement}
+
+\begin{definition}[GROUP BY]
+La clause \texttt{GROUP BY} partitionne les lignes en groupes selon une ou
+plusieurs colonnes. Les fonctions d'agr\'egation sont alors appliqu\'ees
+\`a chaque groupe s\'epar\'ement.
+\end{definition}
+
+\begin{formules}[title=\textbf{Ordre d'ex\'ecution avec GROUP BY}]
+\begin{enumerate}
+    \item \texttt{FROM} / \texttt{JOIN}
+    \item \texttt{WHERE} (filtre avant regroupement)
+    \item \texttt{GROUP BY}
+    \item \texttt{HAVING} (filtre apr\`es regroupement)
+    \item \texttt{SELECT}
+    \item \texttt{DISTINCT}
+    \item \texttt{ORDER BY}
+    \item \texttt{LIMIT}
+\end{enumerate}
+\end{formules}
+
+\begin{codeblock}[title=\textbf{Moyenne par \'etudiant}]
+\begin{minted}{sql}
+SELECT e.nom, e.prenom,
+       COUNT(*) AS nb_cours,
+       ROUND(AVG(i.note), 2) AS moyenne,
+       MIN(i.note) AS note_min,
+       MAX(i.note) AS note_max
+FROM Etudiants e
+JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+GROUP BY e.id_etudiant, e.nom, e.prenom
+ORDER BY moyenne DESC;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+nom     | prenom | nb_cours | moyenne | note_min | note_max
+--------+--------+----------+---------+----------+---------
+Roux    | Emma   | 1        | 18.0    | 18.0     | 18.0
+Moreau  | Claire | 2        | 15.75   | 14.0     | 17.5
+Bernard | Alice  | 2        | 14.25   | 13.0     | 15.5
+Petit   | Bob    | 2        | 14.0    | 12.0     | 16.0
+Leroy   | David  | 1        | 9.0     | 9.0      | 9.0
+\end{verbatim}
+\end{codeoutput}
+
+\begin{antipattern}[title=\textbf{Colonne hors GROUP BY sans agr\'egation}]
+Toute colonne dans le \texttt{SELECT} doit soit appara\^itre dans le
+\texttt{GROUP BY}, soit \^etre dans une fonction d'agr\'egation~:
+\begin{minted}{sql}
+-- ERREUR : prenom n'est ni dans GROUP BY ni agrege
+SELECT nom, prenom, AVG(note) FROM Inscriptions
+JOIN Etudiants ON ... GROUP BY nom;
+
+-- CORRECT :
+SELECT nom, prenom, AVG(note) FROM Inscriptions
+JOIN Etudiants ON ... GROUP BY nom, prenom;
+\end{minted}
+MySQL en mode non strict accepte cette erreur silencieusement (r\'esultat
+ind\'etermin\'e). PostgreSQL et SQLite la rejettent correctement.
+\end{antipattern}
+
+\section{HAVING --- Filtrage apr\`es regroupement}
+
+\begin{definition}[HAVING]
+La clause \texttt{HAVING} filtre les groupes apr\`es agr\'egation. Elle est
+\`a \texttt{GROUP BY} ce que \texttt{WHERE} est \`a \texttt{FROM}~:
+\texttt{WHERE} filtre les lignes, \texttt{HAVING} filtre les groupes.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Filtrage avec HAVING}]
+\begin{minted}{sql}
+-- Etudiants ayant une moyenne superieure a 14
+SELECT e.nom, AVG(i.note) AS moyenne
+FROM Etudiants e
+JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+GROUP BY e.id_etudiant, e.nom
+HAVING AVG(i.note) > 14
+ORDER BY moyenne DESC;
+
+-- Cours avec au moins 2 inscrits
+SELECT c.intitule, COUNT(*) AS nb_inscrits
+FROM Cours c
+JOIN Inscriptions i ON c.id_cours = i.id_cours
+GROUP BY c.id_cours, c.intitule
+HAVING COUNT(*) >= 2;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+-- Moyenne > 14 :
+nom     | moyenne
+--------+--------
+Roux    | 18.0
+Moreau  | 15.75
+Bernard | 14.25
+
+-- Cours avec >= 2 inscrits :
+intitule         | nb_inscrits
+-----------------+------------
+Bases de donnees | 3
+Algorithmes      | 2
+Statistiques     | 2
+\end{verbatim}
+\end{codeoutput}
+
+\section{Groupements avanc\'es}
+
+\subsection{GROUPING SETS, ROLLUP, CUBE}
+
+\begin{codeblock}[title=\textbf{ROLLUP --- sous-totaux hi\'erarchiques (PostgreSQL)}]
+\begin{minted}{sql}
+SELECT e.filiere,
+       c.intitule,
+       AVG(i.note) AS moyenne,
+       COUNT(*) AS nb
+FROM Etudiants e
+JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+JOIN Cours c ON i.id_cours = c.id_cours
+GROUP BY ROLLUP (e.filiere, c.intitule)
+ORDER BY e.filiere, c.intitule;
+\end{minted}
+\end{codeblock}
+
+\texttt{ROLLUP} g\'en\`ere les sous-totaux hi\'erarchiques~: par (fili\`ere, cours),
+par fili\`ere, et le total g\'en\'eral.
+
+\texttt{CUBE} g\'en\`ere toutes les combinaisons possibles de sous-totaux.
+
+\section{Fonctions de fen\^etre (Window Functions)}
+
+\begin{definition}[Fonction de fen\^etre]
+Une \emph{fonction de fen\^etre} effectue un calcul sur un ensemble de lignes
+li\'ees \`a la ligne courante, \emph{sans r\'eduire le nombre de lignes}
+du r\'esultat. Elle utilise la clause \texttt{OVER()}.
+\end{definition}
+
+\begin{theoreme}[Diff\'erence GROUP BY vs.\ Window Function]
+\begin{itemize}
+    \item \texttt{GROUP BY} + agr\'egation~: r\'eduit les lignes (une ligne par groupe).
+    \item Fonction de fen\^etre~: conserve toutes les lignes tout en ajoutant
+          une valeur calcul\'ee.
+\end{itemize}
+\end{theoreme}
+
+\subsection{Syntaxe OVER}
+
+\begin{formules}[title=\textbf{Syntaxe des fonctions de fen\^etre}]
+\begin{minted}{sql}
+fonction(args) OVER (
+    [PARTITION BY colonnes]
+    [ORDER BY colonnes [ASC|DESC]]
+    [ROWS BETWEEN debut AND fin]
+)
+\end{minted}
+\end{formules}
+
+\subsection{Agr\'egation fen\^etr\'ee}
+
+\begin{codeblock}[title=\textbf{Moyenne fen\^etr\'ee par fili\`ere}]
+\begin{minted}{sql}
+SELECT e.nom, e.filiere, i.note,
+       AVG(i.note) OVER (PARTITION BY e.filiere) AS moy_filiere,
+       i.note - AVG(i.note) OVER (PARTITION BY e.filiere) AS ecart
+FROM Etudiants e
+JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+ORDER BY e.filiere, e.nom;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+nom     | filiere | note | moy_filiere | ecart
+--------+---------+------+-------------+------
+Bernard | Info    | 15.5 | 13.1        | 2.4
+Bernard | Info    | 13.0 | 13.1        | -0.1
+Leroy   | Info    | 9.0  | 13.1        | -4.1
+Petit   | Info    | 12.0 | 13.1        | -1.1
+Petit   | Info    | 16.0 | 13.1        | 2.9
+Moreau  | Maths   | 17.5 | 16.5        | 1.0
+Moreau  | Maths   | 14.0 | 16.5        | -2.5
+Roux    | Maths   | 18.0 | 16.5        | 1.5
+\end{verbatim}
+\end{codeoutput}
+
+\subsection{ROW\_NUMBER, RANK, DENSE\_RANK}
+
+\begin{definition}[Fonctions de classement]
+\begin{itemize}
+    \item \texttt{ROW\_NUMBER()} --- num\'ero s\'equentiel unique dans la partition.
+    \item \texttt{RANK()} --- rang avec trous (ex-aequo re\c{c}oivent le m\^eme rang,
+          le rang suivant est incr\'ement\'e du nombre d'ex-aequo).
+    \item \texttt{DENSE\_RANK()} --- rang sans trous.
+\end{itemize}
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Classement des \'etudiants par note}]
+\begin{minted}{sql}
+SELECT e.nom, i.note,
+       ROW_NUMBER() OVER (ORDER BY i.note DESC) AS row_num,
+       RANK()       OVER (ORDER BY i.note DESC) AS rang,
+       DENSE_RANK() OVER (ORDER BY i.note DESC) AS rang_dense
+FROM Etudiants e
+JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+nom     | note | row_num | rang | rang_dense
+--------+------+---------+------+-----------
+Roux    | 18.0 | 1       | 1    | 1
+Moreau  | 17.5 | 2       | 2    | 2
+Petit   | 16.0 | 3       | 3    | 3
+Bernard | 15.5 | 4       | 4    | 4
+Moreau  | 14.0 | 5       | 5    | 5
+Bernard | 13.0 | 6       | 6    | 6
+Petit   | 12.0 | 7       | 7    | 7
+Leroy   | 9.0  | 8       | 8    | 8
+\end{verbatim}
+\end{codeoutput}
+
+\begin{codeblock}[title=\textbf{Meilleur \'etudiant par fili\`ere (Top-N par groupe)}]
+\begin{minted}{sql}
+WITH Classement AS (
+    SELECT e.nom, e.filiere, i.note,
+           ROW_NUMBER() OVER (
+               PARTITION BY e.filiere
+               ORDER BY i.note DESC
+           ) AS rn
+    FROM Etudiants e
+    JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+)
+SELECT nom, filiere, note
+FROM Classement
+WHERE rn = 1;
+\end{minted}
+\end{codeblock}
+
+\subsection{LAG, LEAD}
+
+\begin{definition}[LAG et LEAD]
+\begin{itemize}
+    \item \texttt{LAG(col, n, defaut)} --- valeur de \texttt{col} $n$ lignes \emph{avant}
+          la ligne courante.
+    \item \texttt{LEAD(col, n, defaut)} --- valeur de \texttt{col} $n$ lignes \emph{apr\`es}
+          la ligne courante.
+\end{itemize}
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Comparaison avec la ligne pr\'ec\'edente}]
+\begin{minted}{sql}
+SELECT e.nom, i.note,
+       LAG(i.note, 1) OVER (ORDER BY i.note DESC) AS note_precedente,
+       i.note - LAG(i.note, 1) OVER (ORDER BY i.note DESC) AS diff
+FROM Etudiants e
+JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+ORDER BY i.note DESC;
+\end{minted}
+\end{codeblock}
+
+\subsection{Fen\^etres glissantes (Frame)}
+
+\begin{codeblock}[title=\textbf{Moyenne mobile sur 3 lignes}]
+\begin{minted}{sql}
+SELECT e.nom, i.note,
+       AVG(i.note) OVER (
+           ORDER BY i.note
+           ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+       ) AS moyenne_mobile
+FROM Etudiants e
+JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+ORDER BY i.note;
+\end{minted}
+\end{codeblock}
+
+\begin{formules}[title=\textbf{Sp\'ecifications de fen\^etre (Frame)}]
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Sp\'ecification} & \textbf{Description} \\
+\midrule
+\texttt{ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW} & Du d\'ebut \`a la ligne courante \\
+\texttt{ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING} & Fen\^etre glissante de 3 lignes \\
+\texttt{ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING} & De la ligne courante \`a la fin \\
+\texttt{RANGE BETWEEN ...} & Bas\'e sur les valeurs (pas les positions) \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{formules}
+
+\subsection{NTILE et calculs de pourcentage}
+
+\begin{codeblock}[title=\textbf{Quartiles et pourcentage cumulatif}]
+\begin{minted}{sql}
+SELECT e.nom, i.note,
+       NTILE(4) OVER (ORDER BY i.note DESC) AS quartile,
+       ROUND(100.0 * SUM(i.note) OVER (ORDER BY i.note DESC
+           ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+           / SUM(i.note) OVER (), 1) AS pct_cumul
+FROM Etudiants e
+JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+ORDER BY i.note DESC;
+\end{minted}
+\end{codeblock}
+
+\section{Int\'egration Python}
+
+\begin{codeblock}[title=\textbf{Agr\'egation et window functions avec Python}]
+\begin{minted}{python}
+import sqlite3
+
+conn = sqlite3.connect('universite.db')
+cur = conn.cursor()
+
+# Agregation avec GROUP BY
+cur.execute('''
+    SELECT e.nom, COUNT(*) as nb, ROUND(AVG(i.note), 2) as moy
+    FROM Etudiants e
+    JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+    GROUP BY e.id_etudiant, e.nom
+    HAVING AVG(i.note) > 14
+    ORDER BY moy DESC
+''')
+print("Moyennes > 14 :")
+for row in cur.fetchall():
+    print(f"  {row[0]:10} | {row[1]} cours | moyenne {row[2]}")
+
+# Window function (SQLite >= 3.25)
+cur.execute('''
+    SELECT e.nom, i.note,
+           RANK() OVER (ORDER BY i.note DESC) as rang
+    FROM Etudiants e
+    JOIN Inscriptions i ON e.id_etudiant = i.id_etudiant
+''')
+print("\nClassement :")
+for nom, note, rang in cur.fetchall():
+    print(f"  #{rang} {nom:10} : {note}")
+
+conn.close()
+\end{minted}
+\end{codeblock}
+
+\section*{Exercices}
+
+\begin{exercice}
+Pour chaque cours, affichez le nombre d'inscrits, la moyenne, la note
+minimale et maximale. N'affichez que les cours ayant au moins 2 inscrits.
+\end{exercice}
+
+\begin{exercice}
+Classez les \'etudiants par moyenne g\'en\'erale et affichez leur rang.
+Utilisez \texttt{DENSE\_RANK} pour g\'erer les ex-aequo.
+\end{exercice}
+
+\begin{exercice}
+Pour chaque inscription, affichez la note de l'\'etudiant, la moyenne
+de sa fili\`ere, et l'\'ecart par rapport \`a cette moyenne.
+Utilisez une fonction de fen\^etre.
+\end{exercice}
+
+\begin{exercice}
+Affichez le top-2 des meilleures notes par cours. Utilisez
+\texttt{ROW\_NUMBER} avec \texttt{PARTITION BY}.
+\end{exercice}
+
+\begin{exercice}
+Calculez la somme cumulative des notes par \'etudiant, ordonn\'ee par
+identifiant de cours, en utilisant une fen\^etre glissante.
+\end{exercice}

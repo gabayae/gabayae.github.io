@@ -1,0 +1,172 @@
+% ============================================================
+\chapter{Applications: Finance, Economics, Meteorology}
+\label{ch:applications}
+% ============================================================
+
+\section{Motivating Example}
+The tools developed in this course apply directly to concrete problems: portfolio management, macroeconomic forecasting, and climate modeling.
+
+\section{Finance: Volatility Modeling}\index{finance}
+
+\subsection{Value at Risk (VaR)}\index{VaR}
+
+\begin{definition}[VaR]
+The \textbf{Value at Risk} at level $\alpha$ is the $\alpha$-quantile of the loss distribution:
+\[
+P(L_t > \text{VaR}_\alpha) = \alpha.
+\]
+With a GARCH model: $\text{VaR}_\alpha = -\hat\mu_t + \hat\sigma_t\,q_\alpha$, where $q_\alpha$ is the quantile of the innovation distribution.
+\end{definition}
+
+\subsection{Application}
+
+\begin{codeblock}[title=\textbf{Python --- VaR with GARCH}]
+\begin{minted}{python}
+import numpy as np
+import pandas as pd
+from arch import arch_model
+
+# Simuler des rendements type financier
+np.random.seed(42)
+n = 2000
+omega, alpha, beta = 0.01, 0.08, 0.90
+sigma2 = np.zeros(n)
+r = np.zeros(n)
+sigma2[0] = omega / (1 - alpha - beta)
+for t in range(1, n):
+    sigma2[t] = omega + alpha * r[t-1]**2 + beta * sigma2[t-1]
+    r[t] = np.sqrt(sigma2[t]) * np.random.standard_t(5)
+
+# Estimer GARCH(1,1) avec innovations t de Student
+am = arch_model(r * 100, vol='Garch', p=1, q=1, dist='t')
+res = am.fit(disp='off')
+
+# VaR 1%
+forecasts = res.forecast(horizon=1)
+sigma_next = np.sqrt(forecasts.variance.values[-1, 0])
+from scipy.stats import t as t_dist
+nu = res.params['nu']
+VaR_01 = sigma_next * t_dist.ppf(0.01, nu)
+print(f"VaR 1% = {VaR_01:.4f}%")
+\end{minted}
+\end{codeblock}
+
+\section{Economics: Macroeconomic Forecasting}\index{economics}
+
+\subsection{GDP and Leading Indicators}
+
+\begin{method}
+\begin{enumerate}
+\item Load quarterly series (GDP, consumption, investment).
+\item Test for stationarity (ADF). Difference if necessary.
+\item Estimate a VAR or a seasonal ARIMA.
+\item Evaluate by out-of-sample validation.
+\end{enumerate}
+\end{method}
+
+\begin{codeblock}[title=\textbf{Python --- Macro Forecasting}]
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+from statsmodels.tsa.api import VAR
+from statsmodels.tsa.stattools import adfuller
+
+# Exemple avec données simulées (remplacer par FRED/Eurostat)
+np.random.seed(0)
+n = 200
+gdp = np.cumsum(np.random.normal(0.5, 1, n))      # trend + bruit
+cpi = 0.3 * gdp + np.cumsum(np.random.normal(0, 0.5, n))
+
+df = pd.DataFrame({'GDP_growth': np.diff(gdp),
+                    'Inflation': np.diff(cpi)})
+
+# VAR
+model = VAR(df)
+results = model.fit(ic='bic')
+print(f"Ordre sélectionné: VAR({results.k_ar})")
+print(results.summary())
+
+# Prévision
+forecast = results.forecast(df.values[-results.k_ar:], steps=8)
+print("Prévision PIB (8 trimestres):", forecast[:, 0])
+\end{minted}
+\end{codeblock}
+
+\section{Meteorology: Temperatures and Seasonality}\index{meteorology}
+
+\begin{codeblock}[title=\textbf{Python --- Temperature Series}]
+\begin{minted}{python}
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from statsmodels.tsa.seasonal import seasonal_decompose
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+
+# Simuler des températures mensuelles
+np.random.seed(42)
+n_years = 30
+t = np.arange(n_years * 12)
+seasonal = 10 * np.sin(2 * np.pi * t / 12)
+trend = 0.01 * t  # réchauffement
+noise = np.random.normal(0, 2, len(t))
+temp = 15 + trend + seasonal + noise
+
+df = pd.DataFrame({'temp': temp},
+    index=pd.date_range('1990-01', periods=len(t), freq='ME'))
+
+# Décomposition
+decomp = seasonal_decompose(df['temp'], model='additive', period=12)
+decomp.plot()
+plt.savefig('ch11_decomp.pdf')
+plt.show()
+
+# SARIMA
+train = df.iloc[:-24]
+test = df.iloc[-24:]
+model = SARIMAX(train, order=(1,0,1),
+                seasonal_order=(1,1,1,12))
+results = model.fit(disp=False)
+pred = results.forecast(steps=24)
+
+rmse = np.sqrt(np.mean((test['temp'] - pred.values)**2))
+print(f"RMSE prévision 24 mois: {rmse:.2f}°C")
+\end{minted}
+\end{codeblock}
+
+\section{Methodological Summary}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Domain} & \textbf{Typical Model} & \textbf{Main Challenge} \\
+\midrule
+Finance & GARCH, EGARCH & Volatility, heavy tails \\
+Macroeconomics & VAR, VECM, ARIMA & Causality, cointegration \\
+Meteorology & SARIMA, state space & Seasonality, trend \\
+Epidemiology & SIR + state space & Nonlinearity \\
+Signal processing & Spectral analysis & Hidden periodicities \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+Compute the 5\% VaR for a GARCH(1,1) with $\hat\sigma_{t+1}=2\%$ and Gaussian innovations.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Compare SARIMA and Holt--Winters exponential smoothing forecasts on monthly temperatures. Which is more accurate?
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Project]
+Choose a real-world dataset in one of the three domains. Apply the complete methodology: exploration, modeling (at least 3 models), diagnostics, out-of-sample forecasting, comparison. Write a 10-page report.
+\end{exercise}
+
+\begin{keyformulas}
+\begin{align*}
+\text{VaR}_\alpha &= -\hat\mu_t + \hat\sigma_t\,q_\alpha \\
+\text{RMSE} &= \sqrt{\frac{1}{H}\sum(X_{n+h}-\hat{X}_{n+h})^2} \\
+\text{DM} &= \frac{\bar{d}}{\sqrt{\hat\sigma_d^2/H}}\dto\mathcal{N}(0,1)
+\end{align*}
+\end{keyformulas}

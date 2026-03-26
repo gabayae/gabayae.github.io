@@ -1,0 +1,324 @@
+% ============================================================
+\chapter{State-of-the-Art Algorithms}
+\label{ch:sota}
+% ============================================================
+
+The landscape of reinforcement learning has expanded dramatically beyond the foundational methods of earlier chapters. Model-based RL, pioneered by approaches like Dyna (Sutton, 1991) and refined by MuZero (Schrittwieser et al., 2020), learns environment dynamics to plan ahead. Distributional RL, introduced by Bellemare, Dabney, and Munos (2017), models full return distributions rather than just expectations. Offline RL, formalized by Levine et al., learns policies from fixed datasets without further environment interaction. And decision transformers (Chen et al., 2021) recast RL as sequence modelling, using the power of transformer architectures. Each approach opens new possibilities and raises new challenges. This chapter surveys these frontier directions.
+
+\begin{intuition}
+This chapter covers four directions beyond model-free methods:
+model-based RL (Dyna, Dreamer, MuZero), distributional RL (C51, QR-DQN),
+offline RL (CQL), and decision transformers. Each addresses a different
+limitation of the algorithms seen so far.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Model-Based Reinforcement Learning}
+\label{sec:mbrl}
+% ------------------------------------------------------------
+
+\begin{definition}[Model-Based RL]
+\index{model-based RL}
+A \textbf{model-based} RL agent learns an explicit dynamics model
+$\hat{P}(s'|s,a)$ and reward model $\hat{R}(s,a)$, then uses them
+for planning or generating synthetic experience.
+\end{definition}
+
+\begin{proposition}[Advantages of Model-Based RL]
+\begin{itemize}
+    \item \textbf{Sample efficiency}: synthetic rollouts in the learned
+    model reduce the number of real environment interactions.
+    \item \textbf{Planning}: the model enables look-ahead search
+    (e.g., Monte Carlo Tree Search).
+    \item \textbf{Transfer}: the model captures environment structure
+    that transfers across tasks.
+\end{itemize}
+\end{proposition}
+
+\begin{attention}[title=\textbf{Model Bias}]
+Model errors compound over long rollouts, leading to exploitative
+policies that perform well in the model but poorly in reality. This
+is known as \textbf{model exploitation} and is the main challenge of
+model-based RL.
+\end{attention}
+
+\subsection{Dyna Architecture}
+
+\begin{definition}[Dyna-Q]
+\index{Dyna}
+Dyna-Q (Sutton, 1991) alternates between real experience, model learning,
+and simulated planning:
+\begin{enumerate}
+    \item Interact with the real environment and update $Q$ (direct RL).
+    \item Update the model $\hat{P}, \hat{R}$ from the transition.
+    \item Perform $k$ simulated updates using the model (planning).
+\end{enumerate}
+\end{definition}
+
+\subsection{Dreamer}
+
+\begin{definition}[Dreamer]
+\index{Dreamer}
+Dreamer (Hafner et al., 2020) learns a world model in a compact latent
+space and trains the policy entirely from imagined trajectories:
+\begin{itemize}
+    \item \textbf{Representation model}: encodes observations into latent
+    states $z_t$ using a recurrent state-space model (RSSM).
+    \item \textbf{Dynamics model}: predicts $z_{t+1}$ from $z_t$ and $a_t$.
+    \item \textbf{Reward model}: predicts $r_t$ from $z_t$.
+    \item \textbf{Actor-critic}: trained on imagined rollouts in latent space.
+\end{itemize}
+DreamerV3 (2023) achieves human-level performance on Atari and continuous
+control with a single set of hyperparameters.
+\end{definition}
+
+\subsection{MuZero}
+
+\begin{definition}[MuZero]
+\index{MuZero}
+MuZero (Schrittwieser et al., 2020) learns a model that predicts only
+the quantities needed for planning --- rewards, values, and policies ---
+without reconstructing observations:
+\begin{itemize}
+    \item \textbf{Representation}: $h(o_t) \to s_t$ (encodes observation)
+    \item \textbf{Dynamics}: $g(s_t, a_t) \to (r_t, s_{t+1})$
+    \item \textbf{Prediction}: $f(s_t) \to (p_t, v_t)$ (policy and value)
+\end{itemize}
+Planning is done via Monte Carlo Tree Search (MCTS) in the learned
+latent space. MuZero matches AlphaZero's performance in Go, chess, and
+shogi, while also achieving superhuman Atari play.
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{MuZero Training Loss}]
+\[
+    \mathcal{L}(\theta) = \sum_{k=0}^{K} \left[
+    \ell^r(r_t^k, \hat{r}_t^k) + \ell^v(z_t^k, \hat{v}_t^k)
+    + \ell^p(\pi_t^k, \hat{p}_t^k) + c \norm{\theta}^2
+    \right]
+\]
+where $K$ is the unroll length, $\ell^r$ and $\ell^v$ are scalar losses,
+and $\ell^p$ is the cross-entropy between MCTS policy and predicted policy.
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Distributional Reinforcement Learning}
+\label{sec:distributional}
+% ------------------------------------------------------------
+
+\begin{definition}[Distributional RL]
+\index{distributional RL}
+Instead of estimating the expected return $Q(s,a) = \E[Z(s,a)]$,
+distributional RL models the full distribution of the random return
+$Z(s,a)$:
+\[
+    Z(s,a) \stackrel{d}{=} R(s,a) + \gamma Z(S', A')
+\]
+where $\stackrel{d}{=}$ denotes equality in distribution.
+\end{definition}
+
+\begin{theorem}[Distributional Bellman Operator]
+The distributional Bellman operator $\mathcal{T}^\pi$ is a contraction
+in the Wasserstein metric $\bar{d}_p$:
+\[
+    \bar{d}_p(\mathcal{T}^\pi Z_1, \mathcal{T}^\pi Z_2)
+    \leq \gamma \, \bar{d}_p(Z_1, Z_2).
+\]
+This guarantees convergence to a unique fixed-point distribution.
+\end{theorem}
+
+\subsection{C51}
+
+\begin{definition}[C51]
+\index{C51}
+C51 (Bellemare et al., 2017) represents the return distribution as a
+categorical distribution over $N = 51$ fixed atoms
+$\{z_1, \ldots, z_N\}$ uniformly spaced in $[V_{\min}, V_{\max}]$:
+\[
+    Z_\theta(s,a) = \sum_{i=1}^{N} p_i(s,a;\theta) \, \delta_{z_i}
+\]
+The distribution is updated by projecting the Bellman target
+$r + \gamma z_j$ onto the support atoms.
+\end{definition}
+
+\subsection{QR-DQN}
+
+\begin{definition}[Quantile Regression DQN]
+\index{QR-DQN}
+QR-DQN (Dabney et al., 2018) represents the return distribution via $N$
+quantile values $\{\theta_1, \ldots, \theta_N\}$ at fixed quantile
+fractions $\hat{\tau}_i = (2i-1)/(2N)$:
+\[
+    Z(s,a) \approx \frac{1}{N} \sum_{i=1}^{N} \delta_{\theta_i(s,a)}
+\]
+The quantile values are trained using the quantile Huber loss:
+\[
+    \rho_\tau^\kappa(\delta) = \abs{\tau - \ind_{\{\delta < 0\}}}
+    \frac{L_\kappa(\delta)}{\kappa}
+\]
+where $L_\kappa$ is the Huber loss with threshold $\kappa$.
+\end{definition}
+
+\begin{remark}
+Distributional RL provides richer learning signals than scalar Q-values.
+Empirically, it leads to better feature representations and more stable
+optimization, even when the final policy only uses the mean.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Offline Reinforcement Learning}
+\label{sec:offline}
+% ------------------------------------------------------------
+
+\begin{definition}[Offline RL]
+\index{offline RL}
+\textbf{Offline RL} (also called \textbf{batch RL}) learns a policy
+from a fixed dataset $\mathcal{D} = \{(s_i, a_i, r_i, s'_i)\}_{i=1}^N$
+collected by some behavior policy $\pi_\beta$, without any further
+environment interaction.
+\end{definition}
+
+\begin{attention}[title=\textbf{Distribution Shift}]
+Offline RL suffers from \textbf{distribution shift}: the learned policy
+$\pi$ may select actions in states rarely seen under $\pi_\beta$,
+leading to unreliable Q-value estimates for out-of-distribution
+state-action pairs.
+\end{attention}
+
+\begin{definition}[Conservative Q-Learning (CQL)]
+\index{CQL}
+CQL (Kumar et al., 2020) penalizes Q-values for actions not in the
+dataset by adding a regularizer:
+\[
+    \mathcal{L}_{\text{CQL}} = \alpha \left(
+    \E_{s \sim \mathcal{D}, a \sim \mu}[Q(s,a)]
+    - \E_{s,a \sim \mathcal{D}}[Q(s,a)] \right)
+    + \mathcal{L}_{\text{TD}}
+\]
+where $\mu$ is a broad distribution (e.g., uniform). This pushes
+Q-values down for unseen actions and up for dataset actions.
+\end{definition}
+
+\begin{proposition}[CQL Lower Bound]
+CQL produces Q-values that are a lower bound of the true Q-function
+for actions in the dataset (with high probability). This conservatism
+prevents the policy from selecting overestimated out-of-distribution
+actions.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Decision Transformers}
+\label{sec:dt}
+% ------------------------------------------------------------
+
+\begin{definition}[Decision Transformer]
+\index{decision transformer}
+The Decision Transformer (Chen et al., 2021) recasts RL as a
+sequence modeling problem. A causal Transformer processes the sequence:
+\[
+    (\hat{R}_1, s_1, a_1, \hat{R}_2, s_2, a_2, \ldots, \hat{R}_t, s_t)
+    \to a_t
+\]
+where $\hat{R}_t$ is the desired return-to-go. At test time, setting a
+high $\hat{R}_t$ conditions the model to generate high-performing
+trajectories.
+\end{definition}
+
+\begin{intuition}
+The Decision Transformer does not use Bellman equations, TD learning, or
+explicit value functions. Instead, it uses the pattern-recognition
+capabilities of Transformers to extract good behaviors from datasets.
+It works particularly well when the dataset contains diverse quality
+trajectories.
+\end{intuition}
+
+\begin{example}[Decision Transformer Results]
+On the D4RL benchmark, the Decision Transformer matches or exceeds
+CQL and other offline RL methods on locomotion and Atari tasks,
+demonstrating that sequence modeling provides a viable alternative to
+traditional RL algorithms.
+\end{example}
+
+% ------------------------------------------------------------
+\section{Comparison of Approaches}
+\label{sec:comparison}
+% ------------------------------------------------------------
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lccc}
+    \toprule
+    \textbf{Method} & \textbf{Model} & \textbf{Online} & \textbf{Key Strength} \\
+    \midrule
+    DQN / Rainbow & Free & Yes & Simplicity \\
+    PPO / SAC & Free & Yes & Stability / exploration \\
+    Dreamer / MuZero & Learned & Yes & Sample efficiency \\
+    CQL & Free & No & Fixed datasets \\
+    Decision Transformer & Free & No & Sequence modeling \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+% ------------------------------------------------------------
+\section{Python Example: Offline RL with CQL}
+\label{sec:sota:code}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{CQL Regularization (Sketch)}]
+\begin{minted}{python}
+import torch
+import torch.nn.functional as F
+
+def cql_loss(q_net, states, actions, rewards, next_states,
+             dones, gamma=0.99, alpha=1.0, n_samples=10):
+    """CQL loss: standard TD + conservative regularizer."""
+    # Standard TD loss
+    with torch.no_grad():
+        q_next = q_net(next_states).max(1)[0]
+        targets = rewards + gamma * q_next * (1 - dones)
+    q_vals = q_net(states).gather(
+        1, actions.unsqueeze(1)).squeeze()
+    td_loss = F.mse_loss(q_vals, targets)
+
+    # CQL regularizer: push down Q for random actions
+    batch_size = states.shape[0]
+    random_actions = torch.randint(
+        0, q_net.net[-1].out_features,
+        (batch_size, n_samples))
+    q_all = q_net(states)  # (B, A)
+    logsumexp = torch.logsumexp(q_all, dim=1).mean()
+    q_data = q_vals.mean()
+    cql_reg = alpha * (logsumexp - q_data)
+
+    return td_loss + cql_reg
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+\label{sec:sota:exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}[Dyna-Q]
+Implement Dyna-Q with a tabular model on \texttt{FrozenLake-v1}.
+Vary the number of planning steps $k \in \{0, 5, 50\}$ and compare
+convergence speed.
+\end{exercise}
+
+\begin{exercise}[Distributional RL]
+Implement C51 on \texttt{CartPole-v1}. Visualize the learned return
+distributions for different states and compare with standard DQN.
+\end{exercise}
+
+\begin{exercise}[Offline RL Challenge]
+Collect a dataset of 10000 transitions using a partially trained DQN
+agent on \texttt{LunarLander-v2}. Train a policy using only this
+dataset (no further interaction). Compare naive DQN training on the
+dataset with CQL.
+\end{exercise}
+
+\begin{exercise}[Decision Transformer]
+Explain why conditioning on return-to-go $\hat{R}_t$ enables the
+Decision Transformer to produce different quality behaviors. What
+happens if $\hat{R}_t$ is set higher than any return observed in the
+training data?
+\end{exercise}

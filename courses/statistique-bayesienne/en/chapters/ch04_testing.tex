@@ -1,0 +1,384 @@
+% ============================================================
+\chapter{Bayesian Hypothesis Testing}
+\label{ch:testing}
+% ============================================================
+
+The frequentist hypothesis test relies on the $p$-value: the probability of observing data at least as extreme as those obtained, under the null hypothesis. But this quantity answers a question that nobody really asks: what we want to know is the probability that the hypothesis is true \emph{given the data}, not the other way round. The Bayesian test answers this directly through the \emph{Bayes factor}: the ratio of marginal likelihoods under each hypothesis. Harold Jeffreys, in his 1961 treatise, systematised this approach and proposed the scale that bears his name for interpreting the strength of evidence.
+
+\begin{intuition}[title=\textbf{Central idea}]
+Bayesian testing compares hypotheses via their posterior probabilities or
+the \textbf{Bayes factor}, which measures the relative strength of
+evidence for each hypothesis without depending on the stopping rule or
+sample space.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Bayesian formulation of testing}
+% ------------------------------------------------------------
+
+\begin{definition}[Bayesian test]
+Consider two hypotheses $H_0 : \theta \in \Theta_0$ and
+$H_1 : \theta \in \Theta_1$ with $\Theta_0 \cup \Theta_1 = \Theta$
+and $\Theta_0 \cap \Theta_1 = \emptyset$. Assign prior probabilities
+$\PP(H_0) = \pi_0$ and $\PP(H_1) = \pi_1 = 1 - \pi_0$. The posterior
+probabilities are:
+\[
+  \PP(H_k \mid x) = \frac{m_k(x)\,\pi_k}{m(x)},
+  \quad k = 0, 1,
+\]
+where $m_k(x) = \int_{\Theta_k} f(x \mid \theta)\,\pi(\theta \mid H_k)\,d\theta$.
+\end{definition}
+
+\begin{definition}[Bayes factor]
+The \textbf{Bayes factor} in favor of $H_0$ over $H_1$ is:
+\[
+  B_{01} = \frac{m_0(x)}{m_1(x)}
+  = \frac{\PP(H_0 \mid x) / \PP(H_1 \mid x)}
+         {\PP(H_0) / \PP(H_1)}.
+\]
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{Posterior odds ratio}]
+\[
+  \underbrace{\frac{\PP(H_0 \mid x)}{\PP(H_1 \mid x)}}_{\text{posterior odds}}
+  = \underbrace{B_{01}}_{\text{Bayes factor}}
+  \times
+  \underbrace{\frac{\pi_0}{\pi_1}}_{\text{prior odds}}.
+\]
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Interpreting the Bayes factor}
+% ------------------------------------------------------------
+
+\begin{keyformulas}[title=\textbf{Jeffreys' scale for $B_{01}$}]
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{cl}
+\toprule
+$\log_{10} B_{01}$ & \textbf{Evidence in favor of $H_0$} \\
+\midrule
+$0$ to $1/2$ & Weak \\
+$1/2$ to $1$ & Substantial \\
+$1$ to $2$ & Strong \\
+$> 2$ & Decisive \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{keyformulas}
+
+\begin{remark}
+The Bayes factor is symmetric: $B_{10} = 1/B_{01}$. If $B_{01} > 1$,
+the data support $H_0$; if $B_{01} < 1$, they support $H_1$.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Testing a point hypothesis}
+% ------------------------------------------------------------
+
+\begin{definition}[Point hypothesis]
+We test $H_0 : \theta = \theta_0$ against
+$H_1 : \theta \neq \theta_0$. We assign a point mass
+$\pi_0 = \PP(\theta = \theta_0) > 0$ and a continuous density
+$\pi_1(\theta)$ on $\Theta_1$.
+\end{definition}
+
+\begin{theorem}[Bayes factor for point $H_0$]
+\[
+  B_{01} = \frac{f(x \mid \theta_0)}
+  {\int_{\Theta_1} f(x \mid \theta)\,\pi_1(\theta)\,d\theta}
+  = \frac{L(\theta_0 \mid x)}{m_1(x)}.
+\]
+\end{theorem}
+
+\begin{warning}[title=\textbf{Jeffreys--Lindley paradox}]
+With a vague prior ($\tau_0^2 \to \infty$) under $H_1$, the Bayes
+factor $B_{01} \to \infty$, always favoring $H_0$, even when the
+frequentist $p$-value is very small. This paradox illustrates the
+importance of the prior choice under $H_1$.
+\end{warning}
+
+\begin{example}
+\textbf{Testing $\mu = 0$ in the Gaussian model.}
+Let $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \mathcal{N}(\mu, \sigma^2)$
+with $\sigma^2$ known. Under $H_0 : \mu = 0$, under
+$H_1 : \mu \sim \mathcal{N}(0, \tau^2)$.
+
+The Bayes factor is:
+\[
+  B_{01} = \sqrt{\frac{\tau^2 + \sigma^2/n}{\sigma^2/n}}
+  \exp\!\left(-\frac{n\bar{x}^2}{2\sigma^2}
+  \cdot \frac{\tau^2}{\tau^2 + \sigma^2/n}\right).
+\]
+\end{example}
+
+% ------------------------------------------------------------
+\section{Bayesian decision rule}
+% ------------------------------------------------------------
+
+\begin{definition}[Optimal decision rule]
+Under 0--1 loss:
+\[
+  L(H_k, d) = \begin{cases}
+  0 & \text{if } d = k, \\
+  1 & \text{if } d \neq k,
+  \end{cases}
+\]
+the optimal decision is: accept $H_0$ if
+$\PP(H_0 \mid x) > \PP(H_1 \mid x)$, i.e., $B_{01} > \pi_1/\pi_0$.
+
+With $\pi_0 = \pi_1 = 1/2$, this reduces to accepting $H_0$ if $B_{01} > 1$.
+\end{definition}
+
+\begin{theorem}[Decision rule under asymmetric loss]
+Under the loss $L(H_0, d=1) = c_0$ (type I error) and
+$L(H_1, d=0) = c_1$ (type II error), the optimal rule is: accept
+$H_0$ if
+\[
+  B_{01} > \frac{c_0}{c_1} \cdot \frac{\pi_1}{\pi_0}.
+\]
+\end{theorem}
+
+% ------------------------------------------------------------
+\section{Computing the Bayes factor}
+% ------------------------------------------------------------
+
+\subsection{Conjugate case}
+
+\begin{proposition}[Bayes factor via conjugacy]
+For a conjugate model, the marginal likelihood is often available
+analytically. For the Bernoulli--Beta model with
+$\theta \sim \text{Be}(a, b)$:
+\[
+  m(x) = \frac{B(a + s, b + n - s)}{B(a, b)},
+\]
+where $B(\cdot, \cdot)$ is the beta function.
+\end{proposition}
+
+\subsection{Savage--Dickey method}
+
+\begin{theorem}[Savage--Dickey density ratio]
+To test $H_0 : \theta = \theta_0$ against
+$H_1 : \theta \sim \pi_1(\theta)$, if $\pi_1$ is the prior under $H_1$
+and $\pi_1(\theta \mid x)$ the corresponding posterior:
+\[
+  B_{01} = \frac{\pi_1(\theta_0 \mid x)}{\pi_1(\theta_0)}.
+\]
+\end{theorem}
+
+\begin{proof}
+By definition:
+\[
+  B_{01} = \frac{f(x \mid \theta_0)}{m_1(x)}.
+\]
+But $\pi_1(\theta_0 \mid x) = f(x \mid \theta_0)\pi_1(\theta_0)/m_1(x)$,
+so $f(x \mid \theta_0)/m_1(x) = \pi_1(\theta_0 \mid x)/\pi_1(\theta_0)$.
+\end{proof}
+
+\subsection{Numerical approximations}
+
+\begin{definition}[Harmonic mean estimator]
+The marginal likelihood can be estimated by the harmonic mean of
+likelihoods evaluated on MCMC samples:
+\[
+  \hat{m}(x) = \left(\frac{1}{T}\sum_{t=1}^T \frac{1}{L(\theta^{(t)} \mid x)}\right)^{-1}.
+\]
+\end{definition}
+
+\begin{warning}[title=\textbf{Instability of the harmonic mean}]
+This estimator has potentially infinite variance and should be used
+with great caution. More stable methods such as \textit{bridge sampling}
+or WAIC are preferred.
+\end{warning}
+
+% ------------------------------------------------------------
+\section{Bayesian information criteria}
+% ------------------------------------------------------------
+
+\begin{definition}[BIC --- Bayesian Information Criterion]
+\[
+  \text{BIC} = -2\log L(\hat{\theta}_{\text{MLE}} \mid x) + k\log n,
+\]
+where $k$ is the number of parameters. BIC approximates the log Bayes
+factor: $-2\log B_{01} \approx \text{BIC}_0 - \text{BIC}_1$.
+\end{definition}
+
+\begin{definition}[WAIC --- Widely Applicable IC]
+\[
+  \text{WAIC} = -2\sum_{i=1}^n \log \E_{\theta \mid x}[f(x_i \mid \theta)]
+  + 2\,p_{\text{WAIC}},
+\]
+where $p_{\text{WAIC}} = \sum_{i=1}^n \Var_{\theta \mid x}[\log f(x_i \mid \theta)]$
+is the effective number of parameters.
+\end{definition}
+
+\begin{definition}[LOO-CV --- Leave-One-Out Cross-Validation]
+\[
+  \text{LOO} = -2\sum_{i=1}^n \log f(x_i \mid x_{-i}),
+\]
+where $f(x_i \mid x_{-i}) = \int f(x_i \mid \theta)\,\pi(\theta \mid x_{-i})\,d\theta$
+is the leave-one-out predictive density.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{ROPE and practical equivalence}
+% ------------------------------------------------------------
+
+\begin{definition}[ROPE --- Region of Practical Equivalence]
+The \textbf{ROPE} is an interval
+$[\theta_0 - \varepsilon, \theta_0 + \varepsilon]$ defining practical
+equivalence to $\theta_0$. The decision is:
+\begin{itemize}
+  \item Accept $H_0$ if $\text{HDI} \subset \text{ROPE}$.
+  \item Reject $H_0$ if $\text{HDI} \cap \text{ROPE} = \emptyset$.
+  \item Undecided otherwise.
+\end{itemize}
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Comparison with $p$-values}
+% ------------------------------------------------------------
+
+\begin{proposition}[Bayes--$p$-value calibration]
+Sellke, Bayarri, and Berger (2001) show that:
+\[
+  B_{01} \geq -\frac{1}{e \cdot p \cdot \log p}
+  \quad \text{for } p < 1/e,
+\]
+where $p$ is the $p$-value. Thus, a $p$-value of $0.05$ corresponds to
+$B_{01} \geq 2.5$ at most, representing weak to moderate evidence for
+$H_0$.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Python implementation}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Bayes factor for a Gaussian test}]
+\begin{minted}{python}
+import numpy as np
+from scipy import stats
+
+# Data
+np.random.seed(42)
+n = 25
+sigma = 1.0
+mu_true = 0.3
+data = np.random.normal(mu_true, sigma, n)
+x_bar = data.mean()
+
+# H0: mu = 0, H1: mu ~ N(0, tau^2)
+tau = 1.0
+
+# Analytic Bayes factor
+var_ratio = tau**2 / (tau**2 + sigma**2/n)
+log_BF01 = 0.5 * np.log(1 + n*tau**2/sigma**2) \
+           - 0.5 * n * x_bar**2 / sigma**2 * var_ratio
+BF01 = np.exp(log_BF01)
+
+print(f"x_bar = {x_bar:.4f}")
+print(f"BF01 = {BF01:.4f}")
+print(f"log10(BF01) = {np.log10(BF01):.4f}")
+
+if BF01 > 1:
+    print("Data favor H0")
+else:
+    print(f"Data favor H1 (BF10 = {1/BF01:.4f})")
+
+# Comparison with p-value
+t_stat = x_bar / (sigma / np.sqrt(n))
+p_value = 2 * (1 - stats.norm.cdf(abs(t_stat)))
+print(f"Two-sided p-value: {p_value:.4f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{ROPE and HDI with PyMC}]
+\begin{minted}{python}
+import pymc as pm
+import arviz as az
+import matplotlib.pyplot as plt
+
+# Bayesian model
+with pm.Model() as model_test:
+    mu = pm.Normal("mu", mu=0, sigma=10)
+    y = pm.Normal("y", mu=mu, sigma=sigma,
+                  observed=data)
+    trace = pm.sample(3000, random_seed=42)
+
+# HDI and ROPE
+hdi = az.hdi(trace, var_names=["mu"], hdi_prob=0.95)
+print("95% HDI for mu:", hdi)
+
+# ROPE test
+rope = [-0.1, 0.1]
+az.plot_posterior(trace, var_names=["mu"],
+                 rope=rope, ref_val=0,
+                 figsize=(8, 4))
+plt.savefig("rope_test.pdf")
+
+# Proportion of posterior in ROPE
+mu_samples = trace.posterior["mu"].values.flatten()
+in_rope = np.mean((mu_samples >= rope[0]) &
+                   (mu_samples <= rope[1]))
+print(f"P(mu in ROPE | data) = {in_rope:.4f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Model comparison with WAIC}]
+\begin{minted}{python}
+# Two competing models
+with pm.Model() as model_linear:
+    a = pm.Normal("a", 0, 10)
+    b = pm.Normal("b", 0, 10)
+    sigma_m = pm.HalfNormal("sigma", 5)
+    x_pred = np.linspace(0, 10, n)
+    mu_pred = a + b * x_pred
+    y_obs = pm.Normal("y", mu=mu_pred, sigma=sigma_m,
+                      observed=data)
+    trace_lin = pm.sample(2000, random_seed=42)
+
+with pm.Model() as model_null:
+    a = pm.Normal("a", 0, 10)
+    sigma_m = pm.HalfNormal("sigma", 5)
+    y_obs = pm.Normal("y", mu=a, sigma=sigma_m,
+                      observed=data)
+    trace_null = pm.sample(2000, random_seed=42)
+
+# WAIC comparison
+comp = az.compare({"linear": trace_lin,
+                    "null": trace_null})
+print(comp)
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+Compute the Bayes factor for the test $H_0 : \theta = 1/2$ against
+$H_1 : \theta \sim \text{Be}(1,1)$ in the Bernoulli model with
+$n = 20$ and $s = 14$.
+\end{exercise}
+
+\begin{exercise}
+Prove the Savage--Dickey density ratio. Verify numerically on the
+Normal--Normal model.
+\end{exercise}
+
+\begin{exercise}
+Illustrate the Jeffreys--Lindley paradox: for $n = 100$,
+$\bar{x} = 0.2$, $\sigma = 1$, compute the $p$-value and the Bayes
+factor $B_{01}$ for different values of $\tau \in \{1, 10, 100\}$.
+Comment.
+\end{exercise}
+
+\begin{exercise}
+\textbf{(Numerical)} Compare WAIC and LOO-CV for selecting between a
+linear and a quadratic model on simulated data.
+\end{exercise}
+
+\begin{exercise}
+Derive the BIC approximation to the Bayes factor from the Laplace
+approximation of the marginal likelihood.
+\end{exercise}

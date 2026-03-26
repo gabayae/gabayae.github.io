@@ -1,0 +1,408 @@
+% ============================================================
+\chapter{Relational Algebra}
+\label{ch:algebra}
+% ============================================================
+
+\section{Introduction}
+
+When you write \texttt{SELECT name FROM students WHERE grade > 15}, you are thinking in SQL. But behind this syntax lies a mathematical language of remarkable precision: \emph{relational algebra}, invented by Edgar F.\ Codd in his landmark 1970 paper. Codd had the brilliant insight to view tables as \emph{relations} in the mathematical sense (subsets of Cartesian products) and queries as \emph{operations} on these relations: selection, projection, join, union, difference. Relational algebra is to SQL what formal logic is to natural language: a rigorous foundation that guarantees every query has a precise, unambiguous semantics.
+
+Understanding relational algebra is understanding \emph{why} SQL works---and how the query optimiser transforms your instructions into an efficient execution plan.
+
+\begin{definition}[Relational Algebra]
+\emph{Relational algebra} is a set of operators that take one or two relations
+as input and produce a relation as output. It is a \emph{procedural} language:
+one specifies \emph{how} to obtain the result (sequence of operations).
+\end{definition}
+
+The operators fall into two categories:
+\begin{itemize}
+    \item \textbf{Set operators}: union ($\cup$), intersection ($\cap$),
+          difference ($-$), Cartesian product ($\times$).
+    \item \textbf{Relation-specific operators}: selection ($\sigma$), projection ($\pi$),
+          join ($\bowtie$), rename ($\rho$), division ($\div$).
+\end{itemize}
+
+\section{Selection ($\sigma$)}
+
+\begin{definition}[Selection]
+The \emph{selection} $\sigma_\theta(R)$ returns the tuples of $R$ that satisfy
+the condition $\theta$. The condition $\theta$ is a Boolean expression
+on the attributes of $R$.
+\[
+\sigma_\theta(R) = \{ t \in R \mid \theta(t) = \text{true} \}
+\]
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{Properties of Selection}]
+\begin{align}
+\sigma_{\theta_1 \land \theta_2}(R) &= \sigma_{\theta_1}(\sigma_{\theta_2}(R)) \tag{cascade}\\
+\sigma_{\theta_1}(\sigma_{\theta_2}(R)) &= \sigma_{\theta_2}(\sigma_{\theta_1}(R)) \tag{commutativity}\\
+|\sigma_\theta(R)| &\leq |R| \tag{cardinality}
+\end{align}
+\end{keyformulas}
+
+\begin{example}
+Select CS students:
+\[
+\sigma_{\text{major} = \text{'CS'}}(\text{Students})
+\]
+
+SQL equivalent:
+\begin{codeblock}[title=\textbf{SQL Equivalent of Selection}]
+\begin{minted}{sql}
+SELECT * FROM Students WHERE major = 'CS';
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+student_id | last_name | first_name | birth_date | major
+-----------+-----------+------------+------------+------
+1          | Brown     | Alice      | 2004-03-15 | CS
+2          | Davis     | Bob        | 2003-11-22 | CS
+4          | Wilson    | David      | 2003-01-30 | CS
+\end{verbatim}
+\end{codeoutput}
+\end{example}
+
+\section{Projection ($\pi$)}
+
+\begin{definition}[Projection]
+The \emph{projection} $\pi_{A_1, A_2, \ldots, A_k}(R)$ returns the relation
+obtained by keeping only attributes $A_1, \ldots, A_k$ of $R$ and
+eliminating duplicates.
+\[
+\pi_{A_1, \ldots, A_k}(R) = \{ t[A_1, \ldots, A_k] \mid t \in R \}
+\]
+\end{definition}
+
+\begin{example}
+Project the names of students:
+\[
+\pi_{\text{last\_name}, \text{first\_name}}(\text{Students})
+\]
+
+\begin{codeblock}[title=\textbf{SQL Equivalent of Projection}]
+\begin{minted}{sql}
+SELECT DISTINCT last_name, first_name FROM Students;
+\end{minted}
+\end{codeblock}
+\end{example}
+
+\begin{warning}[title=\textbf{Projection and Duplicates}]
+In relational algebra, projection automatically eliminates duplicates
+(since a relation is a set). In SQL, you must explicitly use \texttt{DISTINCT},
+because SQL works with \emph{multisets} (bags).
+\end{warning}
+
+\section{Set Operators}
+
+\begin{definition}[Union, Intersection, Difference]
+Let $R$ and $S$ be two relations with the same schema (\emph{union-compatible}):
+\begin{align}
+R \cup S &= \{ t \mid t \in R \lor t \in S \} \tag{union}\\
+R \cap S &= \{ t \mid t \in R \land t \in S \} \tag{intersection}\\
+R - S &= \{ t \mid t \in R \land t \notin S \} \tag{difference}
+\end{align}
+\end{definition}
+
+\begin{theorem}[Set Properties]
+\begin{itemize}
+    \item $\cup$ and $\cap$ are commutative and associative.
+    \item $-$ is neither commutative nor associative.
+    \item $R \cap S = R - (R - S)$.
+\end{itemize}
+\end{theorem}
+
+\begin{codeblock}[title=\textbf{Set Operators in SQL}]
+\begin{minted}{sql}
+-- Union (eliminates duplicates)
+SELECT last_name FROM Students WHERE major = 'CS'
+UNION
+SELECT last_name FROM Students WHERE major = 'Math';
+
+-- Intersection
+SELECT student_id FROM Enrollments WHERE course_id = 101
+INTERSECT
+SELECT student_id FROM Enrollments WHERE course_id = 102;
+
+-- Difference
+SELECT student_id FROM Enrollments WHERE course_id = 101
+EXCEPT
+SELECT student_id FROM Enrollments WHERE course_id = 103;
+\end{minted}
+\end{codeblock}
+
+\section{Cartesian Product ($\times$)}
+
+\begin{definition}[Cartesian Product]
+The \emph{Cartesian product} $R \times S$ produces all possible combinations
+of tuples from $R$ with tuples from $S$.
+\[
+R \times S = \{ (t_r, t_s) \mid t_r \in R \land t_s \in S \}
+\]
+If $|R| = n$ and $|S| = m$, then $|R \times S| = n \times m$.
+\end{definition}
+
+\begin{warning}[title=\textbf{Cost of the Cartesian Product}]
+The Cartesian product is very expensive: it multiplies the cardinalities.
+In practice, it is rarely used alone; it is combined with a selection to
+form a \emph{join}.
+\end{warning}
+
+\section{Join ($\bowtie$)}
+
+\begin{definition}[Natural Join]
+The \emph{natural join} $R \bowtie S$ combines tuples from $R$ and $S$ that
+have equal values on their common attributes.
+\[
+R \bowtie S = \sigma_{\text{common attributes equal}}(R \times S)
+\]
+with elimination of duplicate columns.
+\end{definition}
+
+\begin{definition}[Theta-Join]
+The \emph{theta-join} $R \bowtie_\theta S$ is defined as:
+\[
+R \bowtie_\theta S = \sigma_\theta(R \times S)
+\]
+where $\theta$ is any condition on the attributes of $R$ and $S$.
+Special case: an \emph{equi-join} uses only equality conditions.
+\end{definition}
+
+\begin{example}
+Find the names of students and the titles of courses they are enrolled in:
+\[
+\pi_{\text{last\_name}, \text{title}}(\text{Students} \bowtie \text{Enrollments} \bowtie \text{Courses})
+\]
+
+\begin{codeblock}[title=\textbf{Join in SQL}]
+\begin{minted}{sql}
+SELECT s.last_name, c.title
+FROM Students s
+JOIN Enrollments e ON s.student_id = e.student_id
+JOIN Courses c ON e.course_id = c.course_id;
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+last_name | title
+----------+-----------
+Brown     | Databases
+Brown     | Algorithms
+Davis     | Databases
+Davis     | Networks
+Miller    | Algorithms
+Miller    | Statistics
+Wilson    | Databases
+Taylor    | Statistics
+\end{verbatim}
+\end{codeoutput}
+\end{example}
+
+\begin{proposition}[Properties of the Join]
+\begin{itemize}
+    \item The natural join is commutative: $R \bowtie S = S \bowtie R$.
+    \item The natural join is associative: $(R \bowtie S) \bowtie T = R \bowtie (S \bowtie T)$.
+    \item If $R$ and $S$ have no common attributes, $R \bowtie S = R \times S$.
+\end{itemize}
+\end{proposition}
+
+\section{Rename ($\rho$)}
+
+\begin{definition}[Rename]
+The \emph{rename} operator $\rho_{B/A}(R)$ renames attribute $A$ to $B$
+in relation $R$. One can also rename the relation itself: $\rho_S(R)$.
+\end{definition}
+
+Renaming is useful for:
+\begin{itemize}
+    \item Making two relations union-compatible.
+    \item Performing a self-join (joining a relation with itself).
+\end{itemize}
+
+\begin{example}
+Find pairs of students enrolled in the same course:
+\[
+\pi_{e_1.\text{student\_id}, e_2.\text{student\_id}}(
+    \sigma_{e_1.\text{student\_id} < e_2.\text{student\_id}}(
+        \rho_{e_1}(\text{Enrollments}) \bowtie_{\text{course\_id}} \rho_{e_2}(\text{Enrollments})
+    )
+)
+\]
+\end{example}
+
+\section{Division ($\div$)}
+
+\begin{definition}[Division]
+Let $R(A, B)$ and $S(B)$ be two relations. The \emph{division} $R \div S$
+returns the values of $A$ in $R$ that are associated with \emph{all}
+values of $B$ in $S$.
+\[
+R \div S = \{ t[A] \mid t \in R \land \forall s \in S, (t[A], s[B]) \in R \}
+\]
+\end{definition}
+
+\begin{theorem}[Division Expression]
+Division can be expressed using other operators:
+\[
+R \div S = \pi_A(R) - \pi_A\big((\pi_A(R) \times S) - R\big)
+\]
+\end{theorem}
+
+\begin{example}
+Find students enrolled in \emph{all} courses taught by professor 2:
+
+Let $S = \pi_{\text{course\_id}}(\sigma_{\text{prof\_id}=2}(\text{Courses}))$
+(courses taught by professor 2).
+
+$\pi_{\text{student\_id}, \text{course\_id}}(\text{Enrollments}) \div S$
+
+gives the students enrolled in all those courses.
+
+\begin{codeblock}[title=\textbf{Division in SQL (NOT EXISTS)}]
+\begin{minted}{sql}
+SELECT DISTINCT e.student_id
+FROM Enrollments e
+WHERE NOT EXISTS (
+    SELECT c.course_id
+    FROM Courses c
+    WHERE c.prof_id = 2
+    AND NOT EXISTS (
+        SELECT 1
+        FROM Enrollments e2
+        WHERE e2.student_id = e.student_id
+        AND e2.course_id = c.course_id
+    )
+);
+\end{minted}
+\end{codeblock}
+\end{example}
+
+\section{Query Trees and Optimization}
+
+A relational algebra expression can be represented as a tree: leaves are
+base relations, internal nodes are operators.
+
+\begin{theorem}[Heuristic Optimization Rules]
+\begin{enumerate}
+    \item \textbf{Push selections down}: apply selections as early as possible
+          to reduce the size of intermediate relations.
+    \item \textbf{Push projections down}: project as early as possible to
+          reduce the number of attributes.
+    \item \textbf{Combine selection + Cartesian product into join}:
+          $\sigma_\theta(R \times S) \to R \bowtie_\theta S$.
+    \item \textbf{Reorder joins}: start with joins that produce the smallest
+          intermediate results.
+\end{enumerate}
+\end{theorem}
+
+\begin{example}
+Consider the query: ``names of CS students enrolled in course 101.''
+
+Naive expression:
+\[
+\pi_{\text{last\_name}}(\sigma_{\text{major='CS'} \land \text{course\_id}=101}(\text{Students} \times \text{Enrollments}))
+\]
+
+Optimized expression:
+\[
+\pi_{\text{last\_name}}(\sigma_{\text{major='CS'}}(\text{Students}) \bowtie \sigma_{\text{course\_id}=101}(\text{Enrollments}))
+\]
+
+The optimized version avoids the full Cartesian product and filters early.
+\end{example}
+
+\section{Algebra--SQL Correspondence Summary}
+
+\begin{keyformulas}[title=\textbf{Relational Algebra $\leftrightarrow$ SQL Mapping}]
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Algebra} & \textbf{SQL} \\
+\midrule
+$\sigma_\theta(R)$ & \texttt{SELECT * FROM R WHERE $\theta$} \\
+$\pi_{A_1,\ldots,A_k}(R)$ & \texttt{SELECT DISTINCT $A_1$, \ldots, $A_k$ FROM R} \\
+$R \cup S$ & \texttt{R UNION S} \\
+$R \cap S$ & \texttt{R INTERSECT S} \\
+$R - S$ & \texttt{R EXCEPT S} \\
+$R \times S$ & \texttt{SELECT * FROM R, S} \\
+$R \bowtie S$ & \texttt{SELECT * FROM R NATURAL JOIN S} \\
+$R \bowtie_\theta S$ & \texttt{SELECT * FROM R JOIN S ON $\theta$} \\
+$R \div S$ & Double \texttt{NOT EXISTS} \\
+$\rho_{B/A}(R)$ & \texttt{SELECT A AS B FROM R} \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{keyformulas}
+
+\section{Python Integration}
+
+\begin{codeblock}[title=\textbf{Simulating Relational Algebra with pandas}]
+\begin{minted}{python}
+import pandas as pd
+
+# Relations as DataFrames
+students = pd.DataFrame({
+    'student_id': [1, 2, 3, 4, 5],
+    'last_name': ['Brown', 'Davis', 'Miller', 'Wilson', 'Taylor'],
+    'major': ['CS', 'CS', 'Math', 'CS', 'Math']
+})
+enrollments = pd.DataFrame({
+    'student_id': [1, 1, 2, 2, 3, 3, 4, 5],
+    'course_id': [101, 102, 101, 103, 102, 104, 101, 104],
+    'grade': [88.5, 76.0, 72.0, 91.0, 95.5, 82.0, 55.0, 97.0]
+})
+
+# Selection: sigma_{major='CS'}(Students)
+cs = students[students['major'] == 'CS']
+print("Selection:\n", cs)
+
+# Projection: pi_{last_name}(Students)
+names = students[['last_name']].drop_duplicates()
+print("\nProjection:\n", names)
+
+# Natural join
+result = pd.merge(students, enrollments, on='student_id')
+print("\nJoin:\n", result[['last_name', 'course_id', 'grade']])
+\end{minted}
+\end{codeblock}
+
+\section*{Exercises}
+
+\begin{exercise}
+Express the following queries in relational algebra, then translate them to SQL:
+\begin{enumerate}
+    \item Names of professors in the ``Computer Science'' department.
+    \item Titles of courses worth at least 4 credits.
+    \item Names of students enrolled in the ``Databases'' course.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}
+Let $R(A, B, C)$ and $S(C, D, E)$. Simplify the expression:
+\[
+\pi_{A, D}(\sigma_{B > 10 \land D = 'x'}(R \bowtie S))
+\]
+by pushing selections and projections down.
+\end{exercise}
+
+\begin{exercise}
+Express the following division in SQL: ``find students enrolled in all
+courses from the Computer Science department.''
+\end{exercise}
+
+\begin{exercise}
+Draw the algebraic tree corresponding to the expression:
+\[
+\pi_{\text{last\_name}}(\sigma_{\text{grade} > 85}(\text{Students} \bowtie \text{Enrollments} \bowtie \text{Courses}))
+\]
+Then propose an optimized tree by applying heuristic rules.
+\end{exercise}
+
+\begin{exercise}
+Prove that $R \cap S = R - (R - S)$ using the set-theoretic definitions
+of the operators.
+\end{exercise}

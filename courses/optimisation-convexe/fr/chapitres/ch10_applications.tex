@@ -1,0 +1,318 @@
+% ============================================================
+\chapter{Applications}
+\label{ch:applications}
+% ============================================================
+
+\section{Introduction}
+
+L'optimisation convexe n'est pas un exercice th\'eorique~: c'est un langage universel pour formuler et r\'esoudre des probl\`emes concrets. Le LASSO en statistique, la d\'ecomposition en composantes principales robuste, l'allocation de portefeuille de Markowitz, le compressed sensing en traitement du signal, l'entra\^inement des machines \`a vecteurs de support --- tous se formulent comme des probl\`emes d'optimisation convexe et se r\'esolvent par les algorithmes des chapitres pr\'ec\'edents. Stephen Boyd, dans son c\'el\`ebre manuel de 2004, r\'esume l'id\'ee~: \og reconnaître qu'un probl\`eme est convexe, c'est le r\'esoudre. \fg{} Ce chapitre met cette philosophie en pratique.
+
+\begin{intuition}
+L'optimisation convexe n'est pas une th\'eorie abstraite~: c'est un langage
+universel pour formuler et r\'esoudre efficacement des probl\`emes dans de
+nombreux domaines. La cl\'e est de \emph{reconna\^itre} la structure convexe
+cach\'ee dans un probl\`eme appliqu\'e, puis d'appliquer l'algorithme
+adapt\'e.
+\end{intuition}
+
+\section{Compressed sensing}
+
+\begin{definition}[Compressed sensing]
+\index{compressed sensing}
+Le \textbf{compressed sensing} (acquisition comprim\'ee) vise \`a reconstruire
+un signal $x^* \in \R^n$ creux (\emph{sparse}) \`a partir de $m \ll n$
+mesures lin\'eaires $b = Ax^* + \epsilon$, o\`u $A \in \R^{m \times n}$.
+\end{definition}
+
+\begin{theoreme}[Reconstruction par $\ell_1$]
+\index{reconstruction $\ell_1$}
+Si $x^*$ est $s$-creux et $A$ satisfait la \textbf{propri\'et\'e d'isom\'etrie
+restreinte} (RIP) d'ordre $2s$ avec constante $\delta_{2s} < \sqrt{2} - 1$,
+alors la solution de~:
+\[
+  \min_x \norm{x}_1 \quad \text{s.c.} \quad \norm{Ax - b}_2 \leq \epsilon
+\]
+v\'erifie $\norm{\hat{x} - x^*}_2 \leq C \epsilon$ pour une constante $C$.
+\end{theoreme}
+
+\begin{remarque}
+En pratique, on r\'esout souvent la formulation LASSO \'equivalente~:
+\[
+  \min_x \frac{1}{2} \norm{Ax - b}^2 + \lambda \norm{x}_1,
+\]
+qui est un probl\`eme composite r\'esoluble par ISTA/FISTA
+(chapitre~\ref{ch:proximales}).
+\end{remarque}
+
+\begin{exemple}[Reconstruction d'un signal creux]
+Soit $x^* \in \R^{500}$ avec 20 composantes non nulles, $A \in \R^{100 \times 500}$
+gaussienne, et $b = Ax^*$. Le LASSO avec $\lambda = 0.1$ reconstruit
+exactement $x^*$, alors que les moindres carr\'es (sous-d\'etermin\'es)
+\'echouent.
+\end{exemple}
+
+\section{LASSO et r\'egularisation $\ell_1$}
+
+\begin{definition}[LASSO]
+\index{LASSO}
+Le \textbf{LASSO} (Least Absolute Shrinkage and Selection Operator)~:
+\[
+  \min_{\beta \in \R^p} \frac{1}{2n} \norm{y - X\beta}^2
+  + \lambda \norm{\beta}_1,
+\]
+effectue simultan\'ement l'estimation et la s\'election de variables en
+r\'egression lin\'eaire.
+\end{definition}
+
+\begin{proposition}[Propri\'et\'es du LASSO]
+\begin{enumerate}
+  \item La p\'enalisation $\ell_1$ produit des solutions \textbf{creuses}
+        (beaucoup de coefficients exactement nuls).
+  \item Le param\`etre $\lambda$ contr\^ole le degr\'e de parcimonie~:
+        $\lambda \to +\infty$ donne $\hat{\beta} = 0$~;
+        $\lambda \to 0$ donne les moindres carr\'es.
+  \item Le chemin de r\'egularisation
+        $\lambda \mapsto \hat{\beta}(\lambda)$ est lin\'eaire par morceaux.
+\end{enumerate}
+\end{proposition}
+
+\begin{theoreme}[Conditions d'optimalit\'e du LASSO]
+$\hat{\beta}$ est solution du LASSO si et seulement si~:
+\[
+  \frac{1}{n} X^\top (X\hat{\beta} - y) + \lambda v = 0,
+\]
+o\`u $v \in \partial \norm{\hat{\beta}}_1$, c'est-\`a-dire
+$v_j = \mathrm{sign}(\hat{\beta}_j)$ si $\hat{\beta}_j \ne 0$ et
+$\abs{v_j} \leq 1$ sinon.
+\end{theoreme}
+
+\section{Optimisation de portefeuille}
+
+\begin{definition}[Mod\`ele de Markowitz]
+\index{optimisation de portefeuille}
+\index{Markowitz}
+Le \textbf{mod\`ele de Markowitz} cherche le portefeuille de variance
+minimale pour un rendement esp\'er\'e donn\'e~:
+\[
+  \min_w w^\top \Sigma w \quad \text{s.c.} \quad
+  \mu^\top w \geq r_{\min}, \quad
+  \mathbf{1}^\top w = 1, \quad w \geq 0,
+\]
+o\`u $w \in \R^n$ est le vecteur de poids, $\Sigma$ la matrice de
+covariance, $\mu$ le vecteur de rendements esp\'er\'es.
+\end{definition}
+
+\begin{remarque}
+C'est un \textbf{programme quadratique} convexe (QP) car $\Sigma$ est
+semi-d\'efinie positive. Il se r\'esout par les m\'ethodes de points
+int\'erieurs ou par le simplexe pour QP.
+\end{remarque}
+
+\begin{proposition}[Fronti\`ere efficiente]
+L'ensemble des portefeuilles optimaux (en faisant varier $r_{\min}$) forme
+la \textbf{fronti\`ere efficiente} dans le plan
+(\'ecart-type, rendement). C'est une courbe convexe.
+\end{proposition}
+
+\begin{exemple}[Portefeuille \`a 3 actifs]
+Avec $\mu = (0.12, 0.10, 0.07)^\top$ et
+\[
+  \Sigma = \begin{pmatrix}
+    0.04 & 0.006 & 0.002 \\
+    0.006 & 0.025 & 0.004 \\
+    0.002 & 0.004 & 0.01
+  \end{pmatrix},
+\]
+le portefeuille de variance minimale (sans contrainte de rendement) est
+$w^* \approx (0.14, 0.28, 0.58)^\top$ avec $\sigma^* \approx 8.1\%$.
+\end{exemple}
+
+\section{Transport optimal}
+
+\begin{definition}[Probl\`eme de Kantorovich]
+\index{transport optimal}
+\index{Kantorovich}
+\'Etant donn\'ees deux mesures de probabilit\'e discr\`etes
+$\mu = \sum_{i=1}^n a_i \delta_{x_i}$ et
+$\nu = \sum_{j=1}^m b_j \delta_{y_j}$, le \textbf{transport optimal} de
+Kantorovich cherche~:
+\[
+  \min_{\Pi \geq 0} \sum_{i,j} C_{ij} \Pi_{ij} \quad \text{s.c.} \quad
+  \Pi \mathbf{1} = a, \quad \Pi^\top \mathbf{1} = b,
+\]
+o\`u $C_{ij} = c(x_i, y_j)$ est le co\^ut de transport.
+\end{definition}
+
+\begin{remarque}
+C'est un programme lin\'eaire. La distance de Wasserstein associ\'ee
+d\'efinit une m\'etrique sur l'espace des mesures de probabilit\'e.
+\end{remarque}
+
+\begin{definition}[R\'egularisation entropique]
+\index{r\'egularisation entropique}
+La r\'egularisation de \textbf{Sinkhorn} ajoute un terme entropique~:
+\[
+  \min_{\Pi \geq 0} \sum_{i,j} C_{ij} \Pi_{ij}
+  + \varepsilon \sum_{i,j} \Pi_{ij} \ln \Pi_{ij} \quad
+  \text{s.c.} \quad \Pi \mathbf{1} = a, \; \Pi^\top \mathbf{1} = b.
+\]
+L'algorithme de Sinkhorn r\'esout ce probl\`eme par des multiplications
+matricielles altern\'ees. Pour des mesures discr\`etes \`a $n$ points,
+la complexit\'e par it\'eration est $\mathcal{O}(n^2)$, et le nombre
+d'it\'erations pour atteindre une pr\'ecision $\varepsilon$ est
+$\mathcal{O}(1/\varepsilon)$ (Altschuler et al., 2017).
+\end{definition}
+
+\section{Applications en apprentissage automatique}
+
+\subsection{SVM dual}
+
+\begin{definition}[SVM -- formulation duale]
+\index{SVM}
+Le \textbf{Support Vector Machine} (SVM) lin\'eaire se formule en dual~:
+\[
+  \max_\alpha \sum_{i=1}^n \alpha_i
+  - \frac{1}{2} \sum_{i,j} \alpha_i \alpha_j y_i y_j x_i^\top x_j
+  \quad \text{s.c.} \quad
+  0 \leq \alpha_i \leq C, \quad \sum_i \alpha_i y_i = 0,
+\]
+o\`u $(x_i, y_i) \in \R^d \times \{-1, +1\}$ sont les donn\'ees et $C > 0$.
+C'est un QP convexe.
+\end{definition}
+
+\begin{proposition}[Vecteurs de support]
+Les \textbf{vecteurs de support} sont les points $x_i$ pour lesquels
+$\alpha_i^* > 0$. L'hyperplan s\'eparateur est $w^* = \sum_i \alpha_i^*
+y_i x_i$.
+\end{proposition}
+
+\subsection{R\'egression logistique}
+
+\begin{definition}[R\'egression logistique r\'egularis\'ee]
+\index{r\'egression logistique}
+La r\'egression logistique avec r\'egularisation $\ell_2$~:
+\[
+  \min_\beta \sum_{i=1}^n \ln(1 + e^{-y_i x_i^\top \beta})
+  + \frac{\lambda}{2} \norm{\beta}^2.
+\]
+La fonction objectif est fortement convexe ($\lambda > 0$) et lisse.
+Elle se r\'esout efficacement par Newton, L-BFGS, ou gradient proximal
+(avec r\'egularisation $\ell_1$ pour la parcimonie).
+\end{definition}
+
+\begin{theoreme}[Convexit\'e de la log-vraisemblance]
+La fonction de perte logistique $\ell(\beta) = \ln(1 + e^{-y x^\top \beta})$
+est convexe en $\beta$ pour tout $(x, y)$. Avec la r\'egularisation $\ell_2$,
+le probl\`eme est $\lambda$-fortement convexe, garantissant l'unicit\'e de la
+solution.
+\end{theoreme}
+
+\section{Impl\'ementation Python}
+
+\begin{codeblock}[title=\textbf{LASSO et portefeuille avec CVXPY}]
+\begin{minted}{python}
+import numpy as np
+import cvxpy as cp
+
+# --- LASSO ---
+n, p = 100, 200
+X = np.random.randn(n, p)
+beta_true = np.zeros(p)
+beta_true[:10] = np.random.randn(10)
+y = X @ beta_true + 0.1 * np.random.randn(n)
+
+beta = cp.Variable(p)
+lam = 0.1
+prob = cp.Problem(cp.Minimize(
+    0.5 * cp.sum_squares(X @ beta - y)
+    + lam * cp.norm1(beta)))
+prob.solve()
+print("LASSO: nnz =", np.sum(np.abs(beta.value) > 1e-4))
+
+# --- Portefeuille de Markowitz ---
+mu = np.array([0.12, 0.10, 0.07])
+Sigma = np.array([[0.04, 0.006, 0.002],
+                  [0.006, 0.025, 0.004],
+                  [0.002, 0.004, 0.01]])
+w = cp.Variable(3)
+ret = mu @ w
+risk = cp.quad_form(w, Sigma)
+prob2 = cp.Problem(cp.Minimize(risk),
+    [ret >= 0.09, cp.sum(w) == 1, w >= 0])
+prob2.solve()
+print("Portefeuille:", np.round(w.value, 3))
+\end{minted}
+\end{codeblock}
+
+\section{Exercices}
+
+\begin{exercice}[$\star$ -- LASSO]
+Pour $X \in \R^{20 \times 50}$ et $y = X\beta^* + \epsilon$ avec
+$\beta^*$ 5-creux, r\'esoudre le LASSO pour $\lambda \in \{0.01, 0.1, 1\}$.
+Tracer le nombre de composantes non nulles en fonction de $\lambda$.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- Portefeuille]
+R\'esoudre le probl\`eme de Markowitz pour 5 actifs avec donn\'ees
+historiques. Tracer la fronti\`ere efficiente pour $r_{\min}$ variant de
+5\% \`a 15\%.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- SVM]
+Formuler et r\'esoudre le SVM dual pour un jeu de donn\'ees lin\'eairement
+s\'eparable \`a 2 dimensions. Identifier les vecteurs de support.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Transport optimal]
+Impl\'ementer l'algorithme de Sinkhorn pour deux distributions discr\`etes
+sur $\R^2$ (\`a 50 points chacune). Tracer le plan de transport optimal et
+\'etudier l'influence de $\varepsilon$.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Compressed sensing]
+G\'en\'erer $A \in \R^{m \times n}$ gaussienne, $x^*$ $s$-creux, et
+$b = Ax^*$. \'Etudier exp\'erimentalement la transition de phase~: pour
+$n = 200$, faire varier $m$ et $s$ et d\'eterminer quand la reconstruction
+$\ell_1$ r\'eussit.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- Propri\'et\'es de la constante RIP]
+Soit $A \in \R^{m \times n}$ et $\delta_s$ la constante d'isom\'etrie restreinte
+(RIP) d'ordre $s$, d\'efinie comme le plus petit $\delta \geq 0$ tel que~:
+\[
+  (1 - \delta)\,\norm{x}_2^2 \leq \norm{Ax}_2^2 \leq (1 + \delta)\,\norm{x}_2^2
+\]
+pour tout vecteur $s$-creux $x$.
+\begin{enumerate}
+  \item Montrer que $\delta_s \leq \delta_{s'}$ pour $s \leq s'$ (monotonie).
+  \item Montrer que si $\delta_{2s} < 1$, alors $A$ est injective sur
+        l'ensemble des vecteurs $s$-creux.
+  \item Soit $A$ une matrice gaussienne $m \times n$ avec entr\'ees i.i.d.\
+        $\mathcal{N}(0, 1/m)$. En utilisant une borne de concentration sur
+        la norme d'un sous-ensemble de colonnes, montrer que
+        $\delta_s < \delta$ avec haute probabilit\'e d\`es que
+        $m \geq C\,\delta^{-2}\,s\,\ln(n/s)$.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Chemin de r\'egularisation du LASSO]
+Consid\'erer le probl\`eme LASSO~:
+$\hat{\beta}(\lambda) = \argmin_\beta \frac{1}{2n}\norm{y - X\beta}^2 + \lambda\norm{\beta}_1$.
+\begin{enumerate}
+  \item Montrer que pour $\lambda \geq \lambda_{\max} = \frac{1}{n}\norm{X^\top y}_\infty$,
+        la solution est $\hat{\beta}(\lambda) = 0$.
+  \item En utilisant les conditions KKT, montrer que l'ensemble actif
+        $\mathcal{A}(\lambda) = \{j : \hat{\beta}_j(\lambda) \neq 0\}$ est
+        constant par morceaux en $\lambda$ et que les changements ont lieu
+        en un nombre fini de valeurs $\lambda_1 > \lambda_2 > \cdots > 0$.
+  \item Sur chaque intervalle $(\lambda_{k+1}, \lambda_k)$, montrer que
+        $\hat{\beta}_{\mathcal{A}}(\lambda)$ est une fonction affine de $\lambda$~:
+        \[
+          \hat{\beta}_{\mathcal{A}}(\lambda) = (X_{\mathcal{A}}^\top X_{\mathcal{A}})^{-1}
+          (X_{\mathcal{A}}^\top y - n\lambda\, s_{\mathcal{A}})
+        \]
+        o\`u $s_{\mathcal{A}} = \mathrm{sign}(\hat{\beta}_{\mathcal{A}})$.
+        En d\'eduire que le chemin $\lambda \mapsto \hat{\beta}(\lambda)$ est
+        lin\'eaire par morceaux.
+\end{enumerate}
+\end{exercice}

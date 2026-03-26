@@ -1,0 +1,305 @@
+% ============================================================
+\chapter{Distances entre Diagrammes}
+\label{ch:distances}
+% ============================================================
+
+Pour que les diagrammes de persistance soient v\'eritablement utiles, il faut pouvoir les \emph{comparer}. Deux nuages de points ont-ils la m\^eme forme topologique~? Un signal bruit\'e a-t-il la m\^eme structure qu'un signal propre~? R\'epondre \`a ces questions exige une notion de distance entre diagrammes. Deux familles dominent la th\'eorie~: la distance bottleneck, qui mesure le pire d\'eplacement n\'ecessaire pour apparier les points de deux diagrammes, et les distances de Wasserstein, qui mesurent le co\^ut total du transport optimal. Le choix entre les deux n'est pas neutre~: la distance bottleneck privil\'egie les structures les plus persistantes (les ``grandes'' barres), tandis que Wasserstein int\`egre l'information de toutes les barres, y compris les petites. Les algorithmes de calcul --- probl\`eme d'affectation hongrois, enchères --- et les propri\'et\'es th\'eoriques de stabilit\'e font l'objet de ce chapitre.
+
+\begin{intuition}
+Les diagrammes de persistance\index{diagramme de persistance} r\'esum\'ent
+l'information topologique d'un espace filtr\'e. Pour pouvoir comparer deux
+espaces, il faut disposer de \textbf{distances} entre diagrammes. Le choix
+de la distance d\'etermine quelles diff\'erences topologiques on privil\'egie~:
+les structures les plus persistantes (bottleneck\index{distance bottleneck})
+ou l'ensemble du spectre (Wasserstein\index{distance de Wasserstein}).
+\end{intuition}
+
+% ============================================================
+\section{Rappels sur les diagrammes de persistance}
+% ============================================================
+
+\begin{definition}[Diagramme de persistance]
+Soit $\mathcal{F}$ une filtration d'un complexe simplicial. Le
+\textbf{diagramme de persistance}\index{diagramme de persistance}
+$\mathrm{Dgm}(\mathcal{F})$ est le multi-ensemble de points
+$(b_i, d_i) \in \R^2$ avec $b_i < d_i$, o\`u $b_i$ est la valeur de
+naissance et $d_i$ la valeur de mort de la $i$-\`eme classe d'homologie
+persistante. On y adjoint la diagonale $\Delta = \{(x,x) : x \in \R\}$
+avec multiplicit\'e infinie.
+\end{definition}
+
+\begin{remarque}
+L'ajout de la diagonale avec multiplicit\'e infinie permet de d\'efinir
+des bijections entre diagrammes de tailles diff\'erentes~: un point du
+diagramme peut \^etre appari\'e \`a un point de la diagonale, ce qui
+revient \`a le consid\'erer comme du bruit.
+\end{remarque}
+
+% ============================================================
+\section{La distance bottleneck}
+\label{sec:bottleneck}
+% ============================================================
+
+\begin{definition}[Distance bottleneck]
+\label{def:bottleneck}
+Soient $D_1$ et $D_2$ deux diagrammes de persistance. La \textbf{distance
+bottleneck}\index{distance bottleneck} est~:
+\[
+  d_\infty(D_1, D_2) = \inf_{\gamma} \sup_{x \in D_1}
+    \norm{x - \gamma(x)}_\infty
+\]
+o\`u l'infimum porte sur toutes les bijections $\gamma : D_1 \to D_2$
+(en utilisant la diagonale pour compl\'eter).
+\end{definition}
+
+\begin{remarque}
+La norme $\norm{\cdot}_\infty$ utilis\'ee ici est la norme du maximum~:
+$\norm{(a,b) - (c,d)}_\infty = \max(\abs{a-c}, \abs{b-d})$.
+On peut aussi utiliser la distance \`a la diagonale~:
+$\norm{(b,d)}_\infty^{\Delta} = \frac{d - b}{2}$.
+\end{remarque}
+
+\begin{intuition}
+La distance bottleneck mesure le \og{} co\^ut du pire appariement \fg.
+Elle est insensible au nombre de petites structures et ne capture que
+le d\'ecalage maximal entre les structures les plus importantes.
+\end{intuition}
+
+\begin{exemple}
+Consid\'erons $D_1 = \{(0, 2), (1, 3)\}$ et $D_2 = \{(0, 2.5), (1, 3.2)\}$.
+L'appariement naturel donne~:
+\[
+  d_\infty(D_1, D_2) = \max\bigl(\norm{(0,2)-(0,2.5)}_\infty,\;
+  \norm{(1,3)-(1,3.2)}_\infty\bigr) = \max(0.5, 0.2) = 0.5.
+\]
+\end{exemple}
+
+\begin{proposition}[M\'etrique]
+$d_\infty$ est une m\'etrique sur l'espace des diagrammes de persistance.
+\end{proposition}
+
+% ============================================================
+\section{Les distances de Wasserstein}
+\label{sec:wasserstein}
+% ============================================================
+
+\begin{definition}[Distance de Wasserstein]
+\label{def:wasserstein}
+Pour $p \geq 1$ et $q \geq 1$, la \textbf{distance de Wasserstein}
+$W_{p,q}$ entre deux diagrammes $D_1$, $D_2$ est~:
+\[
+  W_{p,q}(D_1, D_2) = \left(\inf_{\gamma}
+    \sum_{x \in D_1} \norm{x - \gamma(x)}_q^p\right)^{1/p}
+\]
+o\`u $\gamma$ parcourt les bijections $D_1 \to D_2$.
+Le cas $q = \infty$ et $p = \infty$ redonne la distance bottleneck.
+\end{definition}
+
+\begin{attention}[title=\textbf{Conventions variables}]
+La litt\'erature utilise diff\'erentes conventions pour les indices de
+la distance de Wasserstein. Certains auteurs \'ecrivent $W_p$ avec
+$q = \infty$ implicite, d'autres utilisent $q = p$. V\'erifiez
+toujours la convention utilis\'ee dans chaque article.
+\end{attention}
+
+\begin{proposition}[Relation bottleneck--Wasserstein]
+Pour tout $p \geq 1$~:
+\[
+  d_\infty(D_1, D_2) = \lim_{p \to \infty} W_{p,\infty}(D_1, D_2).
+\]
+De plus, $d_\infty(D_1, D_2) \leq W_{p,\infty}(D_1, D_2)$ pour tout $p$.
+\end{proposition}
+
+\begin{formules}[title=\textbf{R\'esum\'e des distances}]
+\begin{align}
+  d_\infty(D_1, D_2) &= \inf_{\gamma} \sup_{x \in D_1}
+    \norm{x - \gamma(x)}_\infty \\
+  W_{p,q}(D_1, D_2) &= \left(\inf_{\gamma}
+    \sum_{x \in D_1} \norm{x - \gamma(x)}_q^p\right)^{1/p}
+\end{align}
+\end{formules}
+
+% ============================================================
+\section{Le th\'eor\`eme de stabilit\'e}
+\label{sec:stabilite}
+% ============================================================
+
+\begin{theoreme}[Stabilit\'e de la persistance --- Cohen-Steiner, Edelsbrunner, Harer 2007]
+\label{thm:stabilite}
+\index{th\'eor\`eme de stabilit\'e}
+Soient $f, g : X \to \R$ deux fonctions continues sur un espace
+topologique triangulable $X$. Alors~:
+\[
+  d_\infty\bigl(\mathrm{Dgm}(f),\; \mathrm{Dgm}(g)\bigr) \leq
+  \norm{f - g}_\infty.
+\]
+\end{theoreme}
+
+\begin{intuition}
+Le th\'eor\`eme de stabilit\'e est le r\'esultat le plus important de la TDA.
+Il garantit que de petites perturbations des donn\'ees (au sens $L^\infty$)
+ne peuvent produire que de petites perturbations du diagramme de persistance.
+C'est ce qui rend la persistance \textbf{robuste au bruit}.
+\end{intuition}
+
+\begin{corollaire}
+L'application $f \mapsto \mathrm{Dgm}(f)$ est $1$-lipschitzienne de
+$\bigl(C(X, \R), \norm{\cdot}_\infty\bigr)$ vers
+$\bigl(\mathcal{D}, d_\infty\bigr)$.
+\end{corollaire}
+
+\begin{theoreme}[Stabilit\'e en Wasserstein]
+Sous des hypoth\`eses de r\'egularit\'e suppl\'ementaires (fonctions de
+Morse apprivois\'ees), on a pour tout $p \geq 1$~:
+\[
+  W_{p,\infty}(\mathrm{Dgm}(f), \mathrm{Dgm}(g)) \leq
+  C_p \cdot \norm{f - g}_\infty^{1 - 1/p} \cdot
+  \norm{f - g}_{p}^{1/p}
+\]
+pour une constante $C_p$ d\'ependant de $X$ et $p$.
+\end{theoreme}
+
+% ============================================================
+\section{La distance d'entrelacement}
+\label{sec:interleaving}
+% ============================================================
+
+\begin{definition}[Modules de persistance]
+\index{module de persistance}
+Un \textbf{module de persistance} est un foncteur $\mathbb{V} :
+(\R, \leq) \to \mathbf{Vec}_k$, c'est-\`a-dire une famille d'espaces
+vectoriels $\{V_t\}_{t \in \R}$ avec des applications lin\'eaires
+$v_{s,t} : V_s \to V_t$ pour $s \leq t$ v\'erifiant $v_{t,t} = \mathrm{id}$
+et $v_{s,u} = v_{t,u} \circ v_{s,t}$ pour $s \leq t \leq u$.
+\end{definition}
+
+\begin{definition}[$\varepsilon$-entrelacement]
+\index{entrelacement}
+Deux modules de persistance $\mathbb{V}$ et $\mathbb{W}$ sont
+\textbf{$\varepsilon$-entrelac\'es} s'il existe des morphismes de
+modules d\'ecal\'es $\varphi : \mathbb{V} \to \mathbb{W}[\varepsilon]$
+et $\psi : \mathbb{W} \to \mathbb{V}[\varepsilon]$ tels que~:
+\[
+  \psi[\varepsilon] \circ \varphi = v_{2\varepsilon}, \qquad
+  \varphi[\varepsilon] \circ \psi = w_{2\varepsilon}
+\]
+o\`u $\mathbb{W}[\varepsilon]_t = W_{t+\varepsilon}$ est le module d\'ecal\'e.
+\end{definition}
+
+\begin{definition}[Distance d'entrelacement]
+La \textbf{distance d'entrelacement}\index{distance d'entrelacement} est~:
+\[
+  d_I(\mathbb{V}, \mathbb{W}) = \inf\{\varepsilon \geq 0 :
+  \mathbb{V} \text{ et } \mathbb{W} \text{ sont }
+  \varepsilon\text{-entrelac\'es}\}.
+\]
+\end{definition}
+
+\begin{theoreme}[Isometrie --- Chazal et al.\ 2009]
+\label{thm:isometrie}
+\index{th\'eor\`eme d'isom\'etrie}
+Pour des modules de persistance \`a param\`etre r\'eel d\'ecomposables
+en intervalles~:
+\[
+  d_I(\mathbb{V}, \mathbb{W}) = d_\infty(\mathrm{Dgm}(\mathbb{V}),
+  \mathrm{Dgm}(\mathbb{W})).
+\]
+\end{theoreme}
+
+\begin{intuition}
+Le th\'eor\`eme d'isom\'etrie montre que la distance bottleneck entre
+diagrammes co\"\i ncide exactement avec la distance d'entrelacement
+entre modules. Cela donne une interpr\'etation \textbf{alg\'ebrique}
+de la distance bottleneck et fonde la stabilit\'e sur des bases
+cat\'egoriques solides.
+\end{intuition}
+
+% ============================================================
+\section{Stabilit\'e alg\'ebrique}
+\label{sec:stabilite_algebrique}
+% ============================================================
+
+\begin{theoreme}[Stabilit\'e alg\'ebrique]
+\index{stabilit\'e alg\'ebrique}
+Soit $F : \mathbf{Top} \to \mathbf{Vec}_k^{(\R, \leq)}$ un foncteur
+d'homologie persistante. Pour toute paire d'espaces filtr\'es
+$(X, f)$ et $(Y, g)$ avec un morphisme $\varepsilon$-entrelac\'e
+entre les filtrations~:
+\[
+  d_I(H_*(X, f),\; H_*(Y, g)) \leq \varepsilon.
+\]
+\end{theoreme}
+
+\begin{remarque}
+La stabilit\'e alg\'ebrique g\'en\'eralise le th\'eor\`eme de stabilit\'e
+classique au cadre des modules de persistance abstraits. Elle ne
+n\'ecessite pas de fonctions continues~: elle s'applique directement
+au niveau des filtrations et de l'alg\`ebre des modules.
+\end{remarque}
+
+% ============================================================
+\section{Calcul pratique des distances}
+\label{sec:calcul}
+% ============================================================
+
+\begin{proposition}[Complexit\'e]
+La distance bottleneck entre deux diagrammes de $n$ et $m$ points
+peut \^etre calcul\'ee en $\mathcal{O}(N^{1.5} \log N)$ o\`u
+$N = n + m$, par r\'eduction au probl\`eme d'appariement biparti.
+La distance de Wasserstein $W_p$ se calcule en $\mathcal{O}(N^3)$
+par l'algorithme hongrois.
+\end{proposition}
+
+\begin{minted}{python}
+import numpy as np
+from gudhi.wasserstein import wasserstein_distance
+from gudhi.bottleneck import bottleneck_distance
+
+# Deux diagrammes de persistance (naissance, mort)
+dgm1 = np.array([[0.0, 2.0], [1.0, 3.0], [2.0, 2.5]])
+dgm2 = np.array([[0.0, 2.1], [1.1, 3.2]])
+
+# Distance bottleneck
+d_bn = bottleneck_distance(dgm1, dgm2)
+print(f"Bottleneck: {d_bn:.4f}")
+
+# Distance de Wasserstein (p=2)
+d_w2 = wasserstein_distance(dgm1, dgm2, order=2)
+print(f"Wasserstein-2: {d_w2:.4f}")
+\end{minted}
+
+% ============================================================
+\section{Exercices}
+% ============================================================
+
+\begin{exercice}
+Calculer \`a la main la distance bottleneck entre
+$D_1 = \{(0,1), (0,3), (2,5)\}$ et
+$D_2 = \{(0,1.5), (1,4)\}$.
+\textit{Indication}~: essayez diff\'erents appariements et n'oubliez
+pas la diagonale.
+\end{exercice}
+
+\begin{exercice}
+Montrer que $d_\infty(D_1, D_2) \leq W_{p,\infty}(D_1, D_2)$
+pour tout $p \geq 1$.
+\end{exercice}
+
+\begin{exercice}
+Soient $f(x) = \sin(x)$ et $g(x) = \sin(x) + 0.1$ sur $[0, 2\pi]$.
+Montrer que $d_\infty(\mathrm{Dgm}(f), \mathrm{Dgm}(g)) \leq 0.1$
+en utilisant le th\'eor\`eme de stabilit\'e.
+\end{exercice}
+
+\begin{exercice}[Distance d'entrelacement]
+Soient $\mathbb{V}$ le module $k$ sur $[0, 2]$ et $\mathbb{W}$ le
+module $k$ sur $[0.5, 2.5]$. Calculer $d_I(\mathbb{V}, \mathbb{W})$
+directement \`a partir de la d\'efinition.
+\end{exercice}
+
+\begin{exercice}[Impl\'ementation]
+En utilisant \texttt{gudhi}, comparer les distances bottleneck et
+Wasserstein-$2$ pour des diagrammes de persistance de deux nuages
+de points~: un \'echantillon du cercle $S^1$ et un \'echantillon
+du tore $T^2$ plong\'e dans $\R^3$.
+\end{exercice}

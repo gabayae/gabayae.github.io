@@ -1,0 +1,276 @@
+% ============================================================
+\chapter{Mod\`eles de Taux d'Int\'er\^et}
+\label{ch:taux}
+% ============================================================
+
+Jusqu'ici, nous avons trait\'e le taux d'int\'er\^et comme une constante. Mais quiconque a observ\'e les march\'es obligataires sait que les taux sont tout sauf constants~: ils forment une \emph{courbe} --- la structure par terme --- qui \'evolue au fil du temps de mani\`ere stochastique. Mod\'eliser cette \'evolution est l'un des d\'efis les plus riches de la finance quantitative. Oldrich Vasicek, en 1977, propose le premier mod\`ele stochastique de taux court avec retour \`a la moyenne, s'inspirant du processus d'Ornstein--Uhlenbeck. John Cox, Jonathan Ingersoll et Stephen Ross (1985) corrigent le d\'efaut de Vasicek --- la possibilit\'e de taux n\'egatifs --- en introduisant une volatilit\'e proportionnelle \`a $\sqrt{r}$. Puis David Heath, Robert Jarrow et Andrew Morton (1992) renversent la perspective~: au lieu de mod\'eliser le taux court, ils mod\'elisent directement toute la courbe forward. Chaque approche r\'epond \`a des besoins diff\'erents, et les comprendre, c'est comprendre comment les march\'es \'evaluent le temps et l'incertitude.
+
+\section{Structure par terme des taux}
+
+\begin{definition}[Z\'ero-coupon et courbe des taux]
+Une \textbf{obligation z\'ero-coupon} de maturit\'e $T$ est un contrat
+payant 1 euro \`a la date $T$. Son prix \`a la date $t$ est not\'e $P(t,T)$.
+Le \textbf{taux z\'ero-coupon continu} est~:
+\[
+    R(t,T) = -\frac{\ln P(t,T)}{T - t}.
+\]
+La courbe $T \mapsto R(t,T)$ est la \textbf{structure par terme} des taux
+\`a la date $t$.
+\end{definition}
+
+\begin{definition}[Taux forward instantan\'e]
+Le \textbf{taux forward instantan\'e} est~:
+\[
+    f(t,T) = -\frac{\partial \ln P(t,T)}{\partial T},
+\]
+de sorte que $P(t,T) = \exp\!\left(-\int_t^T f(t,u)\,du\right)$.
+\end{definition}
+
+\begin{definition}[Taux court]
+Le \textbf{taux court} (ou taux instantan\'e) est~:
+$r_t = f(t,t) = \lim_{T \to t^+} R(t,T)$.
+\end{definition}
+
+\section{Mod\`eles de taux court}
+
+\subsection{Mod\`ele de Vasicek (1977)}
+
+\begin{definition}[Mod\`ele de Vasicek]
+Le taux court suit un processus d'Ornstein--Uhlenbeck~:
+\[
+    dr_t = a(b - r_t)\,dt + \sigma\,dW_t,
+\]
+avec $a > 0$ (vitesse de retour \`a la moyenne), $b$ (taux de long terme),
+$\sigma > 0$ (volatilit\'e).
+\end{definition}
+
+\begin{theoreme}[Prix du z\'ero-coupon --- Vasicek]
+\label{thm:vasicek_zc}
+Le prix du z\'ero-coupon est de la forme affine~:
+\[
+    P(t,T) = A(t,T)\exp\!\bigl(-B(t,T)\,r_t\bigr),
+\]
+o\`u, avec $\tau = T - t$~:
+\begin{align}
+    B(\tau) &= \frac{1 - e^{-a\tau}}{a}, \\
+    A(\tau) &= \exp\!\left[\left(b - \frac{\sigma^2}{2a^2}\right)
+    \bigl(B(\tau) - \tau\bigr) - \frac{\sigma^2}{4a}B(\tau)^2\right].
+\end{align}
+\end{theoreme}
+
+\begin{remarque}
+Le mod\`ele de Vasicek permet des taux n\'egatifs, ce qui \'etait
+consid\'er\'e comme un d\'efaut jusqu'aux ann\'ees 2010, mais s'est
+r\'ev\'el\'e r\'ealiste dans l'environnement de taux n\'egatifs europ\'eens.
+\end{remarque}
+
+\subsection{Mod\`ele de Cox--Ingersoll--Ross (CIR, 1985)}
+
+\begin{definition}[Mod\`ele CIR]
+\[
+    dr_t = a(b - r_t)\,dt + \sigma\sqrt{r_t}\,dW_t.
+\]
+Le terme $\sqrt{r_t}$ dans la diffusion garantit $r_t \geq 0$ sous la
+condition de Feller $2ab \geq \sigma^2$.
+\end{definition}
+
+\begin{theoreme}[Prix du z\'ero-coupon --- CIR]
+Le prix est affine en $r_t$~:
+$P(t,T) = A(\tau)\exp(-B(\tau)r_t)$ avec~:
+\begin{align}
+    B(\tau) &= \frac{2(e^{\gamma\tau} - 1)}
+    {(\gamma + a)(e^{\gamma\tau} - 1) + 2\gamma}, \\
+    A(\tau) &= \left[\frac{2\gamma e^{(a+\gamma)\tau/2}}
+    {(\gamma+a)(e^{\gamma\tau}-1) + 2\gamma}\right]^{2ab/\sigma^2},
+\end{align}
+o\`u $\gamma = \sqrt{a^2 + 2\sigma^2}$.
+\end{theoreme}
+
+\subsection{Mod\`ele de Hull--White (1990)}
+
+\begin{definition}[Mod\`ele de Hull--White]
+Extension de Vasicek avec param\`etres d\'ependant du temps~:
+\[
+    dr_t = \bigl[\theta(t) - a\,r_t\bigr]\,dt + \sigma\,dW_t,
+\]
+o\`u $\theta(t)$ est choisie pour calibrer exactement la courbe des taux
+initiale~:
+\[
+    \theta(t) = \frac{\partial f^M(0,t)}{\partial t} + a\,f^M(0,t)
+    + \frac{\sigma^2}{2a}(1 - e^{-2at}),
+\]
+avec $f^M(0,t)$ le taux forward de march\'e.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Mod\`eles de Vasicek et CIR}]
+\begin{minted}{python}
+import numpy as np
+
+def vasicek_bond(r, t, T, a, b, sigma):
+    """Prix zero-coupon Vasicek."""
+    tau = T - t
+    B = (1 - np.exp(-a * tau)) / a
+    A = np.exp((b - sigma**2/(2*a**2)) * (B - tau)
+               - sigma**2/(4*a) * B**2)
+    return A * np.exp(-B * r)
+
+def cir_bond(r, t, T, a, b, sigma):
+    """Prix zero-coupon CIR."""
+    tau = T - t
+    gamma = np.sqrt(a**2 + 2*sigma**2)
+    eg = np.exp(gamma * tau)
+    denom = (gamma + a)*(eg - 1) + 2*gamma
+    B = 2*(eg - 1) / denom
+    A = (2*gamma * np.exp((a + gamma)*tau/2) / denom)**(2*a*b/sigma**2)
+    return A * np.exp(-B * r)
+
+# Courbe zero-coupon
+r0 = 0.03
+maturities = np.linspace(0.25, 30, 100)
+P_vas = [vasicek_bond(r0, 0, T, 0.5, 0.04, 0.01) for T in maturities]
+P_cir = [cir_bond(r0, 0, T, 0.5, 0.04, 0.06) for T in maturities]
+R_vas = -np.log(P_vas) / maturities
+R_cir = -np.log(P_cir) / maturities
+
+print(f"Vasicek R(10y): {R_vas[39]:.4f}")
+print(f"CIR     R(10y): {R_cir[39]:.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{Cadre Heath--Jarrow--Morton (HJM)}
+
+\begin{theoreme}[Cadre HJM (1992)]
+Le cadre HJM mod\'elise directement les taux forward instantan\'es~:
+\[
+    df(t,T) = \alpha(t,T)\,dt + \sigma(t,T)\,dW_t.
+\]
+La condition d'absence d'arbitrage impose la \textbf{condition de drift HJM}~:
+\[
+    \alpha(t,T) = \sigma(t,T)\int_t^T \sigma(t,u)\,du.
+\]
+\end{theoreme}
+
+\begin{remarque}
+Le cadre HJM est tr\`es g\'en\'eral mais conduit g\'en\'eralement \`a des
+mod\`eles non markoviens (sauf pour des choix sp\'ecifiques de $\sigma$).
+Les mod\`eles de Vasicek et Hull--White sont des cas particuliers de HJM.
+\end{remarque}
+
+\section{Pricing de produits de taux}
+
+\subsection{Caps et floors}
+
+\begin{definition}[Caplet]
+Un \textbf{caplet} sur la p\'eriode $[T_i, T_{i+1}]$ avec taux d'exercice
+$K$ et nominal $N$ paie~:
+\[
+    N\,\delta_i\,(L(T_i, T_i, T_{i+1}) - K)^+,
+\]
+o\`u $L(T_i, T_i, T_{i+1})$ est le taux LIBOR et $\delta_i = T_{i+1} - T_i$.
+\end{definition}
+
+\begin{theoreme}[Formule de Black pour les caplets]
+Dans le mod\`ele de Black, le prix du caplet est~:
+\[
+    \text{Caplet} = N\,\delta_i\,P(0,T_{i+1})
+    \bigl[L_0\Phi(d_1) - K\Phi(d_2)\bigr],
+\]
+avec $d_1 = \frac{\ln(L_0/K) + \sigma_i^2 T_i/2}{\sigma_i\sqrt{T_i}}$,
+$L_0 = L(0, T_i, T_{i+1})$.
+\end{theoreme}
+
+\subsection{Swaptions}
+
+\begin{definition}[Swaption]
+Une \textbf{swaption} donne le droit d'entrer dans un swap de taux \`a
+une date future. Une swaption payeuse de strike $K$ et maturit\'e
+$T_0$ sur un swap de dates $T_0, \ldots, T_n$ a pour payoff~:
+\[
+    \left(\sum_{i=0}^{n-1}\delta_i P(T_0, T_{i+1})\right)
+    (S_{T_0} - K)^+,
+\]
+o\`u $S_{T_0}$ est le taux swap au pair.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Simulation de trajectoires de taux (Vasicek)}]
+\begin{minted}{python}
+def vasicek_paths(r0, a, b, sigma, T, N, M):
+    """Simule M trajectoires du taux court Vasicek."""
+    dt = T / N
+    r = np.zeros((M, N + 1))
+    r[:, 0] = r0
+    for i in range(N):
+        dW = np.sqrt(dt) * np.random.standard_normal(M)
+        r[:, i+1] = r[:, i] + a*(b - r[:, i])*dt + sigma*dW
+    return r
+
+def cir_paths(r0, a, b, sigma, T, N, M):
+    """Simule M trajectoires du taux court CIR (Euler tronque)."""
+    dt = T / N
+    r = np.zeros((M, N + 1))
+    r[:, 0] = r0
+    for i in range(N):
+        dW = np.sqrt(dt) * np.random.standard_normal(M)
+        r_pos = np.maximum(r[:, i], 0)
+        r[:, i+1] = r[:, i] + a*(b - r_pos)*dt + sigma*np.sqrt(r_pos)*dW
+        r[:, i+1] = np.maximum(r[:, i+1], 0)
+    return r
+
+np.random.seed(42)
+r_vas = vasicek_paths(0.03, 0.5, 0.04, 0.01, 10, 2520, 5)
+r_cir = cir_paths(0.03, 0.5, 0.04, 0.06, 10, 2520, 5)
+\end{minted}
+\end{codeblock}
+
+\section{Mod\`eles de march\'e (LIBOR Market Model)}
+
+\begin{definition}[Mod\`ele BGM/LMM]
+Le \textbf{LIBOR Market Model} (Brace--Gatarek--Musiela) mod\'elise
+directement les taux forward LIBOR $L_i(t) = L(t, T_i, T_{i+1})$ sous
+la mesure forward $T_{i+1}$~:
+\[
+    dL_i(t) = \sigma_i(t)L_i(t)\,dW_t^{T_{i+1}}.
+\]
+Sous d'autres mesures, un drift appara\^it d\'ependant des corr\'elations
+entre taux forward.
+\end{definition}
+
+\section{Exercices}
+
+\begin{exercice}[Courbe des taux]
+\begin{enumerate}
+    \item Calculer et tracer la courbe des taux $T \mapsto R(0,T)$ pour
+          Vasicek et CIR avec $r_0 = 0.03$, $a = 0.5$, $b = 0.04$,
+          $\sigma_V = 0.01$, $\sigma_C = 0.06$.
+    \item Comparer les formes de courbe (croissante, d\'ecroissante, bos\-s\'ee).
+    \item \'Etudier l'impact des param\`etres $a$, $b$, $\sigma$ sur la forme.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Pricing Monte Carlo d'un z\'ero-coupon]
+\begin{enumerate}
+    \item Pricer une obligation z\'ero-coupon 5 ans par Monte Carlo dans
+          le mod\`ele de Vasicek~: $P(0,T) = \E^\mathbb{Q}\!\left[
+          e^{-\int_0^T r_t\,dt}\right]$.
+    \item Comparer avec la formule analytique.
+    \item R\'ep\'eter pour le mod\`ele CIR.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Caplet pricing]
+\begin{enumerate}
+    \item Pricer un caplet \`a 1 an avec la formule de Black.
+    \item Pricer le m\^eme caplet par Monte Carlo dans le mod\`ele
+          de Hull--White.
+    \item Comparer les r\'esultats.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Calibration Hull--White]
+\begin{enumerate}
+    \item Calibrer le mod\`ele Hull--White sur une courbe de taux donn\'ee
+          en d\'eterminant $\theta(t)$.
+    \item V\'erifier que les prix z\'ero-coupon du mod\`ele co\"incident
+          avec les prix de march\'e.
+\end{enumerate}
+\end{exercice}

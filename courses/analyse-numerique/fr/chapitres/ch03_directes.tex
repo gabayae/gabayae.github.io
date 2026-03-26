@@ -1,0 +1,158 @@
+% ============================================================
+\chapter{M\'ethodes Directes pour Syst\`emes Lin\'eaires}
+\label{ch:directes}
+% ============================================================
+
+\section{Exemple motivant}
+Un circuit \'electrique \`a $n$ n\oe uds produit un syst\`eme $Ax=b$ de $n$ \'equations. Pour $n=1000$, il faut une m\'ethode syst\'ematique et efficace.
+
+\section{\'Elimination de Gauss et factorisation LU}
+
+\begin{definition}[Factorisation LU]\index{factorisation LU}\index{LU}
+Trouver $L$ triangulaire inf\'erieure (avec $\ell_{ii}=1$) et $U$ triangulaire sup\'erieure telles que $A=LU$. Alors $Ax=b$ se r\'esout par $Ly=b$ (descente) puis $Ux=y$ (remont\'ee).
+\end{definition}
+
+\begin{algorithm}[H]
+\caption{Factorisation LU (sans pivot)}\label{alg:lu}
+\KwEntree{Matrice $A\in\R^{n\times n}$}
+\KwSortie{$L$, $U$ tels que $A=LU$}
+\Pour{$k=1,\ldots,n-1$}{
+  \Pour{$i=k+1,\ldots,n$}{
+    $\ell_{ik} \gets a_{ik}/a_{kk}$\;
+    \Pour{$j=k+1,\ldots,n$}{
+      $a_{ij} \gets a_{ij}-\ell_{ik}\cdot a_{kj}$\;
+    }
+  }
+}
+$U \gets$ partie triangulaire sup\'erieure de $A$\;
+\end{algorithm}
+
+\begin{theoreme}[Existence de LU]
+Si toutes les sous-matrices principales de $A$ sont inversibles, alors la factorisation LU existe et est unique.
+\end{theoreme}
+
+\begin{theoreme}[Co\^ut]
+La factorisation LU co\^ute $\frac{2n^3}{3}+\BigO(n^2)$ op\'erations flottantes.
+\end{theoreme}
+
+\begin{proof}
+L'\'etape $k$ effectue $(n-k)^2$ multiplications et soustractions. Total : $\sum_{k=1}^{n-1}2(n-k)^2=2\sum_{j=1}^{n-1}j^2=\frac{2n^3}{3}+\BigO(n^2)$.
+\end{proof}
+
+\section{Pivot partiel}\index{pivot partiel}
+
+\begin{attention}
+Sans pivotement, l'algorithme peut \^etre instable (division par un petit pivot). Le \textbf{pivot partiel} permute les lignes pour maximiser $|a_{kk}|$.
+\end{attention}
+
+On obtient $PA=LU$ o\`u $P$ est une matrice de permutation.
+
+\begin{theoreme}[Stabilit\'e]
+Avec pivot partiel, l'\'elimination de Gauss est \textbf{r\'etrograde stable} :
+\[
+(A+\Delta A)\hat{x}=b, \quad \|\Delta A\|\leq g(n)\,\eps_{\mathrm{mach}}\,\|A\|,
+\]
+o\`u $g(n)$ est le facteur de croissance (born\'e par $2^{n-1}$ en th\'eorie, rarement d\'epass\'e en pratique).
+\end{theoreme}
+
+\section{Factorisation de Cholesky}\index{Cholesky}
+
+\begin{theoreme}[Factorisation de Cholesky]
+Si $A$ est \textbf{sym\'etrique d\'efinie positive} (SDP), alors il existe une unique matrice triangulaire inf\'erieure $L$ \`a coefficients diagonaux positifs telle que $A=LL^\top$.
+\end{theoreme}
+
+\begin{proof}
+Par r\'ecurrence sur $n$. \'Ecrivons $A=\begin{pmatrix}a_{11}&\mathbf{v}^\top\\\mathbf{v}&A'\end{pmatrix}$. Comme $A$ SDP, $a_{11}>0$. Posons $\ell_{11}=\sqrt{a_{11}}$, $\mathbf{l}=\mathbf{v}/\ell_{11}$. Alors $A'- \mathbf{l}\mathbf{l}^\top$ est SDP de taille $(n-1)\times(n-1)$ et on applique l'hypoth\`ese de r\'ecurrence.
+\end{proof}
+
+\begin{algorithm}[H]
+\caption{Factorisation de Cholesky}\label{alg:cholesky}
+\KwEntree{$A$ SDP, $n\times n$}
+\KwSortie{$L$ telle que $A=LL^\top$}
+\Pour{$j=1,\ldots,n$}{
+  $\ell_{jj}\gets\sqrt{a_{jj}-\sum_{k=1}^{j-1}\ell_{jk}^2}$\;
+  \Pour{$i=j+1,\ldots,n$}{
+    $\ell_{ij}\gets\frac{1}{\ell_{jj}}\left(a_{ij}-\sum_{k=1}^{j-1}\ell_{ik}\ell_{jk}\right)$\;
+  }
+}
+\end{algorithm}
+
+\begin{theoreme}[Co\^ut de Cholesky]
+$\frac{n^3}{3}+\BigO(n^2)$ : deux fois moins que LU.
+\end{theoreme}
+
+\section{Exemple num\'erique}
+
+$A=\begin{pmatrix}4&2\\2&5\end{pmatrix}$, $b=\begin{pmatrix}8\\9\end{pmatrix}$. Cholesky : $L=\begin{pmatrix}2&0\\1&2\end{pmatrix}$.
+
+Descente $Ly=b$ : $y_1=4$, $y_2=(9-1\cdot4)/2=2{,}5$. Remont\'ee $L^\top x=y$ : $x_2=2{,}5/2=1{,}25$, $x_1=(4-1\cdot 1{,}25)/2=1{,}375$.
+
+\section{Impl\'ementation}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+from scipy.linalg import lu, cholesky, solve_triangular
+
+# LU
+A = np.array([[2., 1, 1], [4, 3, 3], [8, 7, 9]])
+b = np.array([4., 10, 24])
+P, L, U = lu(A)
+y = solve_triangular(L, P @ b, lower=True)
+x = solve_triangular(U, y)
+print(f"LU: x = {x}")
+
+# Cholesky
+A_spd = np.array([[4., 2], [2, 5]])
+b_spd = np.array([8., 9])
+L_chol = cholesky(A_spd, lower=True)
+y = solve_triangular(L_chol, b_spd, lower=True)
+x = solve_triangular(L_chol.T, y)
+print(f"Cholesky: x = {x}")
+print(f"Cout LU (n=100): ~{2*100**3//3:.0f} flops")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Julia}]
+\begin{minted}{julia}
+using LinearAlgebra
+A = [2.0 1 1; 4 3 3; 8 7 9]
+b = [4.0, 10, 24]
+F = lu(A)
+x = F \ b
+println("LU: x = $x")
+
+A_spd = [4.0 2; 2 5]
+b_spd = [8.0, 9]
+C = cholesky(A_spd)
+x = C \ b_spd
+println("Cholesky: x = $x")
+\end{minted}
+\end{codeblock}
+
+\section{Exercices}
+
+\begin{exercice}[$\star$]
+Factoriser $A=\begin{pmatrix}1&2&3\\2&8&14\\3&14&34\end{pmatrix}$ en $LU$ \`a la main. V\'erifier.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Montrer que si $A$ est SDP, tous ses pivots dans l'\'elimination de Gauss sont positifs (sans pivotement n\'ecessaire).
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Comparer les temps de calcul de LU vs.\ Cholesky pour $n=100,500,1000,2000$ sur des matrices SDP al\'eatoires. V\'erifier le rapport $\sim 2$.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Projet]
+Impl\'ementer la factorisation LU bande pour des matrices tridiagonales (algorithme de Thomas). Appliquer \`a la discr\'etisation de $-u''=f$.
+\end{exercice}
+
+\begin{formules}
+\begin{align*}
+A &= LU \quad (\text{co\^ut } \tfrac{2n^3}{3}) \\
+A &= LL^\top \quad (\text{Cholesky, co\^ut } \tfrac{n^3}{3}) \\
+PA &= LU \quad (\text{pivot partiel}) \\
+\cond(A) &= \|A\|\cdot\|A^{-1}\|, \quad \frac{\|\delta x\|}{\|x\|}\leq\cond(A)\frac{\|\delta b\|}{\|b\|}
+\end{align*}
+\end{formules}

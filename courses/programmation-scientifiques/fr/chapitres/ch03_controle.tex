@@ -1,0 +1,390 @@
+% ch03_controle.tex — Structures de Contr\^ole
+\chapter{Structures de Contr\^ole --- Conditions et Boucles}
+\label{ch:controle}
+
+\begin{intuition}
+Imaginez une recette de cuisine~: <<~Si la p\^ate est trop liquide, ajoutez de la farine~;
+sinon, enfournez pendant 30 minutes.~>> Un programme fonctionne exactement de la m\^eme
+mani\`ere~: il prend des \emph{d\'ecisions} et \emph{r\'ep\`ete} des \'etapes selon des conditions.
+Les structures de contr\^ole sont le c\oe ur de tout algorithme scientifique.
+\end{intuition}
+
+% ============================================================
+\section{Les conditions~: \py{if}, \py{elif}, \py{else}}
+\index{if}\index{elif}\index{else}\index{condition}
+
+En science, on classifie souvent selon des seuils. Consid\'erons les
+\emph{transitions de phase}\index{transition de phase} de l'eau~:
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+temperature = -5  # en degrés Celsius
+
+if temperature < 0:
+    etat = "solide"
+elif temperature < 100:
+    etat = "liquide"
+else:
+    etat = "gazeux"
+
+print(f"À {temperature}°C, l'eau est {etat}.")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+À -5°C, l'eau est solide.
+\end{verbatim}
+\end{codeoutput}
+
+\begin{remarque}
+Python \'evalue les conditions \emph{dans l'ordre}. D\`es qu'une condition est vraie,
+le bloc correspondant est ex\'ecut\'e et les suivants sont ignor\'es.
+\end{remarque}
+
+% --- Flowchart TikZ ---
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+    decision/.style={diamond, draw, fill=blue!10, text width=3cm,
+        align=center, inner sep=2pt},
+    block/.style={rectangle, draw, fill=green!10, rounded corners,
+        minimum height=1cm, text width=3cm, align=center},
+    arr/.style={->, thick, >=stealth}
+]
+\node[block] (start) {D\'ebut};
+\node[decision, below=1cm of start] (d1) {$T < 0$~?};
+\node[block, right=2.5cm of d1] (sol) {\'Etat = solide};
+\node[decision, below=1.5cm of d1] (d2) {$T < 100$~?};
+\node[block, right=2.5cm of d2] (liq) {\'Etat = liquide};
+\node[block, below=1.5cm of d2] (gaz) {\'Etat = gazeux};
+
+\draw[arr] (start) -- (d1);
+\draw[arr] (d1) -- node[above]{oui} (sol);
+\draw[arr] (d1) -- node[left]{non} (d2);
+\draw[arr] (d2) -- node[above]{oui} (liq);
+\draw[arr] (d2) -- node[left]{non} (gaz);
+\end{tikzpicture}
+\caption{Organigramme d'une structure \py{if/elif/else} pour les transitions de phase.}
+\label{fig:flowchart-if}
+\end{figure}
+
+\subsection{Op\'erateurs de comparaison et op\'erateurs logiques}
+\index{op\'erateur de comparaison}\index{op\'erateur logique}
+
+\begin{definition}[Op\'erateurs de comparaison]
+Les op\'erateurs \py{==}, \py{!=}, \py{<}, \py{>}, \py{<=}, \py{>=} renvoient
+un bool\'een (\py{True} ou \py{False}). On peut combiner des conditions avec
+\py{and}, \py{or}, \py{not}.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+pH = 3.2
+
+if pH < 7 and pH >= 0:
+    print("Solution acide")
+elif pH == 7:
+    print("Solution neutre")
+elif pH > 7 and pH <= 14:
+    print("Solution basique")
+else:
+    print("Valeur de pH invalide")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Solution acide
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{La boucle \py{while}}
+\index{while}\index{boucle}
+
+La boucle \py{while} r\'ep\`ete un bloc \emph{tant qu'une condition est vraie}.
+En sciences, on l'utilise souvent pour des algorithmes de \emph{convergence}\index{convergence}.
+
+\begin{exemple}[Convergence d'une suite]
+La suite $u_{n+1} = \frac{1}{2}\left(u_n + \frac{a}{u_n}\right)$ converge vers $\sqrt{a}$
+(m\'ethode de H\'eron)\index{m\'ethode de H\'eron}.
+\end{exemple}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+a = 2.0
+u = 1.0       # valeur initiale
+tolerance = 1e-10
+iterations = 0
+
+while abs(u**2 - a) > tolerance:
+    u = 0.5 * (u + a / u)
+    iterations += 1
+
+print(f"sqrt({a}) ≈ {u}")
+print(f"Convergence en {iterations} itérations")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+sqrt(2.0) ≈ 1.4142135623730951
+Convergence en 4 itérations
+\end{verbatim}
+\end{codeoutput}
+
+\begin{attention}
+Une boucle \py{while} dont la condition ne devient \emph{jamais} fausse tourne
+\`a l'infini~! Ajoutez toujours un garde-fou~:
+\begin{minted}{python}
+max_iter = 10000
+while condition and iterations < max_iter:
+    ...
+\end{minted}
+\end{attention}
+
+% ============================================================
+\section{La boucle \py{for} et \py{range()}}
+\index{for}\index{range}
+
+La boucle \py{for} parcourt un \emph{it\'erable} (liste, cha\^ine, \py{range}, etc.).
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Calculer la somme des carrés de 1 à 10
+somme = 0
+for i in range(1, 11):
+    somme += i**2
+
+print(f"Somme des carrés de 1 à 10 = {somme}")
+# Vérification : n(n+1)(2n+1)/6
+print(f"Formule : {10 * 11 * 21 // 6}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Somme des carrés de 1 à 10 = 385
+Formule : 385
+\end{verbatim}
+\end{codeoutput}
+
+\begin{definition}[\py{range(start, stop, step)}]
+\py{range(a, b, s)} g\'en\`ere les entiers de \py{a} \`a \py{b-1} avec un pas de \py{s}.
+Attention~: la borne sup\'erieure \py{b} est \emph{exclue}.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Afficher les multiples de 3 entre 0 et 15
+for n in range(0, 16, 3):
+    print(n, end=" ")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+0 3 6 9 12 15
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Boucles imbriqu\'ees}
+\index{boucle imbriqu\'ee}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Table de multiplication (extrait)
+for i in range(1, 4):
+    for j in range(1, 4):
+        print(f"{i} × {j} = {i*j:2d}", end="   ")
+    print()  # retour à la ligne
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+1 × 1 =  1   1 × 2 =  2   1 × 3 =  3
+2 × 1 =  2   2 × 2 =  4   2 × 3 =  6
+3 × 1 =  3   3 × 2 =  6   3 × 3 =  9
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{\py{break} et \py{continue}}
+\index{break}\index{continue}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Trouver le premier nombre premier > 50
+n = 51
+while True:
+    est_premier = True
+    for d in range(2, int(n**0.5) + 1):
+        if n % d == 0:
+            est_premier = False
+            break       # inutile de tester d'autres diviseurs
+    if est_premier:
+        print(f"Premier nombre premier > 50 : {n}")
+        break           # sortir de la boucle while
+    n += 1
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Premier nombre premier > 50 : 53
+\end{verbatim}
+\end{codeoutput}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Sauter les valeurs négatives dans des mesures
+mesures = [2.3, -1.0, 4.5, -0.3, 3.8, 7.1]
+somme = 0
+compteur = 0
+for m in mesures:
+    if m < 0:
+        continue   # passer à l'itération suivante
+    somme += m
+    compteur += 1
+
+print(f"Moyenne (valeurs positives) = {somme/compteur:.2f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+Moyenne (valeurs positives) = 4.43
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Erreurs courantes}
+
+\begin{errmark}
+\begin{enumerate}
+    \item \textbf{Erreur d'indentation}~: Python utilise l'indentation pour d\'elimiter
+    les blocs. M\'elanger espaces et tabulations provoque une \py{IndentationError}.
+    R\`egle~: utilisez toujours \textbf{4 espaces}.
+
+    \item \textbf{Boucle infinie}~: oublier d'incr\'ementer la variable de contr\^ole
+    dans un \py{while} m\`ene \`a une boucle qui ne s'arr\^ete jamais.
+    \begin{minted}{python}
+# ERREUR : i ne change jamais !
+i = 0
+while i < 10:
+    print(i)    # affiche 0 indéfiniment
+    \end{minted}
+
+    \item \textbf{Erreur de d\'ecalage (\emph{off-by-one})}~: \py{range(1, 10)} produit
+    les entiers de 1 \`a \textbf{9}, pas 10~! Pour inclure 10, \'ecrivez \py{range(1, 11)}.
+
+    \item \textbf{Utiliser \py{=} au lieu de \py{==}}~: \py{=} est l'affectation,
+    \py{==} est la comparaison. \'Ecrire \py{if x = 5} provoque une \py{SyntaxError}.
+\end{enumerate}
+\end{errmark}
+
+% ============================================================
+\section{Mini-projet~: D\'esint\'egration radioactive}
+
+\begin{projet}
+La loi de d\'esint\'egration radioactive\index{d\'esint\'egration radioactive} donne le nombre
+d'atomes restants~:
+\[
+    N(t) = N_0 \times 0{,}5^{\,t / t_{1/2}}
+\]
+o\`u $N_0$ est le nombre initial d'atomes et $t_{1/2}$ la demi-vie.
+
+\textbf{Objectif}~: simuler la d\'esint\'egration du carbone-14 ($t_{1/2} = 5730$ ans)
+et afficher le nombre d'atomes restants chaque 1000 ans.
+\end{projet}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+N0 = 1_000_000       # nombre initial d'atomes
+demi_vie = 5730      # demi-vie du C-14 en années
+seuil = N0 * 0.01    # arrêter quand il reste < 1%
+
+t = 0
+N = N0
+print(f"{'Temps (ans)':>12} {'N restants':>12} {'% restant':>10}")
+print("-" * 36)
+
+while N > seuil:
+    pourcentage = N / N0 * 100
+    print(f"{t:>12} {N:>12.0f} {pourcentage:>9.1f}%")
+    t += 1000
+    N = N0 * 0.5 ** (t / demi_vie)
+
+print(f"\nAprès {t} ans, il reste moins de 1% des atomes.")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+ Temps (ans)   N restants  % restant
+------------------------------------
+           0      1000000     100.0%
+        1000       886076      88.6%
+        2000       785128      78.5%
+        3000       695685      69.6%
+        4000       616441      61.6%
+        5000       546274      54.6%
+        ...
+       37000        12055       1.2%
+
+Après 38000 ans, il reste moins de 1% des atomes.
+\end{verbatim}
+\end{codeoutput}
+
+% ============================================================
+\section{Exercices}
+
+\begin{exercice}[$\star$ --- Classification de l'IMC]
+\'Ecrivez un programme qui demande le poids (kg) et la taille (m) d'une personne,
+calcule l'IMC ($\text{IMC} = \text{poids} / \text{taille}^2$) et affiche la
+cat\'egorie~: sous-poids ($<18{,}5$), normal ($18{,}5$--$25$), surpoids ($25$--$30$),
+ob\'esit\'e ($\geq 30$).
+\end{exercice}
+
+\begin{exercice}[$\star$ --- Compte \`a rebours]
+Utilisez une boucle \py{while} pour afficher un compte \`a rebours de 10 \`a 0,
+puis affichez <<~D\'ecollage~!~>>.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ --- Suite de Fibonacci]
+Calculez les 20 premiers termes de la suite de Fibonacci\index{Fibonacci}
+($F_0 = 0$, $F_1 = 1$, $F_{n} = F_{n-1} + F_{n-2}$) avec une boucle \py{for}.
+V\'erifiez que le rapport $F_n / F_{n-1}$ converge vers le nombre d'or
+$\varphi \approx 1{,}618$.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ --- Crible d'\'Eratosth\`ene]
+Utilisez des boucles imbriqu\'ees pour trouver tous les nombres premiers
+inf\'erieurs \`a 100.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ --- Simulation de marche al\'eatoire]
+Simulez une marche al\'eatoire 1D\index{marche al\'eatoire}~: \`a chaque pas, la particule se
+d\'eplace de $+1$ ou $-1$ avec probabilit\'e \'egale. Apr\`es $N = 1000$ pas,
+affichez la position finale. R\'ep\'etez 100 fois et calculez la distance
+moyenne $\langle |x| \rangle$. Comparez avec la pr\'ediction th\'eorique
+$\sqrt{N} \approx 31{,}6$.
+\emph{Indice~:} utilisez \py{import random} et \py{random.choice([-1, 1])}.
+\end{exercice}
+
+% ============================================================
+\begin{formules}{R\'esum\'e du chapitre~: Structures de contr\^ole}
+\begin{itemize}
+    \item \textbf{Conditions}~: \py{if condition:} / \py{elif condition:} / \py{else:}
+    \item \textbf{Boucle \py{while}}~: r\'ep\`ete tant que la condition est vraie
+    \item \textbf{Boucle \py{for}}~: parcourt un it\'erable (\py{range()}, liste, etc.)
+    \item \textbf{\py{range(a, b, s)}}~: entiers de \py{a} \`a \py{b-1}, pas de \py{s}
+    \item \textbf{\py{break}}~: sort imm\'ediatement de la boucle
+    \item \textbf{\py{continue}}~: passe \`a l'it\'eration suivante
+    \item \textbf{Indentation}~: 4 espaces, toujours coh\'erente
+    \item \textbf{Garde-fou}~: pr\'evoir un nombre maximal d'it\'erations pour \py{while}
+\end{itemize}
+\end{formules}

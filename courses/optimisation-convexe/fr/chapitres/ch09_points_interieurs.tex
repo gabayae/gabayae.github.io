@@ -1,0 +1,214 @@
+% ============================================================
+\chapter{M\'ethodes de Points Int\'erieurs}
+\label{ch:points_interieurs}
+% ============================================================
+
+\section{Introduction}
+
+En 1984, Narendra Karmarkar, ing\'enieur chez AT\&T Bell Labs, publie un algorithme qui secoue le monde de l'optimisation~: une m\'ethode de programmation lin\'eaire en temps polynomial qui, contrairement au simplexe de Dantzig, ne parcourt pas les sommets du poly\`edre mais traverse son \emph{int\'erieur}. La communaut\'e est \'electris\'ee --- et divis\'ee. Certains voient une r\'evolution, d'autres un coup m\'ediatique (le simplexe, bien que de complexit\'e exponentielle dans le pire cas, est rapide en pratique). Mais l'histoire tranchera~: les m\'ethodes de points int\'erieurs, raffin\'ees par Nesterov et Nemirovski dans les ann\'ees 1990, s'av\`erent d\'ecisives pour l'optimisation semi-d\'efinie, l'optimisation conique, et les probl\`emes de grande taille. L'id\'ee est \'el\'egante~: remplacer les contraintes d'in\'egalit\'e par une barri\`ere logarithmique, puis suivre le \emph{chemin central} vers l'optimum.
+
+\begin{intuition}
+Imaginez que vous \^etes dans une pi\`ece (le poly\`edre des contraintes) et
+que vous cherchez le point le plus bas (l'optimum). Le simplexe longe les murs
+et les coins. Les m\'ethodes de points int\'erieurs, elles, marchent au milieu
+de la pi\`ece en se rapprochant progressivement de la solution optimale, qui
+se trouve souvent pr\`es d'un mur. Une barri\`ere invisible vous emp\^eche
+de toucher les murs, mais cette barri\`ere s'affaiblit au fil des it\'erations.
+\end{intuition}
+
+\section{M\'ethode de barri\`ere}
+
+\subsection{Formulation}
+
+\begin{definition}[Probl\`eme avec in\'egalit\'es]
+On consid\`ere le probl\`eme convexe~:
+\[
+  \min_{x \in \R^n} f_0(x) \quad \text{s.c.} \quad
+  f_i(x) \leq 0, \; i = 1, \ldots, m, \qquad
+  Ax = b,
+\]
+o\`u $f_0, f_1, \ldots, f_m$ sont convexes et deux fois diff\'erentiables.
+\end{definition}
+
+\begin{definition}[Fonction barri\`ere logarithmique]
+\index{barri\`ere logarithmique}
+La \textbf{fonction barri\`ere logarithmique} est~:
+\[
+  \phi(x) = -\sum_{i=1}^m \ln(-f_i(x)),
+\]
+d\'efinie sur l'int\'erieur strict du domaine r\'ealisable
+$\{x : f_i(x) < 0, \; \forall i\}$.
+\end{definition}
+
+\begin{definition}[Probl\`eme barri\`ere]
+\index{m\'ethode de barri\`ere}
+Le \textbf{probl\`eme barri\`ere} pour un param\`etre $t > 0$ est~:
+\[
+  \min_{x} \; t \, f_0(x) + \phi(x) \quad \text{s.c.} \quad Ax = b.
+\]
+On note $x^*(t)$ la solution, appel\'ee \textbf{point central} pour le
+param\`etre $t$.
+\end{definition}
+
+\subsection{Chemin central}
+
+\begin{definition}[Chemin central]
+\index{chemin central}
+Le \textbf{chemin central} est l'ensemble des points
+$\{x^*(t) : t > 0\}$. Quand $t \to +\infty$, $x^*(t) \to x^*$, la
+solution du probl\`eme original.
+\end{definition}
+
+\begin{theoreme}[Borne de sous-optimalit\'e]
+Pour tout $t > 0$, le point central $x^*(t)$ v\'erifie~:
+\[
+  f_0(x^*(t)) - p^* \leq \frac{m}{t},
+\]
+o\`u $p^*$ est la valeur optimale et $m$ le nombre de contraintes
+d'in\'egalit\'e.
+\end{theoreme}
+
+\begin{proof}
+Les conditions KKT du probl\`eme barri\`ere montrent que $x^*(t)$ est
+r\'ealisable pour le probl\`eme original, avec des multiplicateurs
+$\lambda_i^*(t) = -1/(t f_i(x^*(t)))$. Par la dualit\'e faible~:
+\[
+  f_0(x^*(t)) - p^* \leq \sum_{i=1}^m \lambda_i^*(t) \cdot (-f_i(x^*(t)))
+  = \sum_{i=1}^m \frac{1}{t} = \frac{m}{t}.
+\]
+\end{proof}
+
+\begin{algorithme}[title=\textbf{M\'ethode de barri\`ere}]
+\begin{enumerate}
+  \item Choisir $x_0$ strictement r\'ealisable, $t_0 > 0$,
+        facteur $\mu > 1$, tol\'erance $\varepsilon > 0$.
+  \item Pour $k = 0, 1, 2, \ldots$~:
+    \begin{enumerate}
+      \item \textbf{Centrage}~: r\'esoudre (par Newton)
+            $\min_x t_k f_0(x) + \phi(x)$ s.c. $Ax = b$,
+            en partant de $x_k$, pour obtenir $x_{k+1} = x^*(t_k)$.
+      \item \textbf{Test d'arr\^et}~: si $m / t_k < \varepsilon$,
+            \textbf{stop}.
+      \item \textbf{Mise \`a jour}~: $t_{k+1} = \mu \cdot t_k$.
+    \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+\begin{formules}[title=\textbf{Complexit\'e de la m\'ethode de barri\`ere}]
+\begin{itemize}
+  \item Nombre d'it\'erations ext\'erieures (pas de barri\`ere)~:
+        $\lceil \frac{\ln(m / (t_0 \varepsilon))}{\ln \mu} \rceil$.
+  \item Choix typique~: $\mu = 10$ \`a $20$, ce qui donne peu d'it\'erations
+        ext\'erieures.
+  \item Chaque \'etape de centrage n\'ecessite quelques pas de Newton (6--40
+        en pratique).
+\end{itemize}
+\end{formules}
+
+\section{M\'ethodes \`a pas court et \`a pas long}
+
+\begin{definition}[M\'ethode \`a pas court]
+\index{m\'ethode \`a pas court}
+La m\'ethode \`a \textbf{pas court} choisit $\mu$ proche de 1
+(par exemple $\mu = 1 + 1/\sqrt{m}$) et effectue un seul pas de Newton
+par \'etape de centrage. Le nombre d'it\'erations est
+$\mathcal{O}(\sqrt{m} \ln(m/\varepsilon))$.
+\end{definition}
+
+\begin{definition}[M\'ethode \`a pas long]
+\index{m\'ethode \`a pas long}
+La m\'ethode \`a \textbf{pas long} choisit $\mu$ grand et effectue
+plusieurs pas de Newton pour recentrer. Le nombre total de pas de Newton est
+aussi $\mathcal{O}(\sqrt{m} \ln(m/\varepsilon))$ mais avec une constante
+plus grande.
+\end{definition}
+
+\begin{theoreme}[Complexit\'e polynomiale]
+\index{complexit\'e polynomiale}
+Les m\'ethodes de points int\'erieurs r\'esolvent un programme lin\'eaire
+\`a $n$ variables et $m$ contraintes en $\mathcal{O}(\sqrt{m} \ln(1/\varepsilon))$
+pas de Newton, chacun co\^utant $\mathcal{O}(n^3)$ (ou moins avec
+l'exploitation de la structure creuse). La complexit\'e totale est donc
+polynomiale.
+\end{theoreme}
+
+\section{M\'ethode primale-duale}
+
+\begin{definition}[Syst\`eme KKT modifi\'e]
+La m\'ethode \textbf{primale-duale} r\'esout simultan\'ement les conditions
+KKT perturb\'ees~:
+\[
+  \begin{cases}
+    \nabla f_0(x) + \sum_i \lambda_i \nabla f_i(x) + A^\top \nu = 0, \\
+    -\lambda_i f_i(x) = 1/t, \quad i = 1, \ldots, m, \\
+    Ax = b.
+  \end{cases}
+\]
+On applique la m\'ethode de Newton \`a ce syst\`eme.
+\end{definition}
+
+\begin{remarque}
+La m\'ethode primale-duale est plus efficace en pratique que la m\'ethode de
+barri\`ere pure car elle ne n\'ecessite pas de r\'esoudre exactement le
+probl\`eme de centrage \`a chaque \'etape. Les solveurs modernes (MOSEK,
+CVXOPT) utilisent cette approche.
+\end{remarque}
+
+\begin{theoreme}[Convergence primale-duale]
+La m\'ethode primale-duale atteint une pr\'ecision $\varepsilon$ en
+$\mathcal{O}(\sqrt{m} \ln(1/\varepsilon))$ it\'erations de Newton, sous
+des hypoth\`eses standards de r\'egularit\'e.
+\end{theoreme}
+
+\section{Application \`a la programmation lin\'eaire}
+
+\begin{exemple}[PL sous forme standard]
+Pour le programme lin\'eaire $\min c^\top x$ s.c. $Ax = b$, $x \geq 0$,
+la fonction barri\`ere est~:
+\[
+  \phi(x) = -\sum_{j=1}^n \ln(x_j).
+\]
+Le syst\`eme de Newton pour le centrage s'\'ecrit~:
+\[
+  \begin{pmatrix}
+    X^{-2} & A^\top \\
+    A & 0
+  \end{pmatrix}
+  \begin{pmatrix} \Delta x \\ \Delta \nu \end{pmatrix}
+  = -\begin{pmatrix} t c - X^{-1} e \\ 0 \end{pmatrix},
+\]
+o\`u $X = \mathrm{diag}(x)$ et $e = (1, \ldots, 1)^\top$.
+\end{exemple}
+
+\section{Exercices}
+
+\begin{exercice}[$\star$ -- Barri\`ere logarithmique]
+Pour le PL $\min -x_1 - x_2$ s.c. $x_1 + x_2 \leq 1$, $x_1, x_2 \geq 0$,
+\'ecrire la fonction barri\`ere et calculer $x^*(t)$ pour $t = 1, 10, 100$.
+V\'erifier que $x^*(t) \to x^*$.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- Chemin central]
+Tracer le chemin central pour le probl\`eme $\min x_1$ s.c.
+$x_1^2 + x_2^2 \leq 1$ pour $t \in \{0.1, 1, 10, 100\}$. Montrer qu'il
+converge vers $(-1, 0)$.
+\end{exercice}
+
+\begin{exercice}[$\star\star$ -- Pas de Newton]
+D\'eriver le syst\`eme de Newton pour la m\'ethode de barri\`ere appliqu\'ee
+au probl\`eme quadratique contraint~:
+$\min \frac{1}{2} x^\top Q x + c^\top x$ s.c. $Ax \leq b$.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Borne de sous-optimalit\'e]
+D\'emontrer en d\'etail que $f_0(x^*(t)) - p^* \leq m/t$. En d\'eduire le
+nombre d'it\'erations ext\'erieures n\'ecessaires pour atteindre une
+pr\'ecision $\varepsilon$ avec facteur $\mu$.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Primale-duale]
+Impl\'ementer la m\'ethode primale-duale de points int\'erieurs pour le PL
+sous forme standard. Tester sur un probl\`eme \`a 50 variables et 20
+contraintes. Comparer le nombre d'it\'erations avec la m\'ethode de
+barri\`ere classique.
+\end{exercice}

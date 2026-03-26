@@ -1,0 +1,168 @@
+% ============================================================
+\chapter{Mod\`eles GARCH et Volatilit\'e Conditionnelle}
+\label{ch:garch}
+% ============================================================
+
+\section{Exemple motivant}
+Les rendements financiers sont approximativement non corr\'el\'es, mais leur carr\'e $r_t^2$ montre une forte autocorr\'elation : les p\'eriodes de forte volatilit\'e sont group\'ees (\textbf{volatility clustering}\index{volatility clustering}). Les mod\`eles ARMA ne capturent pas ce ph\'enom\`ene.
+
+\section{Faits stylis\'es des rendements financiers}\index{faits stylises@faits stylis\'es}
+
+\begin{enumerate}
+\item Rendements approximativement non corr\'el\'es : $\rho_{r}(h)\approx 0$.
+\item Rendements au carr\'e corr\'el\'es : $\rho_{r^2}(h)>0$ (persistence de la volatilit\'e).
+\item Queues lourdes (leptokurtose) : kurtosis $>3$.
+\item Asym\'etrie de la volatilit\'e (effet de levier) : les baisses augmentent davantage la volatilit\'e que les hausses.
+\end{enumerate}
+
+\section{Mod\`ele ARCH}\index{ARCH}
+
+\begin{definition}[ARCH$(q)$]
+\[
+r_t = \sigma_t\,z_t, \quad z_t\iid(0,1), \quad \sigma_t^2 = \omega + \sum_{i=1}^q\alpha_i r_{t-i}^2,
+\]
+o\`u $\omega>0$, $\alpha_i\geq 0$, et $\sum\alpha_i<1$ pour la stationnarit\'e.
+\end{definition}
+
+\begin{theoreme}[Propri\'et\'es d'un ARCH$(q)$]
+\begin{enumerate}
+\item $\E[r_t]=0$, $\Var(r_t)=\omega/(1-\sum\alpha_i)$.
+\item $(r_t)$ est un bruit blanc (non corr\'el\'e).
+\item $(r_t^2)$ suit un AR$(q)$ : $r_t^2 = \omega+\sum\alpha_i r_{t-i}^2+v_t$ o\`u $v_t=r_t^2-\sigma_t^2$ est un bruit blanc.
+\item Kurtosis $>3$ (queues lourdes m\^eme si $z_t$ est gaussien).
+\end{enumerate}
+\end{theoreme}
+
+\section{Mod\`ele GARCH}\index{GARCH}
+
+\begin{definition}[GARCH$(p,q)$]
+\[
+r_t = \sigma_t z_t, \quad \sigma_t^2 = \omega + \sum_{i=1}^q\alpha_i r_{t-i}^2 + \sum_{j=1}^p\beta_j\sigma_{t-j}^2.
+\]
+Conditions de stationnarit\'e : $\omega>0$, $\alpha_i,\beta_j\geq 0$, $\sum_{i=1}^q\alpha_i+\sum_{j=1}^p\beta_j<1$.
+\end{definition}
+
+\begin{theoreme}[Variance inconditionnelle GARCH$(1,1)$]
+\[
+\Var(r_t) = \frac{\omega}{1-\alpha_1-\beta_1}.
+\]
+La \textbf{persistence} de la volatilit\'e est mesur\'ee par $\alpha_1+\beta_1$ (proche de 1 en finance).
+\end{theoreme}
+
+\begin{intuition}
+Le GARCH$(1,1)$ est le mod\`ele de volatilit\'e le plus utilis\'e en pratique. La pr\'evision de la variance conditionnelle un pas en avant est :
+\[
+\hat{\sigma}_{t+1}^2 = \omega + \alpha_1 r_t^2 + \beta_1\sigma_t^2.
+\]
+C'est une moyenne pond\'er\'ee exponentielle des carr\'es pass\'es.
+\end{intuition}
+
+\section{IGARCH}\index{IGARCH}
+
+\begin{definition}
+Si $\alpha_1+\beta_1=1$ (int\'egr\'e GARCH), les chocs de volatilit\'e persistent ind\'efiniment. Le processus n'est pas stationnaire au second ordre mais reste \textbf{strictement stationnaire}.
+\end{definition}
+
+\section{Extensions}
+
+\subsection{EGARCH}\index{EGARCH}
+\begin{definition}
+Le mod\`ele EGARCH de Nelson :
+\[
+\ln\sigma_t^2 = \omega + \alpha(|z_{t-1}|-\E[|z_{t-1}|]) + \gamma z_{t-1} + \beta\ln\sigma_{t-1}^2.
+\]
+Le terme $\gamma z_{t-1}$ capture l'\textbf{effet de levier}. Pas de contrainte de positivit\'e sur les param\`etres.
+\end{definition}
+
+\subsection{GJR-GARCH}\index{GJR-GARCH}
+\begin{definition}
+\[
+\sigma_t^2 = \omega + (\alpha+\gamma\mathbf{1}_{r_{t-1}<0})r_{t-1}^2 + \beta\sigma_{t-1}^2.
+\]
+$\gamma>0$ implique que les rendements n\'egatifs augmentent davantage la volatilit\'e.
+\end{definition}
+
+\section{Estimation}\index{estimation!GARCH}
+
+\begin{definition}[Quasi-maximum de vraisemblance]
+La log-vraisemblance conditionnelle gaussienne :
+\[
+\ell(\bm\theta) = -\frac{1}{2}\sum_{t=1}^n\left(\ln\sigma_t^2 + \frac{r_t^2}{\sigma_t^2}\right).
+\]
+M\^eme si $z_t$ n'est pas gaussien, le QMLE est consistant sous certaines conditions.
+\end{definition}
+
+\section{Tests d'effet ARCH}\index{test!ARCH}
+
+\begin{definition}[Test ARCH-LM d'Engle]
+R\'egresser $r_t^2$ sur $r_{t-1}^2,\ldots,r_{t-q}^2$ et tester la nullit\'e jointe par $nR^2\sim\chi^2(q)$.
+\end{definition}
+
+\section{Impl\'ementation}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from arch import arch_model
+
+# Simuler un GARCH(1,1)
+np.random.seed(42)
+n = 1000
+omega, alpha, beta = 0.05, 0.10, 0.85
+sigma2 = np.zeros(n)
+r = np.zeros(n)
+sigma2[0] = omega / (1 - alpha - beta)
+for t in range(1, n):
+    sigma2[t] = omega + alpha * r[t-1]**2 + beta * sigma2[t-1]
+    r[t] = np.sqrt(sigma2[t]) * np.random.normal()
+
+fig, axes = plt.subplots(3, 1, figsize=(12, 8))
+axes[0].plot(r, lw=0.5)
+axes[0].set_title('Rendements simulés (GARCH(1,1))')
+axes[1].plot(r**2, lw=0.5, color='orange')
+axes[1].set_title('$r_t^2$ (volatilité réalisée)')
+axes[2].plot(np.sqrt(sigma2), lw=0.5, color='red')
+axes[2].set_title('$\\sigma_t$ (volatilité conditionnelle)')
+plt.tight_layout()
+plt.savefig('ch06_garch.pdf')
+plt.show()
+
+# Ajuster un GARCH(1,1)
+am = arch_model(r, vol='Garch', p=1, q=1, dist='normal')
+res = am.fit(disp='off')
+print(res.summary())
+
+# Prévision de volatilité
+forecasts = res.forecast(horizon=10)
+print("Variance prévisionnelle:")
+print(forecasts.variance.iloc[-1])
+\end{minted}
+\end{codeblock}
+
+\section{Exercices}
+
+\begin{exercice}[$\star$]
+Montrer qu'un ARCH(1) avec $r_t=\sigma_t z_t$, $\sigma_t^2=\omega+\alpha r_{t-1}^2$ implique $\E[r_t^4]=3\omega^2(1+\alpha)/(1-3\alpha^2)$ (si $3\alpha^2<1$). En d\'eduire la kurtosis.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Montrer que le GARCH$(1,1)$ peut s'\'ecrire comme un ARCH$(\infty)$.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+D\'emontrer que le processus $r_t^2$ d'un GARCH$(1,1)$ suit un ARMA$(1,1)$.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$ -- Projet]
+T\'el\'echarger les rendements journaliers du S\&P~500 sur 10 ans. Estimer un GARCH$(1,1)$, un EGARCH$(1,1)$ et un GJR-GARCH$(1,1)$. Comparer par AIC et analyser l'effet de levier.
+\end{exercice}
+
+\begin{formules}
+\begin{align*}
+\text{GARCH}(1,1) &: \sigma_t^2 = \omega+\alpha r_{t-1}^2+\beta\sigma_{t-1}^2, \quad \alpha+\beta<1 \\
+\Var(r_t) &= \omega/(1-\alpha-\beta) \\
+\text{EGARCH} &: \ln\sigma_t^2 = \omega+\alpha(|z_{t-1}|-\E|z_{t-1}|)+\gamma z_{t-1}+\beta\ln\sigma_{t-1}^2
+\end{align*}
+\end{formules}

@@ -1,0 +1,657 @@
+% ============================================================
+\chapter{Large-Scale Training --- Distributed Training}
+\label{ch:training}
+\index{distributed training}
+% ============================================================
+
+\section{Why Distributed Training?}
+\label{sec:why-distributed}
+
+Modern deep learning models (LLMs, vision transformers, diffusion models)
+have billions of parameters and require terabytes of training data.
+A single GPU cannot fit the model or process the data in a reasonable time.
+Distributed training splits the workload across multiple devices.
+
+\begin{definition}[Distributed training]
+\textbf{Distributed training}\index{distributed training} is the practice
+of training a model across multiple GPUs, machines, or accelerators by
+partitioning the computation (data, model, or both) and synchronising
+the results.
+\end{definition}
+
+\section{Data Parallelism vs Model Parallelism}
+\label{sec:parallelism-types}
+\index{data parallelism}\index{model parallelism}
+
+\begin{center}
+\begin{tabular}{@{}lp{5.5cm}p{5.5cm}@{}}
+\toprule
+& \textbf{Data Parallelism} & \textbf{Model Parallelism} \\
+\midrule
+\textbf{Principle} & Same model on each device, different data &
+  Different parts of the model on different devices \\
+\textbf{When} & Model fits in one GPU memory &
+  Model too large for one GPU \\
+\textbf{Communication} & Gradient synchronisation (AllReduce) &
+  Activation exchange between devices \\
+\textbf{Scaling} & Near-linear with $N$ GPUs &
+  Sub-linear (pipeline bubbles) \\
+\textbf{Complexity} & Low & High \\
+\textbf{Tools} & DDP, DeepSpeed ZeRO & Megatron-LM, pipeline parallelism \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Data parallelism --- visual overview}
+
+\begin{center}
+\begin{tikzpicture}[
+  gpu/.style={rectangle, draw, rounded corners, minimum width=2.5cm,
+    minimum height=2cm, align=center, font=\small, fill=blue!10},
+  data/.style={rectangle, draw, minimum width=1.8cm,
+    minimum height=0.6cm, align=center, font=\scriptsize, fill=green!10},
+  arr/.style={-{Stealth[length=2mm]}, thick, steelblue},
+  lbl/.style={font=\scriptsize, fill=white, inner sep=1pt}
+]
+  % Data
+  \node[data, minimum width=8cm] (batch) {\textbf{Mini-batch} (size $B$)};
+
+  % Split
+  \node[data, below left=1.2cm and 1.5cm of batch] (d0)
+    {Sub-batch $B/N$};
+  \node[data, below=1.2cm of batch] (d1) {Sub-batch $B/N$};
+  \node[data, below right=1.2cm and 1.5cm of batch] (d2)
+    {Sub-batch $B/N$};
+
+  \draw[arr] (batch.south) -- (d0.north);
+  \draw[arr] (batch.south) -- (d1.north);
+  \draw[arr] (batch.south) -- (d2.north);
+
+  % GPUs
+  \node[gpu, below=0.8cm of d0] (g0) {\textbf{GPU 0}\\Model copy\\$\nabla_0$};
+  \node[gpu, below=0.8cm of d1] (g1) {\textbf{GPU 1}\\Model copy\\$\nabla_1$};
+  \node[gpu, below=0.8cm of d2] (g2) {\textbf{GPU 2}\\Model copy\\$\nabla_2$};
+
+  \draw[arr] (d0) -- (g0);
+  \draw[arr] (d1) -- (g1);
+  \draw[arr] (d2) -- (g2);
+
+  % AllReduce
+  \node[rectangle, draw, rounded corners, fill=orange!15,
+    minimum width=8cm, minimum height=0.8cm, below=1cm of g1,
+    font=\small] (ar) {\textbf{AllReduce}: $\bar{\nabla} =
+    \frac{1}{N}\sum_{i=0}^{N-1} \nabla_i$};
+
+  \draw[arr, deepred] (g0.south) -- (ar.north);
+  \draw[arr, deepred] (g1.south) -- (ar.north);
+  \draw[arr, deepred] (g2.south) -- (ar.north);
+
+  % Update
+  \node[font=\small, below=0.5cm of ar] {All GPUs update weights with
+    $\bar{\nabla}$};
+\end{tikzpicture}
+\end{center}
+
+\section{Mathematics of Data-Parallel SGD}
+\label{sec:dp-math}
+
+Consider $N$ workers, each computing gradients on a sub-batch of size
+$b = B/N$ where $B$ is the global batch size.
+
+\begin{keyformulas}[title=\textbf{Data-parallel SGD}]
+Each worker $k$ computes:
+\[
+  \nabla_k = \frac{1}{b} \sum_{i \in \mathcal{B}_k}
+    \nabla_\theta \ell(f_\theta(x_i), y_i)
+\]
+where $\mathcal{B}_k$ is the sub-batch assigned to worker $k$.
+
+The averaged gradient is:
+\[
+  \bar{\nabla} = \frac{1}{N} \sum_{k=0}^{N-1} \nabla_k
+    = \frac{1}{B} \sum_{i \in \mathcal{B}}
+    \nabla_\theta \ell(f_\theta(x_i), y_i)
+\]
+which is identical to computing the gradient on the full batch $\mathcal{B}$.
+
+The parameter update is:
+\[
+  \theta_{t+1} = \theta_t - \eta \, \bar{\nabla}
+\]
+
+\textbf{Linear scaling rule} (Goyal et al., 2017): when multiplying the
+batch size by $N$, multiply the learning rate by $N$ and use a warm-up
+period:
+\[
+  \eta_{\text{distributed}} = N \cdot \eta_{\text{single}}
+\]
+\end{keyformulas}
+
+\begin{remark}
+The AllReduce operation ensures that all workers have identical gradients
+(and thus identical model weights) after each step. This is equivalent
+to training on a single device with batch size $B = N \cdot b$.
+\end{remark}
+
+\subsection{AllReduce communication}
+
+\begin{center}
+\begin{tikzpicture}[
+  gpu/.style={circle, draw, minimum size=1.2cm, align=center,
+    font=\scriptsize, fill=blue!10},
+  arr/.style={-{Stealth[length=2mm]}, thick}
+]
+  % Ring AllReduce
+  \node[gpu] (g0) at (0,0) {GPU 0\\$\nabla_0$};
+  \node[gpu] (g1) at (3,0) {GPU 1\\$\nabla_1$};
+  \node[gpu] (g2) at (3,-2.5) {GPU 2\\$\nabla_2$};
+  \node[gpu] (g3) at (0,-2.5) {GPU 3\\$\nabla_3$};
+
+  \draw[arr, steelblue] (g0) -- (g1)
+    node[midway, above, font=\scriptsize] {reduce};
+  \draw[arr, steelblue] (g1) -- (g2)
+    node[midway, right, font=\scriptsize] {reduce};
+  \draw[arr, steelblue] (g2) -- (g3)
+    node[midway, below, font=\scriptsize] {reduce};
+  \draw[arr, steelblue] (g3) -- (g0)
+    node[midway, left, font=\scriptsize] {reduce};
+
+  \node[below=0.5cm of g2, font=\small, anchor=north west,
+    xshift=-1.5cm] {
+    \textbf{Ring AllReduce}: $O\!\left(\frac{2(N-1)}{N} \cdot M\right)$
+    communication};
+\end{tikzpicture}
+\end{center}
+
+\section{PyTorch Distributed Data Parallel (DDP)}
+\label{sec:ddp}
+\index{DDP}\index{PyTorch!DDP}
+
+\textbf{DistributedDataParallel}\index{DDP} (DDP) is PyTorch's recommended
+approach for multi-GPU training. It uses NCCL for GPU-to-GPU communication
+and overlaps gradient computation with communication for efficiency.
+
+\begin{codeblock}[title=\textbf{Complete PyTorch DDP training script}]
+\begin{minted}{python}
+import os
+import torch
+import torch.nn as nn
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader, DistributedSampler
+from torchvision import datasets, transforms
+
+def setup(rank, world_size):
+    """Initialise the distributed process group."""
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12355"
+    dist.init_process_group(
+        backend="nccl", rank=rank, world_size=world_size
+    )
+    torch.cuda.set_device(rank)
+
+def cleanup():
+    dist.destroy_process_group()
+
+class SimpleCNN(nn.Module):
+    def __init__(self, num_classes=10):
+        super().__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 32, 3, padding=1), nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(),
+            nn.MaxPool2d(2),
+        )
+        self.classifier = nn.Sequential(
+            nn.Linear(64 * 7 * 7, 256), nn.ReLU(),
+            nn.Linear(256, num_classes),
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = x.view(x.size(0), -1)
+        return self.classifier(x)
+
+def train(rank, world_size, epochs=10):
+    setup(rank, world_size)
+
+    # Data
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,)),
+    ])
+    dataset = datasets.MNIST(
+        "data", train=True, download=True, transform=transform
+    )
+    sampler = DistributedSampler(
+        dataset, num_replicas=world_size, rank=rank
+    )
+    loader = DataLoader(
+        dataset, batch_size=64, sampler=sampler, num_workers=4
+    )
+
+    # Model
+    model = SimpleCNN().to(rank)
+    model = DDP(model, device_ids=[rank])
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    criterion = nn.CrossEntropyLoss()
+
+    # Training loop
+    for epoch in range(epochs):
+        sampler.set_epoch(epoch)  # Shuffle differently each epoch
+        model.train()
+        total_loss = 0
+
+        for batch_idx, (data, target) in enumerate(loader):
+            data, target = data.to(rank), target.to(rank)
+
+            optimizer.zero_grad()
+            output = model(data)
+            loss = criterion(output, target)
+            loss.backward()
+            optimizer.step()
+
+            total_loss += loss.item()
+
+        if rank == 0:
+            avg_loss = total_loss / len(loader)
+            print(f"Epoch {epoch}: loss = {avg_loss:.4f}")
+
+    # Save model (only on rank 0)
+    if rank == 0:
+        torch.save(
+            model.module.state_dict(), "model_ddp.pt"
+        )
+
+    cleanup()
+
+if __name__ == "__main__":
+    world_size = torch.cuda.device_count()
+    torch.multiprocessing.spawn(
+        train, args=(world_size,), nprocs=world_size
+    )
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Launching DDP training}]
+\begin{minted}{bash}
+# Single node, multiple GPUs
+torchrun --nproc_per_node=4 train_ddp.py
+
+# Multi-node (2 nodes, 4 GPUs each)
+# On node 0:
+torchrun --nproc_per_node=4 --nnodes=2 --node_rank=0 \
+    --master_addr=node0 --master_port=12355 train_ddp.py
+# On node 1:
+torchrun --nproc_per_node=4 --nnodes=2 --node_rank=1 \
+    --master_addr=node0 --master_port=12355 train_ddp.py
+\end{minted}
+\end{codeblock}
+
+\begin{warning}[title=\textbf{DDP pitfalls}]
+\begin{itemize}
+  \item Always call \cli{sampler.set\_epoch(epoch)} to ensure proper
+    shuffling across epochs.
+  \item Save checkpoints only on rank 0 to avoid file corruption.
+  \item Access the underlying model via \cli{model.module} (not
+    \cli{model}) when saving or inspecting.
+  \item Ensure all processes reach the same synchronisation points
+    (no conditional code paths that differ across ranks).
+\end{itemize}
+\end{warning}
+
+\section{Hugging Face Accelerate}
+\label{sec:accelerate}
+\index{Accelerate}
+
+\textbf{Accelerate}\index{Accelerate} (by Hugging Face) provides a
+high-level abstraction over DDP, FSDP, and DeepSpeed. A single training
+script works on CPU, single GPU, multi-GPU, and multi-node without code
+changes.
+
+\begin{codeblock}[title=\textbf{Training with Accelerate}]
+\begin{minted}{python}
+from accelerate import Accelerator
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
+
+accelerator = Accelerator()
+
+# Model, optimizer, data (standard PyTorch)
+model = SimpleCNN()
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+criterion = nn.CrossEntropyLoss()
+
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.1307,), (0.3081,)),
+])
+dataset = datasets.MNIST(
+    "data", train=True, download=True, transform=transform
+)
+loader = DataLoader(dataset, batch_size=64, shuffle=True)
+
+# Prepare for distributed training (one line!)
+model, optimizer, loader = accelerator.prepare(
+    model, optimizer, loader
+)
+
+# Standard training loop (no rank checks needed)
+for epoch in range(10):
+    model.train()
+    for data, target in loader:
+        optimizer.zero_grad()
+        output = model(data)
+        loss = criterion(output, target)
+        accelerator.backward(loss)
+        optimizer.step()
+
+    if accelerator.is_main_process:
+        print(f"Epoch {epoch} complete")
+
+# Save
+accelerator.save_model(model, "model_accelerate/")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Accelerate configuration and launch}]
+\begin{minted}{bash}
+# Interactive configuration
+accelerate config
+# Generates ~/.cache/huggingface/accelerate/default_config.yaml
+
+# Launch training
+accelerate launch train_accelerate.py
+
+# Launch with overrides
+accelerate launch --num_processes 4 --mixed_precision fp16 \
+    train_accelerate.py
+\end{minted}
+\end{codeblock}
+
+\section{Mixed Precision Training (AMP)}
+\label{sec:amp}
+\index{mixed precision}\index{AMP}
+
+\textbf{Mixed precision training}\index{mixed precision} uses both FP16
+(or BF16) and FP32 arithmetic. FP16 is used for forward and backward
+passes (faster, less memory), while FP32 is used for the master weights
+and loss scaling (numerical stability).
+
+\begin{keyformulas}[title=\textbf{Mixed precision benefits}]
+\begin{itemize}
+  \item \textbf{Memory}: FP16 tensors use $\frac{1}{2}$ the memory of
+    FP32 $\Rightarrow$ larger batch sizes or larger models.
+  \item \textbf{Speed}: modern GPUs (Ampere, Hopper) have dedicated FP16
+    / BF16 tensor cores, providing $2\text{--}8\times$ throughput.
+  \item \textbf{Loss scaling}: gradients in FP16 can underflow.
+    A \textbf{loss scaler} multiplies the loss by a large factor before
+    backpropagation, then divides gradients before the optimizer step.
+\end{itemize}
+\end{keyformulas}
+
+\begin{codeblock}[title=\textbf{PyTorch AMP example}]
+\begin{minted}{python}
+import torch
+from torch.amp import autocast, GradScaler
+
+model = SimpleCNN().cuda()
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+scaler = GradScaler("cuda")
+
+for data, target in train_loader:
+    data, target = data.cuda(), target.cuda()
+
+    optimizer.zero_grad()
+
+    # Forward pass in FP16
+    with autocast("cuda"):
+        output = model(data)
+        loss = criterion(output, target)
+
+    # Backward pass with loss scaling
+    scaler.scale(loss).backward()
+    scaler.step(optimizer)
+    scaler.update()
+\end{minted}
+\end{codeblock}
+
+\begin{remark}
+BF16 (bfloat16) has the same exponent range as FP32, making it more
+numerically stable than FP16. It is supported on Ampere GPUs and later
+(A100, H100). When available, prefer BF16 over FP16 to avoid loss scaling
+altogether.
+\end{remark}
+
+\section{Hyperparameter Optimisation with Optuna}
+\label{sec:optuna}
+\index{Optuna}\index{hyperparameter optimisation}
+
+\textbf{Optuna}\index{Optuna} is a hyperparameter optimisation (HPO)
+framework that uses Bayesian optimisation (Tree-structured Parzen
+Estimators) to efficiently search the hyperparameter space.
+
+\begin{codeblock}[title=\textbf{Optuna hyperparameter search}]
+\begin{minted}{python}
+import optuna
+import torch
+import torch.nn as nn
+from sklearn.metrics import accuracy_score
+
+def objective(trial):
+    # Suggest hyperparameters
+    lr = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
+    n_layers = trial.suggest_int("n_layers", 1, 4)
+    hidden_size = trial.suggest_categorical(
+        "hidden_size", [64, 128, 256, 512]
+    )
+    dropout = trial.suggest_float("dropout", 0.1, 0.5)
+    optimizer_name = trial.suggest_categorical(
+        "optimizer", ["Adam", "SGD", "AdamW"]
+    )
+
+    # Build model dynamically
+    layers = []
+    in_features = 784
+    for i in range(n_layers):
+        layers.append(nn.Linear(in_features, hidden_size))
+        layers.append(nn.ReLU())
+        layers.append(nn.Dropout(dropout))
+        in_features = hidden_size
+    layers.append(nn.Linear(in_features, 10))
+    model = nn.Sequential(*layers).cuda()
+
+    optimizer = getattr(torch.optim, optimizer_name)(
+        model.parameters(), lr=lr
+    )
+    criterion = nn.CrossEntropyLoss()
+
+    # Train
+    for epoch in range(10):
+        model.train()
+        for data, target in train_loader:
+            data, target = data.cuda(), target.cuda()
+            optimizer.zero_grad()
+            loss = criterion(model(data.view(data.size(0), -1)),
+                             target)
+            loss.backward()
+            optimizer.step()
+
+        # Pruning: report intermediate value
+        val_acc = evaluate(model, val_loader)
+        trial.report(val_acc, epoch)
+        if trial.should_prune():
+            raise optuna.TrialPruned()
+
+    return val_acc
+
+# Run the study
+study = optuna.create_study(
+    direction="maximize",
+    pruner=optuna.pruners.MedianPruner(),
+    storage="sqlite:///optuna.db",
+    study_name="mnist-hpo",
+)
+study.optimize(objective, n_trials=100, timeout=3600)
+
+# Best result
+print(f"Best accuracy: {study.best_value:.4f}")
+print(f"Best params: {study.best_params}")
+\end{minted}
+\end{codeblock}
+
+\begin{bestpractice}[title=\textbf{HPO best practices}]
+\begin{itemize}
+  \item Use \textbf{pruning} (early stopping of bad trials) to save
+    compute---Optuna's median pruner is a good default.
+  \item Use \textbf{log-scale} for learning rates and weight decay.
+  \item Start with a \textbf{broad search}, then narrow around promising
+    regions.
+  \item Use a \textbf{persistent storage} (\cli{sqlite:///optuna.db})
+    so studies can be resumed.
+  \item Combine with distributed training: run each trial on a GPU.
+\end{itemize}
+\end{bestpractice}
+
+\section{Distributed Training Framework Comparison}
+\label{sec:distributed-comparison}
+
+\begin{center}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Criterion} & \textbf{DDP} & \textbf{FSDP} & \textbf{DeepSpeed} \\
+\midrule
+Paradigm & Data parallel & Fully sharded & ZeRO stages 1--3 \\
+Memory efficiency & Baseline & High & Very high \\
+Model size & $\le$ 1 GPU & $>$ 1 GPU & $>$ 1 GPU \\
+Complexity & Low & Medium & Medium \\
+Mixed precision & Manual (AMP) & Built-in & Built-in \\
+Offloading (CPU/NVMe) & No & No & Yes \\
+Framework & PyTorch & PyTorch & PyTorch + config \\
+Best for & Standard training & Large models & Very large models \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{remark}
+\textbf{FSDP} (Fully Sharded Data Parallel) shards model parameters,
+gradients, and optimizer states across GPUs---similar to DeepSpeed ZeRO
+Stage~3 but natively integrated into PyTorch. For most use cases, start
+with DDP; move to FSDP or DeepSpeed only when the model does not fit in
+a single GPU.
+\end{remark}
+
+\section{Best Practices}
+
+\begin{bestpractice}[title=\textbf{Distributed training golden rules}]
+\begin{enumerate}
+  \item \textbf{Start simple}: single GPU $\to$ DDP $\to$ FSDP/DeepSpeed.
+  \item \textbf{Linear scaling rule}: scale learning rate with the number
+    of GPUs and use warm-up.
+  \item \textbf{Use mixed precision}: always enable AMP (FP16 or BF16)
+    for modern GPUs.
+  \item \textbf{Profile before optimising}: use PyTorch Profiler or
+    \cli{nvidia-smi} to identify bottlenecks.
+  \item \textbf{Checkpoint regularly}: save checkpoints every $N$ steps,
+    not just at epoch boundaries.
+  \item \textbf{Use Accelerate}: for portability across hardware
+    configurations.
+\end{enumerate}
+\end{bestpractice}
+
+\begin{antipattern}[title=\textbf{Common anti-patterns}]
+\begin{itemize}
+  \item Training in FP32 on modern GPUs (wasting memory and speed)
+  \item Grid search instead of Bayesian HPO (exponentially wasteful)
+  \item Not using a \cli{DistributedSampler} (data duplication across
+    workers)
+  \item Saving checkpoints on all ranks (file corruption, wasted I/O)
+  \item Ignoring the linear scaling rule (divergence with large batch
+    sizes)
+\end{itemize}
+\end{antipattern}
+
+\section{Mini-project: Distributed Training Pipeline}
+\label{sec:mini-project-ch6}
+
+\begin{miniproject}[title=\textbf{Mini-project 6: Multi-GPU training}]
+Train an image classifier on CIFAR-10 or Fashion-MNIST:
+\begin{enumerate}
+  \item Write a single-GPU training script with mixed precision (AMP).
+  \item Convert it to DDP using \cli{torchrun}.
+  \item Rewrite it using Hugging Face Accelerate and verify identical
+    results.
+  \item Run an Optuna HPO sweep (at least 20 trials) over learning rate,
+    batch size, and architecture (number of layers, hidden size).
+  \item Log all experiments to MLflow or W\&B.
+  \item Compare wall-clock time: 1~GPU vs 2~GPUs vs 4~GPUs.
+  \item (Bonus) Try FSDP or DeepSpeed for a larger model
+    (e.g., ResNet-50).
+\end{enumerate}
+\end{miniproject}
+
+\section{Exercises}
+\label{sec:exercises-ch6}
+
+\begin{exercise}[$\bigstar$ --- Mixed precision basics]
+Take an existing single-GPU training script and add mixed precision
+training using \cli{torch.amp}. Compare:
+\begin{enumerate}
+  \item Training time per epoch (FP32 vs FP16 vs BF16)
+  \item Peak GPU memory usage (\cli{torch.cuda.max\_memory\_allocated()})
+  \item Final model accuracy
+\end{enumerate}
+Report your findings in a table.
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar$ --- DDP implementation]
+Implement a DDP training script from scratch (without Accelerate) for a
+ResNet-18 on CIFAR-10:
+\begin{enumerate}
+  \item Initialise the process group and wrap the model with DDP
+  \item Use \cli{DistributedSampler} and set the epoch correctly
+  \item Add gradient clipping and learning rate scheduling
+  \item Save checkpoints only on rank 0
+  \item Verify that training on 2 GPUs with batch size 32 per GPU produces
+    similar results to 1 GPU with batch size 64
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar\bigstar$ --- Full-scale training system]
+Build a complete training system for a medium-scale model:
+\begin{enumerate}
+  \item Use Accelerate with automatic mixed precision
+  \item Implement Optuna HPO with pruning and a persistent SQLite study
+  \item Add DVC data versioning and MLflow experiment tracking
+  \item Implement checkpointing with automatic resume on failure
+  \item Write a Prefect flow that orchestrates data preparation, HPO,
+    and final training with the best hyperparameters
+  \item Produce a final report comparing at least 10 configurations
+\end{enumerate}
+\end{exercise}
+
+\section{Cheatsheet}
+
+\begin{cheatsheet}[title=\textbf{Chapter 6 Summary}]
+\begin{tabular}{@{}p{4cm}p{8.5cm}@{}}
+\toprule
+\textbf{Tool / Concept} & \textbf{Key Points} \\
+\midrule
+\textbf{Data parallelism} & Same model on each GPU, AllReduce gradients,
+  scale LR linearly \\
+\textbf{DDP} & \cli{torchrun --nproc\_per\_node=N},
+  \cli{DistributedDataParallel}, \cli{DistributedSampler} \\
+\textbf{Accelerate} & \cli{accelerator.prepare()},
+  \cli{accelerate launch}, hardware-agnostic \\
+\textbf{Mixed precision} & \cli{torch.amp.autocast}, \cli{GradScaler},
+  BF16 preferred over FP16 \\
+\textbf{Optuna} & \cli{study.optimize()}, \cli{trial.suggest\_*()},
+  pruning, persistent storage \\
+\textbf{FSDP / DeepSpeed} & For models too large for a single GPU;
+  shard parameters + gradients + optimizer \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}

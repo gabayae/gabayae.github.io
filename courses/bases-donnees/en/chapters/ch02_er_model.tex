@@ -1,0 +1,429 @@
+% ============================================================
+\chapter{The Entity-Relationship Model}
+\label{ch:er_model}
+% ============================================================
+
+In 1976, Peter Chen, a young computer scientist at MIT, published a paper that would become one of the most cited in the history of database research: ``The Entity-Relationship Model---Toward a Unified View of Data.'' At the time, database design was an ad hoc affair. Programmers jumped straight into tables and columns, only to discover months later that their schemas could not accommodate new requirements. Chen's insight was to introduce an intermediate, conceptual layer---a diagram that captures the \emph{meaning} of data before committing to any particular implementation.
+
+The Entity-Relationship (ER) model is, at its core, a language for thinking about the world in terms of \emph{things} (entities), their \emph{properties} (attributes), and the \emph{connections} between them (relationships). It is deliberately independent of any database management system: an ER diagram describes what the data \emph{is}, not how it is stored. This separation of concerns---conceptual design first, logical design second---remains the gold standard of database engineering. In this chapter, we learn to speak this language fluently.
+
+\section{Introduction to Database Design}
+
+Database design follows three main steps:
+\begin{enumerate}
+    \item \textbf{Requirements analysis} --- gathering user requirements.
+    \item \textbf{Conceptual design} --- modeling independent of any DBMS
+          (Entity-Relationship model).
+    \item \textbf{Logical design} --- translation into a relational schema (SQL tables).
+    \item \textbf{Physical design} --- choosing indexes, partitioning, etc.
+\end{enumerate}
+
+The Entity-Relationship (ER) model, introduced by Peter Chen in 1976, is
+the standard tool for conceptual design.
+
+\section{Core Concepts}
+
+\begin{definition}[Entity]
+An \emph{entity} is a real-world object, distinguishable from other objects,
+about which we wish to store information. An \emph{entity type} groups
+entities sharing the same attributes.
+\end{definition}
+
+\begin{definition}[Attribute]
+An \emph{attribute} is a property that describes an entity or a relationship.
+Each attribute has a \emph{domain} (set of possible values).
+We distinguish:
+\begin{itemize}
+    \item \textbf{Simple} vs.\ \textbf{composite} (e.g., address = street + city + zip).
+    \item \textbf{Single-valued} vs.\ \textbf{multi-valued} (e.g., phone numbers).
+    \item \textbf{Stored} vs.\ \textbf{derived} (e.g., age computed from birth date).
+\end{itemize}
+\end{definition}
+
+\begin{definition}[Entity Key]
+An attribute (or set of attributes) whose value uniquely identifies each
+instance of an entity type. It is underlined in the ER diagram.
+\end{definition}
+
+\begin{definition}[Relationship]
+A \emph{relationship} represents a link between two or more entity types.
+It may have its own attributes.
+\end{definition}
+
+\section{Cardinalities}
+
+\begin{definition}[Cardinality]
+The \emph{cardinality} of an entity type's participation in a relationship
+expresses the minimum and maximum number of relationship instances in which
+an entity instance can participate. Notation: $(min, max)$.
+\end{definition}
+
+The most common cardinalities are:
+
+\begin{keyformulas}[title=\textbf{Cardinality Types}]
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Notation} & \textbf{Meaning} & \textbf{Example} \\
+\midrule
+$1:1$ (one-to-one) & Each entity links to at most one & Person --- Passport \\
+$1:N$ (one-to-many) & One entity links to many & Professor --- Course \\
+$N:M$ (many-to-many) & Many to many & Student --- Course \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{keyformulas}
+
+\begin{example}
+A professor teaches \emph{several} courses, but each course is taught by
+\emph{one} professor: this is a $1:N$ relationship.
+
+A student can enroll in \emph{several} courses, and each course has
+\emph{several} students: this is an $N:M$ relationship.
+\end{example}
+
+\section{ER Diagrams with TikZ}
+
+\begin{center}
+\begin{tikzpicture}[
+    entity/.style={rectangle, draw, fill=blue!10, minimum width=2.5cm, minimum height=1cm, font=\bfseries},
+    relationship/.style={diamond, draw, fill=orange!20, minimum width=2cm, minimum height=1cm, aspect=2, font=\small\bfseries},
+    attribute/.style={ellipse, draw, fill=green!10, font=\small},
+    keyattr/.style={ellipse, draw, fill=yellow!20, font=\small\bfseries},
+    every edge/.style={draw, -}
+]
+    % Entities
+    \node[entity] (student) at (0, 0) {Student};
+    \node[entity] (course)  at (8, 0) {Course};
+    \node[entity] (prof)    at (8, -4) {Professor};
+
+    % Relationships
+    \node[relationship] (enrolled) at (4, 0) {Enrolled};
+    \node[relationship] (teaches) at (8, -2) {Teaches};
+
+    % Entity-relationship links
+    \draw (student) -- node[above] {$N$} (enrolled);
+    \draw (enrolled) -- node[above] {$M$} (course);
+    \draw (prof) -- node[right] {$1$} (teaches);
+    \draw (teaches) -- node[right] {$N$} (course);
+
+    % Student attributes
+    \node[keyattr] (sid) at (-2, 1.5) {student\_id};
+    \node[attribute] (sname) at (0, 1.8) {last\_name};
+    \node[attribute] (sfname) at (2, 1.5) {first\_name};
+
+    \draw (student) -- (sid);
+    \draw (student) -- (sname);
+    \draw (student) -- (sfname);
+
+    % Course attributes
+    \node[keyattr] (cid) at (6, 1.5) {course\_id};
+    \node[attribute] (ctitle) at (8, 1.8) {title};
+    \node[attribute] (ccred) at (10, 1.5) {credits};
+
+    \draw (course) -- (cid);
+    \draw (course) -- (ctitle);
+    \draw (course) -- (ccred);
+
+    % Relationship attribute
+    \node[attribute] (grade) at (4, 1.5) {grade};
+    \draw (enrolled) -- (grade);
+
+    % Professor attributes
+    \node[keyattr] (pid) at (6, -5) {prof\_id};
+    \node[attribute] (pname) at (8, -5.5) {last\_name};
+    \node[attribute] (pdept) at (10, -5) {dept};
+
+    \draw (prof) -- (pid);
+    \draw (prof) -- (pname);
+    \draw (prof) -- (pdept);
+\end{tikzpicture}
+\end{center}
+
+\section{Weak Entities}
+
+\begin{definition}[Weak Entity]
+A \emph{weak entity} is an entity type that does not have a sufficient key
+of its own to uniquely identify its instances. Its identification depends
+on an \emph{owner} (strong) entity type via an \emph{identifying relationship}.
+\end{definition}
+
+\begin{example}
+Consider the rooms in a building. A room is identified by its number
+\emph{within} a given building. The \texttt{Room} entity type is weak,
+identified by the combination of \texttt{Building.building\_id} and
+\texttt{Room.room\_number}.
+\end{example}
+
+\begin{center}
+\begin{tikzpicture}[
+    entity/.style={rectangle, draw, fill=blue!10, minimum width=2.5cm, minimum height=1cm, font=\bfseries},
+    weakentity/.style={rectangle, draw, double, fill=blue!10, minimum width=2.5cm, minimum height=1cm, font=\bfseries},
+    relationship/.style={diamond, draw, fill=orange!20, minimum width=1.8cm, minimum height=0.9cm, aspect=2, font=\small\bfseries},
+    weakrel/.style={diamond, draw, double, fill=orange!20, minimum width=1.8cm, minimum height=0.9cm, aspect=2, font=\small\bfseries},
+]
+    \node[entity] (building) at (0,0) {Building};
+    \node[weakrel] (contains) at (4,0) {Contains};
+    \node[weakentity] (room) at (8,0) {Room};
+
+    \draw (building) -- node[above] {$1$} (contains);
+    \draw[double] (contains) -- node[above] {$N$} (room);
+\end{tikzpicture}
+\end{center}
+
+\section{Specialization and Generalization}
+
+\begin{definition}[Specialization / Generalization]
+\emph{Specialization} consists of defining subtypes of a general entity type
+(``is-a'' relationship). \emph{Generalization} is the reverse process:
+grouping entity types that share common attributes into a supertype.
+\end{definition}
+
+\begin{example}
+The type \texttt{Person} can be specialized into \texttt{Student} and
+\texttt{Professor}. Common attributes (name) go in \texttt{Person};
+specific attributes (major for Student, department for Professor) go in
+the subtypes.
+\end{example}
+
+Specialization constraints:
+\begin{itemize}
+    \item \textbf{Disjoint} (d) vs.\ \textbf{overlapping} (o): can an entity
+          belong to multiple subtypes?
+    \item \textbf{Total} (t) vs.\ \textbf{partial} (p): must every supertype
+          entity belong to at least one subtype?
+\end{itemize}
+
+\section{Mapping ER to Relational Schema}
+
+\begin{theorem}[ER-to-Relational Translation Rules]
+The mapping rules are as follows:
+\begin{enumerate}
+    \item \textbf{Strong entity type} $\to$ a table whose primary key is the entity key.
+    \item \textbf{Weak entity type} $\to$ a table whose primary key combines the
+          partial key and the owner's key (foreign key).
+    \item \textbf{$1:N$ relationship} $\to$ add a foreign key in the table on the $N$ side.
+    \item \textbf{$N:M$ relationship} $\to$ create an association table whose primary key
+          is the pair of foreign keys.
+    \item \textbf{$1:1$ relationship} $\to$ foreign key in one of the two tables
+          (preferably the one with total participation).
+    \item \textbf{Multi-valued attribute} $\to$ separate table with a foreign key.
+    \item \textbf{Specialization} $\to$ several strategies possible
+          (separate tables, single table with discriminator, etc.).
+\end{enumerate}
+\end{theorem}
+
+\begin{example}
+Applying the rules to the previous diagram:
+
+\begin{codeblock}[title=\textbf{Translating the ER Diagram to SQL}]
+\begin{minted}{sql}
+-- Rule 1: strong entity -> table
+CREATE TABLE Students (
+    student_id  INTEGER PRIMARY KEY,
+    last_name   TEXT NOT NULL,
+    first_name  TEXT NOT NULL
+);
+
+CREATE TABLE Courses (
+    course_id   INTEGER PRIMARY KEY,
+    title       TEXT NOT NULL,
+    credits     INTEGER DEFAULT 3,
+    prof_id     INTEGER REFERENCES Professors(prof_id)  -- Rule 3: 1:N
+);
+
+CREATE TABLE Professors (
+    prof_id     INTEGER PRIMARY KEY,
+    last_name   TEXT NOT NULL,
+    department  TEXT
+);
+
+-- Rule 4: N:M relationship -> association table
+CREATE TABLE Enrollments (
+    student_id  INTEGER REFERENCES Students(student_id),
+    course_id   INTEGER REFERENCES Courses(course_id),
+    grade       REAL,        -- relationship attribute
+    PRIMARY KEY (student_id, course_id)
+);
+\end{minted}
+\end{codeblock}
+\end{example}
+
+\section{Complete Example: Library System}
+
+\subsection{Requirements Analysis}
+A library needs to manage:
+\begin{itemize}
+    \item \textbf{Books} (ISBN, title, publication year).
+    \item \textbf{Authors} (name, nationality). A book can have multiple authors.
+    \item \textbf{Members} (member number, name, address).
+    \item \textbf{Loans} (loan date, due date, actual return date).
+\end{itemize}
+
+\subsection{ER Diagram}
+
+\begin{center}
+\begin{tikzpicture}[
+    entity/.style={rectangle, draw, fill=blue!10, minimum width=2.2cm, minimum height=0.9cm, font=\bfseries\small},
+    relationship/.style={diamond, draw, fill=orange!20, minimum width=1.5cm, minimum height=0.8cm, aspect=2, font=\scriptsize\bfseries},
+]
+    \node[entity] (book) at (0,0) {Book};
+    \node[entity] (author) at (0,-3) {Author};
+    \node[entity] (member) at (7,0) {Member};
+
+    \node[relationship] (written) at (0,-1.5) {Written by};
+    \node[relationship] (loan) at (3.5,0) {Loan};
+
+    \draw (book) -- node[right] {$N$} (written);
+    \draw (written) -- node[right] {$M$} (author);
+    \draw (book) -- node[above] {$N$} (loan);
+    \draw (loan) -- node[above] {$M$} (member);
+\end{tikzpicture}
+\end{center}
+
+\subsection{SQL Translation}
+
+\begin{codeblock}[title=\textbf{Library Relational Schema}]
+\begin{minted}{sql}
+CREATE TABLE Authors (
+    author_id    INTEGER PRIMARY KEY,
+    name         TEXT NOT NULL,
+    nationality  TEXT
+);
+
+CREATE TABLE Books (
+    isbn         TEXT PRIMARY KEY,
+    title        TEXT NOT NULL,
+    pub_year     INTEGER
+);
+
+CREATE TABLE Written_By (
+    isbn         TEXT REFERENCES Books(isbn),
+    author_id    INTEGER REFERENCES Authors(author_id),
+    PRIMARY KEY (isbn, author_id)
+);
+
+CREATE TABLE Members (
+    member_id    INTEGER PRIMARY KEY,
+    name         TEXT NOT NULL,
+    address      TEXT
+);
+
+CREATE TABLE Loans (
+    loan_id      INTEGER PRIMARY KEY,
+    isbn         TEXT REFERENCES Books(isbn),
+    member_id    INTEGER REFERENCES Members(member_id),
+    loan_date    DATE NOT NULL,
+    due_date     DATE NOT NULL,
+    return_date  DATE
+);
+\end{minted}
+\end{codeblock}
+
+\section{Design Best Practices}
+
+\begin{bestpractice}[title=\textbf{Golden Rules of ER Design}]
+\begin{enumerate}
+    \item Every entity type must have a well-defined key.
+    \item Avoid multi-valued attributes: convert them to separate entities.
+    \item Prefer binary relationships over ternary ones
+          (easier to understand and translate).
+    \item Do not confuse entity and attribute: if a concept has its own
+          attributes or participates in relationships, it is an entity.
+    \item Document every design decision (cardinalities, constraints).
+\end{enumerate}
+\end{bestpractice}
+
+\begin{antipattern}[title=\textbf{Anti-pattern: The ``Mega-Table''}]
+Putting all information into a single giant table (students, courses,
+grades, professors in one table) causes:
+\begin{itemize}
+    \item Massive data redundancy.
+    \item Insertion, update, and deletion anomalies.
+    \item Maintenance and evolution difficulties.
+\end{itemize}
+Normalization (Chapter~\ref{ch:normalization}) will formalize these problems.
+\end{antipattern}
+
+\section{Python Integration: Schema Generation}
+
+\begin{codeblock}[title=\textbf{Automatic Schema Generation with Python}]
+\begin{minted}{python}
+import sqlite3
+
+schema = {
+    'Authors': {
+        'author_id': 'INTEGER PRIMARY KEY',
+        'name': 'TEXT NOT NULL',
+        'nationality': 'TEXT'
+    },
+    'Books': {
+        'isbn': 'TEXT PRIMARY KEY',
+        'title': 'TEXT NOT NULL',
+        'pub_year': 'INTEGER'
+    }
+}
+
+conn = sqlite3.connect('library.db')
+cur = conn.cursor()
+
+for table, columns in schema.items():
+    cols = ', '.join(f'{col} {typ}' for col, typ in columns.items())
+    sql = f'CREATE TABLE IF NOT EXISTS {table} ({cols})'
+    print(f'Executing: {sql}')
+    cur.execute(sql)
+
+conn.commit()
+conn.close()
+\end{minted}
+\end{codeblock}
+
+\section*{Exercises}
+
+\begin{exercise}
+Design an ER diagram for a hotel reservation system with the entities
+\texttt{Guest}, \texttt{Room}, \texttt{Hotel}, and the relationship
+\texttt{Reservation}. Specify cardinalities and attributes for each
+entity and relationship.
+\end{exercise}
+
+\begin{exercise}
+Translate the ER diagram from the previous exercise into a relational SQL
+schema. Identify all primary and foreign keys.
+\end{exercise}
+
+\begin{exercise}
+A hospital manages \texttt{Patients}, \texttt{Doctors}, \texttt{Departments},
+and \texttt{Appointments}. A patient can see multiple doctors; a doctor
+belongs to exactly one department.
+\begin{enumerate}
+    \item Draw the ER diagram.
+    \item Identify a potential weak entity.
+    \item Translate to SQL.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}
+Which specialization translation strategy would you choose to model a system
+where \texttt{Vehicle} is specialized into \texttt{Car} and \texttt{Truck},
+with disjoint and total specialization? Justify your choice and provide
+the corresponding SQL code.
+\end{exercise}
+
+\begin{exercise}
+Identify and correct the design errors in the following schema:
+\begin{minted}{sql}
+CREATE TABLE Orders (
+    order_id INTEGER PRIMARY KEY,
+    customer_name TEXT,
+    customer_address TEXT,
+    customer_phone TEXT,
+    product TEXT,
+    price REAL,
+    quantity INTEGER,
+    supplier_name TEXT,
+    supplier_address TEXT
+);
+\end{minted}
+Propose a correct ER diagram and the corresponding SQL schema.
+\end{exercise}

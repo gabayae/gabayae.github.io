@@ -1,0 +1,336 @@
+% ============================================================
+\chapter{Optimization and Variational Models}
+\label{ch:optimization}
+% ============================================================
+
+\section{Introduction}
+
+Nature is economical. Light follows the fastest path (Fermat's principle), a soap bubble minimizes its surface area (Plateau's problem), a hanging chain adopts the shape that minimizes its potential energy. This idea --- that the laws of physics are optimization problems --- has fascinated mathematicians since Euler and Lagrange in the eighteenth century. The \emph{calculus of variations}, which seeks the function optimizing a functional, is the tool that follows from it. But optimization also permeates the applied sciences: linear programming for logistics, Karush--Kuhn--Tucker conditions for constrained optimization, numerical methods for large-scale problems. This chapter covers these three facets, from classical theory to modern algorithms.
+
+% ------------------------------------------------------------
+\section{Linear Programming}
+\label{sec:lp}
+% ------------------------------------------------------------
+
+\begin{definition}[Linear programming problem]
+A \textbf{linear programming} (LP) problem consists of minimising a
+linear objective under linear constraints:
+\[
+  \min_{\mathbf{x}\in\R^n}\;\mathbf{c}^\top\mathbf{x}
+  \quad\text{s.t.}\quad
+  A\mathbf{x}\leq\mathbf{b},\quad \mathbf{x}\geq\mathbf{0}.
+\]
+\end{definition}
+
+\begin{theorem}[Fundamental theorem of LP]
+If an LP problem has an optimal solution, then it has one at a
+\textbf{vertex} (extreme point) of the constraint polyhedron.
+\end{theorem}
+
+\begin{example}[Production problem]
+A factory produces two goods $x_1$, $x_2$ with resource constraints
+and unit profits:
+\begin{align*}
+  \max\quad & 40x_1 + 30x_2 \\
+  \text{s.t.}\quad & x_1 + x_2 \leq 40, \\
+  & 2x_1 + x_2 \leq 60, \\
+  & x_1, x_2 \geq 0.
+\end{align*}
+\end{example}
+
+\begin{codeblock}[title=\textbf{Linear programming with \texttt{scipy}}]
+\begin{minted}{python}
+import numpy as np
+from scipy.optimize import linprog
+
+c = [-40, -30]  # min -40x1 - 30x2  <=>  max 40x1 + 30x2
+A_ub = [[1, 1], [2, 1]]
+b_ub = [40, 60]
+bounds = [(0, None), (0, None)]
+
+result = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds,
+                 method='highs')
+print(f"Optimal solution: x1 = {result.x[0]:.1f}, "
+      f"x2 = {result.x[1]:.1f}")
+print(f"Maximum profit: {-result.fun:.1f}")
+\end{minted}
+\end{codeblock}
+
+\begin{definition}[Duality]
+The \textbf{dual problem} associated with the primal LP
+$\min \mathbf{c}^\top\mathbf{x}$ s.t.\ $A\mathbf{x}\geq\mathbf{b}$,
+$\mathbf{x}\geq 0$ is:
+\[
+  \max_{\mathbf{y}\geq 0}\;\mathbf{b}^\top\mathbf{y}
+  \quad\text{s.t.}\quad
+  A^\top\mathbf{y}\leq\mathbf{c}.
+\]
+\end{definition}
+
+\begin{theorem}[Strong duality theorem]
+If the primal and dual have feasible solutions, then their optimal
+values are equal:
+$\mathbf{c}^\top\mathbf{x}^* = \mathbf{b}^\top\mathbf{y}^*$.
+\end{theorem}
+
+% ------------------------------------------------------------
+\section{Unconstrained Nonlinear Optimisation}
+\label{sec:unconstrained}
+% ------------------------------------------------------------
+
+\begin{definition}[Necessary optimality conditions]
+For $f:\R^n\to\R$ of class $\mathcal{C}^2$, if $\mathbf{x}^*$ is a
+local minimum, then:
+\begin{enumerate}
+  \item $\nabla f(\mathbf{x}^*) = \mathbf{0}$ (first-order condition).
+  \item $\nabla^2 f(\mathbf{x}^*)$ is positive semi-definite
+    (second-order condition).
+\end{enumerate}
+\end{definition}
+
+\begin{definition}[Gradient descent]
+Gradient descent iterates:
+\[
+  \mathbf{x}_{k+1} = \mathbf{x}_k - \alpha_k\nabla f(\mathbf{x}_k),
+\]
+where $\alpha_k>0$ is the step size (learning rate).
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Gradient descent in Python}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+def f(x):
+    return (x[0]-1)**2 + 10*(x[1]-x[0]**2)**2  # Rosenbrock
+
+def grad_f(x):
+    dx0 = 2*(x[0]-1) - 40*x[0]*(x[1]-x[0]**2)
+    dx1 = 20*(x[1]-x[0]**2)
+    return np.array([dx0, dx1])
+
+x = np.array([-1.0, 1.0])
+alpha = 0.002
+trajectory = [x.copy()]
+
+for _ in range(5000):
+    x = x - alpha * grad_f(x)
+    trajectory.append(x.copy())
+
+trajectory = np.array(trajectory)
+print(f"Minimum found: x = ({x[0]:.6f}, {x[1]:.6f})")
+print(f"f(x) = {f(x):.8f}")
+
+x1 = np.linspace(-2, 2, 200)
+x2 = np.linspace(-1, 3, 200)
+X1, X2 = np.meshgrid(x1, x2)
+Z = (X1-1)**2 + 10*(X2-X1**2)**2
+
+plt.figure(figsize=(8, 6))
+plt.contour(X1, X2, Z, levels=np.logspace(-1, 3, 30), cmap='viridis')
+plt.plot(trajectory[:, 0], trajectory[:, 1], 'r-', lw=0.5)
+plt.plot(1, 1, 'r*', markersize=15)
+plt.xlabel('$x_1$'); plt.ylabel('$x_2$')
+plt.title('Gradient descent on the Rosenbrock function')
+plt.tight_layout(); plt.savefig('gradient_descent.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Constrained Optimisation: KKT Conditions}
+\label{sec:kkt}
+% ------------------------------------------------------------
+
+\begin{theorem}[Karush--Kuhn--Tucker conditions]
+Consider the problem:
+\[
+  \min_{\mathbf{x}}\;f(\mathbf{x})
+  \quad\text{s.t.}\quad
+  g_i(\mathbf{x})\leq 0,\;i=1,\ldots,m, \qquad
+  h_j(\mathbf{x})=0,\;j=1,\ldots,p.
+\]
+If $\mathbf{x}^*$ is a local minimum and a constraint qualification
+holds, then there exist multipliers $\lambda_i\geq 0$ and $\mu_j$
+such that:
+\begin{enumerate}
+  \item $\nabla f(\mathbf{x}^*) + \sum_i\lambda_i\nabla g_i(\mathbf{x}^*)
+    + \sum_j\mu_j\nabla h_j(\mathbf{x}^*) = \mathbf{0}$ (stationarity).
+  \item $g_i(\mathbf{x}^*)\leq 0$ for all $i$ (primal feasibility).
+  \item $\lambda_i\geq 0$ for all $i$ (dual feasibility).
+  \item $\lambda_i g_i(\mathbf{x}^*)=0$ for all $i$
+    (complementary slackness).
+\end{enumerate}
+\end{theorem}
+
+\begin{example}
+Minimise $f(x,y)=x^2+y^2$ subject to $x+y\geq 1$.
+The Lagrangian is $\mathcal{L}=x^2+y^2-\lambda(x+y-1)$.
+KKT conditions: $2x=\lambda$, $2y=\lambda$, $\lambda(x+y-1)=0$,
+$\lambda\geq 0$.  Thus $x=y=\lambda/2$.  If $\lambda>0$: $x+y=1$,
+so $\lambda=1$, $x^*=y^*=1/2$.
+\end{example}
+
+\begin{codeblock}[title=\textbf{Constrained optimisation with \texttt{scipy}}]
+\begin{minted}{python}
+from scipy.optimize import minimize
+
+def objective(x):
+    return x[0]**2 + x[1]**2
+
+constraints = [{'type': 'ineq', 'fun': lambda x: x[0] + x[1] - 1}]
+x0 = [0.0, 0.0]
+result = minimize(objective, x0, method='SLSQP',
+                  constraints=constraints)
+print(f"Solution: x = ({result.x[0]:.4f}, {result.x[1]:.4f})")
+print(f"f(x*) = {result.fun:.4f}")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Calculus of Variations}
+\label{sec:variations}
+% ------------------------------------------------------------
+
+\begin{definition}[Variational problem]
+Find the function $y:[a,b]\to\R$ making stationary the functional:
+\[
+  J[y] = \int_a^b F(x,y,y')\,dx,
+\]
+with boundary conditions $y(a)=y_a$, $y(b)=y_b$.
+\end{definition}
+
+\begin{theorem}[Euler--Lagrange equation]
+If $y^*$ makes $J$ stationary, then $y^*$ satisfies:
+\[
+  \frac{\partial F}{\partial y}
+  - \frac{d}{dx}\frac{\partial F}{\partial y'} = 0.
+\]
+\end{theorem}
+
+\begin{proof}
+Let $\eta$ be an admissible variation ($\eta(a)=\eta(b)=0$).  Set
+$y_\varepsilon = y^* + \varepsilon\eta$.  The stationarity condition
+is:
+\[
+  \frac{d}{d\varepsilon}J[y_\varepsilon]\bigg|_{\varepsilon=0} = 0.
+\]
+Computing:
+\[
+  \int_a^b\left(\frac{\partial F}{\partial y}\eta
+  + \frac{\partial F}{\partial y'}\eta'\right)dx = 0.
+\]
+Integrating the second term by parts (boundary terms vanish) and
+applying the fundamental lemma of the calculus of variations yields
+the Euler--Lagrange equation.
+\end{proof}
+
+\begin{example}[Geodesics in the plane]
+The length of a curve $y(x)$ between $(a,y_a)$ and $(b,y_b)$ is
+$J[y]=\int_a^b\sqrt{1+y'^2}\,dx$.  Here $F=\sqrt{1+y'^2}$,
+$\partial F/\partial y=0$.  The Euler--Lagrange equation gives
+$y''/(1+y'^2)^{3/2}=0$, i.e.\ $y''=0$: geodesics are straight
+lines.
+\end{example}
+
+\begin{example}[Brachistochrone]
+Find the curve $y(x)$ along which a bead slides without friction
+from $(0,0)$ to $(x_1,y_1)$ in minimum time.  The descent time is:
+\[
+  T[y] = \int_0^{x_1}\frac{\sqrt{1+y'^2}}{\sqrt{2gy}}\,dx.
+\]
+The Euler--Lagrange equation leads to a \textbf{cycloid}.
+\end{example}
+
+\begin{codeblock}[title=\textbf{Numerical brachistochrone}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.optimize import minimize
+
+N = 30
+x1, y1 = 1.0, 0.5
+x = np.linspace(0, x1, N + 2)
+dx = x[1] - x[0]
+g = 9.81
+
+def travel_time(y_inner):
+    y = np.concatenate([[0], y_inner, [y1]])
+    y_mid = 0.5 * (y[:-1] + y[1:])
+    y_mid = np.maximum(y_mid, 1e-10)
+    ds = np.sqrt(dx**2 + (np.diff(y))**2)
+    v = np.sqrt(2 * g * y_mid)
+    return np.sum(ds / v)
+
+y0_inner = np.linspace(0, y1, N + 2)[1:-1]
+result = minimize(travel_time, y0_inner, method='L-BFGS-B',
+                  bounds=[(0.001, 2.0)] * N)
+y_opt = np.concatenate([[0], result.x, [y1]])
+
+plt.figure(figsize=(8, 5))
+plt.plot(x, y_opt, 'b-', lw=2, label='Numerical brachistochrone')
+plt.plot(x, np.linspace(0, y1, N+2), 'r--', label='Straight line')
+plt.gca().invert_yaxis()
+plt.xlabel('$x$'); plt.ylabel('$y$')
+plt.legend(); plt.title('Brachistochrone Curve')
+plt.tight_layout(); plt.savefig('brachistochrone.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Isoperimetric Problems}
+% ------------------------------------------------------------
+
+\begin{theorem}[Isoperimetric problem]
+Among all closed curves of fixed perimeter $L$, the one enclosing
+maximum area is the \textbf{circle}.
+\end{theorem}
+
+\begin{definition}[Lagrange multiplier for functionals]
+For a variational problem with integral constraint
+$\int_a^b G(x,y,y')\,dx = C$, form the augmented Lagrangian:
+\[
+  \tilde{J}[y] = \int_a^b \bigl[F(x,y,y') + \lambda G(x,y,y')\bigr]\,dx,
+\]
+and apply the Euler--Lagrange equation to $\tilde{F}=F+\lambda G$.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+Solve graphically and with \texttt{linprog}:
+\begin{align*}
+  \max\quad & 5x_1 + 4x_2 \\
+  \text{s.t.}\quad & 6x_1+4x_2\leq 24,\; x_1+2x_2\leq 6,\;
+  x_1,x_2\geq 0.
+\end{align*}
+\end{exercise}
+
+\begin{exercise}
+Show that gradient descent converges for a strongly convex,
+$L$-smooth function $f$ with step size $\alpha=1/L$.  What is the
+convergence rate?
+\end{exercise}
+
+\begin{exercise}
+Solve via KKT conditions:
+$\min\;x_1^2+x_2^2$ s.t.\ $x_1+2x_2=3$, $x_1\geq 0$.
+\end{exercise}
+
+\begin{exercise}
+Find the catenary equation (shape of a hanging cable) by minimising
+gravitational potential energy
+$J[y]=\int_{-a}^{a}\rho g y\sqrt{1+y'^2}\,dx$ subject to fixed
+length $\int\sqrt{1+y'^2}\,dx=L$.
+\end{exercise}
+
+\begin{exercise}
+Implement Newton's method for unconstrained optimisation and compare
+its convergence with gradient descent on the Rosenbrock function.
+\end{exercise}
+
+\begin{exercise}
+Solve the brachistochrone problem numerically for different endpoint
+positions and compare with the analytical solution (cycloid).
+\end{exercise}

@@ -1,0 +1,692 @@
+% ============================================================
+\chapter{Entra\^inement \`a Grande \'Echelle --- Distributed Training}
+\label{ch:entrainement}
+\index{entra\^inement distribu\'e}
+% ============================================================
+
+\section{Pourquoi l'entra\^inement distribu\'e~?}
+\label{sec:why-distributed}
+
+Les mod\`eles modernes de deep learning atteignent des tailles qui rendent
+l'entra\^inement sur un seul GPU impossible ou prohibitivement lent~:
+\begin{itemize}
+  \item \textbf{GPT-3}~: 175 milliards de param\`etres
+  \item \textbf{LLaMA-2 70B}~: 70 milliards de param\`etres
+  \item \textbf{Vision Transformers}~: entra\^inement sur des millions
+    d'images en haute r\'esolution
+\end{itemize}
+
+L'entra\^inement distribu\'e r\'epartit le travail sur plusieurs GPU
+(ou plusieurs machines) pour r\'eduire le temps d'entra\^inement et
+permettre l'entra\^inement de mod\`eles qui ne tiennent pas en m\'emoire
+sur un seul acc\'el\'erateur.
+
+\subsection{Parall\'elisme de donn\'ees vs parall\'elisme de mod\`ele}
+\index{parall\'elisme de donn\'ees}\index{parall\'elisme de mod\`ele}
+
+\begin{definition}[Parall\'elisme de donn\'ees]
+Chaque GPU poss\`ede une \textbf{copie compl\`ete} du mod\`ele. Le batch
+de donn\'ees est divis\'e en sous-batches, chaque GPU traite un sous-batch,
+puis les gradients sont agr\'eg\'es (moyenne) avant la mise \`a jour des
+poids.
+\end{definition}
+
+\begin{definition}[Parall\'elisme de mod\`ele]
+Le mod\`ele est \textbf{partitionn\'e} entre plusieurs GPU. Chaque GPU
+ne contient qu'une partie du mod\`ele (par couches ou par tenseurs). Les
+activations sont transmises entre GPU lors du forward pass.
+\end{definition}
+
+\begin{center}
+\begin{tikzpicture}[
+  gpu/.style={rectangle, draw, rounded corners, minimum width=2.2cm,
+    minimum height=1.8cm, align=center, font=\scriptsize},
+  batch/.style={rectangle, draw, fill=blue!10, minimum width=1.8cm,
+    minimum height=0.5cm, font=\scriptsize, rounded corners},
+  model/.style={rectangle, draw, fill=green!10, minimum width=1.8cm,
+    minimum height=0.5cm, font=\scriptsize, rounded corners},
+  arr/.style={-{Stealth[length=2mm]}, thick},
+  title/.style={font=\small\bfseries}
+]
+  % Data Parallelism
+  \node[title] at (0, 3) {Parall\'elisme de donn\'ees};
+
+  \node[gpu, fill=yellow!5] (g1) at (-1.5, 1) {};
+  \node[model] at ([yshift=0.3cm]g1.center) {Mod\`ele complet};
+  \node[batch, fill=red!15] at ([yshift=-0.3cm]g1.center) {Batch 1/3};
+  \node[below=0.05cm, font=\tiny] at (g1.south) {GPU 0};
+
+  \node[gpu, fill=yellow!5] (g2) at (1.5, 1) {};
+  \node[model] at ([yshift=0.3cm]g2.center) {Mod\`ele complet};
+  \node[batch, fill=red!15] at ([yshift=-0.3cm]g2.center) {Batch 2/3};
+  \node[below=0.05cm, font=\tiny] at (g2.south) {GPU 1};
+
+  \node[gpu, fill=yellow!5] (g3) at (4.5, 1) {};
+  \node[model] at ([yshift=0.3cm]g3.center) {Mod\`ele complet};
+  \node[batch, fill=red!15] at ([yshift=-0.3cm]g3.center) {Batch 3/3};
+  \node[below=0.05cm, font=\tiny] at (g3.south) {GPU 2};
+
+  \node[rectangle, draw, dashed, fill=orange!5, minimum width=3cm,
+    minimum height=0.5cm, font=\scriptsize, rounded corners,
+    below=0.6cm of g2] (sync) {AllReduce (gradients)};
+  \draw[arr, dashed, gray] (g1.south) -- (sync.west);
+  \draw[arr, dashed, gray] (g2.south) -- (sync.north);
+  \draw[arr, dashed, gray] (g3.south) -- (sync.east);
+
+  % Model Parallelism
+  \node[title] at (10, 3) {Parall\'elisme de mod\`ele};
+
+  \node[gpu, fill=yellow!5] (m1) at (8.5, 1) {};
+  \node[model, fill=green!20] at ([yshift=0.3cm]m1.center) {Couches 1--4};
+  \node[batch] at ([yshift=-0.3cm]m1.center) {Batch complet};
+  \node[below=0.05cm, font=\tiny] at (m1.south) {GPU 0};
+
+  \node[gpu, fill=yellow!5] (m2) at (11.5, 1) {};
+  \node[model, fill=green!30] at ([yshift=0.3cm]m2.center) {Couches 5--8};
+  \node[batch] at ([yshift=-0.3cm]m2.center) {Activations};
+  \node[below=0.05cm, font=\tiny] at (m2.south) {GPU 1};
+
+  \draw[arr, steelblue] (m1.east) -- (m2.west)
+    node[midway, above, font=\tiny] {forward};
+  \draw[arr, deepred, bend right=20] (m2.south west) -- (m1.south east)
+    node[midway, below, font=\tiny] {backward};
+\end{tikzpicture}
+\end{center}
+
+\section{Formulation math\'ematique du SGD parall\`ele}
+\label{sec:math-parallel-sgd}
+\index{SGD parall\`ele}
+
+Soit $N$ le nombre de GPU (workers). \`A chaque it\'eration~:
+
+\begin{formules}[title=\textbf{SGD avec parall\'elisme de donn\'ees}]
+\begin{enumerate}
+  \item Le batch global $\mathcal{B}$ de taille $B$ est divis\'e en
+    $N$ sous-batches $\mathcal{B}_k$ de taille $B/N$.
+  \item Chaque worker $k$ calcule son gradient local~:
+    \[
+      g_k = \frac{1}{|\mathcal{B}_k|} \sum_{(x,y) \in \mathcal{B}_k}
+      \nabla_\theta \, \ell(f_\theta(x), y)
+    \]
+  \item Les gradients sont agr\'eg\'es par AllReduce~:
+    \[
+      \bar{g} = \frac{1}{N} \sum_{k=1}^{N} g_k
+    \]
+  \item Chaque worker met \`a jour ses poids~:
+    \[
+      \theta \leftarrow \theta - \eta \, \bar{g}
+    \]
+\end{enumerate}
+Le gradient agr\'eg\'e $\bar{g}$ est un estimateur non biais\'e du gradient
+sur le batch complet. Le batch effectif est de taille $B = N \cdot B_{\text{local}}$.
+\end{formules}
+
+\begin{attention}[title=\textbf{Scaling du learning rate}]
+Avec $N$ GPU, le batch effectif est multipli\'e par $N$. La r\`egle
+empirique (\emph{linear scaling rule})~:
+\[
+  \eta_{\text{distribu\'e}} = N \cdot \eta_{\text{base}}
+\]
+En pratique, on utilise un \textbf{warmup lin\'eaire} sur les premi\`eres
+it\'erations pour stabiliser l'entra\^inement avec un grand learning rate.
+\end{attention}
+
+\subsection{AllReduce}
+\index{AllReduce}
+
+L'op\'eration \textbf{AllReduce} est le c\oe ur de la synchronisation
+des gradients. Elle agr\`ege les tenseurs de tous les workers et distribue
+le r\'esultat \`a chacun.
+
+\begin{center}
+\begin{tikzpicture}[
+  gpu/.style={rectangle, draw, rounded corners, minimum width=1.4cm,
+    minimum height=0.8cm, align=center, font=\scriptsize, fill=yellow!10},
+  arr/.style={-{Stealth[length=2mm]}, thick, steelblue}
+]
+  % Before
+  \node[font=\small\bfseries] at (0, 2.2) {Avant AllReduce};
+  \node[gpu] (b0) at (-1.5, 1) {$g_0$};
+  \node[gpu] (b1) at (0, 1) {$g_1$};
+  \node[gpu] (b2) at (1.5, 1) {$g_2$};
+
+  % After
+  \node[font=\small\bfseries] at (5.5, 2.2) {Apr\`es AllReduce};
+  \node[gpu] (a0) at (4, 1) {$\bar{g}$};
+  \node[gpu] (a1) at (5.5, 1) {$\bar{g}$};
+  \node[gpu] (a2) at (7, 1) {$\bar{g}$};
+
+  \draw[arr] (2.2, 1) -- (3.3, 1)
+    node[midway, above, font=\scriptsize] {AllReduce};
+
+  % Ring
+  \node[font=\small\bfseries] at (3.5, -0.5) {Ring AllReduce};
+  \node[gpu] (r0) at (1.5, -2) {GPU 0};
+  \node[gpu] (r1) at (3.5, -1) {GPU 1};
+  \node[gpu] (r2) at (5.5, -2) {GPU 2};
+  \node[gpu] (r3) at (3.5, -3) {GPU 3};
+
+  \draw[arr] (r0) -- (r1);
+  \draw[arr] (r1) -- (r2);
+  \draw[arr] (r2) -- (r3);
+  \draw[arr] (r3) -- (r0);
+\end{tikzpicture}
+\end{center}
+
+\section{PyTorch DistributedDataParallel (DDP)}
+\label{sec:pytorch-ddp}
+\index{DistributedDataParallel}\index{DDP}
+
+\textbf{DDP}\index{DDP} est le m\'ecanisme standard de PyTorch pour le
+parall\'elisme de donn\'ees. Chaque processus g\`ere un GPU, et les
+gradients sont synchronis\'es automatiquement via NCCL\index{NCCL}.
+
+\begin{codeblock}[title=\textbf{Entra\^inement DDP complet}]
+\begin{minted}{python}
+"""Distributed Data Parallel training with PyTorch."""
+import os
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader, DistributedSampler
+from torchvision import datasets, transforms
+
+
+def setup(rank: int, world_size: int) -> None:
+    """Initialize the distributed process group."""
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12355"
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+    torch.cuda.set_device(rank)
+
+
+def cleanup() -> None:
+    """Destroy the process group."""
+    dist.destroy_process_group()
+
+
+class SimpleCNN(nn.Module):
+    def __init__(self, num_classes: int = 10):
+        super().__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 32, 3, padding=1), nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(),
+            nn.MaxPool2d(2),
+        )
+        self.classifier = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(64 * 7 * 7, 128), nn.ReLU(),
+            nn.Linear(128, num_classes),
+        )
+
+    def forward(self, x):
+        return self.classifier(self.features(x))
+
+
+def train(rank: int, world_size: int, epochs: int = 10) -> None:
+    """Training loop for one process (one GPU)."""
+    setup(rank, world_size)
+
+    # Data
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,)),
+    ])
+    dataset = datasets.MNIST(
+        "data", train=True, download=True, transform=transform
+    )
+    sampler = DistributedSampler(
+        dataset, num_replicas=world_size, rank=rank, shuffle=True
+    )
+    loader = DataLoader(
+        dataset, batch_size=64, sampler=sampler, num_workers=2,
+        pin_memory=True,
+    )
+
+    # Model
+    model = SimpleCNN().to(rank)
+    model = DDP(model, device_ids=[rank])
+
+    # Optimizer
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    criterion = nn.CrossEntropyLoss()
+
+    # Training loop
+    for epoch in range(epochs):
+        sampler.set_epoch(epoch)  # important for shuffling
+        model.train()
+        total_loss = 0.0
+
+        for batch_idx, (data, target) in enumerate(loader):
+            data, target = data.to(rank), target.to(rank)
+
+            optimizer.zero_grad()
+            output = model(data)
+            loss = criterion(output, target)
+            loss.backward()
+            optimizer.step()
+
+            total_loss += loss.item()
+
+        if rank == 0:
+            avg_loss = total_loss / len(loader)
+            print(f"Epoch {epoch+1}/{epochs}, Loss: {avg_loss:.4f}")
+
+    # Save model (only on rank 0)
+    if rank == 0:
+        torch.save(model.module.state_dict(), "model_ddp.pt")
+
+    cleanup()
+
+
+if __name__ == "__main__":
+    world_size = torch.cuda.device_count()
+    torch.multiprocessing.spawn(
+        train, args=(world_size,), nprocs=world_size, join=True
+    )
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Lancement avec torchrun}]
+\begin{minted}{bash}
+# Sur une seule machine avec 4 GPU
+torchrun --nproc_per_node=4 train_ddp.py
+
+# Sur 2 machines avec 4 GPU chacune
+# Machine 0 (master)
+torchrun --nproc_per_node=4 --nnodes=2 --node_rank=0 \
+    --master_addr=192.168.1.1 --master_port=12355 train_ddp.py
+
+# Machine 1
+torchrun --nproc_per_node=4 --nnodes=2 --node_rank=1 \
+    --master_addr=192.168.1.1 --master_port=12355 train_ddp.py
+\end{minted}
+\end{codeblock}
+
+\begin{bonnepratique}[title=\textbf{Bonnes pratiques DDP}]
+\begin{enumerate}
+  \item \textbf{Appeler \cli{sampler.set\_epoch(epoch)}}~: sinon le
+    shuffling sera identique \`a chaque \'epoque.
+  \item \textbf{Sauvegarder via \cli{model.module}}~: DDP wrappe le
+    mod\`ele, il faut acc\'eder au module interne.
+  \item \textbf{Sauvegarder uniquement sur rank 0}~: \'evite les
+    \'ecritures concurrentes.
+  \item \textbf{Utiliser \cli{pin\_memory=True}}~: acc\'el\`ere les
+    transferts CPU $\to$ GPU.
+  \item \textbf{Pr\'ef\'erer \cli{torchrun}}~: g\`ere automatiquement les
+    variables d'environnement (\cli{RANK}, \cli{WORLD\_SIZE}).
+\end{enumerate}
+\end{bonnepratique}
+
+\section{Multi-GPU avec Accelerate (Hugging Face)}
+\label{sec:accelerate}
+\index{Accelerate}
+
+\textbf{Accelerate}\index{Accelerate} de Hugging Face abstrait la
+complexit\'e de DDP derri\`ere une API minimale. Le m\^eme code fonctionne
+sur CPU, un GPU, multi-GPU et multi-machines.
+
+\begin{codeblock}[title=\textbf{Entra\^inement avec Accelerate}]
+\begin{minted}{python}
+"""Training with Hugging Face Accelerate."""
+from accelerate import Accelerator
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
+
+accelerator = Accelerator(mixed_precision="fp16")
+
+# Data
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.1307,), (0.3081,)),
+])
+dataset = datasets.MNIST("data", train=True, download=True,
+                          transform=transform)
+loader = DataLoader(dataset, batch_size=64, shuffle=True)
+
+# Model and optimizer
+model = SimpleCNN()  # meme modele que precedemment
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+criterion = nn.CrossEntropyLoss()
+
+# Accelerate prepare: wraps model, optimizer, dataloader
+model, optimizer, loader = accelerator.prepare(
+    model, optimizer, loader
+)
+
+# Training loop (identique au code single-GPU !)
+for epoch in range(10):
+    model.train()
+    total_loss = 0.0
+    for data, target in loader:
+        optimizer.zero_grad()
+        output = model(data)
+        loss = criterion(output, target)
+        accelerator.backward(loss)  # seul changement
+        optimizer.step()
+        total_loss += loss.item()
+
+    if accelerator.is_main_process:
+        print(f"Epoch {epoch+1}, Loss: {total_loss/len(loader):.4f}")
+
+# Save
+accelerator.wait_for_everyone()
+if accelerator.is_main_process:
+    unwrapped = accelerator.unwrap_model(model)
+    torch.save(unwrapped.state_dict(), "model_accelerate.pt")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Configuration et lancement Accelerate}]
+\begin{minted}{bash}
+# Installer
+pip install accelerate
+
+# Configuration interactive
+accelerate config
+
+# Lancer l'entrainement
+accelerate launch --num_processes=4 train_accelerate.py
+
+# Ou avec un fichier de config
+accelerate launch --config_file accelerate_config.yaml \
+    train_accelerate.py
+\end{minted}
+\end{codeblock}
+
+\section{Entra\^inement en pr\'ecision mixte (AMP)}
+\label{sec:mixed-precision}
+\index{pr\'ecision mixte}\index{AMP}
+
+L'entra\^inement en \textbf{pr\'ecision mixte}\index{pr\'ecision mixte}
+utilise FP16 (ou BF16) pour les calculs rapides et FP32 pour les
+op\'erations sensibles (accumulation de gradients, normalisation). Cela
+r\'eduit la m\'emoire GPU de $\sim$50\% et acc\'el\`ere l'entra\^inement
+de 1.5--3$\times$ sur les GPU modernes (Ampere, Hopper).
+
+\begin{codeblock}[title=\textbf{AMP avec PyTorch natif}]
+\begin{minted}{python}
+"""Mixed precision training with torch.amp."""
+from torch.amp import autocast, GradScaler
+
+scaler = GradScaler("cuda")
+
+for epoch in range(epochs):
+    for data, target in loader:
+        data, target = data.to(device), target.to(device)
+
+        optimizer.zero_grad()
+
+        # Forward pass in FP16
+        with autocast("cuda"):
+            output = model(data)
+            loss = criterion(output, target)
+
+        # Backward pass with gradient scaling
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+\end{minted}
+\end{codeblock}
+
+\begin{remarque}
+Le \cli{GradScaler} est n\'ecessaire pour \'eviter les \emph{underflows}
+en FP16~: les gradients tr\`es petits deviennent z\'ero en demi-pr\'ecision.
+Le scaler multiplie la loss par un facteur \'elev\'e, puis divise les
+gradients avant la mise \`a jour. Avec BF16 (disponible sur Ampere+), le
+scaler n'est g\'en\'eralement pas n\'ecessaire car la plage dynamique de
+BF16 est \'equivalente \`a celle de FP32.
+\end{remarque}
+
+\section{Optimisation des hyperparam\`etres avec Optuna}
+\label{sec:optuna}
+\index{Optuna}\index{hyperparam\`etres}
+
+\textbf{Optuna}\index{Optuna} est une biblioth\`eque d'optimisation
+d'hyperparam\`etres qui utilise des algorithmes bayesiens (TPE) pour
+explorer efficacement l'espace de recherche.
+
+\begin{codeblock}[title=\textbf{Optimisation avec Optuna}]
+\begin{minted}{python}
+"""Hyperparameter optimization with Optuna."""
+import optuna
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
+from sklearn.metrics import accuracy_score
+
+
+def objective(trial: optuna.Trial) -> float:
+    """Objective function for Optuna."""
+    # Suggest hyperparameters
+    lr = trial.suggest_float("lr", 1e-5, 1e-2, log=True)
+    n_layers = trial.suggest_int("n_layers", 1, 4)
+    hidden_size = trial.suggest_categorical(
+        "hidden_size", [64, 128, 256, 512]
+    )
+    dropout = trial.suggest_float("dropout", 0.0, 0.5)
+    batch_size = trial.suggest_categorical(
+        "batch_size", [32, 64, 128]
+    )
+
+    # Build model dynamically
+    layers = []
+    in_features = 784  # MNIST
+    for i in range(n_layers):
+        layers.extend([
+            nn.Linear(in_features, hidden_size),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+        ])
+        in_features = hidden_size
+    layers.append(nn.Linear(in_features, 10))
+    model = nn.Sequential(*layers).to("cuda")
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    criterion = nn.CrossEntropyLoss()
+
+    # Train for a few epochs
+    for epoch in range(5):
+        model.train()
+        for data, target in train_loader:
+            data = data.view(data.size(0), -1).to("cuda")
+            target = target.to("cuda")
+            optimizer.zero_grad()
+            loss = criterion(model(data), target)
+            loss.backward()
+            optimizer.step()
+
+        # Pruning: report intermediate value
+        val_acc = evaluate(model, val_loader)
+        trial.report(val_acc, epoch)
+        if trial.should_prune():
+            raise optuna.TrialPruned()
+
+    return val_acc
+
+
+# Run optimization
+study = optuna.create_study(
+    direction="maximize",
+    pruner=optuna.pruners.MedianPruner(n_warmup_steps=2),
+)
+study.optimize(objective, n_trials=50, timeout=3600)
+
+# Results
+print(f"Best trial: {study.best_trial.value:.4f}")
+print(f"Best params: {study.best_trial.params}")
+
+# Visualization
+optuna.visualization.plot_optimization_history(study)
+optuna.visualization.plot_param_importances(study)
+\end{minted}
+\end{codeblock}
+
+\begin{bonnepratique}[title=\textbf{Bonnes pratiques Optuna}]
+\begin{enumerate}
+  \item \textbf{Utiliser le pruning}~: arr\^eter les essais peu prometteurs
+    t\^ot pour \'economiser du temps de calcul.
+  \item \textbf{Espaces log-uniformes pour les learning rates}~: utiliser
+    \cli{suggest\_float(..., log=True)} pour les param\`etres \`a \'echelle
+    logarithmique.
+  \item \textbf{Stocker les r\'esultats}~: utiliser un backend persistant
+    (SQLite, MySQL) pour reprendre une \'etude interrompue.
+  \item \textbf{Parall\'eliser les essais}~: lancer plusieurs workers
+    Optuna en parall\`ele avec une base de donn\'ees partag\'ee.
+\end{enumerate}
+\end{bonnepratique}
+
+\section{Comparaison des frameworks d'entra\^inement distribu\'e}
+\label{sec:distributed-comparison}
+
+\begin{center}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Crit\`ere} & \textbf{DDP} & \textbf{FSDP} &
+  \textbf{DeepSpeed} & \textbf{Horovod} \\
+\midrule
+Type & Data parallel & Data + model & Data + model & Data parallel \\
+Framework & PyTorch & PyTorch & PyTorch/TF & PyTorch/TF \\
+Sharding poids & Non & Oui & Oui (ZeRO) & Non \\
+Offload CPU & Non & Oui & Oui & Non \\
+Facilit\'e & Moyen & Moyen & Difficile & Facile \\
+Cas d'usage & Mod\`eles $<$10B & 10--100B & 10--1000B & Clusters HPC \\
+Optimiseur int\'egr\'e & Non & Non & Oui & Non \\
+Mixed precision & Manuel & Int\'egr\'e & Int\'egr\'e & Manuel \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{attention}[title=\textbf{Choisir le bon framework}]
+\begin{itemize}
+  \item \textbf{DDP}~: d\'efaut pour tout mod\`ele qui tient sur un GPU.
+    Simple et performant.
+  \item \textbf{FSDP}~: mod\`eles trop grands pour un GPU mais qui tiennent
+    en m\'emoire agr\'eg\'ee. Solution native PyTorch.
+  \item \textbf{DeepSpeed}~: mod\`eles tr\`es grands (LLMs). ZeRO Stage 3
+    permet d'entra\^iner des mod\`eles de centaines de milliards de
+    param\`etres. Configuration plus complexe.
+  \item \textbf{Horovod}~: populaire dans les clusters HPC avec MPI.
+    API simple (\cli{hvd.init()}, \cli{hvd.DistributedOptimizer()}).
+\end{itemize}
+\end{attention}
+
+\begin{center}
+\begin{tikzpicture}[
+  zone/.style={rectangle, draw, rounded corners, minimum height=1.2cm,
+    align=center, font=\small},
+  arr/.style={-{Stealth[length=2mm]}, thick, steelblue}
+]
+  \node[zone, fill=green!10, minimum width=3cm] (small) at (0, 0)
+    {\textbf{$<$1B params}\\DDP};
+  \node[zone, fill=yellow!10, minimum width=3cm] (medium) at (4, 0)
+    {\textbf{1--10B params}\\FSDP / DeepSpeed\\ZeRO Stage 2};
+  \node[zone, fill=orange!10, minimum width=3cm] (large) at (8.5, 0)
+    {\textbf{10--100B params}\\DeepSpeed ZeRO 3\\+ offload CPU};
+  \node[zone, fill=red!10, minimum width=3cm] (xlarge) at (13, 0)
+    {\textbf{$>$100B params}\\Pipeline + Tensor\\parallelism};
+
+  \draw[arr] (small) -- (medium);
+  \draw[arr] (medium) -- (large);
+  \draw[arr] (large) -- (xlarge);
+
+  \node[font=\scriptsize, below=0.3cm of small] {1--8 GPU};
+  \node[font=\scriptsize, below=0.3cm of medium] {8--32 GPU};
+  \node[font=\scriptsize, below=0.3cm of large] {32--256 GPU};
+  \node[font=\scriptsize, below=0.3cm of xlarge] {256+ GPU};
+\end{tikzpicture}
+\end{center}
+
+\section{Mini-projet~: entra\^inement distribu\'e}
+\label{sec:mini-project-ch6}
+
+\begin{miniprojet}[title=\textbf{Mini-projet 6~: Entra\^inement multi-GPU}]
+Mettez en place un pipeline d'entra\^inement distribu\'e~:
+\begin{enumerate}
+  \item \textbf{Baseline single-GPU}~: entra\^inez un mod\`ele CNN sur
+    CIFAR-10 avec PyTorch standard. Mesurez le temps par \'epoque.
+  \item \textbf{DDP}~: adaptez le code pour \cli{DistributedDataParallel}.
+    Comparez le temps par \'epoque avec 2 et 4 GPU.
+  \item \textbf{Mixed precision}~: ajoutez l'AMP (\cli{autocast} +
+    \cli{GradScaler}). Mesurez le gain en m\'emoire et en vitesse.
+  \item \textbf{Accelerate}~: r\'e\'ecrivez le code avec
+    \pkg{accelerate}. V\'erifiez que les r\'esultats sont identiques.
+  \item \textbf{Optuna}~: optimisez le learning rate, le batch size et
+    l'architecture avec Optuna (20 trials minimum).
+  \item \textbf{Rapport}~: pr\'esentez un tableau comparatif~: temps par
+    \'epoque, m\'emoire GPU, accuracy finale pour chaque configuration.
+\end{enumerate}
+Livrable~: d\'ep\^ot Git avec les scripts, les r\'esultats et le rapport.
+\end{miniprojet}
+
+\section{Exercices}
+\label{sec:exercises-ch6}
+
+\begin{exercice}[$\bigstar$ --- Premier entra\^inement DDP]
+Adaptez un script d'entra\^inement single-GPU existant pour utiliser DDP~:
+\begin{enumerate}
+  \item Ajoutez \cli{init\_process\_group} et \cli{DistributedSampler}
+  \item Wrappez le mod\`ele avec \cli{DistributedDataParallel}
+  \item Lancez avec \cli{torchrun --nproc\_per\_node=2}
+  \item V\'erifiez que la loss converge de la m\^eme mani\`ere qu'en
+    single-GPU
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[$\bigstar\bigstar$ --- Scaling du learning rate]
+\'Etudiez l'impact du scaling du learning rate~:
+\begin{enumerate}
+  \item Entra\^inez un mod\`ele avec 1 GPU et $\eta = 0.001$, batch
+    size $= 64$
+  \item Passez \`a 4 GPU avec batch size effectif $= 256$~:
+    \begin{itemize}
+      \item Sans scaling du learning rate ($\eta = 0.001$)
+      \item Avec scaling lin\'eaire ($\eta = 0.004$)
+      \item Avec scaling lin\'eaire + warmup (5 \'epoques)
+    \end{itemize}
+  \item Tracez les courbes de loss et d'accuracy pour chaque configuration
+  \item Concluez sur la n\'ecessit\'e du warmup
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[$\bigstar\bigstar\bigstar$ --- Pipeline complet avec Optuna et DDP]
+Construisez un pipeline d'entra\^inement complet~:
+\begin{enumerate}
+  \item \'Ecrivez une fonction \cli{objective} Optuna qui entra\^ine un
+    mod\`ele en DDP
+  \item Optimisez au moins 5 hyperparam\`etres (learning rate, architecture,
+    dropout, weight decay, scheduler)
+  \item Utilisez le pruning m\'edian pour arr\^eter les essais peu
+    prometteurs
+  \item Stockez les r\'esultats dans une base SQLite pour la persistance
+  \item Visualisez les r\'esultats avec les fonctions de visualisation
+    Optuna (importance des param\`etres, historique, contour plots)
+  \item R\'e-entra\^inez le meilleur mod\`ele avec AMP et sauvegardez-le
+\end{enumerate}
+\end{exercice}
+
+\section{Aide-m\'emoire}
+
+\begin{cheatsheet}[title=\textbf{R\'esum\'e du chapitre 6}]
+\begin{tabular}{@{}p{3.5cm}p{9cm}@{}}
+\toprule
+\textbf{Concept} & \textbf{Point cl\'e} \\
+\midrule
+Data parallelism & Chaque GPU a le mod\`ele complet, batch divis\'e \\
+Model parallelism & Mod\`ele partitionn\'e entre GPU \\
+AllReduce & Agr\'egation des gradients~: $\bar{g} = \frac{1}{N}\sum g_k$ \\
+DDP & \cli{DistributedDataParallel}, \cli{torchrun}, \cli{DistributedSampler} \\
+Accelerate & \cli{accelerator.prepare()}, \cli{accelerator.backward()} \\
+AMP & \cli{autocast("cuda")}, \cli{GradScaler}, $\sim$50\% m\'emoire \\
+Linear scaling & $\eta_{\text{dist}} = N \cdot \eta_{\text{base}}$ + warmup \\
+Optuna & \cli{study.optimize(objective, n\_trials)}, pruning, TPE \\
+FSDP & Sharding des poids pour mod\`eles 10--100B \\
+DeepSpeed & ZeRO Stages 1--3, offload CPU, mod\`eles $>$100B \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}

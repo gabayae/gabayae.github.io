@@ -1,0 +1,380 @@
+%!TEX root = ../main.tex
+% Chapter 8 — Gaussian Quadrature
+
+\chapter{Gaussian Quadrature}
+\label{ch:gauss-quadrature}
+
+
+\section{Introduction}
+
+Newton--Cotes formulas (trapezoidal, Simpson) use \emph{equally spaced} nodes. A natural question arises: \emph{can we do better by choosing the nodes optimally?} Gaussian quadrature answers positively: with $n$ nodes, one can integrate exactly all polynomials of degree up to $2n - 1$.
+
+%==============================================================================
+\section{Fundamental Theorem of Gaussian Quadrature}
+%==============================================================================
+
+\begin{definition}[Quadrature rule]
+\label{def:quadrature}
+\index{quadrature rule}
+A quadrature rule on $[a,b]$ with weight function $w(x) > 0$ is an approximation
+\[
+    \int_a^b w(x)\,f(x)\,dx \approx Q_n(f) = \sum_{i=1}^{n} w_i\, f(x_i),
+\]
+where $x_1, \ldots, x_n$ are the \textbf{nodes} and $w_1, \ldots, w_n$ are the \textbf{weights}.
+\end{definition}
+
+\begin{definition}[Degree of exactness]
+\label{def:degree-exactness}
+\index{degree of exactness}
+A quadrature rule has \textbf{degree of exactness} $d$ if it integrates exactly all polynomials of degree $\leq d$ but not all polynomials of degree $d+1$.
+\end{definition}
+
+\begin{theorem}[Maximum degree of exactness]
+\label{thm:max-exactness}
+An $n$-point quadrature rule can have degree of exactness at most $2n-1$. This maximum is achieved if and only if the nodes are the zeros of the degree-$n$ orthogonal polynomial with respect to $w(x)$ on $[a,b]$.
+\end{theorem}
+
+\begin{theorem}[Gauss quadrature --- existence and properties]
+\label{thm:gauss-quadrature}
+\index{Gauss quadrature}
+Let $\{p_k\}_{k \geq 0}$ be the sequence of orthogonal polynomials with respect to $\langle f, g \rangle = \int_a^b w(x)\,f(x)\,g(x)\,dx$. Then:
+\begin{enumerate}
+    \item The $n$ zeros of $p_n$ are real, distinct, and lie in $(a,b)$.
+    \item Using these zeros $x_1, \ldots, x_n$ as nodes, there exist unique weights $w_1, \ldots, w_n$ such that $Q_n$ has degree of exactness $2n-1$.
+    \item All weights are positive: $w_i > 0$ for $i = 1, \ldots, n$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+\textbf{(1)} Let $x_{i_1}, \ldots, x_{i_k}$ ($k \leq n$) be the zeros of $p_n$ in $(a,b)$ where $p_n$ changes sign. Define $q(x) = (x - x_{i_1})\cdots(x-x_{i_k})$. Then $p_n(x)\,q(x) \geq 0$ on $(a,b)$ (or $\leq 0$), so
+\[
+    \int_a^b w(x)\,p_n(x)\,q(x)\,dx \neq 0.
+\]
+But if $k < n$, then $\deg q < n$ and orthogonality of $p_n$ to lower-degree polynomials gives $\int_a^b w(x)\,p_n(x)\,q(x)\,dx = 0$, a contradiction. Hence $k = n$: all $n$ zeros are in $(a,b)$ and $p_n$ changes sign at each.
+
+\textbf{(2)} Define the weights via Lagrange interpolation at the nodes:
+\[
+    w_i = \int_a^b w(x)\,\ell_i(x)\,dx, \qquad \ell_i(x) = \prod_{\substack{j=1 \\ j\neq i}}^{n} \frac{x - x_j}{x_i - x_j}.
+\]
+For any polynomial $f$ of degree $\leq 2n-1$, write $f = p_n \cdot q + r$ with $\deg q, \deg r \leq n-1$. Then:
+\[
+    \int_a^b w(x)\,f(x)\,dx = \underbrace{\int_a^b w(x)\,p_n(x)\,q(x)\,dx}_{=\,0 \text{ (orthogonality)}} + \int_a^b w(x)\,r(x)\,dx.
+\]
+Since $\deg r \leq n-1$, the interpolation quadrature integrates $r$ exactly, and $f(x_i) = r(x_i)$ since $p_n(x_i) = 0$. Thus $Q_n(f) = Q_n(r) = \int_a^b w(x)\,r(x)\,dx = \int_a^b w(x)\,f(x)\,dx$.
+
+\textbf{(3)} Set $f(x) = \ell_i(x)^2$ (degree $2n-2 \leq 2n-1$). Then $Q_n(f) = w_i > 0$ since $\int_a^b w(x)\,\ell_i(x)^2\,dx > 0$.
+\end{proof}
+
+%==============================================================================
+\section{Gauss--Legendre Quadrature}
+%==============================================================================
+
+\begin{definition}[Gauss--Legendre quadrature]
+\label{def:gauss-legendre}
+\index{Gauss--Legendre quadrature}
+For $w(x) = 1$ on $[-1,1]$, the Gauss--Legendre quadrature uses the zeros of the Legendre polynomial $P_n(x)$:
+\[
+    \int_{-1}^{1} f(x)\,dx \approx \sum_{i=1}^{n} w_i\, f(x_i).
+\]
+\end{definition}
+
+\begin{example}[Gauss--Legendre nodes and weights]
+\label{ex:gauss-legendre-table}
+\begin{center}
+\begin{tabular}{c|l|l|c}
+    \toprule
+    $n$ & Nodes $x_i$ & Weights $w_i$ & Exactness \\
+    \midrule
+    1 & $0$ & $2$ & $d = 1$ \\[4pt]
+    2 & $\pm 1/\sqrt{3}$ & $1$ & $d = 3$ \\[4pt]
+    3 & $0, \;\pm\sqrt{3/5}$ & $8/9, \;5/9$ & $d = 5$ \\[4pt]
+    4 & $\pm\sqrt{\frac{3-2\sqrt{6/5}}{7}}, \;\pm\sqrt{\frac{3+2\sqrt{6/5}}{7}}$ & $\frac{18+\sqrt{30}}{36}, \;\frac{18-\sqrt{30}}{36}$ & $d = 7$ \\[4pt]
+    5 & $0, \;\pm\frac{1}{3}\sqrt{5-2\sqrt{10/7}}, \;\pm\frac{1}{3}\sqrt{5+2\sqrt{10/7}}$ & $\frac{128}{225}, \;\frac{322+13\sqrt{70}}{900}, \;\frac{322-13\sqrt{70}}{900}$ & $d = 9$ \\
+    \bottomrule
+\end{tabular}
+\end{center}
+\end{example}
+
+\subsection{Change of interval}
+
+\begin{proposition}[Interval transformation]
+\label{prop:interval-change}
+\index{interval change}
+To apply Gauss--Legendre quadrature on a general interval $[a,b]$, use the linear transformation $x = \frac{b-a}{2}\,t + \frac{a+b}{2}$:
+\[
+    \int_a^b f(x)\,dx = \frac{b-a}{2}\int_{-1}^{1} f\!\left(\frac{b-a}{2}\,t + \frac{a+b}{2}\right)dt \approx \frac{b-a}{2}\sum_{i=1}^{n} w_i\, f\!\left(\frac{b-a}{2}\,t_i + \frac{a+b}{2}\right).
+\]
+\end{proposition}
+
+%==============================================================================
+\section{Error Formula}
+%==============================================================================
+
+\begin{theorem}[Gauss quadrature error]
+\label{thm:gauss-error}
+\index{Gauss quadrature!error}
+If $f \in C^{2n}([a,b])$, the error of the $n$-point Gauss quadrature is
+\[
+    E_n(f) = \int_a^b w(x)\,f(x)\,dx - \sum_{i=1}^{n} w_i\,f(x_i) = \frac{f^{(2n)}(\xi)}{(2n)!}\int_a^b w(x)\,\left[\prod_{i=1}^{n}(x-x_i)\right]^2 dx
+\]
+for some $\xi \in (a,b)$.
+\end{theorem}
+
+\begin{corollary}[Gauss--Legendre error]
+For $n$-point Gauss--Legendre quadrature on $[-1,1]$:
+\[
+    E_n(f) = \frac{2^{2n+1}(n!)^4}{(2n+1)[(2n)!]^3}\,f^{(2n)}(\xi), \qquad \xi \in (-1,1).
+\]
+\end{corollary}
+
+%==============================================================================
+\section{Other Gaussian Quadrature Rules}
+%==============================================================================
+
+\subsection{Gauss--Laguerre}
+
+\begin{definition}[Gauss--Laguerre quadrature]
+\label{def:gauss-laguerre}
+\index{Gauss--Laguerre quadrature}
+For integrals of the form $\int_0^\infty e^{-x}\,f(x)\,dx$, the nodes are the zeros of the Laguerre polynomial $L_n(x)$:
+\[
+    \int_0^\infty e^{-x}\,f(x)\,dx \approx \sum_{i=1}^{n} w_i\,f(x_i).
+\]
+\end{definition}
+
+\begin{example}[Gauss--Laguerre nodes and weights ($n=3$)]
+\begin{center}
+\begin{tabular}{ccc}
+    \toprule
+    $i$ & $x_i$ & $w_i$ \\
+    \midrule
+    1 & $0.415775$ & $0.711093$ \\
+    2 & $2.294280$ & $0.278518$ \\
+    3 & $6.289945$ & $0.010389$ \\
+    \bottomrule
+\end{tabular}
+\end{center}
+\end{example}
+
+\subsection{Gauss--Hermite}
+
+\begin{definition}[Gauss--Hermite quadrature]
+\label{def:gauss-hermite}
+\index{Gauss--Hermite quadrature}
+For integrals of the form $\int_{-\infty}^{\infty} e^{-x^2}\,f(x)\,dx$, the nodes are the zeros of the Hermite polynomial $H_n(x)$:
+\[
+    \int_{-\infty}^{\infty} e^{-x^2}\,f(x)\,dx \approx \sum_{i=1}^{n} w_i\,f(x_i).
+\]
+\end{definition}
+
+\begin{example}[Gauss--Hermite nodes and weights ($n=3$)]
+\begin{center}
+\begin{tabular}{ccc}
+    \toprule
+    $i$ & $x_i$ & $w_i$ \\
+    \midrule
+    1 & $-\sqrt{3/2}$ & $\sqrt{\pi}/6$ \\
+    2 & $0$           & $2\sqrt{\pi}/3$ \\
+    3 & $\sqrt{3/2}$  & $\sqrt{\pi}/6$ \\
+    \bottomrule
+\end{tabular}
+\end{center}
+\end{example}
+
+\begin{remark}
+Summary of Gaussian quadrature variants:
+\begin{center}
+\begin{tabular}{llcl}
+    \toprule
+    \textbf{Type} & \textbf{Interval} & $w(x)$ & \textbf{Polynomials} \\
+    \midrule
+    Gauss--Legendre  & $[-1,1]$            & $1$          & Legendre $P_n$ \\
+    Gauss--Chebyshev & $[-1,1]$            & $(1-x^2)^{-1/2}$ & Chebyshev $T_n$ \\
+    Gauss--Laguerre  & $[0,\infty)$        & $e^{-x}$     & Laguerre $L_n$ \\
+    Gauss--Hermite   & $(-\infty,\infty)$  & $e^{-x^2}$   & Hermite $H_n$ \\
+    \bottomrule
+\end{tabular}
+\end{center}
+\end{remark}
+
+%==============================================================================
+\section{Composite Gauss Quadrature}
+%==============================================================================
+
+\begin{method}
+To improve accuracy without using a large number of nodes per element, subdivide $[a,b]$ into panels and apply Gauss quadrature on each panel. With $m$ panels of equal width $h = (b-a)/m$ and $n$-point Gauss quadrature on each:
+\[
+    \int_a^b f(x)\,dx \approx \sum_{k=1}^{m} \frac{h}{2} \sum_{i=1}^{n} w_i\, f\!\left(\frac{h}{2}\,t_i + \frac{x_{k-1}+x_k}{2}\right).
+\]
+The overall error is $\BigO(h^{2n})$.
+\end{method}
+
+%==============================================================================
+\section{Implementations}
+%==============================================================================
+
+\begin{codeblock}[title=\textbf{Python --- Gauss--Legendre quadrature}]
+\begin{minted}{python}
+import numpy as np
+from numpy.polynomial.legendre import leggauss
+
+def gauss_legendre(f, a, b, n):
+    """n-point Gauss-Legendre quadrature on [a, b]."""
+    nodes, weights = leggauss(n)
+    # Transform from [-1, 1] to [a, b]
+    t = 0.5 * (b - a) * nodes + 0.5 * (a + b)
+    return 0.5 * (b - a) * np.sum(weights * f(t))
+
+# Test: integral of exp(-x^2) from 0 to 1
+f = lambda x: np.exp(-x**2)
+I_exact = 0.746824132812427
+
+print(f"{'n':>4} {'Approximation':>18} {'Error':>14}")
+print("-" * 40)
+for n in [2, 3, 4, 5, 8, 10, 15, 20]:
+    approx = gauss_legendre(f, 0, 1, n)
+    err = abs(I_exact - approx)
+    print(f"{n:4d} {approx:18.15f} {err:14.2e}")
+
+# Composite Gauss-Legendre
+def composite_gauss(f, a, b, n_nodes, n_panels):
+    """Composite Gauss-Legendre quadrature."""
+    h = (b - a) / n_panels
+    result = 0.0
+    for k in range(n_panels):
+        ak = a + k * h
+        bk = ak + h
+        result += gauss_legendre(f, ak, bk, n_nodes)
+    return result
+
+# Compare convergence
+print("\nComposite Gauss-Legendre (3-point per panel):")
+for m in [1, 2, 4, 8, 16]:
+    approx = composite_gauss(f, 0, 1, 3, m)
+    err = abs(I_exact - approx)
+    print(f"  panels = {m:3d}, error = {err:.2e}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Julia --- Gauss--Legendre quadrature with FastGaussQuadrature}]
+\begin{minted}{julia}
+using FastGaussQuadrature
+
+function gauss_legendre(f, a, b, n)
+    nodes, weights = gausslegendre(n)
+    # Transform from [-1, 1] to [a, b]
+    t = @. 0.5 * (b - a) * nodes + 0.5 * (a + b)
+    return 0.5 * (b - a) * sum(weights .* f.(t))
+end
+
+# Test
+f(x) = exp(-x^2)
+I_exact = 0.746824132812427
+
+println("   n      Approximation          Error")
+println("-" ^ 45)
+for n in [2, 3, 4, 5, 8, 10, 15, 20]
+    approx = gauss_legendre(f, 0.0, 1.0, n)
+    err = abs(I_exact - approx)
+    @printf("%4d  %18.15f  %14.2e\n", n, approx, err)
+end
+
+# Gauss-Laguerre
+println("\nGauss-Laguerre for integral of x^2 * exp(-x):")
+for n in [3, 5, 10]
+    nodes, weights = gausslaguerre(n)
+    approx = sum(weights .* nodes.^2)  # exact = 2
+    @printf("  n = %2d, approx = %.15f, error = %.2e\n",
+            n, approx, abs(2.0 - approx))
+end
+
+# Gauss-Hermite
+println("\nGauss-Hermite for integral of x^4 * exp(-x^2):")
+for n in [3, 5, 10]
+    nodes, weights = gausshermite(n)
+    approx = sum(weights .* nodes.^4)  # exact = 3*sqrt(pi)/4
+    exact = 3*sqrt(pi)/4
+    @printf("  n = %2d, approx = %.15f, error = %.2e\n",
+            n, approx, abs(exact - approx))
+end
+\end{minted}
+\end{codeblock}
+
+%==============================================================================
+\section{Exercises}
+%==============================================================================
+
+\begin{exercise}[$\star$]
+\label{ex:ch8-gl2}
+Verify that the $2$-point Gauss--Legendre rule ($x_{1,2} = \pm 1/\sqrt{3}$, $w_{1,2} = 1$) is exact for $f(x) = x^3$ on $[-1,1]$.
+\end{exercise}
+
+\begin{exercise}[$\star$]
+\label{ex:ch8-interval}
+Use 3-point Gauss--Legendre quadrature to approximate $\int_0^2 e^x\,dx$. Compare with the exact value $e^2 - 1$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+\label{ex:ch8-derive-gl2}
+Derive the $2$-point Gauss--Legendre rule from scratch by requiring exactness for $f(x) = 1, x, x^2, x^3$. Solve the resulting nonlinear system for $x_1, x_2, w_1, w_2$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+\label{ex:ch8-composite}
+\begin{enumerate}
+    \item Implement composite Gauss--Legendre quadrature (3-point per panel).
+    \item Compute $\int_0^1 e^{-x^2}\,dx$ with $m = 1, 2, 4, 8, 16$ panels.
+    \item Verify numerically that the error is $\BigO(h^6)$ where $h = 1/m$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+\label{ex:ch8-laguerre}
+Use Gauss--Laguerre quadrature to compute $\Gamma(s) = \int_0^\infty x^{s-1}\,e^{-x}\,dx$ for $s = 1.5, 2.5, 3.5$. Compare with the exact values $\Gamma(1.5) = \frac{\sqrt{\pi}}{2}$, $\Gamma(2.5) = \frac{3\sqrt{\pi}}{4}$, $\Gamma(3.5) = \frac{15\sqrt{\pi}}{8}$.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+\label{ex:ch8-eigenvalue-method}
+The Gauss quadrature nodes and weights can be computed from the eigenvalue problem of the tridiagonal Jacobi matrix.
+\begin{enumerate}
+    \item For Gauss--Legendre, construct the symmetric tridiagonal matrix with $\alpha_k = 0$ and $\beta_k = k/\sqrt{4k^2-1}$.
+    \item Compute its eigenvalues (the nodes) and eigenvectors (to obtain the weights: $w_i = 2\,v_{1,i}^2$ where $v_{1,i}$ is the first component of the $i$-th eigenvector).
+    \item Compare with \texttt{numpy.polynomial.legendre.leggauss} for $n = 5, 10, 20$.
+\end{enumerate}
+\end{exercise}
+
+%==============================================================================
+\section*{Summary of Key Formulas}
+%==============================================================================
+
+\begin{keyformulas}
+\textbf{Gauss quadrature:}
+\[
+    \int_a^b w(x)\,f(x)\,dx \approx \sum_{i=1}^{n} w_i\,f(x_i)
+\]
+Nodes = zeros of the degree-$n$ orthogonal polynomial; degree of exactness $= 2n-1$.
+
+\textbf{Gauss--Legendre on $[-1,1]$} ($w(x) = 1$, Legendre polynomials):
+\[
+    \int_{-1}^{1} f(x)\,dx \approx \sum_{i=1}^{n} w_i\,f(x_i), \qquad w_i > 0, \quad \sum_{i=1}^n w_i = 2
+\]
+
+\textbf{Change of interval:}
+\[
+    \int_a^b f(x)\,dx = \frac{b-a}{2}\int_{-1}^{1} f\!\left(\tfrac{b-a}{2}\,t + \tfrac{a+b}{2}\right)dt
+\]
+
+\textbf{Error formula:}
+\[
+    E_n(f) = \frac{f^{(2n)}(\xi)}{(2n)!}\int_a^b w(x)\left[\prod_{i=1}^{n}(x-x_i)\right]^2 dx
+\]
+
+\textbf{Summary table:}
+\begin{center}
+\begin{tabular}{lccc}
+    Gauss--Legendre & $[-1,1]$ & $w=1$ & Legendre $P_n$ \\
+    Gauss--Laguerre & $[0,\infty)$ & $e^{-x}$ & Laguerre $L_n$ \\
+    Gauss--Hermite  & $(-\infty,\infty)$ & $e^{-x^2}$ & Hermite $H_n$ \\
+\end{tabular}
+\end{center}
+\end{keyformulas}

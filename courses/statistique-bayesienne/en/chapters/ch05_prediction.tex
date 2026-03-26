@@ -1,0 +1,336 @@
+% ============================================================
+\chapter{Bayesian Prediction}
+\label{ch:prediction}
+% ============================================================
+
+In frequentist statistics, prediction uses a point estimate: one estimates $\theta$, then predicts $\tilde{y}$ as if $\hat\theta$ were the true value. This approach ignores parameter uncertainty and produces prediction intervals that are too narrow. The Bayesian approach is fundamentally different: instead of fixing $\theta$, one \emph{integrates} over all possible values of $\theta$, weighted by the posterior distribution. The resulting predictive distribution naturally incorporates two sources of uncertainty---the intrinsic randomness of the data and the uncertainty about the model---and produces better-calibrated forecasts.
+
+\begin{intuition}[title=\textbf{Central idea}]
+Bayesian prediction integrates parameter uncertainty by averaging the
+predictive distribution over the posterior. This produces well-calibrated
+prediction intervals and avoids the overfitting inherent in using point
+estimates.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Prior predictive distribution}
+% ------------------------------------------------------------
+
+\begin{definition}[Prior predictive distribution]
+The \textbf{prior predictive} (or marginal) distribution of a new
+observation $\tilde{x}$ is:
+\[
+  m(\tilde{x}) = \int_\Theta f(\tilde{x} \mid \theta)\,\pi(\theta)\,d\theta.
+\]
+It does not depend on the data and represents the prediction before any
+observation.
+\end{definition}
+
+\begin{example}
+\textbf{Bernoulli--Beta model.}
+With $\theta \sim \text{Be}(a, b)$ and
+$\tilde{X} \mid \theta \sim \text{Ber}(\theta)$:
+\[
+  m(\tilde{x} = 1) = \E[\theta] = \frac{a}{a + b}.
+\]
+For the Laplace prior $\text{Be}(1, 1)$: $m(\tilde{x} = 1) = 1/2$.
+\end{example}
+
+\begin{example}
+\textbf{Normal--Normal model.}
+With $\mu \sim \mathcal{N}(\mu_0, \tau_0^2)$ and
+$\tilde{X} \mid \mu \sim \mathcal{N}(\mu, \sigma^2)$:
+\[
+  m(\tilde{x}) = \mathcal{N}(\tilde{x} \mid \mu_0, \sigma^2 + \tau_0^2).
+\]
+The predictive variance $\sigma^2 + \tau_0^2$ combines aleatoric and
+epistemic uncertainty.
+\end{example}
+
+% ------------------------------------------------------------
+\section{Posterior predictive distribution}
+% ------------------------------------------------------------
+
+\begin{definition}[Posterior predictive distribution]
+The \textbf{posterior predictive distribution} of $\tilde{x}$ given
+$x = (x_1, \ldots, x_n)$ is:
+\[
+  f(\tilde{x} \mid x) = \int_\Theta f(\tilde{x} \mid \theta)\,\pi(\theta \mid x)\,d\theta.
+\]
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{Predictive variance decomposition}]
+\[
+  \Var[\tilde{X} \mid x]
+  = \underbrace{\E_{\theta \mid x}[\Var[\tilde{X} \mid \theta]]}_{\text{aleatoric uncertainty}}
+  + \underbrace{\Var_{\theta \mid x}[\E[\tilde{X} \mid \theta]]}_{\text{epistemic uncertainty}}.
+\]
+This decomposition is the \textbf{law of total variance}.
+\end{keyformulas}
+
+\begin{theorem}[Normal--Normal posterior predictive]
+If $X_i \overset{\text{iid}}{\sim} \mathcal{N}(\mu, \sigma^2)$ with
+$\mu \mid x \sim \mathcal{N}(\mu_n, \tau_n^2)$, then:
+\[
+  \tilde{X} \mid x \sim \mathcal{N}(\mu_n, \sigma^2 + \tau_n^2).
+\]
+\end{theorem}
+
+\begin{proof}
+Conditionally on $\mu$, $\tilde{X} \sim \mathcal{N}(\mu, \sigma^2)$.
+Integrating over $\mu \mid x \sim \mathcal{N}(\mu_n, \tau_n^2)$, the
+sum of two independent Gaussians gives:
+\[
+  \tilde{X} \mid x \sim \mathcal{N}(\mu_n, \sigma^2 + \tau_n^2).
+\]
+\end{proof}
+
+\begin{theorem}[Bernoulli--Beta posterior predictive]
+If $X_i \overset{\text{iid}}{\sim} \text{Ber}(\theta)$ with
+$\theta \mid x \sim \text{Be}(a_n, b_n)$, then:
+\[
+  \PP(\tilde{X} = 1 \mid x) = \E[\theta \mid x] = \frac{a_n}{a_n + b_n}.
+\]
+This is \textbf{Laplace's rule of succession} when $a = b = 1$:
+$\PP(\tilde{X} = 1 \mid x) = (s+1)/(n+2)$.
+\end{theorem}
+
+\begin{theorem}[Poisson--Gamma posterior predictive]
+If $X_i \overset{\text{iid}}{\sim} \text{Poi}(\lambda)$ with
+$\lambda \mid x \sim \text{Ga}(\alpha_n, \beta_n)$, the predictive is
+a \textbf{negative binomial}:
+\[
+  \tilde{X} \mid x \sim \text{NegBin}\!\left(\alpha_n, \frac{\beta_n}{\beta_n + 1}\right).
+\]
+\end{theorem}
+
+\begin{proof}
+\begin{align*}
+  \PP(\tilde{X} = k \mid x)
+  &= \int_0^\infty \frac{e^{-\lambda}\lambda^k}{k!}
+  \cdot \frac{\beta_n^{\alpha_n}}{\Gamma(\alpha_n)}
+  \lambda^{\alpha_n - 1} e^{-\beta_n \lambda}\,d\lambda \\
+  &= \frac{\beta_n^{\alpha_n}}{k!\,\Gamma(\alpha_n)}
+  \cdot \frac{\Gamma(k + \alpha_n)}{(\beta_n + 1)^{k + \alpha_n}} \\
+  &= \binom{k + \alpha_n - 1}{k}
+  \left(\frac{\beta_n}{\beta_n + 1}\right)^{\alpha_n}
+  \left(\frac{1}{\beta_n + 1}\right)^k.
+\end{align*}
+\end{proof}
+
+\begin{theorem}[Normal--NIG posterior predictive]
+If $(\mu, \sigma^2) \mid x \sim \text{NIG}(\mu_n, \kappa_n, \alpha_n, \beta_n)$,
+the posterior predictive is a Student-$t$:
+\[
+  \tilde{X} \mid x \sim t_{2\alpha_n}\!\left(\mu_n,\;
+  \frac{\beta_n(\kappa_n + 1)}{\alpha_n \kappa_n}\right).
+\]
+\end{theorem}
+
+% ------------------------------------------------------------
+\section{Posterior predictive checking}
+% ------------------------------------------------------------
+
+\begin{definition}[Posterior predictive check]
+A \textbf{posterior predictive check} (PPC) simulates replicate datasets
+$x^{\text{rep}}$ from the predictive distribution and compares them to
+the observed data to assess model adequacy.
+\end{definition}
+
+\begin{definition}[Bayesian predictive $p$-value]
+The \textbf{predictive $p$-value} for a test statistic $T(x)$ is:
+\[
+  p_B = \PP(T(x^{\text{rep}}) \geq T(x_{\text{obs}}) \mid x_{\text{obs}}).
+\]
+Values near $0$ or $1$ suggest poor model fit.
+\end{definition}
+
+\begin{algorithme}[title=\textbf{Posterior predictive check algorithm}]
+\begin{enumerate}
+  \item For $t = 1, \ldots, T$:
+  \begin{enumerate}
+    \item Draw $\theta^{(t)} \sim \pi(\theta \mid x_{\text{obs}})$ (from MCMC).
+    \item Draw $x^{\text{rep},(t)} \sim f(x \mid \theta^{(t)})$.
+    \item Compute $T^{(t)} = T(x^{\text{rep},(t)})$.
+  \end{enumerate}
+  \item Estimate $p_B = \frac{1}{T}\sum_{t=1}^T \mathbf{1}(T^{(t)} \geq T(x_{\text{obs}}))$.
+  \item Plot the distribution of $T^{(t)}$ and compare to $T(x_{\text{obs}})$.
+\end{enumerate}
+\end{algorithme}
+
+% ------------------------------------------------------------
+\section{Prediction intervals}
+% ------------------------------------------------------------
+
+\begin{definition}[Prediction interval]
+A $100(1-\alpha)\%$ \textbf{prediction interval} for $\tilde{X}$ is an
+interval $[a, b]$ such that:
+\[
+  \PP(\tilde{X} \in [a, b] \mid x) = 1 - \alpha.
+\]
+\end{definition}
+
+\begin{remark}
+The prediction interval is always wider than the credible interval for
+$\theta$, because it integrates both parameter uncertainty and the
+randomness of the new observation.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Bayesian vs.\ plug-in prediction}
+% ------------------------------------------------------------
+
+\begin{warning}[title=\textbf{Plug-in danger}]
+The plug-in approach replaces $\theta$ by a point estimate $\hat{\theta}$
+and predicts via $f(\tilde{x} \mid \hat{\theta})$. It underestimates
+predictive uncertainty because it ignores parameter uncertainty.
+Bayesian prediction is better calibrated.
+\end{warning}
+
+% ------------------------------------------------------------
+\section{Python implementation}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Posterior predictive distribution}]
+\begin{minted}{python}
+import numpy as np
+import pymc as pm
+import arviz as az
+import matplotlib.pyplot as plt
+
+# Gaussian data
+np.random.seed(42)
+n = 30
+mu_true, sigma_true = 5.0, 2.0
+data = np.random.normal(mu_true, sigma_true, n)
+
+# Bayesian model
+with pm.Model() as model_pred:
+    mu = pm.Normal("mu", mu=0, sigma=10)
+    sigma = pm.HalfNormal("sigma", sigma=10)
+    y = pm.Normal("y", mu=mu, sigma=sigma, observed=data)
+    # Predictive
+    y_pred = pm.Normal("y_pred", mu=mu, sigma=sigma)
+    trace = pm.sample(3000, random_seed=42)
+    ppc = pm.sample_posterior_predictive(trace,
+                                         random_seed=42)
+
+# Visualization
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+az.plot_ppc(ppc, observed_adata=trace, ax=axes[0])
+axes[0].set_title("Posterior predictive check")
+
+y_pred_samples = ppc.posterior_predictive["y_pred"].values.flatten()
+ci_pred = np.percentile(y_pred_samples, [2.5, 97.5])
+axes[1].hist(y_pred_samples, bins=50, density=True,
+             alpha=0.5, label="Predictive")
+axes[1].axvline(ci_pred[0], color="red", linestyle="--",
+                label=f"95% PI: [{ci_pred[0]:.1f}, {ci_pred[1]:.1f}]")
+axes[1].axvline(ci_pred[1], color="red", linestyle="--")
+axes[1].legend()
+axes[1].set_title("Posterior predictive distribution")
+
+plt.tight_layout()
+plt.savefig("predictive.pdf")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Bayesian predictive $p$-value}]
+\begin{minted}{python}
+# Test statistic: standard deviation
+T_obs = data.std()
+
+# Simulate replicates
+T_rep = []
+mu_samples = trace.posterior["mu"].values.flatten()
+sigma_samples = trace.posterior["sigma"].values.flatten()
+for i in range(len(mu_samples)):
+    x_rep = np.random.normal(mu_samples[i],
+                              sigma_samples[i], n)
+    T_rep.append(x_rep.std())
+T_rep = np.array(T_rep)
+
+# Predictive p-value
+p_B = np.mean(T_rep >= T_obs)
+print(f"T(x_obs) = {T_obs:.3f}")
+print(f"Predictive p-value = {p_B:.3f}")
+
+plt.figure(figsize=(8, 4))
+plt.hist(T_rep, bins=50, density=True, alpha=0.5,
+         label="T(x_rep)")
+plt.axvline(T_obs, color="red",
+            label=f"T(x_obs) = {T_obs:.2f}")
+plt.xlabel("Standard deviation")
+plt.ylabel("Density")
+plt.legend()
+plt.title(f"Predictive p-value = {p_B:.3f}")
+plt.tight_layout()
+plt.savefig("ppc_pvalue.pdf")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Poisson--Gamma predictive (negative binomial)}]
+\begin{minted}{python}
+from scipy import stats
+
+# Poisson data
+np.random.seed(123)
+data_pois = np.random.poisson(3.0, size=20)
+
+# Gamma(2, 1) prior
+alpha_n = 2 + data_pois.sum()
+beta_n = 1 + len(data_pois)
+p_nb = beta_n / (beta_n + 1)
+
+# Predictive: NegBin(alpha_n, p_nb)
+x_grid = np.arange(0, 15)
+pred_pmf = stats.nbinom.pmf(x_grid, alpha_n, p_nb)
+
+plt.figure(figsize=(8, 4))
+plt.bar(x_grid, pred_pmf, alpha=0.7,
+        label="NegBin predictive")
+plt.xlabel(r"$\tilde{x}$")
+plt.ylabel("Probability")
+plt.title("Poisson-Gamma predictive")
+plt.legend()
+plt.tight_layout()
+plt.savefig("pred_negbin.pdf")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+Derive the posterior predictive distribution for the Bernoulli--Beta
+model for $m$ new observations (not just one). Show that it is a
+beta-binomial distribution.
+\end{exercise}
+
+\begin{exercise}
+Show that the predictive variance is always greater than or equal to
+the conditional variance $\Var[\tilde{X} \mid \theta]$ for any value of
+$\theta$.
+\end{exercise}
+
+\begin{exercise}
+Derive the predictive distribution for the Normal--NIG model and show
+that it is a Student-$t$.
+\end{exercise}
+
+\begin{exercise}
+\textbf{(Numerical)} Simulate Poisson data and compare:
+\begin{enumerate}
+  \item the Bayesian predictive (negative binomial),
+  \item the plug-in predictive (Poisson with $\hat{\lambda} = \bar{x}$).
+\end{enumerate}
+Compute the actual coverage of $95\%$ prediction intervals for both
+approaches over $1000$ repetitions.
+\end{exercise}
+
+\begin{exercise}
+Perform a posterior predictive check for a Poisson model applied to
+overdispersed data. Use the variance as the test statistic.
+\end{exercise}

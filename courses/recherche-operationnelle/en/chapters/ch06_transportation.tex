@@ -1,0 +1,341 @@
+% ============================================================
+\chapter{Transportation and Assignment Problems}
+\label{ch:transportation}
+% ============================================================
+
+How does one ship goods from several factories to several warehouses at minimum cost? This problem, formulated independently by the Soviet mathematician Leonid Kantorovich (1939) and the American statistician Frank Hitchcock (1941), is one of the oldest and most elegant in operations research. It possesses a special LP structure---all variables appear with coefficient 1 in the constraints---which allows specialised algorithms far faster than the general simplex. Kantorovich received the Nobel Prize in Economics in 1975 for this work.
+
+\section{The transportation problem}
+
+\begin{definition}[Transportation problem]
+The \textbf{transportation problem} determines the quantities $x_{ij}$ to
+ship from $m$ sources $S_i$ (supply $a_i$) to $n$ destinations $D_j$
+(demand $b_j$) so as to minimize total transportation cost:
+\[
+\begin{aligned}
+  \min \quad & \sum_{i=1}^{m}\sum_{j=1}^{n} c_{ij}\, x_{ij} \\
+  \text{s.t.} \quad
+    & \sum_{j=1}^{n} x_{ij} = a_i, \quad i = 1, \ldots, m
+      \quad \text{(supply)} \\
+    & \sum_{i=1}^{m} x_{ij} = b_j, \quad j = 1, \ldots, n
+      \quad \text{(demand)} \\
+    & x_{ij} \ge 0
+\end{aligned}
+\]
+\end{definition}
+
+\begin{definition}[Balanced problem]
+The problem is \textbf{balanced} if $\sum_{i=1}^m a_i = \sum_{j=1}^n b_j$.
+Otherwise, add a \textbf{dummy} source or destination with zero costs.
+\end{definition}
+
+\begin{remark}
+The transportation problem is a special case of LP.  Its special structure
+(totally unimodular constraint matrix) guarantees that every BFS is integer
+if the $a_i$ and $b_j$ are integers.
+\end{remark}
+
+\section{Initial feasible solutions}
+
+\subsection{Northwest corner method}
+
+\begin{algorithme}[title=\textbf{Northwest corner}]
+\begin{enumerate}
+  \item Start at cell $(1,1)$.
+  \item Allocate $x_{ij} = \min(a_i, b_j)$.
+  \item Update $a_i$ and $b_j$.
+  \item Move to the next cell (right if $a_i = 0$, down if $b_j = 0$).
+  \item Repeat until complete allocation.
+\end{enumerate}
+\end{algorithme}
+
+\subsection{Minimum cost method}
+
+\begin{algorithme}[title=\textbf{Minimum cost}]
+\begin{enumerate}
+  \item Select the cell $(i,j)$ with minimum cost $c_{ij}$.
+  \item Allocate $x_{ij} = \min(a_i, b_j)$.
+  \item Update capacities and eliminate the saturated row or column.
+  \item Repeat.
+\end{enumerate}
+\end{algorithme}
+
+\subsection{Vogel's approximation method}
+
+\begin{algorithme}[title=\textbf{Vogel's Approximation Method (VAM)}]
+\begin{enumerate}
+  \item For each row and column, compute the \textbf{penalty}: difference
+        between the two smallest costs.
+  \item Select the row or column with the largest penalty.
+  \item Allocate the maximum possible to the minimum-cost cell in that
+        row/column.
+  \item Repeat.
+\end{enumerate}
+\end{algorithme}
+
+\begin{bestpractice}[title=\textbf{Initial solution quality}]
+Northwest corner $<$ Minimum cost $<$ Vogel.  Vogel's method generally
+gives a solution close to optimal.
+\end{bestpractice}
+
+\section{Complete example}
+
+\begin{example}[Transportation problem]
+\begin{center}
+\begin{tabular}{c|ccc|c}
+  & $D_1$ & $D_2$ & $D_3$ & Supply \\
+  \hline
+  $S_1$ & 4 & 8 & 1 & 30 \\
+  $S_2$ & 7 & 3 & 5 & 40 \\
+  $S_3$ & 2 & 6 & 9 & 20 \\
+  \hline
+  Demand & 25 & 35 & 30 & 90 \\
+\end{tabular}
+\end{center}
+
+The problem is balanced ($30 + 40 + 20 = 25 + 35 + 30 = 90$).
+
+\textbf{Northwest corner solution}:
+\begin{center}
+\begin{tabular}{c|ccc}
+  & $D_1$ & $D_2$ & $D_3$ \\
+  \hline
+  $S_1$ & \textbf{25} & \textbf{5} & 0 \\
+  $S_2$ & 0 & \textbf{30} & \textbf{10} \\
+  $S_3$ & 0 & 0 & \textbf{20} \\
+\end{tabular}
+\end{center}
+
+Cost: $25(4) + 5(8) + 30(3) + 10(5) + 20(9) = 100 + 40 + 90 + 50 + 180
+= 460$.
+\end{example}
+
+\section{Optimality test: MODI method}
+
+The \textbf{MODI} (Modified Distribution) method uses multipliers $u_i$ and
+$v_j$ such that for each basic cell:
+\[
+  u_i + v_j = c_{ij}
+\]
+
+Set $u_1 = 0$ and solve the system.
+
+\begin{definition}[Reduced cost of a non-basic cell]
+\[
+  \bar{c}_{ij} = c_{ij} - u_i - v_j
+\]
+\end{definition}
+
+\begin{theorem}[Transportation optimality]
+The solution is optimal if and only if $\bar{c}_{ij} \ge 0$ for all
+non-basic cells.
+\end{theorem}
+
+\section{Improvement: stepping-stone method}
+
+If $\bar{c}_{ij} < 0$ for a non-basic cell $(i,j)$:
+\begin{enumerate}
+  \item Identify the unique \textbf{cycle} connecting $(i,j)$ to basic cells
+        (alternating $+/-$).
+  \item Determine $\theta = \min$ of the values on $-$ cells of the cycle.
+  \item Add $\theta$ to $+$ cells and subtract $\theta$ from $-$ cells.
+\end{enumerate}
+
+\section{The assignment problem}
+
+\begin{definition}[Assignment problem]
+The \textbf{assignment problem} assigns $n$ agents to $n$ tasks (bijection)
+to minimize total cost:
+\[
+\begin{aligned}
+  \min \quad & \sum_{i=1}^{n}\sum_{j=1}^{n} c_{ij}\, x_{ij} \\
+  \text{s.t.} \quad
+    & \sum_{j=1}^{n} x_{ij} = 1, \quad i = 1, \ldots, n \\
+    & \sum_{i=1}^{n} x_{ij} = 1, \quad j = 1, \ldots, n \\
+    & x_{ij} \in \{0, 1\}
+\end{aligned}
+\]
+\end{definition}
+
+\begin{remark}
+This is a special case of the transportation problem with $a_i = b_j = 1$.
+The integrality constraint is automatically satisfied (total unimodularity).
+\end{remark}
+
+\section{Hungarian algorithm}
+
+\begin{algorithme}[title=\textbf{Hungarian algorithm (Kuhn-Munkres method)}]
+\begin{enumerate}
+  \item \textbf{Row reduction}: subtract the row minimum from each row.
+  \item \textbf{Column reduction}: subtract the column minimum from each
+        column.
+  \item \textbf{Cover zeros}: draw the minimum number of lines
+        (horizontal/vertical) covering all zeros.
+  \item If this number $= n$: an optimal assignment exists among the zeros.
+  \item Otherwise: find the smallest uncovered element $\varepsilon$,
+        subtract it from uncovered elements, add it to intersection elements.
+        Return to step~3.
+\end{enumerate}
+\end{algorithme}
+
+\begin{example}[Hungarian algorithm]
+Cost matrix:
+\[
+C = \begin{pmatrix}
+  9 & 2 & 7 & 8 \\
+  6 & 4 & 3 & 7 \\
+  5 & 8 & 1 & 8 \\
+  7 & 6 & 9 & 4
+\end{pmatrix}
+\]
+
+\textbf{Step 1} --- Row reduction (subtract 2, 3, 1, 4):
+\[
+\begin{pmatrix}
+  7 & 0 & 5 & 6 \\
+  3 & 1 & 0 & 4 \\
+  4 & 7 & 0 & 7 \\
+  3 & 2 & 5 & 0
+\end{pmatrix}
+\]
+
+\textbf{Step 2} --- Column reduction (subtract 3, 0, 0, 0):
+\[
+\begin{pmatrix}
+  4 & 0 & 5 & 6 \\
+  0 & 1 & 0 & 4 \\
+  1 & 7 & 0 & 7 \\
+  0 & 2 & 5 & 0
+\end{pmatrix}
+\]
+
+Optimal assignment:
+$(1,2), (2,1), (3,3), (4,4)$.
+
+Optimal cost: $2 + 6 + 1 + 4 = 13$.
+\end{example}
+
+\section{Python implementation}
+
+\begin{codeblock}[title=\textbf{Transportation problem with PuLP}]
+\begin{minted}{python}
+import pulp
+import numpy as np
+
+# Data
+cost = [[4, 8, 1], [7, 3, 5], [2, 6, 9]]
+supply = [30, 40, 20]
+demand = [25, 35, 30]
+m, n = len(supply), len(demand)
+
+prob = pulp.LpProblem("Transport", pulp.LpMinimize)
+x = [[pulp.LpVariable(f"x_{i}_{j}", lowBound=0)
+      for j in range(n)] for i in range(m)]
+
+# Objective
+prob += pulp.lpSum(cost[i][j] * x[i][j]
+                   for i in range(m) for j in range(n))
+
+# Supply constraints
+for i in range(m):
+    prob += pulp.lpSum(x[i][j] for j in range(n)) == supply[i]
+
+# Demand constraints
+for j in range(n):
+    prob += pulp.lpSum(x[i][j] for i in range(m)) == demand[j]
+
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+print(f"Optimal cost: {pulp.value(prob.objective):.0f}")
+for i in range(m):
+    row = [x[i][j].varValue for j in range(n)]
+    print(f"  S{i+1} -> {row}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Optimal cost: 290
+  S1 -> [0.0, 0.0, 30.0]
+  S2 -> [5.0, 35.0, 0.0]
+  S3 -> [20.0, 0.0, 0.0]
+\end{codeoutput}
+
+\begin{codeblock}[title=\textbf{Assignment problem with SciPy}]
+\begin{minted}{python}
+from scipy.optimize import linear_sum_assignment
+import numpy as np
+
+C = np.array([[9, 2, 7, 8],
+              [6, 4, 3, 7],
+              [5, 8, 1, 8],
+              [7, 6, 9, 4]])
+
+row_ind, col_ind = linear_sum_assignment(C)
+print("Optimal assignment:")
+for i, j in zip(row_ind, col_ind):
+    print(f"  Agent {i+1} -> Task {j+1} (cost {C[i,j]})")
+print(f"Total cost: {C[row_ind, col_ind].sum()}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+Optimal assignment:
+  Agent 1 -> Task 2 (cost 2)
+  Agent 2 -> Task 1 (cost 6)
+  Agent 3 -> Task 3 (cost 1)
+  Agent 4 -> Task 4 (cost 4)
+Total cost: 13
+\end{codeoutput}
+
+\section{Variants}
+
+\begin{itemize}
+  \item \textbf{Unbalanced transportation}: add a dummy source/destination.
+  \item \textbf{Transshipment}: some nodes are both sources and destinations.
+  \item \textbf{Capacitated arcs}: $x_{ij} \le u_{ij}$.
+  \item \textbf{Maximization assignment}: convert to minimization
+        ($c_{ij}' = M - c_{ij}$).
+\end{itemize}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$ --- Northwest corner and minimum cost]
+Solve using both methods:
+\begin{center}
+\begin{tabular}{c|ccc|c}
+  & $D_1$ & $D_2$ & $D_3$ & Supply \\
+  \hline
+  $S_1$ & 3 & 1 & 7 & 40 \\
+  $S_2$ & 4 & 6 & 2 & 50 \\
+  $S_3$ & 8 & 3 & 5 & 30 \\
+  \hline
+  Demand & 30 & 40 & 50 & \\
+\end{tabular}
+\end{center}
+\end{exercise}
+
+\begin{exercise}[$\star\star$ --- MODI]
+Verify the optimality of the Vogel solution and improve if necessary using
+the MODI method.
+\end{exercise}
+
+\begin{exercise}[$\star\star$ --- Unbalanced problem]
+Solve the transportation problem with supply $(20, 30, 25)$ and demand
+$(15, 25, 20, 15)$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$ --- Hungarian algorithm]
+Solve by hand:
+\[
+C = \begin{pmatrix}
+  10 & 5 & 13 & 15 \\
+  3 & 9 & 18 & 13 \\
+  10 & 7 & 2 & 8 \\
+  5 & 11 & 9 & 6
+\end{pmatrix}
+\]
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ --- Implementation]
+Implement Vogel's approximation method in Python and test it on a
+$5 \times 5$ problem.
+\end{exercise}

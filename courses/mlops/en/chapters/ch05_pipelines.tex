@@ -1,0 +1,575 @@
+% ============================================================
+\chapter{Data Pipelines and Feature Stores}
+\label{ch:pipelines}
+\index{data pipelines}
+% ============================================================
+
+\section{Why Data Pipelines?}
+\label{sec:why-pipelines}
+
+In production ML, data rarely arrives clean and ready. A \textbf{data
+pipeline} automates the sequence of steps that transform raw data into
+features suitable for training or inference.
+
+\begin{definition}[Data pipeline]
+A \textbf{data pipeline}\index{data pipeline} is an automated,
+orchestrated sequence of data processing steps (extraction, transformation,
+validation, loading) that converts raw data sources into curated datasets
+ready for analysis or model training.
+\end{definition}
+
+\begin{remark}
+Without automated pipelines, data scientists spend up to 80\% of their
+time on data wrangling---manually downloading, cleaning, and
+transforming data for each experiment.
+\end{remark}
+
+\section{ETL vs ELT}
+\label{sec:etl-elt}
+\index{ETL}\index{ELT}
+
+\begin{center}
+\begin{tabular}{@{}lp{5.5cm}p{5.5cm}@{}}
+\toprule
+& \textbf{ETL} & \textbf{ELT} \\
+\midrule
+\textbf{Order} & Extract $\to$ Transform $\to$ Load &
+  Extract $\to$ Load $\to$ Transform \\
+\textbf{Where} & Transformation on an intermediate server &
+  Transformation inside the data warehouse \\
+\textbf{Best for} & Structured data, relational sources &
+  Large-scale, cloud data warehouses \\
+\textbf{Tools} & Airflow, Prefect, Luigi &
+  dbt, BigQuery, Snowflake \\
+\textbf{ML use case} & Feature engineering pipelines &
+  Analytics features from data warehouse \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Pipeline Architecture}
+\label{sec:pipeline-architecture}
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, rounded corners, minimum width=2.5cm,
+    minimum height=1.2cm, align=center, font=\small},
+  storage/.style={cylinder, draw, shape border rotate=90,
+    minimum width=1.8cm, minimum height=1cm, align=center,
+    font=\scriptsize, aspect=0.3},
+  arr/.style={-{Stealth[length=2.5mm]}, thick, steelblue}
+]
+  % Sources
+  \node[storage, fill=blue!10] (src1) {\textbf{Database}\\PostgreSQL};
+  \node[storage, fill=blue!10, below=0.8cm of src1] (src2) {\textbf{API}\\REST/gRPC};
+  \node[storage, fill=blue!10, below=0.8cm of src2] (src3) {\textbf{Files}\\CSV, JSON};
+
+  % Extract
+  \node[box, fill=green!10, right=2cm of src2] (extract) {\textbf{Extract}\\Ingest};
+
+  % Transform
+  \node[box, fill=yellow!10, right=1.8cm of extract] (transform)
+    {\textbf{Transform}\\Clean, Engineer};
+
+  % Validate
+  \node[box, fill=orange!10, right=1.8cm of transform] (validate)
+    {\textbf{Validate}\\Schema, Quality};
+
+  % Destinations
+  \node[storage, fill=red!10, right=2cm of validate] (fs)
+    {\textbf{Feature Store}\\Feast};
+  \node[storage, fill=red!10, above=0.5cm of fs] (wh)
+    {\textbf{Warehouse}\\BigQuery};
+  \node[storage, fill=red!10, below=0.5cm of fs] (train)
+    {\textbf{Training}\\Dataset};
+
+  % Arrows
+  \draw[arr] (src1.east) -- (extract.west);
+  \draw[arr] (src2.east) -- (extract.west);
+  \draw[arr] (src3.east) -- (extract.west);
+  \draw[arr] (extract) -- (transform);
+  \draw[arr] (transform) -- (validate);
+  \draw[arr] (validate.east) -- (wh.west);
+  \draw[arr] (validate.east) -- (fs.west);
+  \draw[arr] (validate.east) -- (train.west);
+
+  % Orchestrator
+  \node[box, fill=gray!10, below=2cm of transform, minimum width=8cm]
+    (orch) {\textbf{Orchestrator}: Airflow / Prefect / Dagster};
+  \draw[dashed, gray, thick] (orch.north) -- (extract.south);
+  \draw[dashed, gray, thick] (orch.north) -- (transform.south);
+  \draw[dashed, gray, thick] (orch.north) -- (validate.south);
+\end{tikzpicture}
+\end{center}
+
+\section{Orchestration with Airflow}
+\label{sec:airflow}
+\index{Airflow}
+
+\textbf{Apache Airflow}\index{Airflow} is the most widely used workflow
+orchestrator. It defines pipelines as Python DAGs (Directed Acyclic Graphs)
+and provides a web UI for monitoring, scheduling, and retry management.
+
+\begin{codeblock}[title=\textbf{Airflow DAG for an ML pipeline}]
+\begin{minted}{python}
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from datetime import datetime, timedelta
+
+default_args = {
+    "owner": "ml-team",
+    "retries": 2,
+    "retry_delay": timedelta(minutes=5),
+}
+
+with DAG(
+    dag_id="ml_training_pipeline",
+    default_args=default_args,
+    schedule_interval="@daily",
+    start_date=datetime(2025, 1, 1),
+    catchup=False,
+    tags=["ml", "training"],
+) as dag:
+
+    def extract_data(**kwargs):
+        """Extract data from source."""
+        import pandas as pd
+        df = pd.read_sql("SELECT * FROM events", conn)
+        df.to_parquet("/data/raw/events.parquet")
+
+    def transform_data(**kwargs):
+        """Clean and engineer features."""
+        import pandas as pd
+        df = pd.read_parquet("/data/raw/events.parquet")
+        df = df.dropna(subset=["target"])
+        df["hour"] = pd.to_datetime(df["ts"]).dt.hour
+        df.to_parquet("/data/processed/features.parquet")
+
+    def train_model(**kwargs):
+        """Train and log the model."""
+        import mlflow
+        # ... training with MLflow logging ...
+
+    extract = PythonOperator(
+        task_id="extract_data", python_callable=extract_data
+    )
+    transform = PythonOperator(
+        task_id="transform_data", python_callable=transform_data
+    )
+    train = PythonOperator(
+        task_id="train_model", python_callable=train_model
+    )
+
+    extract >> transform >> train
+\end{minted}
+\end{codeblock}
+
+\begin{warning}[title=\textbf{Airflow pitfalls}]
+\begin{itemize}
+  \item Airflow is an \textbf{orchestrator}, not a data processing engine.
+    Heavy computations should run on Spark, Dask, or dedicated workers.
+  \item The scheduler can be resource-hungry; plan infrastructure
+    accordingly.
+  \item DAG files are parsed frequently---keep them lightweight (no heavy
+    imports at module level).
+\end{itemize}
+\end{warning}
+
+\section{Orchestration with Prefect}
+\label{sec:prefect}
+\index{Prefect}
+
+\textbf{Prefect}\index{Prefect} is a modern alternative to Airflow with a
+simpler API. Flows are regular Python functions decorated with
+\cli{@flow} and \cli{@task}.
+
+\begin{codeblock}[title=\textbf{Complete Prefect ML pipeline}]
+\begin{minted}{python}
+from prefect import flow, task
+from prefect.tasks import task_input_hash
+from datetime import timedelta
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+import mlflow
+
+@task(retries=3, cache_key_fn=task_input_hash,
+      cache_expiration=timedelta(hours=1))
+def extract_data(source: str) -> pd.DataFrame:
+    """Extract data from source with caching."""
+    df = pd.read_csv(source)
+    print(f"Extracted {len(df)} rows")
+    return df
+
+@task
+def validate_data(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate data quality."""
+    assert len(df) > 100, "Dataset too small"
+    assert df.isnull().mean().max() < 0.3, "Too many nulls"
+    null_pct = df.isnull().mean()
+    print(f"Max null %: {null_pct.max():.2%}")
+    return df.dropna()
+
+@task
+def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Create features for training."""
+    df["feature_ratio"] = df["col_a"] / (df["col_b"] + 1)
+    df["feature_log"] = df["col_c"].apply(
+        lambda x: max(x, 0)
+    ).apply(lambda x: x ** 0.5)
+    return df
+
+@task
+def train_and_evaluate(
+    df: pd.DataFrame,
+    target_col: str = "target",
+    n_estimators: int = 200,
+) -> dict:
+    """Train model and return metrics."""
+    X = df.drop(columns=[target_col])
+    y = df[target_col]
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+
+    with mlflow.start_run():
+        model = RandomForestClassifier(
+            n_estimators=n_estimators, random_state=42
+        )
+        model.fit(X_train, y_train)
+
+        acc = accuracy_score(y_test, model.predict(X_test))
+        mlflow.log_param("n_estimators", n_estimators)
+        mlflow.log_metric("accuracy", acc)
+        mlflow.sklearn.log_model(model, "model")
+
+    return {"accuracy": acc, "n_samples": len(df)}
+
+@flow(name="ML Training Pipeline",
+      description="End-to-end training pipeline")
+def training_pipeline(
+    data_source: str = "data/dataset.csv",
+    n_estimators: int = 200,
+):
+    """Main pipeline flow."""
+    raw_data = extract_data(data_source)
+    clean_data = validate_data(raw_data)
+    features = engineer_features(clean_data)
+    metrics = train_and_evaluate(
+        features, n_estimators=n_estimators
+    )
+    print(f"Pipeline complete. Accuracy: {metrics['accuracy']:.4f}")
+    return metrics
+
+if __name__ == "__main__":
+    training_pipeline()
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Running and scheduling Prefect flows}]
+\begin{minted}{bash}
+# Run locally
+python pipeline.py
+
+# Start the Prefect server
+prefect server start
+
+# Deploy with a schedule
+prefect deployment build pipeline.py:training_pipeline \
+    --name "daily-training" \
+    --cron "0 6 * * *"
+prefect deployment apply training_pipeline-deployment.yaml
+
+# Start a worker to execute scheduled runs
+prefect worker start -p default-agent-pool
+\end{minted}
+\end{codeblock}
+
+\section{DVC Pipelines for ML}
+\label{sec:dvc-pipelines-ch5}
+\index{DVC!pipelines}
+
+As seen in Chapter~\ref{ch:version-control}, DVC pipelines define
+reproducible ML workflows in \file{dvc.yaml}. Unlike Airflow/Prefect,
+DVC pipelines are \textbf{data-driven} (stages re-run only when inputs
+change) rather than \textbf{schedule-driven}.
+
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Aspect} & \textbf{DVC Pipelines} & \textbf{Airflow/Prefect} \\
+\midrule
+Trigger         & Data/code changes & Schedule or event \\
+State tracking  & File hashes       & Database \\
+Caching         & Content-addressable & Time-based \\
+Deployment      & CLI (\cli{dvc repro}) & Server + workers \\
+Best for        & Experimentation   & Production orchestration \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Feature Stores}
+\label{sec:feature-stores}
+\index{feature store}
+
+A \textbf{feature store}\index{feature store} is a centralised repository
+for storing, sharing, and serving ML features. It solves the problem of
+feature reuse and training-serving skew.
+
+\begin{definition}[Feature store]
+A \textbf{feature store} is a data system that manages the lifecycle of
+ML features: definition, computation, storage, versioning, and serving
+for both training (batch) and inference (online, low-latency).
+\end{definition}
+
+\begin{warning}[title=\textbf{Training-serving skew}]
+\textbf{Training-serving skew}\index{training-serving skew} occurs when
+features are computed differently at training time and inference time.
+For example, a feature computed as a 7-day rolling average in a batch
+training script may be computed as a simple average in the serving code.
+A feature store ensures the \emph{same} transformation is used in both
+contexts.
+\end{warning}
+
+\subsection{Feast}
+\index{Feast}
+
+\textbf{Feast}\index{Feast} (Feature Store) is an open-source feature
+store that provides offline (batch) and online (low-latency) feature
+serving.
+
+\begin{codeblock}[title=\textbf{Feast feature definitions}]
+\begin{minted}{python}
+# feature_repo/features.py
+from feast import Entity, FeatureView, Field, FileSource
+from feast.types import Float32, Int64
+from datetime import timedelta
+
+# Define the entity (the business object)
+customer = Entity(
+    name="customer_id",
+    join_keys=["customer_id"],
+    description="Unique customer identifier",
+)
+
+# Define the data source
+customer_source = FileSource(
+    path="data/customer_features.parquet",
+    timestamp_field="event_timestamp",
+)
+
+# Define features
+customer_features = FeatureView(
+    name="customer_features",
+    entities=[customer],
+    ttl=timedelta(days=90),
+    schema=[
+        Field(name="total_purchases", dtype=Int64),
+        Field(name="avg_order_value", dtype=Float32),
+        Field(name="days_since_last_order", dtype=Int64),
+        Field(name="purchase_frequency", dtype=Float32),
+    ],
+    source=customer_source,
+    online=True,
+    tags={"team": "ml-platform"},
+)
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Using Feast for training and serving}]
+\begin{minted}{python}
+from feast import FeatureStore
+import pandas as pd
+
+store = FeatureStore(repo_path="feature_repo/")
+
+# --- Offline: get historical features for training ---
+entity_df = pd.DataFrame({
+    "customer_id": [1001, 1002, 1003],
+    "event_timestamp": pd.to_datetime(["2025-01-15"] * 3),
+})
+
+training_df = store.get_historical_features(
+    entity_df=entity_df,
+    features=[
+        "customer_features:total_purchases",
+        "customer_features:avg_order_value",
+        "customer_features:days_since_last_order",
+        "customer_features:purchase_frequency",
+    ],
+).to_df()
+
+print(training_df.head())
+
+# --- Online: get features for real-time inference ---
+# First, materialise features to the online store
+# feast materialize 2024-01-01T00:00:00 2025-06-01T00:00:00
+
+online_features = store.get_online_features(
+    features=[
+        "customer_features:total_purchases",
+        "customer_features:avg_order_value",
+    ],
+    entity_rows=[{"customer_id": 1001}],
+).to_dict()
+
+print(online_features)
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Feast CLI commands}]
+\begin{minted}{bash}
+# Initialise a feature repository
+feast init feature_repo
+cd feature_repo
+
+# Apply feature definitions
+feast apply
+
+# Materialise features to the online store
+feast materialize 2024-01-01T00:00:00 2025-06-01T00:00:00
+
+# Serve features via REST API
+feast serve
+\end{minted}
+\end{codeblock}
+
+\section{Orchestrator Comparison}
+\label{sec:orchestrator-comparison}
+
+\begin{center}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Criterion} & \textbf{Airflow} & \textbf{Prefect} & \textbf{Dagster} & \textbf{Luigi} \\
+\midrule
+Language       & Python  & Python  & Python  & Python \\
+DAG definition & Python  & Python decorators & Python + assets & Python classes \\
+UI             & Good    & Excellent & Excellent & Basic \\
+Scheduling     & Cron, event & Cron, event & Cron, sensor & Cron \\
+Caching        & No      & Yes    & Yes    & Yes    \\
+Data lineage   & Limited & Good   & Excellent & Limited \\
+Cloud managed  & Yes     & Yes    & Yes    & No     \\
+Community      & Very large & Growing & Growing & Small \\
+Learning curve & Medium  & Low    & Medium & Low    \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{bestpractice}[title=\textbf{Choosing an orchestrator}]
+\begin{itemize}
+  \item \textbf{Airflow}: battle-tested, huge ecosystem, best for large
+    teams with complex scheduling needs.
+  \item \textbf{Prefect}: modern API, easy to start, best for teams that
+    want Python-native pipelines without boilerplate.
+  \item \textbf{Dagster}: asset-centric paradigm, excellent for data
+    engineering teams that think in terms of data assets.
+  \item \textbf{DVC}: best for ML experimentation where pipelines are
+    re-run on data/code changes, not on a schedule.
+\end{itemize}
+\end{bestpractice}
+
+\section{Best Practices}
+
+\begin{bestpractice}[title=\textbf{Pipeline design golden rules}]
+\begin{enumerate}
+  \item \textbf{Idempotency}: running a pipeline twice with the same input
+    must produce the same output.
+  \item \textbf{Atomicity}: each step either fully succeeds or fully fails
+    (no partial writes).
+  \item \textbf{Data validation}: validate schemas and distributions at
+    every stage boundary.
+  \item \textbf{Retry logic}: transient failures (network, API rate limits)
+    should be retried with backoff.
+  \item \textbf{Logging and alerting}: every step should log its progress
+    and alert on failure.
+  \item \textbf{Separation of concerns}: orchestration logic (DAG
+    definition) should be separate from business logic (transformations).
+\end{enumerate}
+\end{bestpractice}
+
+\begin{antipattern}[title=\textbf{Pipeline anti-patterns}]
+\begin{itemize}
+  \item Running heavy computation inside the orchestrator process
+  \item Hardcoding file paths and connection strings
+  \item No data validation between pipeline stages
+  \item Pipelines that cannot be re-run safely (non-idempotent writes)
+  \item Feature computation duplicated between training and serving code
+\end{itemize}
+\end{antipattern}
+
+\section{Mini-project: Orchestrated ML Pipeline}
+\label{sec:mini-project-ch5}
+
+\begin{miniproject}[title=\textbf{Mini-project 5: End-to-end orchestrated pipeline}]
+Build a complete data-to-model pipeline:
+\begin{enumerate}
+  \item Write a Prefect flow with 4 tasks: \texttt{extract},
+    \texttt{validate}, \texttt{engineer\_features}, \texttt{train}.
+  \item Add data validation checks (schema, null percentage, class
+    balance).
+  \item Integrate MLflow tracking in the training task.
+  \item Add retry logic and caching for the extraction task.
+  \item Deploy the pipeline with a daily schedule.
+  \item (Bonus) Define 2--3 features in Feast and serve them for
+    training and online inference.
+\end{enumerate}
+\end{miniproject}
+
+\section{Exercises}
+\label{sec:exercises-ch5}
+
+\begin{exercise}[$\bigstar$ --- Prefect basics]
+Write a Prefect flow with three tasks: (1)~download a CSV from a URL,
+(2)~compute basic statistics (mean, std, null count per column),
+(3)~save a summary report to a JSON file. Add retry logic to the download
+task. Run the flow and inspect the Prefect UI.
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar$ --- Pipeline with validation]
+Build a data pipeline (Prefect or Airflow) for a tabular ML task that
+includes:
+\begin{enumerate}
+  \item Data extraction from two sources (CSV + SQLite database)
+  \item Data joining and cleaning
+  \item Schema validation using \pkg{pandera} or \pkg{great-expectations}
+  \item Feature engineering (at least 3 derived features)
+  \item Train/test split with the split ratio logged
+\end{enumerate}
+Verify that the pipeline fails gracefully when given malformed data.
+\end{exercise}
+
+\begin{exercise}[$\bigstar\bigstar\bigstar$ --- Feature store integration]
+Build a feature store using Feast for a customer churn prediction task:
+\begin{enumerate}
+  \item Define at least 5 features across 2 feature views
+  \item Materialise features to the online store
+  \item Write a training script that pulls historical features from Feast
+  \item Write a serving script that pulls online features for real-time
+    prediction
+  \item Verify consistency between offline and online feature values
+  \item Document the feature definitions and their business meaning
+\end{enumerate}
+\end{exercise}
+
+\section{Cheatsheet}
+
+\begin{cheatsheet}[title=\textbf{Chapter 5 Summary}]
+\begin{tabular}{@{}p{4cm}p{8.5cm}@{}}
+\toprule
+\textbf{Tool / Concept} & \textbf{Key Points} \\
+\midrule
+\textbf{ETL vs ELT} & ETL transforms before loading; ELT transforms
+  inside the warehouse \\
+\textbf{Airflow} & DAGs in Python, cron scheduling, \cli{>>} for
+  dependencies \\
+\textbf{Prefect} & \cli{@flow}, \cli{@task} decorators, built-in caching
+  and retries \\
+\textbf{DVC pipelines} & \file{dvc.yaml}, \cli{dvc repro}, data-driven
+  re-execution \\
+\textbf{Feast} & \cli{feast apply}, \cli{feast materialize},
+  \cli{store.get\_historical\_features()} \\
+\textbf{Best practice} & Idempotent, validated, retryable, logged \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}

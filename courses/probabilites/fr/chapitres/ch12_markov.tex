@@ -1,0 +1,332 @@
+% ============================================================
+\chapter{Introduction aux Cha\^ines de Markov}
+\label{ch:markov}
+% ============================================================
+
+\section{Introduction}
+
+Les cha\^ines de Markov\index{cha\^ine de Markov} constituent l'un des mod\`eles
+stochastiques les plus fondamentaux. Elles mod\'elisent l'\'evolution al\'eatoire d'un
+syst\`eme dont le futur ne d\'epend du pass\'e qu'\`a travers le pr\'esent (propri\'et\'e
+de Markov). Leurs applications couvrent la physique (marches al\'eatoires), la biologie
+(\'evolution de populations), l'informatique (algorithmes de Monte-Carlo, PageRank) et
+la finance.
+
+\begin{intuition}[title=\textbf{La propri\'et\'e de Markov~: absence de m\'emoire}]
+Imaginez un pion sur un \'echiquier qui se d\'eplace al\'eatoirement. \`A chaque \'etape,
+la probabilit\'e de se d\'eplacer vers une case voisine ne d\'epend que de la position
+actuelle du pion, pas de la trajectoire pass\'ee. C'est la propri\'et\'e de Markov~:
+\og le futur est ind\'ependant du pass\'e, conditionn\'e au pr\'esent \fg.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{D\'efinitions}
+% ------------------------------------------------------------
+
+\begin{definition}[Cha\^ine de Markov]
+\label{def:chaine_markov}
+\index{cha\^ine de Markov}
+Soit $E$ un ensemble d\'enombrable (l'\emph{espace d'\'etats}). Un processus
+stochastique $(X_n)_{n \geq 0}$ \`a valeurs dans $E$ est une \emph{cha\^ine de Markov}
+si pour tous $n \geq 0$ et tous \'etats $i_0, \ldots, i_{n-1}, i, j \in E$~:
+\[
+    \PP(X_{n+1} = j \mid X_n = i, X_{n-1} = i_{n-1}, \ldots, X_0 = i_0)
+    = \PP(X_{n+1} = j \mid X_n = i),
+\]
+d\`es que le conditionnement est bien d\'efini ($\PP(X_n = i, \ldots) > 0$).
+\end{definition}
+
+\begin{definition}[Cha\^ine homog\`ene et matrice de transition]
+\label{def:matrice_transition}
+\index{matrice de transition}
+La cha\^ine est dite \emph{homog\`ene} (ou \emph{stationnaire}) si les probabilit\'es
+de transition ne d\'ependent pas de $n$~:
+\[
+    p_{ij} = \PP(X_{n+1} = j \mid X_n = i), \qquad \forall n \geq 0.
+\]
+La matrice $P = (p_{ij})_{i,j \in E}$ est appel\'ee \emph{matrice de transition}.
+Elle v\'erifie~:
+\begin{enumerate}
+    \item[(i)] $p_{ij} \geq 0$ pour tous $i, j$\,;
+    \item[(ii)] $\sum_{j \in E} p_{ij} = 1$ pour tout $i$ \quad (matrice stochastique).
+\end{enumerate}
+\end{definition}
+
+\begin{definition}[Loi initiale]
+La \emph{loi initiale} est la loi de $X_0$, c'est-\`a-dire le vecteur
+$\mu_0 = (\PP(X_0 = i))_{i \in E}$.
+La loi de la cha\^ine est enti\`erement d\'etermin\'ee par $\mu_0$ et $P$.
+\end{definition}
+
+\begin{proposition}[Loi jointe]
+Pour tous $i_0, i_1, \ldots, i_n \in E$~:
+\[
+    \PP(X_0 = i_0, X_1 = i_1, \ldots, X_n = i_n)
+    = \mu_0(i_0)\, p_{i_0 i_1}\, p_{i_1 i_2} \cdots p_{i_{n-1} i_n}.
+\]
+\end{proposition}
+
+\begin{exemple}[Marche al\'eatoire sur $\Z$]
+\index{marche al\'eatoire}
+Soit $X_0 = 0$ et $X_{n+1} = X_n + \xi_{n+1}$ o\`u les $(\xi_n)$ sont i.i.d.\ avec
+$\PP(\xi = +1) = p$ et $\PP(\xi = -1) = 1-p$. C'est une cha\^ine de Markov sur
+$E = \Z$ avec $p_{i,i+1} = p$ et $p_{i,i-1} = 1-p$.
+\end{exemple}
+
+\begin{exemple}[Mod\`ele d'Ehrenfest]
+$2N$ particules sont r\'eparties entre deux bo\^ites. \`A chaque \'etape, on choisit une
+particule au hasard et on la d\'eplace dans l'autre bo\^ite. Si $X_n$ est le nombre de
+particules dans la premi\`ere bo\^ite, $(X_n)$ est une cha\^ine de Markov sur
+$\{0, 1, \ldots, 2N\}$ avec $p_{k,k-1} = k/(2N)$ et $p_{k,k+1} = 1 - k/(2N)$.
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Probabilit\'es de transition en $n$ pas}
+% ------------------------------------------------------------
+
+\begin{definition}
+Les \emph{probabilit\'es de transition en $n$ pas} sont~:
+\[
+    p_{ij}^{(n)} = \PP(X_n = j \mid X_0 = i).
+\]
+\end{definition}
+
+\begin{theoreme}[\'Equation de Chapman-Kolmogorov]
+\label{thm:chapman_kolmogorov}
+\index{\'equation de Chapman-Kolmogorov}
+Pour tous $m, n \geq 0$ et tous $i, j \in E$~:
+\[
+    p_{ij}^{(m+n)} = \sum_{k \in E} p_{ik}^{(m)}\, p_{kj}^{(n)}.
+\]
+En notation matricielle~: $P^{(m+n)} = P^m \cdot P^n$, soit $P^{(n)} = P^n$.
+\end{theoreme}
+
+\begin{proof}
+Par la formule des probabilit\'es totales~:
+\begin{align*}
+    p_{ij}^{(m+n)} &= \PP(X_{m+n} = j \mid X_0 = i)
+    = \sum_{k \in E} \PP(X_{m+n} = j \mid X_m = k) \PP(X_m = k \mid X_0 = i) \\
+    &= \sum_{k \in E} p_{kj}^{(n)}\, p_{ik}^{(m)}.
+\end{align*}
+\end{proof}
+
+% ------------------------------------------------------------
+\section{Classification des \'etats}
+% ------------------------------------------------------------
+
+\begin{definition}[Accessibilit\'e et communication]
+\index{communication}
+\begin{itemize}
+    \item L'\'etat $j$ est \emph{accessible} depuis $i$, not\'e $i \to j$, s'il
+    existe $n \geq 0$ tel que $p_{ij}^{(n)} > 0$.
+    \item Deux \'etats $i$ et $j$ \emph{communiquent}, not\'e $i \leftrightarrow j$,
+    si $i \to j$ et $j \to i$.
+\end{itemize}
+La relation $\leftrightarrow$ est une relation d'\'equivalence. Ses classes sont les
+\emph{classes de communication}.
+\end{definition}
+
+\begin{definition}[Cha\^ine irr\'eductible]
+\index{irr\'eductible}
+La cha\^ine est \emph{irr\'eductible} si tous les \'etats communiquent, c'est-\`a-dire
+s'il n'y a qu'une seule classe de communication.
+\end{definition}
+
+\begin{definition}[Temps de retour et r\'ecurrence]
+\index{r\'ecurrence}\index{transience}
+Le \emph{temps de premier retour} en $i$ est~:
+$T_i = \inf\{n \geq 1 : X_n = i\}$.
+\begin{itemize}
+    \item L'\'etat $i$ est \emph{r\'ecurrent} si $\PP_i(T_i < \infty) = 1$.
+    \item L'\'etat $i$ est \emph{transitoire} si $\PP_i(T_i < \infty) < 1$.
+\end{itemize}
+\end{definition}
+
+\begin{theoreme}[Caract\'erisation de la r\'ecurrence]
+\label{thm:recurrence}
+Un \'etat $i$ est r\'ecurrent si et seulement si $\sum_{n=0}^{\infty} p_{ii}^{(n)} = +\infty$.
+Un \'etat $i$ est transitoire si et seulement si $\sum_{n=0}^{\infty} p_{ii}^{(n)} < +\infty$.
+\end{theoreme}
+
+\begin{proof}
+Soit $N_i = \sum_{n=1}^{\infty} \ind_{\{X_n = i\}}$ le nombre de retours en $i$.
+On a $\E_i[N_i] = \sum_{n=1}^{\infty} p_{ii}^{(n)}$. De plus,
+$\PP_i(N_i \geq k) = \PP_i(T_i < \infty)^k$, donc $N_i$ suit une loi g\'eom\'etrique.
+Si $i$ est r\'ecurrent, $\PP_i(T_i < \infty) = 1$, donc $\E_i[N_i] = +\infty$.
+Si $i$ est transitoire, $\PP_i(T_i < \infty) < 1$, donc
+$\E_i[N_i] = \PP_i(T_i < \infty)/(1 - \PP_i(T_i < \infty)) < +\infty$.
+\end{proof}
+
+\begin{proposition}[Propri\'et\'e de classe]
+La r\'ecurrence et la transience sont des propri\'et\'es de classe~: si $i$
+communique avec $j$, alors $i$ est r\'ecurrent si et seulement si $j$ l'est.
+\end{proposition}
+
+\begin{definition}[\'Etat absorbant]
+\index{\'etat absorbant}
+Un \'etat $i$ est \emph{absorbant} si $p_{ii} = 1$. Un \'etat absorbant est
+r\'ecurrent.
+\end{definition}
+
+\begin{definition}[P\'eriode]
+\index{p\'eriode}
+La \emph{p\'eriode} d'un \'etat $i$ est $d(i) = \gcd\{n \geq 1 : p_{ii}^{(n)} > 0\}$.
+L'\'etat $i$ est \emph{ap\'eriodique} si $d(i) = 1$. La p\'eriode est une propri\'et\'e
+de classe.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Distributions stationnaires}
+% ------------------------------------------------------------
+
+\begin{definition}[Distribution stationnaire]
+\label{def:stationnaire}
+\index{distribution stationnaire}
+Un vecteur de probabilit\'e $\pi = (\pi_i)_{i \in E}$ (avec $\pi_i \geq 0$ et
+$\sum_i \pi_i = 1$) est une \emph{distribution stationnaire} (ou \emph{invariante})
+pour la matrice $P$ si~:
+\[
+    \pi P = \pi, \qquad \text{c'est-\`a-dire} \quad
+    \pi_j = \sum_{i \in E} \pi_i\, p_{ij}, \quad \forall j \in E.
+\]
+\end{definition}
+
+\begin{theoreme}[Existence pour les cha\^ines irr\'eductibles r\'ecurrentes positives]
+\label{thm:existence_stationnaire}
+Soit $(X_n)$ une cha\^ine de Markov irr\'eductible et r\'ecurrente. Alors~:
+\begin{enumerate}
+    \item Il existe une mesure invariante $\pi$ (unique \`a un facteur multiplicatif
+    pr\`es) donn\'ee par $\pi_j = 1/\E_j[T_j]$.
+    \item $\pi$ est une distribution de probabilit\'e (i.e.\ $\sum_j \pi_j = 1$) si
+    et seulement si la cha\^ine est \emph{r\'ecurrente positive}, c'est-\`a-dire
+    $\E_i[T_i] < \infty$ pour tout (ou de fa\c{c}on \'equivalente, pour un) \'etat $i$.
+\end{enumerate}
+\end{theoreme}
+
+\begin{remarque}
+Si l'espace d'\'etats $E$ est fini et la cha\^ine est irr\'eductible, alors elle est
+automatiquement r\'ecurrente positive et admet une unique distribution stationnaire.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Th\'eor\`eme ergodique}
+% ------------------------------------------------------------
+
+\begin{theoreme}[Th\'eor\`eme ergodique pour les cha\^ines de Markov]
+\label{thm:ergodique}
+\index{th\'eor\`eme ergodique}
+Soit $(X_n)$ une cha\^ine de Markov irr\'eductible, r\'ecurrente positive et
+ap\'eriodique, de distribution stationnaire $\pi$. Alors pour tout \'etat initial
+$i$ et tout \'etat $j$~:
+\[
+    \lim_{n \to \infty} p_{ij}^{(n)} = \pi_j.
+\]
+De plus, pour toute fonction born\'ee $f : E \to \R$~:
+\[
+    \frac{1}{n} \sum_{k=0}^{n-1} f(X_k) \xrightarrow[n \to \infty]{\text{p.s.}} \sum_{j \in E} f(j)\, \pi_j.
+\]
+\end{theoreme}
+
+\begin{formules}[title=\textbf{Formules cl\'es des cha\^ines de Markov}]
+\begin{itemize}
+    \item \textbf{Chapman-Kolmogorov~:} $P^{(m+n)} = P^m \cdot P^n$
+    \item \textbf{Distribution au temps $n$~:} $\mu_n = \mu_0 P^n$
+    \item \textbf{Stationnarit\'e~:} $\pi P = \pi$
+    \item \textbf{Lien avec le temps de retour~:} $\pi_j = 1/\E_j[T_j]$
+    \item \textbf{Convergence~:} $\lim_{n \to \infty} P^n = \mathbf{1} \pi^T$
+    (si irr\'eductible, r\'ecurrente positive, ap\'eriodique)
+\end{itemize}
+\end{formules}
+
+% ------------------------------------------------------------
+\section{R\'eversibilit\'e et \'equations de bilan d\'etaill\'e}
+% ------------------------------------------------------------
+
+\begin{definition}[R\'eversibilit\'e]
+\index{r\'eversibilit\'e}\index{bilan d\'etaill\'e}
+Une cha\^ine de Markov de matrice de transition $P$ et de distribution stationnaire
+$\pi$ est dite \emph{r\'eversible} si les \emph{\'equations de bilan d\'etaill\'e}
+sont satisfaites~:
+\[
+    \pi_i\, p_{ij} = \pi_j\, p_{ji}, \qquad \forall i, j \in E.
+\]
+\end{definition}
+
+\begin{proposition}
+Si $\pi$ v\'erifie les \'equations de bilan d\'etaill\'e, alors $\pi$ est une
+distribution stationnaire.
+\end{proposition}
+
+\begin{proof}
+En sommant sur $i$~:
+$\sum_i \pi_i\, p_{ij} = \sum_i \pi_j\, p_{ji} = \pi_j \sum_i p_{ji} = \pi_j$,
+car $\sum_i p_{ji} = 1$.
+\end{proof}
+
+\begin{exemple}[Marche al\'eatoire sur un graphe]
+Soit $G = (V, E)$ un graphe connexe fini non orient\'e. La marche al\'eatoire simple
+sur $G$ a pour matrice de transition $p_{ij} = 1/\mathrm{deg}(i)$ si $(i,j)$ est une
+ar\^ete. La distribution stationnaire est $\pi_i = \mathrm{deg}(i)/(2\abs{E})$, et
+les \'equations de bilan d\'etaill\'e sont satisfaites.
+\end{exemple}
+
+\begin{attention}[title=\textbf{Bilan d\'etaill\'e $\neq$ stationnarit\'e}]
+Le bilan d\'etaill\'e est une condition \emph{suffisante} mais pas n\'ecessaire pour
+la stationnarit\'e. Il existe des cha\^ines de Markov avec une distribution
+stationnaire qui ne v\'erifie pas le bilan d\'etaill\'e (par exemple, les cha\^ines
+avec un cycle orient\'e).
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}
+Soit $(X_n)$ la marche al\'eatoire sym\'etrique sur $\Z$ ($p = 1/2$).
+Montrer que chaque \'etat est r\'ecurrent.
+\emph{Indication}~: utiliser $p_{00}^{(2n)} = \binom{2n}{n} 2^{-2n} \sim (\pi n)^{-1/2}$.
+\end{exercice}
+
+\begin{exercice}
+Montrer que la marche al\'eatoire sym\'etrique sur $\Z^3$ est transitoire.
+\emph{Indication}~: montrer que $\sum_n p_{00}^{(n)} < \infty$.
+\end{exercice}
+
+\begin{exercice}
+Soit $E = \{1, 2, 3\}$ et
+$P = \begin{pmatrix} 0 & 1/2 & 1/2 \\ 1/3 & 1/3 & 1/3 \\ 1/2 & 0 & 1/2 \end{pmatrix}$.
+\begin{enumerate}
+    \item V\'erifier que la cha\^ine est irr\'eductible et ap\'eriodique.
+    \item Calculer la distribution stationnaire $\pi$.
+    \item La cha\^ine est-elle r\'eversible~?
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Mod\`ele de file d'attente]
+\index{file d'attente}
+Soit $N \geq 1$ la capacit\'e d'une file d'attente. \`A chaque \'etape, un client arrive
+avec probabilit\'e $\lambda$ et un client est servi avec probabilit\'e $\mu$ (si la file
+n'est pas vide), ind\'ependamment. Soit $X_n$ le nombre de clients au temps $n$.
+Montrer que $(X_n)$ est une cha\^ine de Markov, \'ecrire sa matrice de transition,
+et trouver sa distribution stationnaire lorsque $\lambda < \mu$.
+\end{exercice}
+
+\begin{exercice}[Algorithme de Metropolis-Hastings]
+\index{Metropolis-Hastings}
+Soit $\pi$ une distribution de probabilit\'e cible sur un ensemble fini $E$ et soit $Q$
+une matrice de transition irr\'eductible (la \emph{proposition}). On d\'efinit la matrice
+de transition~:
+\[
+    p_{ij} = q_{ij} \min\!\left(1, \frac{\pi_j q_{ji}}{\pi_i q_{ij}}\right)
+    \quad (i \neq j), \qquad
+    p_{ii} = 1 - \sum_{j \neq i} p_{ij}.
+\]
+Montrer que $\pi$ est une distribution stationnaire pour $P$ et que le bilan
+d\'etaill\'e est satisfait.
+\end{exercice}
+
+\begin{exercice}
+Soit $(X_n)$ une cha\^ine de Markov irr\'eductible sur un espace d'\'etats fini
+$E$ avec $\abs{E} = N$. Montrer qu'il existe un unique vecteur stationnaire $\pi$
+et que $\pi_i > 0$ pour tout $i$.
+\end{exercice}

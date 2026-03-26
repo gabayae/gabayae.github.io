@@ -1,0 +1,297 @@
+% ============================================================
+\chapter{Portfolio Optimisation}
+\label{ch:portfolio}
+% ============================================================
+
+In 1952, Harry Markowitz, then a doctoral student at the University of Chicago, published a fourteen-page paper that would revolutionize finance: ``Portfolio Selection.'' His idea is simple but profound: an investor should not choose assets individually, but optimize the \emph{portfolio} as a whole, taking into account the correlations between returns. Diversification --- ``don't put all your eggs in one basket'' --- thus received a rigorous mathematical foundation, expressed as a quadratic optimization problem under constraints. Markowitz would receive the Nobel Prize in Economics in 1990 for this work. This chapter develops mean-variance theory, the efficient frontier, Sharpe's CAPM, and modern extensions including CVaR risk and robust optimization.
+
+\section{Markowitz Theory}
+
+\subsection{Mean-Variance Framework}
+
+\begin{definition}[Portfolio]
+Consider $n$ assets with random returns $R = (R_1, \ldots, R_n)^\top$,
+expected return vector $\mu = \E[R] \in \R^n$, and covariance matrix
+$\Sigma = \Cov(R) \in \R^{n \times n}$ (symmetric positive definite).
+
+A \textbf{portfolio} is defined by a weight vector
+$w = (w_1, \ldots, w_n)^\top$ with $\mathbf{1}^\top w = 1$. The portfolio
+return is:
+\[
+    R_p = w^\top R, \quad \E[R_p] = w^\top\mu, \quad
+    \Var(R_p) = w^\top\Sigma w.
+\]
+\end{definition}
+
+\subsection{Optimisation Problem}
+
+\begin{definition}[Markowitz Problem]
+The \textbf{Markowitz problem} (1952) seeks the minimum variance portfolio
+for a target return $\mu_p$:
+\[
+    \min_w \frac{1}{2}w^\top\Sigma w \quad \text{s.t.} \quad
+    w^\top\mu = \mu_p, \quad \mathbf{1}^\top w = 1.
+\]
+\end{definition}
+
+\begin{theorem}[Analytical Solution]
+\label{thm:markowitz_solution}
+The solution to the Markowitz problem is:
+\[
+    w^* = \Sigma^{-1}\bigl[\lambda_1\mu + \lambda_2\mathbf{1}\bigr],
+\]
+where the Lagrange multipliers $\lambda_1, \lambda_2$ are determined by
+the constraints. Setting:
+\begin{align}
+    A &= \mathbf{1}^\top\Sigma^{-1}\mu, \quad
+    B = \mu^\top\Sigma^{-1}\mu, \quad
+    C = \mathbf{1}^\top\Sigma^{-1}\mathbf{1}, \quad
+    D = BC - A^2,
+\end{align}
+we obtain:
+\[
+    \lambda_1 = \frac{C\mu_p - A}{D}, \quad
+    \lambda_2 = \frac{B - A\mu_p}{D}.
+\]
+\end{theorem}
+
+\begin{keyformulas}[title=\textbf{Minimum Variance of the Optimal Portfolio}]
+\[
+    \sigma_p^2 = \frac{C\mu_p^2 - 2A\mu_p + B}{D}.
+\]
+This is a parabola in $\mu_p$ in the $(\sigma_p^2, \mu_p)$ plane,
+or a hyperbola in the $(\sigma_p, \mu_p)$ plane.
+\end{keyformulas}
+
+\begin{definition}[Efficient Frontier]
+The \textbf{efficient frontier} is the upper branch of the hyperbola:
+the set of optimal portfolios for which it is impossible to increase
+return without increasing risk.
+\end{definition}
+
+\begin{definition}[Global Minimum Variance Portfolio (GMV)]
+The \textbf{GMV portfolio} minimises variance without a return constraint:
+\[
+    w_{\text{GMV}} = \frac{\Sigma^{-1}\mathbf{1}}
+    {\mathbf{1}^\top\Sigma^{-1}\mathbf{1}}.
+\]
+Its expected return is $\mu_{\text{GMV}} = A/C$ and its variance
+$\sigma_{\text{GMV}}^2 = 1/C$.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Markowitz Efficient Frontier}]
+\begin{minted}{python}
+import numpy as np
+from scipy.optimize import minimize
+
+def efficient_frontier(mu, Sigma, n_points=100):
+    """Compute the efficient frontier."""
+    n = len(mu)
+    Sigma_inv = np.linalg.inv(Sigma)
+    ones = np.ones(n)
+    w_gmv = Sigma_inv @ ones / (ones @ Sigma_inv @ ones)
+    mu_gmv = w_gmv @ mu
+
+    mu_range = np.linspace(mu_gmv - 0.02, max(mu) + 0.05, n_points)
+    sigmas = []
+    weights = []
+
+    for mu_target in mu_range:
+        constraints = [
+            {'type': 'eq', 'fun': lambda w: np.sum(w) - 1},
+            {'type': 'eq', 'fun': lambda w, m=mu_target: w @ mu - m}
+        ]
+        result = minimize(
+            lambda w: 0.5 * w @ Sigma @ w,
+            np.ones(n)/n, method='SLSQP',
+            constraints=constraints
+        )
+        sigmas.append(np.sqrt(result.fun * 2))
+        weights.append(result.x)
+
+    return mu_range, np.array(sigmas), np.array(weights)
+
+# Example with 3 assets
+mu = np.array([0.08, 0.12, 0.15])
+Sigma = np.array([[0.04, 0.006, 0.002],
+                   [0.006, 0.09, 0.009],
+                   [0.002, 0.009, 0.16]])
+
+mu_range, sigmas, weights = efficient_frontier(mu, Sigma)
+print(f"GMV: sigma={sigmas.min():.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{The CAPM}
+
+\begin{theorem}[Capital Asset Pricing Model (Sharpe, 1964)]
+At equilibrium, the expected return of any asset $i$ satisfies:
+\[
+    \E[R_i] - r = \beta_i(\E[R_M] - r),
+\]
+where $\beta_i = \Cov(R_i, R_M)/\Var(R_M)$ is the asset's \textbf{beta}
+relative to the market portfolio $M$, and $r$ is the risk-free rate.
+\end{theorem}
+
+\begin{definition}[Sharpe Ratio]
+The \textbf{Sharpe ratio} of portfolio $p$ is:
+\[
+    \text{SR}_p = \frac{\E[R_p] - r}{\sigma_p}.
+\]
+The tangency portfolio (intersection of the CML with the efficient frontier)
+maximises the Sharpe ratio.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Tangency Portfolio (Maximum Sharpe)}]
+\begin{minted}{python}
+def tangent_portfolio(mu, Sigma, rf):
+    """Tangency portfolio maximising the Sharpe ratio."""
+    n = len(mu)
+    Sigma_inv = np.linalg.inv(Sigma)
+    excess = mu - rf
+    w_tan = Sigma_inv @ excess / (np.ones(n) @ Sigma_inv @ excess)
+    mu_tan = w_tan @ mu
+    sigma_tan = np.sqrt(w_tan @ Sigma @ w_tan)
+    sharpe = (mu_tan - rf) / sigma_tan
+    return w_tan, mu_tan, sigma_tan, sharpe
+
+rf = 0.03
+w_tan, mu_tan, sig_tan, sr = tangent_portfolio(mu, Sigma, rf)
+print(f"Tangency portfolio: w = {w_tan}")
+print(f"Return: {mu_tan:.4f}, Risk: {sig_tan:.4f}")
+print(f"Sharpe ratio: {sr:.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{Black--Litterman Model}
+
+\begin{definition}[Black--Litterman Model (1992)]
+The model combines equilibrium returns (CAPM) $\Pi = \delta\Sigma w_M$
+with investor \textbf{views} $P\mu = Q + \epsilon$,
+$\epsilon \sim \mathcal{N}(0, \Omega)$, to obtain posterior returns:
+\[
+    \hat{\mu} = \bigl[(\tau\Sigma)^{-1} + P^\top\Omega^{-1}P\bigr]^{-1}
+    \bigl[(\tau\Sigma)^{-1}\Pi + P^\top\Omega^{-1}Q\bigr].
+\]
+The optimal portfolio then uses $\hat{\mu}$ in the Markowitz optimisation.
+\end{definition}
+
+\begin{intuition}[title=\textbf{Advantage of Black--Litterman}]
+Black--Litterman solves two classical Markowitz problems: (1)~extreme
+weights due to sensitivity to estimated returns, and (2)~lack of
+connection to market equilibrium. Views are expressed intuitively and
+the model generates more stable portfolios.
+\end{intuition}
+
+\section{Practical Constraints}
+
+\begin{remark}
+In practice, additional constraints are often imposed:
+\begin{itemize}
+    \item No short selling: $w_i \geq 0$.
+    \item Concentration limits: $w_i \leq w_{\max}$.
+    \item Sector or liquidity constraints.
+    \item Transaction costs (dynamic optimisation).
+\end{itemize}
+\end{remark}
+
+\begin{codeblock}[title=\textbf{Optimisation with Constraints}]
+\begin{minted}{python}
+def efficient_frontier_constrained(mu, Sigma, rf, n_points=50):
+    """Efficient frontier with w >= 0 (no short selling)."""
+    n = len(mu)
+    bounds = [(0, 1) for _ in range(n)]
+    mu_range = np.linspace(min(mu), max(mu), n_points)
+    results = []
+
+    for mu_target in mu_range:
+        constraints = [
+            {'type': 'eq', 'fun': lambda w: np.sum(w) - 1},
+            {'type': 'eq', 'fun': lambda w, m=mu_target: w @ mu - m}
+        ]
+        res = minimize(lambda w: w @ Sigma @ w, np.ones(n)/n,
+                       method='SLSQP', bounds=bounds,
+                       constraints=constraints)
+        if res.success:
+            results.append((mu_target, np.sqrt(res.fun), res.x))
+
+    return results
+\end{minted}
+\end{codeblock}
+
+\section{Robust Optimisation}
+
+\begin{definition}[Robust Optimisation]
+\textbf{Robust optimisation} accounts for uncertainty in estimated
+parameters. We solve:
+\[
+    \min_w \max_{\mu \in \mathcal{U}} \left\{-w^\top\mu
+    + \lambda\,w^\top\Sigma w\right\},
+\]
+where $\mathcal{U}$ is an uncertainty set around $\hat{\mu}$.
+For $\mathcal{U} = \{\mu : \norm{\mu - \hat{\mu}}_{\Sigma^{-1}} \leq \kappa\}$,
+the problem reduces to:
+\[
+    \min_w \left\{-w^\top\hat{\mu} + \kappa\sqrt{w^\top\Sigma w}
+    + \lambda\,w^\top\Sigma w\right\}.
+\]
+\end{definition}
+
+\section{Parameter Estimation}
+
+\begin{warning}[title=\textbf{Estimation Errors}]
+Expected returns $\mu$ are notoriously difficult to estimate. With $T$
+observations, the standard error of $\hat{\mu}_i$ is $\sigma_i/\sqrt{T}$,
+often of the same order as the signal. The covariance matrix $\Sigma$ is
+better estimated but can be singular or ill-conditioned when $n \approx T$.
+\end{warning}
+
+\begin{proposition}[Ledoit--Wolf Estimator]
+The Ledoit--Wolf (2004) \textbf{shrinkage estimator} regularises the
+covariance matrix:
+\[
+    \hat{\Sigma}_{\text{LW}} = (1-\alpha)\hat{\Sigma} + \alpha\,\nu I,
+\]
+where $\alpha \in [0,1]$ and $\nu = \text{tr}(\hat{\Sigma})/n$ are
+determined analytically to minimise the quadratic loss.
+\end{proposition}
+
+\section{Exercises}
+
+\begin{exercise}[Efficient Frontier]
+\begin{enumerate}
+    \item Compute and plot the efficient frontier for 5 assets.
+    \item Identify the GMV portfolio and the tangency portfolio.
+    \item Plot the Capital Market Line.
+    \item Compare frontiers with and without no-short-selling constraints.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[CAPM and Beta]
+\begin{enumerate}
+    \item Estimate betas of 5 stocks by linear regression against a
+          market index.
+    \item Verify the CAPM relation by plotting average historical return
+          against beta.
+    \item Compute Jensen's alpha for each stock.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Black--Litterman]
+\begin{enumerate}
+    \item Implement the Black--Litterman model.
+    \item Starting from equilibrium returns, add the view ``asset 1 will
+          outperform asset 2 by 2\%''.
+    \item Compare weights before and after incorporating the view.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Robust Estimation]
+\begin{enumerate}
+    \item Simulate 250 days of returns for 10 assets and estimate
+          $\hat{\mu}$ and $\hat{\Sigma}$.
+    \item Compare optimal portfolios using $\hat{\Sigma}$ and
+          $\hat{\Sigma}_{\text{LW}}$.
+    \item Perform a backtest and measure out-of-sample performance.
+\end{enumerate}
+\end{exercise}

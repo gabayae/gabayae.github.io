@@ -1,0 +1,314 @@
+% ============================================================
+\chapter{Mod\`eles Hi\'erarchiques}
+\label{ch:hierarchiques}
+% ============================================================
+
+Supposez que vous \'etudiez les performances scolaires dans 50 \'ecoles. Chaque \'ecole a ses propres caract\'eristiques, mais elles partagent aussi un environnement commun. Faut-il mod\'eliser chaque \'ecole ind\'ependamment (beaucoup de param\`etres, peu de donn\'ees par \'ecole) ou toutes ensemble (en ignorant les diff\'erences)~? Les mod\`eles hi\'erarchiques offrent un compromis \'el\'egant~: les param\`etres de chaque \'ecole sont tir\'es d'une distribution commune, dont les hyperparam\`etres sont eux-m\^emes estim\'es. C'est le \emph{shrinkage} bay\'esien~: les estimations individuelles sont \og tir\'ees \fg vers la moyenne du groupe, d'autant plus qu'elles sont incertaines. Ce m\'ecanisme, formalis\'e par Efron et Morris (1973), est l'un des arguments les plus convaincants en faveur de l'approche bay\'esienne.
+
+\begin{intuition}[title=\textbf{Id\'ee centrale}]
+Les mod\`eles hi\'erarchiques (ou multiniveaux) structurent les
+param\`etres en plusieurs niveaux, permettant le partage d'information
+entre groupes. Le r\'etr\'ecissement (\textit{shrinkage}) qui en
+r\'esulte am\'eliore typiquement les estimations par rapport aux
+approches individuelles ou compl\`etement group\'ees.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Motivation et structure}
+% ------------------------------------------------------------
+
+\begin{definition}[Mod\`ele hi\'erarchique]
+Un \textbf{mod\`ele hi\'erarchique} \`a deux niveaux a la structure~:
+\begin{align*}
+  \text{Niveau 1 (donn\'ees)} &: \quad X_{ij} \mid \theta_j \sim f(x \mid \theta_j), \\
+  \text{Niveau 2 (param\`etres)} &: \quad \theta_j \mid \phi \sim g(\theta \mid \phi), \\
+  \text{Niveau 3 (hyperparam\`etres)} &: \quad \phi \sim h(\phi),
+\end{align*}
+o\`u $j = 1, \ldots, J$ indexe les groupes et $i = 1, \ldots, n_j$
+les observations dans le groupe $j$.
+\end{definition}
+
+\begin{remarque}
+Les mod\`eles hi\'erarchiques se situent entre deux extr\^emes~:
+\begin{itemize}
+  \item \textbf{Mod\`ele complet} (\textit{complete pooling})~:
+        $\theta_1 = \cdots = \theta_J = \theta$, un seul param\`etre
+        pour tous.
+  \item \textbf{Mod\`ele s\'epar\'e} (\textit{no pooling})~:
+        chaque $\theta_j$ est estim\'e ind\'ependamment.
+\end{itemize}
+Le mod\`ele hi\'erarchique r\'ealise un \textit{partial pooling} optimal.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Mod\`ele normal hi\'erarchique}
+% ------------------------------------------------------------
+
+\begin{theoreme}[Mod\`ele normal hi\'erarchique]
+\label{thm:hierarch_normal}
+Consid\'erons~:
+\begin{align*}
+  X_{ij} \mid \mu_j, \sigma^2 &\sim \mathcal{N}(\mu_j, \sigma^2),
+  \quad i = 1, \ldots, n_j, \\
+  \mu_j \mid \mu, \tau^2 &\sim \mathcal{N}(\mu, \tau^2), \\
+  (\mu, \tau, \sigma) &\sim \pi(\mu, \tau, \sigma).
+\end{align*}
+La moyenne a posteriori de $\mu_j$ est~:
+\[
+  \E[\mu_j \mid x] \approx (1 - B_j)\,\bar{x}_j + B_j\,\hat{\mu},
+\]
+o\`u $B_j = \sigma^2/(n_j\tau^2 + \sigma^2)$ est le facteur de
+r\'etr\'ecissement et $\hat{\mu}$ est la moyenne globale estim\'ee.
+\end{theoreme}
+
+\begin{formules}[title=\textbf{R\'etr\'ecissement hi\'erarchique}]
+\[
+  \hat{\mu}_j^{\text{Bayes}} = \frac{n_j/\sigma^2}{n_j/\sigma^2 + 1/\tau^2}\,\bar{x}_j
+  + \frac{1/\tau^2}{n_j/\sigma^2 + 1/\tau^2}\,\mu.
+\]
+\begin{itemize}
+  \item Si $\tau^2 \gg \sigma^2/n_j$~: peu de r\'etr\'ecissement
+        ($\hat{\mu}_j \approx \bar{x}_j$).
+  \item Si $\tau^2 \ll \sigma^2/n_j$~: r\'etr\'ecissement fort
+        ($\hat{\mu}_j \approx \mu$).
+\end{itemize}
+\end{formules}
+
+% ------------------------------------------------------------
+\section{Exemple fondamental~: les huit \'ecoles}
+% ------------------------------------------------------------
+
+\begin{exemple}
+Le c\'el\`ebre exemple des \og huit \'ecoles \fg (Rubin, 1981)
+analyse l'effet d'un programme de coaching sur les scores SAT dans
+$J = 8$ \'ecoles. Les donn\'ees sont les effets estim\'es $y_j$ et
+leurs erreurs-types $\sigma_j$~:
+\[
+  y_j \mid \theta_j \sim \mathcal{N}(\theta_j, \sigma_j^2), \qquad
+  \theta_j \mid \mu, \tau \sim \mathcal{N}(\mu, \tau^2).
+\]
+Les $\sigma_j$ sont connus (estim\'es avec grande pr\'ecision).
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Inf\'erence dans les mod\`eles hi\'erarchiques}
+% ------------------------------------------------------------
+
+\subsection{Posterior conditionnel}
+
+\begin{proposition}[Conditionnels complets]
+Dans le mod\`ele normal hi\'erarchique, les conditionnels complets sont~:
+\begin{align*}
+  \mu_j \mid \text{reste} &\sim \mathcal{N}\!\left(
+  \frac{n_j\bar{x}_j/\sigma^2 + \mu/\tau^2}{n_j/\sigma^2 + 1/\tau^2},\;
+  \frac{1}{n_j/\sigma^2 + 1/\tau^2}\right), \\
+  \mu \mid \text{reste} &\sim \mathcal{N}\!\left(
+  \frac{\sum_j \mu_j / \tau^2}{J/\tau^2 + 1/\sigma_\mu^2},\;
+  \frac{1}{J/\tau^2 + 1/\sigma_\mu^2}\right).
+\end{align*}
+Ces expressions permettent l'\'echantillonnage de Gibbs
+(chapitre~\ref{ch:gibbs}).
+\end{proposition}
+
+\subsection{Estimation de la variance inter-groupes}
+
+\begin{attention}[title=\textbf{Difficult\'e de l'estimation de $\tau$}]
+L'estimation de la variance inter-groupes $\tau^2$ est d\'elicate,
+surtout quand $J$ est petit. Le choix du prior sur $\tau$ a un impact
+important. Les recommandations incluent~:
+\begin{itemize}
+  \item $\tau \sim \text{Half-Cauchy}(0, A)$ (Gelman, 2006),
+  \item $\tau \sim \text{Half-Normal}(0, A)$,
+  \item $\tau \sim \text{Exp}(\lambda)$.
+\end{itemize}
+\'Eviter le prior conjugu\'e $\tau^2 \sim \text{IG}(\varepsilon, \varepsilon)$
+avec $\varepsilon$ petit, qui est informatif pr\`es de z\'ero.
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Mod\`ele hi\'erarchique pour donn\'ees binomiales}
+% ------------------------------------------------------------
+
+\begin{exemple}
+\textbf{M\'eta-analyse de taux de succ\`es.}
+Soit $X_j \sim \text{Bin}(n_j, \theta_j)$ avec
+$\theta_j \sim \text{Be}(\alpha, \beta)$ et des hyperpriors sur
+$(\alpha, \beta)$~:
+\[
+  \alpha \sim \text{Exp}(1), \qquad \beta \sim \text{Exp}(1).
+\]
+Ce mod\`ele partage l'information entre les $J$ \'etudes tout en
+permettant l'h\'et\'erog\'en\'eit\'e.
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Param\'etrisation et convergence MCMC}
+% ------------------------------------------------------------
+
+\begin{definition}[Param\'etrisation centr\'ee vs.\ non centr\'ee]
+\begin{itemize}
+  \item \textbf{Centr\'ee}~: $\theta_j \sim \mathcal{N}(\mu, \tau^2)$.
+  \item \textbf{Non centr\'ee}~: $\theta_j = \mu + \tau\,\eta_j$,
+        $\eta_j \sim \mathcal{N}(0, 1)$.
+\end{itemize}
+La param\'etrisation non centr\'ee am\'eliore souvent la convergence
+MCMC, surtout quand $\tau$ est petit ou les donn\'ees peu informatives.
+\end{definition}
+
+\begin{remarque}
+La param\'etrisation non centr\'ee \'elimine la d\'ependance a posteriori
+entre $\tau$ et $\theta_j$, r\'eduisant la g\'eom\'etrie en
+\og entonnoir \fg (\textit{Neal's funnel}) qui cause des difficult\'es
+de m\'elange pour les \'echantillonneurs MCMC.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Mod\`eles multiniveaux g\'en\'eraux}
+% ------------------------------------------------------------
+
+\begin{definition}[Mod\`ele lin\'eaire mixte bay\'esien]
+\[
+  y_i = X_i \beta + Z_i b_j + \varepsilon_i,
+\]
+o\`u $\beta$ sont les effets fixes, $b_j \sim \mathcal{N}(0, \Sigma_b)$
+les effets al\'eatoires, et $\varepsilon_i \sim \mathcal{N}(0, \sigma^2)$.
+Les priors sont~:
+\[
+  \beta \sim \mathcal{N}(0, \sigma_\beta^2 I), \quad
+  \Sigma_b \sim \text{InvWishart}(\nu, \Psi), \quad
+  \sigma^2 \sim \text{IG}(a, b).
+\]
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Impl\'ementation Python}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Mod\`ele des huit \'ecoles avec PyMC}]
+\begin{minted}{python}
+import pymc as pm
+import arviz as az
+import numpy as np
+
+# Données des huit écoles
+y = np.array([28, 8, -3, 7, -1, 1, 18, 12])
+sigma = np.array([15, 10, 16, 11, 9, 11, 10, 18])
+J = len(y)
+
+# Paramétisation non centrée
+with pm.Model() as eight_schools_ncp:
+    mu = pm.Normal("mu", 0, sigma=10)
+    tau = pm.HalfCauchy("tau", beta=5)
+    eta = pm.Normal("eta", 0, 1, shape=J)
+    theta = pm.Deterministic("theta", mu + tau * eta)
+    obs = pm.Normal("obs", mu=theta, sigma=sigma,
+                    observed=y)
+    trace = pm.sample(4000, tune=2000,
+                      target_accept=0.95,
+                      random_seed=42)
+
+# Diagnostic
+print(az.summary(trace, var_names=["mu", "tau", "theta"]))
+
+# R-hat et ESS
+rhat = az.rhat(trace)
+print("R-hat max:", max(rhat["theta"].values))
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Visualisation du r\'etr\'ecissement}]
+\begin{minted}{python}
+import matplotlib.pyplot as plt
+
+theta_post = trace.posterior["theta"].mean(dim=["chain", "draw"]).values
+mu_post = trace.posterior["mu"].mean().item()
+
+fig, ax = plt.subplots(figsize=(8, 5))
+schools = [f"École {j+1}" for j in range(J)]
+x_pos = np.arange(J)
+
+ax.scatter(x_pos, y, marker="o", s=100,
+           label="Effet observé $y_j$", zorder=3)
+ax.scatter(x_pos, theta_post, marker="s", s=100,
+           label=r"Posterior $\hat{\theta}_j$", zorder=3)
+ax.axhline(mu_post, color="gray", linestyle="--",
+           label=f"$\\hat{{\\mu}}$ = {mu_post:.1f}")
+# Flèches de rétrécissement
+for j in range(J):
+    ax.annotate("", xy=(j, theta_post[j]),
+                xytext=(j, y[j]),
+                arrowprops=dict(arrowstyle="->",
+                                color="red", alpha=0.5))
+ax.set_xticks(x_pos)
+ax.set_xticklabels(schools, rotation=45, ha="right")
+ax.set_ylabel("Effet du coaching")
+ax.legend()
+ax.set_title("Rétrécissement hiérarchique: Huit écoles")
+plt.tight_layout()
+plt.savefig("eight_schools_shrinkage.pdf")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Comparaison centr\'ee vs.\ non centr\'ee}]
+\begin{minted}{python}
+# Paramétrisation centrée (pour comparaison)
+with pm.Model() as eight_schools_cp:
+    mu = pm.Normal("mu", 0, sigma=10)
+    tau = pm.HalfCauchy("tau", beta=5)
+    theta = pm.Normal("theta", mu=mu, sigma=tau, shape=J)
+    obs = pm.Normal("obs", mu=theta, sigma=sigma,
+                    observed=y)
+    trace_cp = pm.sample(4000, tune=2000,
+                         target_accept=0.95,
+                         random_seed=42)
+
+# Comparaison des ESS
+ess_ncp = az.ess(trace, var_names=["theta"])
+ess_cp = az.ess(trace_cp, var_names=["theta"])
+print("ESS (non centrée):", ess_ncp["theta"].values.mean())
+print("ESS (centrée):", ess_cp["theta"].values.mean())
+
+# Divergences
+div_ncp = trace.sample_stats["diverging"].sum().item()
+div_cp = trace_cp.sample_stats["diverging"].sum().item()
+print(f"Divergences NCP: {div_ncp}, CP: {div_cp}")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}
+D\'eriver les conditionnels complets pour le mod\`ele normal
+hi\'erarchique et \'ecrire un \'echantillonneur de Gibbs.
+\end{exercice}
+
+\begin{exercice}
+Montrer que le r\'etr\'ecissement hi\'erarchique r\'eduit l'erreur
+quadratique moyenne totale $\sum_j \E[(\hat{\mu}_j - \mu_j)^2]$ par
+rapport \`a l'estimation s\'epar\'ee $\hat{\mu}_j = \bar{x}_j$.
+\end{exercice}
+
+\begin{exercice}
+Impl\'ementer un mod\`ele hi\'erarchique b\^eta-binomial pour des
+donn\'ees de taux de clics (\textit{click-through rates}) de $J = 10$
+publicit\'es.
+\end{exercice}
+
+\begin{exercice}
+Comparer empiriquement les param\'etrisations centr\'ee et non centr\'ee
+pour diff\'erentes valeurs de $\tau/\sigma$ ($0.1$, $1$, $10$).
+Mesurer le nombre de divergences et l'ESS.
+\end{exercice}
+
+\begin{exercice}
+\textbf{(Th\'eorique)} Montrer que le mod\`ele hi\'erarchique
+normal admet la vraisemblance marginale~:
+\[
+  f(y_j \mid \mu, \tau, \sigma_j)
+  = \mathcal{N}(y_j \mid \mu, \sigma_j^2 + \tau^2).
+\]
+En d\'eduire une expression analytique pour la loi a posteriori
+marginale de $(\mu, \tau)$ dans le mod\`ele des huit \'ecoles.
+\end{exercice}

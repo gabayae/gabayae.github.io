@@ -1,0 +1,133 @@
+% ============================================================
+% Chapter 10: Introduction to Bayesian Statistics
+% ============================================================
+\chapter{Introduction to Bayesian Statistics}
+\label{ch:bayesian}
+
+\begin{center}
+\textit{``Probability is the language of uncertainty.''} --- Laplace
+\end{center}
+
+\section{Motivating Example}
+A screening test has 95\% sensitivity and 90\% specificity. A patient tests positive. With 1\% prevalence, Bayes' theorem gives $\approx 8.7\%$ probability of being truly ill---far from the naive 95\%.
+
+\section{The Bayesian Paradigm}
+
+\begin{definition}[Bayesian Approach]
+\index{Bayesian statistics}
+$\theta$ is a \textbf{random variable} with:
+\begin{itemize}
+\item \textbf{Prior} $\pi(\theta)$: beliefs before data.
+\item \textbf{Likelihood} $L(\theta;\mathbf{x})$.
+\item \textbf{Posterior}: updated beliefs.
+\end{itemize}
+\end{definition}
+
+\begin{theorem}[Bayes' Theorem]
+\index{Bayes' theorem}
+\[
+\pi(\theta\mid\mathbf{x}) \propto L(\theta;\mathbf{x})\cdot\pi(\theta).
+\]
+$\boxed{\text{Posterior} \propto \text{Likelihood} \times \text{Prior}}$
+\end{theorem}
+
+\section{Conjugate Priors}
+\index{conjugate prior}
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+\textbf{Likelihood} & \textbf{Conjugate Prior} & \textbf{Posterior} \\
+\midrule
+$\mathrm{Bernoulli}(p)$ & $\mathrm{Beta}(\alpha,\beta)$ & $\mathrm{Beta}(\alpha+s,\beta+n-s)$ \\
+$\mathrm{Pois}(\lambda)$ & $\Gamma(\alpha,\beta)$ & $\Gamma(\alpha+\sum x_i,\beta+n)$ \\
+$\mathcal{N}(\mu,\sigma^2)$ & $\mathcal{N}(\mu_0,\tau^2)$ & $\mathcal{N}(\mu_n,\tau_n^2)$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{definition}[Noninformative Priors]
+\index{noninformative prior}
+\textbf{Uniform}: $\pi(\theta)\propto 1$. \textbf{Jeffreys}: $\pi(\theta)\propto\sqrt{I(\theta)}$.
+\end{definition}
+
+\section{Key Examples}
+
+\begin{example}[Beta-Binomial]
+Prior $p\sim\mathrm{Beta}(\alpha,\beta)$, data $s$ successes in $n$ trials. Posterior mean:
+\[
+\E[p\mid\mathbf{x}] = \frac{\alpha+s}{\alpha+\beta+n} = w\cdot\frac{s}{n} + (1-w)\cdot\frac{\alpha}{\alpha+\beta}.
+\]
+A weighted average of the MLE and the prior mean.
+\end{example}
+
+\begin{example}[Normal-Normal]
+Prior $\mu\sim\mathcal{N}(\mu_0,\tau^2)$, data $\mathcal{N}(\mu,\sigma^2)$ known. Posterior: $\mu_n=({\mu_0/\tau^2+n\bar{x}/\sigma^2})/({1/\tau^2+n/\sigma^2})$.
+Posterior precision = prior precision + data precision.
+\end{example}
+
+\section{Bayesian Estimators}
+
+\begin{definition}
+\begin{itemize}
+\item \textbf{Posterior mean}: minimizes quadratic loss.
+\item \textbf{MAP} (mode): $\argmax_\theta\pi(\theta\mid\mathbf{x})$.
+\item \textbf{Credible interval}: $\Prob(\theta\in[a,b]\mid\mathbf{x})=1-\alpha$.
+\end{itemize}
+\end{definition}
+
+\begin{warning}
+A credible interval has a direct interpretation: ``the probability that $\theta\in[a,b]$ is $1-\alpha$.'' Unlike a frequentist CI, this depends on the prior choice.
+\end{warning}
+
+\section{Python Implementation}
+
+\begin{python}
+\begin{minted}{python}
+import numpy as np
+from scipy import stats
+import matplotlib.pyplot as plt
+
+alpha_pr, beta_pr = 2, 2; n, s = 100, 68
+alpha_po, beta_po = alpha_pr + s, beta_pr + n - s
+
+p = np.linspace(0, 1, 500)
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.plot(p, stats.beta.pdf(p, alpha_pr, beta_pr), 'b--', lw=2, label='Prior')
+lik = stats.binom.pmf(s, n, p)
+ax.plot(p, lik/lik.max()*stats.beta.pdf(p, alpha_po, beta_po).max(), 'g:', lw=2, label='Likelihood')
+ax.plot(p, stats.beta.pdf(p, alpha_po, beta_po), 'r-', lw=2, label='Posterior')
+ax.legend(); ax.set_title('Beta-Binomial Model')
+plt.savefig("ch10_bayesian.pdf"); plt.show()
+
+print(f"Posterior mean: {alpha_po/(alpha_po+beta_po):.4f}")
+print(f"MAP: {(alpha_po-1)/(alpha_po+beta_po-2):.4f}")
+print(f"95% credible interval: {stats.beta.interval(0.95, alpha_po, beta_po)}")
+\end{minted}
+\end{python}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+Basketball: 7/10 shots made, $\mathrm{Beta}(1,1)$ prior. Find posterior, mean, and 90\% credible interval.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Derive the Normal-Normal posterior by completing the square.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Compute Jeffreys prior for Bernoulli, Poisson, and Normal (known variance).
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Project]
+Compare frequentist (MLE + CI) and Bayesian (posterior mean + credible interval) for varying priors and sample sizes. Show convergence as $n\to\infty$.
+\end{exercise}
+
+\begin{keyformulas}
+\begin{align*}
+\pi(\theta\mid\mathbf{x}) &\propto L(\theta;\mathbf{x})\cdot\pi(\theta) \\
+\text{Beta-Binomial} &: \mathrm{Beta}(\alpha,\beta)\to\mathrm{Beta}(\alpha+s,\beta+n-s) \\
+\text{Normal-Normal} &: \mu_n=\frac{\mu_0/\tau^2+n\bar{x}/\sigma^2}{1/\tau^2+n/\sigma^2}
+\end{align*}
+\end{keyformulas}

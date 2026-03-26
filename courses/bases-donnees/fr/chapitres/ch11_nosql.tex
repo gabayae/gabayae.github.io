@@ -1,0 +1,310 @@
+% ============================================================
+\chapter{Bases de Donn\'ees NoSQL}
+\label{ch:nosql}
+% ============================================================
+
+\begin{intuition}[title=\textbf{Id\'ee centrale}]
+Les bases NoSQL (\emph{Not Only SQL}) abandonnent le mod\`ele relationnel
+strict pour gagner en scalabilit\'e horizontale, en flexibilit\'e de
+sch\'ema et en performances sur des cas d'usage sp\'ecifiques. Quatre
+grandes familles existent~: cl\'e-valeur, document, colonne et graphe.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Motivation et contexte}
+% ------------------------------------------------------------
+
+Les bases relationnelles atteignent leurs limites face \`a~:
+\begin{itemize}
+  \item des volumes massifs (p\'etaoctets),
+  \item des donn\'ees semi-structur\'ees ou non structur\'ees,
+  \item des besoins de haute disponibilit\'e et de distribution g\'eographique,
+  \item des sch\'emas \'evolutifs (d\'eveloppement agile).
+\end{itemize}
+
+\begin{remarque}
+NoSQL ne signifie pas \og anti-SQL \fg mais \og Not Only SQL \fg.
+Beaucoup de bases NoSQL proposent d\'esormais un langage de requ\^ete
+d\'eclaratif (CQL pour Cassandra, MQL pour MongoDB, Cypher pour Neo4j).
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Th\'eor\`eme CAP}
+% ------------------------------------------------------------
+
+\begin{theoreme}[Th\'eor\`eme CAP (Brewer, 2000)]
+\index{th\'eor\`eme CAP}
+Un syst\`eme distribu\'e ne peut garantir simultan\'ement que deux des
+trois propri\'et\'es suivantes~:
+\begin{enumerate}
+  \item \textbf{Consistency} (coh\'erence)~: toute lecture renvoie la
+        derni\`ere \'ecriture.
+  \item \textbf{Availability} (disponibilit\'e)~: toute requ\^ete re\c{c}oit
+        une r\'eponse (non n\'ecessairement la plus r\'ecente).
+  \item \textbf{Partition tolerance} (tol\'erance aux partitions)~: le
+        syst\`eme fonctionne malgr\'e des coupures r\'eseau.
+\end{enumerate}
+\end{theoreme}
+
+\begin{attention}
+En pratique, les partitions r\'eseau sont in\'evitables dans un syst\`eme
+distribu\'e. Le vrai choix est donc entre \textbf{CP} (coh\'erence forte,
+ex.~: HBase, MongoDB avec \texttt{readConcern: majority}) et \textbf{AP}
+(disponibilit\'e, ex.~: Cassandra, DynamoDB en mode \'eventual).
+\end{attention}
+
+\begin{definition}[Coh\'erence \'eventuelle]
+\index{coh\'erence \'eventuelle}
+Un syst\`eme \`a \textbf{coh\'erence \'eventuelle} (\emph{eventual consistency})
+garantit que, en l'absence de nouvelles \'ecritures, toutes les r\'epliques
+convergent vers la m\^eme valeur apr\`es un d\'elai fini.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Bases cl\'e-valeur}
+% ------------------------------------------------------------
+
+\begin{definition}[Base cl\'e-valeur]
+\index{base cl\'e-valeur}
+Une \textbf{base cl\'e-valeur} stocke des paires $(k, v)$ o\`u $k$ est
+une cl\'e unique et $v$ une valeur opaque (cha\^ine, blob, objet s\'erialis\'e).
+L'acc\`es se fait uniquement par cl\'e~: \texttt{GET}, \texttt{SET},
+\texttt{DELETE}.
+\end{definition}
+
+\begin{exemple}
+Redis~: cache en m\'emoire et structure de donn\'ees~:
+\begin{minted}{python}
+import redis
+
+r = redis.Redis(host='localhost', port=6379, db=0)
+r.set('user:1001:name', 'Alice')
+r.set('user:1001:email', 'alice@example.com')
+r.expire('user:1001:name', 3600)  # TTL de 1 heure
+
+name = r.get('user:1001:name')  # b'Alice'
+
+# Structures avancees
+r.hset('user:1002', mapping={'name': 'Bob', 'age': '25'})
+r.lpush('queue:jobs', 'task_42')
+r.zadd('leaderboard', {'Alice': 1500, 'Bob': 1200})
+\end{minted}
+\end{exemple}
+
+\begin{remarque}
+Cas d'usage typiques~: cache applicatif, sessions utilisateur,
+compteurs temps r\'eel, files d'attente de messages.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Bases document}
+% ------------------------------------------------------------
+
+\begin{definition}[Base document]
+\index{base document}
+Une \textbf{base document} stocke des documents semi-structur\'es
+(JSON, BSON) regroup\'es en \emph{collections}. Chaque document a un
+sch\'ema flexible~: deux documents de la m\^eme collection peuvent avoir
+des champs diff\'erents.
+\end{definition}
+
+\begin{exemple}
+MongoDB~:
+\begin{minted}{python}
+from pymongo import MongoClient
+
+client = MongoClient('mongodb://localhost:27017/')
+db = client['universite']
+col = db['etudiants']
+
+# Insertion
+col.insert_one({
+    'nom': 'Dupont',
+    'prenom': 'Alice',
+    'notes': [
+        {'matiere': 'BDD', 'note': 16},
+        {'matiere': 'Algo', 'note': 14}
+    ],
+    'adresse': {'ville': 'Paris', 'cp': '75005'}
+})
+
+# Requete avec filtre et projection
+resultats = col.find(
+    {'notes.note': {'$gte': 15}},
+    {'nom': 1, 'prenom': 1, '_id': 0}
+)
+
+# Agregation (equivalent GROUP BY)
+pipeline = [
+    {'$unwind': '$notes'},
+    {'$group': {'_id': '$nom', 'moyenne': {'$avg': '$notes.note'}}}
+]
+col.aggregate(pipeline)
+\end{minted}
+\end{exemple}
+
+\begin{remarque}
+MongoDB offre des index secondaires, des transactions multi-documents
+(depuis la version 4.0) et un langage d'agr\'egation riche. Il convient
+aux donn\'ees \`a sch\'ema variable (catalogues produits, CMS, IoT).
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Bases orient\'ees colonnes}
+% ------------------------------------------------------------
+
+\begin{definition}[Base orient\'ee colonnes]
+\index{base orient\'ee colonnes}
+Une \textbf{base orient\'ee colonnes} (ou \emph{column-family store})
+organise les donn\'ees par familles de colonnes plut\^ot que par lignes.
+Chaque ligne est identifi\'ee par une cl\'e de partition et peut avoir un
+nombre variable de colonnes.
+\end{definition}
+
+\begin{exemple}
+Apache Cassandra~:
+\begin{minted}{python}
+-- CQL (Cassandra Query Language)
+CREATE KEYSPACE universite WITH replication = {
+    'class': 'SimpleStrategy', 'replication_factor': 3
+};
+
+CREATE TABLE universite.notes (
+    etudiant_id UUID,
+    matiere TEXT,
+    semestre INT,
+    note FLOAT,
+    PRIMARY KEY ((etudiant_id), matiere, semestre)
+) WITH CLUSTERING ORDER BY (matiere ASC, semestre DESC);
+
+-- La cle de partition (etudiant_id) determine le noeud de stockage
+-- Les colonnes de clustering ordonnent les donnees au sein de la partition
+\end{minted}
+\end{exemple}
+
+\begin{remarque}
+Cassandra excelle pour les \'ecritures massives distribu\'ees (logs,
+s\'eries temporelles, IoT). La mod\'elisation est pilot\'ee par les
+requ\^etes~: on con\c{c}oit les tables en fonction des \texttt{SELECT}
+que l'on souhaite ex\'ecuter.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Bases de donn\'ees orient\'ees graphe}
+% ------------------------------------------------------------
+
+\begin{definition}[Base de donn\'ees graphe]
+\index{base de donn\'ees graphe}
+Une \textbf{base de donn\'ees graphe} stocke des \textbf{n\oe uds}
+(entit\'es) et des \textbf{ar\^etes} (relations) comme citoyens de
+premi\`ere classe. Les travers\'ees de graphe sont des op\'erations natives
+en $O(1)$ par relation (ind\'ependamment de la taille du graphe).
+\end{definition}
+
+\begin{exemple}
+Neo4j et le langage Cypher~:
+\begin{minted}{python}
+// Creer des noeuds et des relations
+CREATE (a:Personne {nom: 'Alice', age: 30})
+CREATE (b:Personne {nom: 'Bob', age: 25})
+CREATE (a)-[:AMIS_AVEC {depuis: 2020}]->(b)
+CREATE (a)-[:TRAVAILLE_A]->(:Entreprise {nom: 'TechCorp'})
+
+// Trouver les amis d'amis (distance 2)
+MATCH (p:Personne {nom: 'Alice'})-[:AMIS_AVEC*2]-(fof)
+WHERE fof <> p
+RETURN DISTINCT fof.nom
+
+// Plus court chemin
+MATCH path = shortestPath(
+    (a:Personne {nom: 'Alice'})-[*..6]-(b:Personne {nom: 'Charlie'})
+)
+RETURN path
+\end{minted}
+\end{exemple}
+
+\begin{remarque}
+Les bases graphe sont id\'eales pour les r\'eseaux sociaux, la d\'etection
+de fraude, les syst\`emes de recommandation et la gestion des connaissances
+(knowledge graphs). Elles surpassent les bases relationnelles d\`es que les
+requ\^etes impliquent des jointures r\'ecursives profondes.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Comparaison et choix}
+% ------------------------------------------------------------
+
+\begin{center}
+\begin{tabular}{lcccc}
+\hline
+& \textbf{Cl\'e-valeur} & \textbf{Document} & \textbf{Colonne} & \textbf{Graphe} \\
+\hline
+Exemple    & Redis    & MongoDB    & Cassandra & Neo4j \\
+Sch\'ema   & Aucun    & Flexible   & Semi-fixe & Flexible \\
+Requ\^etes & Par cl\'e & Riches     & Par partition & Travers\'ees \\
+Scalabilit\'e & Tr\`es haute & Haute & Tr\`es haute & Mod\'er\'ee \\
+Cas typique & Cache & CMS, catalogue & S\'eries temp. & R\'eseau social \\
+\hline
+\end{tabular}
+\end{center}
+
+\begin{proposition}[Crit\`eres de choix]
+Le choix d'un type de base NoSQL d\'epend de~:
+\begin{enumerate}
+  \item la \textbf{structure} des donn\'ees (sch\'ema fixe vs.\ flexible),
+  \item les \textbf{patterns d'acc\`es} (cl\'e, requ\^etes complexes, travers\'ees),
+  \item les exigences de \textbf{coh\'erence} vs.\ \textbf{disponibilit\'e},
+  \item le \textbf{volume} et la \textbf{v\'elocit\'e} des donn\'ees.
+\end{enumerate}
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Formules cl\'es}
+% ------------------------------------------------------------
+
+\begin{formules}
+\begin{itemize}
+  \item \textbf{CAP}~: Consistency + Availability + Partition tolerance --- au plus 2 sur 3
+  \item \textbf{Cl\'e-valeur}~: acc\`es $O(1)$ par cl\'e, aucune requ\^ete sur la valeur
+  \item \textbf{Document}~: sch\'ema flexible, index secondaires, agr\'egation
+  \item \textbf{Colonne}~: mod\'elisation par requ\^ete, \'ecritures distribu\'ees massives
+  \item \textbf{Graphe}~: travers\'ees en $O(k)$ o\`u $k$ = nombre d'ar\^etes travers\'ees
+\end{itemize}
+\end{formules}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}
+Pour chacun des cas d'usage suivants, recommander un type de base NoSQL
+et justifier~: (a) cache de sessions web, (b) catalogue de produits avec
+attributs variables, (c) suivi de capteurs IoT \`a 100\,000 \'ev\'enements/s,
+(d) d\'etection de communaut\'es dans un r\'eseau social.
+\end{exercice}
+
+\begin{exercice}
+\'Ecrire un script Python qui ins\`ere 10\,000 documents dans MongoDB,
+cr\'ee un index sur un champ, puis compare le temps d'une requ\^ete avec
+et sans index.
+\end{exercice}
+
+\begin{exercice}
+Mod\'eliser un syst\`eme de recommandation de films dans Neo4j. Cr\'eer
+les n\oe uds (utilisateurs, films, genres) et les relations (A\_VU,
+A\_NOTE, EST\_DU\_GENRE). \'Ecrire une requ\^ete Cypher pour recommander
+des films \`a un utilisateur bas\'e sur les pr\'ef\'erences de ses amis.
+\end{exercice}
+
+\begin{exercice}
+Concevoir le sch\'ema Cassandra pour une application de messagerie
+(messages entre utilisateurs). La requ\^ete principale est \og afficher
+les $N$ derniers messages d'une conversation \fg. Justifier le choix
+de la cl\'e de partition et des colonnes de clustering.
+\end{exercice}
+
+\begin{exercice}
+Discuter les implications du th\'eor\`eme CAP pour une application
+bancaire distribu\'ee sur plusieurs continents. Quel compromis
+recommanderiez-vous~? Pourquoi~?
+\end{exercice}

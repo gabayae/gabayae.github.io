@@ -1,0 +1,273 @@
+% ============================================================
+\chapter{Mesures de Risque}
+\label{ch:risque}
+% ============================================================
+
+\section{Introduction}
+
+Apr\`es les crises financi\`eres des ann\'ees 1990 --- d\'eb\^acle d'Orange County (1994), faillite de Barings (1995), crise LTCM (1998) --- la question de la mesure du risque est devenue centrale. J.P.\,Morgan popularise la \emph{Value at Risk} (VaR) en 1994 avec son syst\`eme RiskMetrics~: un chiffre unique r\'esumant la perte maximale probable sur un horizon donn\'e avec un certain niveau de confiance. Mais Philippe Artzner et ses coll\`egues montrent en 1999 que la VaR n'est pas \emph{coh\'erente}~: elle ne respecte pas la sous-additivit\'e, ce qui signifie que diversifier un portefeuille peut, paradoxalement, augmenter la VaR mesur\'ee. L'\emph{Expected Shortfall} (CVaR) corrige ce d\'efaut. Ce chapitre parcourt cette histoire, des mesures empiriques aux axiomes th\'eoriques, en passant par les copules et les tests de r\'esistance.
+
+\begin{intuition}
+Une mesure de risque r\'epond \`a la question : \og Combien puis-je perdre au
+maximum avec une probabilit\'e donn\'ee sur un horizon donn\'e ? \fg La VaR
+r\'epond par un quantile, mais ne dit rien sur l'ampleur des pertes au-del\`a.
+L'Expected Shortfall comble cette lacune en moyennant les pertes dans la queue
+de la distribution.
+\end{intuition}
+
+\section{Value at Risk (VaR)}
+
+\begin{definition}[Value at Risk]
+\index{Value at Risk}
+Soit $L$ la variable al\'eatoire repr\'esentant la perte d'un portefeuille sur
+un horizon $\Delta t$. La \textbf{Value at Risk}\index{VaR} au niveau de
+confiance $\alpha \in (0, 1)$ est
+\[
+    \mathrm{VaR}_\alpha(L) = \inf\{l \in \R : \PP(L > l) \leq 1 - \alpha\}
+    = F_L^{-1}(\alpha),
+\]
+o\`u $F_L^{-1}$ d\'esigne le quantile g\'en\'eralis\'e de $L$.
+\end{definition}
+
+\begin{exemple}[VaR gaussienne]
+Si $L \sim \mathcal{N}(\mu, \sigma^2)$, alors
+$\mathrm{VaR}_\alpha = \mu + \sigma\,\Phi^{-1}(\alpha)$,
+o\`u $\Phi$ est la fonction de r\'epartition de la loi normale standard.
+Pour $\alpha = 0{,}99$ : $\mathrm{VaR}_{99\%} = \mu + 2{,}326\,\sigma$.
+\end{exemple}
+
+\begin{proposition}[M\'ethodes de calcul de la VaR]
+\begin{enumerate}
+    \item \textbf{Historique} : $\mathrm{VaR}_\alpha = $ quantile empirique
+    des rendements pass\'es.
+    \item \textbf{Param\'etrique (variance-covariance)} : suppose une
+    distribution (souvent gaussienne) et utilise $\mu$, $\sigma$ estim\'es.
+    \item \textbf{Monte Carlo} : simulation de sc\'enarios et calcul du
+    quantile sur les pertes simul\'ees.
+\end{enumerate}
+\end{proposition}
+
+\begin{attention}[title=\textbf{Limites de la VaR}]
+La VaR ne satisfait pas la propri\'et\'e de sous-additivit\'e en g\'en\'eral :
+on peut avoir $\mathrm{VaR}_\alpha(L_1 + L_2) > \mathrm{VaR}_\alpha(L_1) +
+\mathrm{VaR}_\alpha(L_2)$. Cela signifie que la diversification peut
+\emph{sembler} augmenter le risque, ce qui est un d\'efaut conceptuel majeur.
+\end{attention}
+
+\section{Expected Shortfall (CVaR)}
+
+\begin{definition}[Expected Shortfall]
+\index{Expected Shortfall}\index{CVaR}
+L'\textbf{Expected Shortfall} (ou CVaR, Conditional Value at Risk) au niveau
+$\alpha$ est
+\[
+    \mathrm{ES}_\alpha(L) = \frac{1}{1-\alpha}\int_\alpha^1
+    \mathrm{VaR}_u(L)\,\mathrm{d}u.
+\]
+Si $F_L$ est continue, $\mathrm{ES}_\alpha(L) = \E[L \mid L \geq \mathrm{VaR}_\alpha(L)]$.
+\end{definition}
+
+\begin{exemple}[ES gaussien]
+Si $L \sim \mathcal{N}(\mu, \sigma^2)$ :
+\[
+    \mathrm{ES}_\alpha = \mu + \sigma\,\frac{\phi(\Phi^{-1}(\alpha))}{1 - \alpha},
+\]
+o\`u $\phi$ est la densit\'e de la loi normale standard. Pour $\alpha = 0{,}99$ :
+$\mathrm{ES}_{99\%} \approx \mu + 2{,}665\,\sigma$.
+\end{exemple}
+
+\begin{theoreme}[Repr\'esentation duale de l'ES]
+\index{repr\'esentation duale}
+\[
+    \mathrm{ES}_\alpha(L) = \sup_{Q \in \mathcal{Q}_\alpha} \E_Q[L],
+\]
+o\`u $\mathcal{Q}_\alpha = \{Q \ll \PP : \mathrm{d}Q/\mathrm{d}\PP \leq 1/(1-\alpha)\}$.
+Cette repr\'esentation montre que l'ES est le pire cas d'esp\'erance sur un
+ensemble d'ambig\"uit\'e.
+\end{theoreme}
+
+\section{Mesures de risque coh\'erentes}
+
+\begin{definition}[Mesure de risque coh\'erente]
+\index{mesure de risque coh\'erente}
+Une fonctionnelle $\rho : \mathcal{X} \to \R$ est une \textbf{mesure de risque
+coh\'erente} (Artzner, Delbaen, Eber, Heath, 1999) si elle satisfait :
+\begin{enumerate}
+    \item \textbf{Monotonie} : $L_1 \leq L_2$ p.s. $\implies$ $\rho(L_1) \leq \rho(L_2)$.
+    \item \textbf{Invariance par translation} : $\rho(L + c) = \rho(L) + c$
+    pour tout $c \in \R$.
+    \item \textbf{Homog\'en\'eit\'e positive} : $\rho(\lambda L) = \lambda\rho(L)$
+    pour tout $\lambda > 0$.
+    \item \textbf{Sous-additivit\'e} : $\rho(L_1 + L_2) \leq \rho(L_1) + \rho(L_2)$.
+\end{enumerate}
+\end{definition}
+
+\begin{theoreme}[ADEH, 1999]
+\begin{enumerate}
+    \item L'Expected Shortfall est une mesure de risque \textbf{coh\'erente}.
+    \item La VaR n'est \textbf{pas} coh\'erente (elle viole la sous-additivit\'e).
+    \item Toute mesure de risque coh\'erente admet une repr\'esentation
+    $\rho(L) = \sup_{Q \in \mathcal{Q}} \E_Q[L]$ pour un ensemble convexe
+    ferm\'e $\mathcal{Q}$ de mesures de probabilit\'e.
+\end{enumerate}
+\end{theoreme}
+
+\begin{formules}[title=\textbf{Comparaison VaR vs ES}]
+\begin{center}
+\begin{tabular}{lcc}
+\textbf{Propri\'et\'e} & \textbf{VaR} & \textbf{ES} \\
+\hline
+Sous-additivit\'e & Non & Oui \\
+Coh\'erence & Non & Oui \\
+Sensibilit\'e \`a la queue & Non & Oui \\
+R\'eglementation B\^ale III+ & Non & Oui \\
+Facilit\'e de backtesting & Oui & Difficile \\
+\end{tabular}
+\end{center}
+\end{formules}
+
+\section{Tests de r\'esistance (Stress Testing)}
+
+\begin{definition}[Stress test]
+\index{stress test}
+Un \textbf{test de r\'esistance} consiste \`a \'evaluer les pertes d'un
+portefeuille sous des sc\'enarios extr\^emes pr\'ed\'efinis ou historiques :
+\[
+    L_{\text{stress}} = \sum_{i=1}^n \Delta_i \cdot S_i^{\text{stress}},
+\]
+o\`u $\Delta_i$ sont les sensibilit\'es et $S_i^{\text{stress}}$ les chocs
+appliqu\'es aux facteurs de risque.
+\end{definition}
+
+\begin{proposition}[Types de stress tests]
+\begin{enumerate}
+    \item \textbf{Historiques} : reproduction de crises pass\'ees (2008, 2020).
+    \item \textbf{Hypoth\'etiques} : sc\'enarios construits (choc de taux de
+    300 bp, effondrement d'un secteur).
+    \item \textbf{Reverse stress tests} : recherche du sc\'enario qui m\`ene
+    \`a une perte critique donn\'ee.
+\end{enumerate}
+\end{proposition}
+
+\section{Copules et mod\'elisation de la d\'ependance}
+
+\begin{definition}[Copule]
+\index{copule}
+Une \textbf{copule} $C : [0,1]^d \to [0,1]$ est une fonction de r\'epartition
+dont les marginales sont uniformes sur $[0,1]$. Elle capture la structure de
+d\'ependance ind\'ependamment des lois marginales.
+\end{definition}
+
+\begin{theoreme}[Sklar, 1959]
+\index{th\'eor\`eme de Sklar}
+Pour toute loi jointe $F$ de marginales $F_1, \ldots, F_d$, il existe une
+copule $C$ telle que
+\[
+    F(x_1, \ldots, x_d) = C(F_1(x_1), \ldots, F_d(x_d)).
+\]
+Si les $F_i$ sont continues, $C$ est unique.
+\end{theoreme}
+
+\begin{exemple}[Copule gaussienne]
+\index{copule!gaussienne}
+La \textbf{copule gaussienne} de param\`etre $\Sigma$ (matrice de corr\'elation) est
+\[
+    C_\Sigma^{\mathrm{Ga}}(u_1, \ldots, u_d)
+    = \Phi_\Sigma(\Phi^{-1}(u_1), \ldots, \Phi^{-1}(u_d)),
+\]
+o\`u $\Phi_\Sigma$ est la fonction de r\'epartition de la loi normale
+multidimensionnelle.
+\end{exemple}
+
+\begin{definition}[Copule de Clayton]
+\index{copule!Clayton}
+La \textbf{copule de Clayton} (bivari\'ee) est
+\[
+    C_\theta(u, v) = \left(u^{-\theta} + v^{-\theta} - 1\right)^{-1/\theta},
+    \quad \theta > 0.
+\]
+Elle mod\'elise une forte d\'ependance dans la queue inf\'erieure (risque de
+co-crash).
+\end{definition}
+
+\begin{remarque}
+La copule gaussienne sous-estime la d\'ependance de queue. C'est l'une des
+causes de la crise des subprimes de 2008, o\`u les mod\`eles de CDO
+utilisaient la copule gaussienne de Li (2000) sans tenir compte de la
+d\'ependance extr\^eme.
+\end{remarque}
+
+\begin{definition}[D\'ependance de queue]
+\index{d\'ependance de queue}
+Le \textbf{coefficient de d\'ependance de queue inf\'erieure} est
+\[
+    \lambda_L = \lim_{u \to 0^+} \frac{C(u, u)}{u}.
+\]
+Pour la copule gaussienne, $\lambda_L = 0$ (sauf si $\rho = 1$).
+Pour la copule de Clayton, $\lambda_L = 2^{-1/\theta} > 0$.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Calcul de la VaR et de l'ES par simulation Monte Carlo}]
+\begin{minted}{python}
+import numpy as np
+from scipy.stats import norm
+
+np.random.seed(42)
+n_simulations = 100_000
+mu, sigma = 0.0, 0.02  # rendement journalier
+alpha = 0.99
+
+# Simulation des rendements
+returns = np.random.normal(mu, sigma, n_simulations)
+losses = -returns  # perte = -rendement
+
+# VaR historique
+var_99 = np.percentile(losses, 100 * alpha)
+
+# Expected Shortfall
+es_99 = losses[losses >= var_99].mean()
+
+print(f"VaR 99%: {var_99:.4f}")
+print(f"ES 99%:  {es_99:.4f}")
+print(f"VaR analytique: {-mu + sigma * norm.ppf(alpha):.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{Exercices}
+
+\begin{exercice}[VaR d'un portefeuille]
+Un portefeuille de valeur 10 M\texteuro{} a des rendements journaliers
+$\mathcal{N}(0{,}05\%,\, (1{,}5\%)^2)$. Calculer la VaR \`a 99\% \`a 1 jour
+et \`a 10 jours (r\`egle de la racine carr\'ee du temps).
+\end{exercice}
+
+\begin{exercice}[Violation de la sous-additivit\'e]
+Construire un exemple explicite de deux variables al\'eatoires $L_1, L_2$
+telles que $\mathrm{VaR}_{0{,}95}(L_1 + L_2) > \mathrm{VaR}_{0{,}95}(L_1) +
+\mathrm{VaR}_{0{,}95}(L_2)$.
+\textit{Indication} : utiliser des pertes de Bernoulli concentr\'ees.
+\end{exercice}
+
+\begin{exercice}[Copule de Clayton]
+Simuler 10\,000 paires $(U, V)$ suivant une copule de Clayton avec
+$\theta = 2$. Estimer le coefficient de d\'ependance de queue inf\'erieure
+et comparer avec la valeur th\'eorique $\lambda_L = 2^{-1/2}$.
+\end{exercice}
+
+\begin{exercice}[Mesure de risque convexe]
+Montrer que toute mesure de risque coh\'erente est convexe. Donner un exemple
+de mesure convexe qui n'est pas coh\'erente (homog\'en\'eit\'e positive
+viol\'ee).
+\end{exercice}
+
+\begin{exercice}[Stress test]
+Concevoir un stress test historique bas\'e sur la crise de 2008 pour un
+portefeuille contenant 60\% d'actions et 40\% d'obligations. Calculer la
+perte sous ce sc\'enario et comparer avec la VaR \`a 99\%.
+\end{exercice}
+
+\begin{exercice}[Backtesting]
+Expliquer le test de Kupiec pour le backtesting de la VaR. Si sur 250 jours
+de trading, on observe 5 d\'epassements de la VaR \`a 99\%, la VaR est-elle
+correctement calibr\'ee au seuil de 5\% ?
+\end{exercice}

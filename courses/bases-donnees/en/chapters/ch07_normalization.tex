@@ -1,0 +1,419 @@
+% ============================================================
+\chapter{Database Normalization}
+\label{ch:normalization}
+% ============================================================
+
+Why does a well-designed database never contain redundancy? The answer lies in a single word: \emph{anomalies}. When the same information is stored in multiple places, a partial update creates inconsistencies; a deletion can destroy data one intended to keep; an insertion may be impossible without inventing fictitious values. Edgar Codd, as early as 1972, formalized these problems by introducing \emph{functional dependencies} and \emph{normal forms}. The idea is systematic: decompose tables to eliminate redundancy while preserving information (lossless decomposition) and constraints (dependency preservation). First normal form (1NF), second (2NF), third (3NF), and Boyce--Codd normal form (BCNF) form an increasingly strict hierarchy. Understanding this hierarchy is understanding the art of designing robust relational schemas.
+
+\section{Design Problems and Anomalies}
+
+A poorly designed schema leads to \emph{anomalies}:
+
+\begin{definition}[Data Anomalies]
+\begin{itemize}
+    \item \textbf{Insertion anomaly}: inability to insert data without also
+          inserting other unwanted data.
+    \item \textbf{Update anomaly}: a modification must be repeated across
+          multiple rows to maintain consistency.
+    \item \textbf{Deletion anomaly}: deleting one piece of information causes
+          the unintended loss of other information.
+\end{itemize}
+\end{definition}
+
+\begin{example}
+Consider the following unnormalized table:
+
+\begin{center}
+\begin{tabular}{llllll}
+\toprule
+\textbf{s\_id} & \textbf{name} & \textbf{course} & \textbf{prof} & \textbf{dept} & \textbf{grade} \\
+\midrule
+1 & Brown & DB & Smith & CS & 88.5 \\
+1 & Brown & Algo & Johnson & Math & 76.0 \\
+2 & Davis & DB & Smith & CS & 72.0 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{itemize}
+    \item \textbf{Update}: if Smith changes department, \emph{all} rows where
+          Smith appears must be modified.
+    \item \textbf{Insertion}: we cannot record a new course without enrolling a student.
+    \item \textbf{Deletion}: deleting Davis's DB enrollment may lose course info
+          if it is the last row.
+\end{itemize}
+\end{example}
+
+\section{Functional Dependencies}
+
+\begin{definition}[Functional Dependency]
+Let $R$ be a relation and $X, Y \subseteq \text{attr}(R)$. We say $Y$
+\emph{functionally depends} on $X$, denoted $X \to Y$, if for all pairs
+of tuples $t_1, t_2 \in R$:
+\[
+t_1[X] = t_2[X] \implies t_1[Y] = t_2[Y]
+\]
+In other words, the value of $X$ uniquely determines the value of $Y$.
+\end{definition}
+
+\begin{example}
+In the University database:
+\begin{itemize}
+    \item $\text{student\_id} \to \text{last\_name}, \text{first\_name}, \text{major}$
+    \item $\text{course\_id} \to \text{title}, \text{credits}, \text{prof\_id}$
+    \item $\text{prof\_id} \to \text{prof\_name}, \text{department}$
+    \item $(\text{student\_id}, \text{course\_id}) \to \text{grade}$
+\end{itemize}
+\end{example}
+
+\begin{definition}[Trivial Functional Dependency]
+$X \to Y$ is \emph{trivial} if $Y \subseteq X$.
+\end{definition}
+
+\begin{definition}[Partial and Transitive Dependencies]
+\begin{itemize}
+    \item \textbf{Partial}: $X \to Y$ is partial if there exists $X' \subsetneq X$
+          such that $X' \to Y$.
+    \item \textbf{Transitive}: if $X \to Z$ and $Z \to Y$ (where $Z$ is not a key),
+          then $X \to Y$ is transitive.
+\end{itemize}
+\end{definition}
+
+\section{Armstrong's Axioms}
+
+\begin{theorem}[Armstrong's Axioms]
+Armstrong's axioms are \emph{sound} and \emph{complete}:
+\begin{enumerate}
+    \item \textbf{Reflexivity}: if $Y \subseteq X$, then $X \to Y$.
+    \item \textbf{Augmentation}: if $X \to Y$, then $XZ \to YZ$.
+    \item \textbf{Transitivity}: if $X \to Y$ and $Y \to Z$, then $X \to Z$.
+\end{enumerate}
+Derived rules:
+\begin{itemize}
+    \item \textbf{Union}: if $X \to Y$ and $X \to Z$, then $X \to YZ$.
+    \item \textbf{Decomposition}: if $X \to YZ$, then $X \to Y$ and $X \to Z$.
+    \item \textbf{Pseudotransitivity}: if $X \to Y$ and $WY \to Z$, then $WX \to Z$.
+\end{itemize}
+\end{theorem}
+
+\section{Attribute Closure}
+
+\begin{definition}[Closure $X^+$]
+The \emph{closure} of $X$ with respect to a set of FDs $F$, denoted $X^+_F$,
+is the set of all attributes $A$ such that $X \to A$ can be derived from $F$
+using Armstrong's axioms.
+\end{definition}
+
+\begin{proposition}[Closure Algorithm]
+To compute $X^+$:
+\begin{enumerate}
+    \item Initialize $X^+ = X$.
+    \item Repeat: for each FD $Y \to Z$ in $F$, if $Y \subseteq X^+$,
+          add $Z$ to $X^+$.
+    \item Stop when $X^+$ no longer changes.
+\end{enumerate}
+\end{proposition}
+
+\begin{example}
+Let $R(A, B, C, D, E)$ with $F = \{A \to B, \; BC \to D, \; D \to E\}$.
+
+Compute $\{A, C\}^+$:
+\begin{enumerate}
+    \item $X^+ = \{A, C\}$
+    \item $A \to B$ and $A \in X^+$: $X^+ = \{A, B, C\}$
+    \item $BC \to D$ and $\{B,C\} \subseteq X^+$: $X^+ = \{A, B, C, D\}$
+    \item $D \to E$ and $D \in X^+$: $X^+ = \{A, B, C, D, E\}$
+\end{enumerate}
+Since $X^+$ contains all attributes, $\{A, C\}$ is a candidate key.
+\end{example}
+
+\section{First Normal Form (1NF)}
+
+\begin{definition}[1NF]
+A relation is in \emph{first normal form} (1NF) if all its attributes are
+\emph{atomic}: each cell contains a single, indivisible value.
+\end{definition}
+
+\begin{example}
+Table NOT in 1NF:
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+id & name & phones \\
+\midrule
+1 & Brown & 555-1234, 555-5678 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Table in 1NF (after decomposition):
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+id & name \\
+\midrule
+1 & Brown \\
+\bottomrule
+\end{tabular}
+\qquad
+\begin{tabular}{ll}
+\toprule
+id & phone \\
+\midrule
+1 & 555-1234 \\
+1 & 555-5678 \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{example}
+
+\section{Second Normal Form (2NF)}
+
+\begin{definition}[2NF]
+A relation is in \emph{second normal form} if it is in 1NF and every
+non-key attribute \emph{fully} depends on the primary key (no partial
+functional dependency).
+\end{definition}
+
+\begin{remark}
+2NF is only relevant for relations with a composite key. If the key is a
+single attribute, a relation in 1NF is automatically in 2NF.
+\end{remark}
+
+\begin{example}
+Let $R(\underline{\text{s\_id}}, \underline{\text{c\_id}}, \text{s\_name}, \text{grade})$
+with key $(\text{s\_id}, \text{c\_id})$.
+
+$\text{s\_id} \to \text{s\_name}$ is a partial FD (depends on only part of
+the key). Not in 2NF.
+
+Decomposition:
+\begin{itemize}
+    \item $R_1(\underline{\text{s\_id}}, \text{s\_name})$
+    \item $R_2(\underline{\text{s\_id}}, \underline{\text{c\_id}}, \text{grade})$
+\end{itemize}
+\end{example}
+
+\section{Third Normal Form (3NF)}
+
+\begin{definition}[3NF]
+A relation is in \emph{third normal form} if it is in 2NF and no non-key
+attribute transitively depends on the primary key.
+
+Formally, for every non-trivial FD $X \to A$:
+\begin{itemize}
+    \item either $X$ contains a candidate key (superkey),
+    \item or $A$ is a prime attribute (belongs to some candidate key).
+\end{itemize}
+\end{definition}
+
+\begin{example}
+Let $R(\underline{\text{s\_id}}, \text{major}, \text{major\_advisor})$.
+
+FDs: $\text{s\_id} \to \text{major}$ and $\text{major} \to \text{major\_advisor}$.
+
+The FD $\text{s\_id} \to \text{major\_advisor}$ is transitive. Not in 3NF.
+
+Decomposition:
+\begin{itemize}
+    \item $R_1(\underline{\text{s\_id}}, \text{major})$
+    \item $R_2(\underline{\text{major}}, \text{major\_advisor})$
+\end{itemize}
+\end{example}
+
+\section{Boyce-Codd Normal Form (BCNF)}
+
+\begin{definition}[BCNF]
+A relation is in \emph{BCNF} if, for every non-trivial functional dependency
+$X \to Y$, $X$ is a superkey.
+\end{definition}
+
+\begin{theorem}[BCNF vs.\ 3NF]
+\begin{itemize}
+    \item BCNF $\Rightarrow$ 3NF $\Rightarrow$ 2NF $\Rightarrow$ 1NF.
+    \item BCNF is stricter than 3NF: it forbids even dependencies where the
+          determinant is not a superkey, even if the dependent is a prime attribute.
+    \item Decomposition into BCNF does not always preserve FDs.
+    \item Decomposition into 3NF always preserves FDs.
+\end{itemize}
+\end{theorem}
+
+\begin{example}
+Let $R(\underline{A}, \underline{B}, C)$ with FDs: $AB \to C$ and $C \to A$.
+
+$C \to A$: $C$ is not a superkey (the keys are $\{A, B\}$ and $\{B, C\}$).
+Not in BCNF.
+
+But $A$ is prime (part of key $\{A, B\}$). So it is in 3NF.
+\end{example}
+
+\section{Lossless Decomposition}
+
+\begin{theorem}[Lossless Join Decomposition]
+A decomposition of $R$ into $R_1$ and $R_2$ is \emph{lossless} if and only
+if one of the following FDs holds:
+\[
+R_1 \cap R_2 \to R_1 - R_2 \quad \text{or} \quad R_1 \cap R_2 \to R_2 - R_1
+\]
+i.e., the intersection of the schemas determines at least one of the complements.
+\end{theorem}
+
+\section{BCNF Decomposition Algorithm}
+
+\begin{proposition}[BCNF Algorithm]
+\begin{enumerate}
+    \item Check if the relation is in BCNF.
+    \item If not, find an FD $X \to Y$ violating BCNF (where $X$ is not a superkey).
+    \item Decompose into:
+          \begin{itemize}
+              \item $R_1 = X \cup Y$ (with key $X$)
+              \item $R_2 = R - Y \cup X$ (all attributes except $Y$, but including $X$)
+          \end{itemize}
+    \item Repeat on $R_1$ and $R_2$ if necessary.
+\end{enumerate}
+\end{proposition}
+
+\section{Normal Forms Summary}
+
+\begin{keyformulas}[title=\textbf{Normal Forms Overview}]
+\begin{center}
+\begin{tabular}{lp{10cm}}
+\toprule
+\textbf{NF} & \textbf{Condition} \\
+\midrule
+1NF & All attributes are atomic \\
+2NF & 1NF + no partial FD of a non-key attribute on the key \\
+3NF & 2NF + no transitive FD of a non-key attribute on the key \\
+BCNF & For every non-trivial FD $X \to Y$, $X$ is a superkey \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{keyformulas}
+
+\section{3NF Synthesis (Bernstein's Algorithm)}
+
+\begin{proposition}[3NF Synthesis Algorithm]
+\begin{enumerate}
+    \item Compute a minimal cover $F_{\min}$ of the FDs.
+    \item For each FD $X \to Y$ in $F_{\min}$, create a relation $R_i(X, Y)$.
+    \item If no relation contains a candidate key of $R$, add a relation
+          with a candidate key.
+    \item Eliminate redundant relations (those included in another).
+\end{enumerate}
+This algorithm guarantees:
+\begin{itemize}
+    \item Lossless decomposition.
+    \item Preservation of functional dependencies.
+    \item Result in 3NF.
+\end{itemize}
+\end{proposition}
+
+\section{Complete Normalization Example}
+
+\begin{codeblock}[title=\textbf{Unnormalized Table}]
+\begin{minted}{sql}
+CREATE TABLE Enrollments_Denorm (
+    student_id INTEGER,
+    student_name TEXT,
+    major TEXT,
+    major_advisor TEXT,
+    course_id INTEGER,
+    course_title TEXT,
+    prof_id INTEGER,
+    prof_name TEXT,
+    grade REAL
+);
+\end{minted}
+\end{codeblock}
+
+Identified FDs:
+\begin{itemize}
+    \item $\text{student\_id} \to \text{student\_name}, \text{major}$
+    \item $\text{major} \to \text{major\_advisor}$
+    \item $\text{course\_id} \to \text{course\_title}, \text{prof\_id}$
+    \item $\text{prof\_id} \to \text{prof\_name}$
+    \item $(\text{student\_id}, \text{course\_id}) \to \text{grade}$
+\end{itemize}
+
+\begin{codeblock}[title=\textbf{Result After 3NF/BCNF Normalization}]
+\begin{minted}{sql}
+CREATE TABLE Students (
+    student_id INTEGER PRIMARY KEY,
+    last_name TEXT NOT NULL,
+    major TEXT REFERENCES Majors(major)
+);
+
+CREATE TABLE Majors (
+    major TEXT PRIMARY KEY,
+    advisor TEXT NOT NULL
+);
+
+CREATE TABLE Professors (
+    prof_id INTEGER PRIMARY KEY,
+    last_name TEXT NOT NULL
+);
+
+CREATE TABLE Courses (
+    course_id INTEGER PRIMARY KEY,
+    title TEXT NOT NULL,
+    prof_id INTEGER REFERENCES Professors(prof_id)
+);
+
+CREATE TABLE Enrollments (
+    student_id INTEGER REFERENCES Students(student_id),
+    course_id INTEGER REFERENCES Courses(course_id),
+    grade REAL,
+    PRIMARY KEY (student_id, course_id)
+);
+\end{minted}
+\end{codeblock}
+
+\section{Controlled Denormalization}
+
+\begin{remark}
+Perfect normalization is not always the best choice in practice.
+\emph{Denormalization} consists of intentionally reintroducing redundancy
+to improve read performance (avoiding costly joins).
+\end{remark}
+
+\begin{bestpractice}[title=\textbf{When to Denormalize?}]
+\begin{itemize}
+    \item When reads are much more frequent than writes.
+    \item For reporting tables or data warehouses.
+    \item Always document and justify denormalization.
+    \item Use triggers or materialized views to maintain consistency.
+\end{itemize}
+\end{bestpractice}
+
+\section*{Exercises}
+
+\begin{exercise}
+Let $R(A, B, C, D, E)$ with $F = \{A \to BC, \; C \to D, \; BD \to E\}$.
+\begin{enumerate}
+    \item Compute $\{A\}^+$.
+    \item Identify the candidate keys.
+    \item Is the relation in 2NF? 3NF? BCNF? Justify.
+    \item Decompose into BCNF.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}
+Normalize the following relation into 3NF using the synthesis algorithm:
+$R(\text{OrderNum}, \text{OrderDate}, \text{CustNum}, \text{CustName},
+\text{ProdNum}, \text{ProdName}, \text{Quantity}, \text{UnitPrice})$
+
+FDs: $\text{OrderNum} \to \text{OrderDate}, \text{CustNum}$;
+$\text{CustNum} \to \text{CustName}$;
+$\text{ProdNum} \to \text{ProdName}, \text{UnitPrice}$;
+$(\text{OrderNum}, \text{ProdNum}) \to \text{Quantity}$.
+\end{exercise}
+
+\begin{exercise}
+Give an example of a relation that is in 3NF but not in BCNF. Decompose
+it into BCNF and verify whether the functional dependencies are preserved.
+\end{exercise}
+
+\begin{exercise}
+Verify that the decomposition of $R(A, B, C)$ with $F = \{A \to B\}$ into
+$R_1(A, B)$ and $R_2(A, C)$ is lossless. Use Heath's theorem.
+\end{exercise}

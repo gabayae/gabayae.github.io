@@ -1,0 +1,1194 @@
+% ch4-determinants.tex — Chapter 4: Determinants
+% Permutations, Leibniz formula, cofactor expansion, adjugate, Cramer's rule,
+% geometric interpretation, applications.
+
+\chapter{Determinants}\label{ch:determinants}
+
+% ============================================================
+% Motivating introduction
+% ============================================================
+
+How can one tell, by a single number, whether a square matrix is
+invertible? How can one compute the area of a parallelogram Spanned by
+two vectors, or the volume of a parallelepiped in~$\R^3$? These
+seemingly different questions are all answered by the same object:
+the \emph{determinant}\index{determinant}.
+
+Consider two vectors $\vec{u}=(a,b)$ and $\vec{v}=(c,d)$ in~$\R^2$.
+The signed area of the parallelogram they Span is
+$ad - bc$---precisely the determinant of the matrix whose rows (or
+columns) are $\vec{u}$ and~$\vec{v}$. This quantity is zero exactly
+when the two vectors are collinear, i.e.\ when the matrix
+$\begin{psmallmatrix} a & b \\ c & d \end{psmallmatrix}$ fails to be
+invertible. The sign records the \emph{orientation}: positive if
+$\vec{v}$ lies to the left of~$\vec{u}$, negative otherwise.
+
+\begin{center}
+\begin{tikzpicture}[>=Stealth, scale=1.1]
+  % Parallelogram
+  \coordinate (O) at (0,0);
+  \coordinate (U) at (3,0.8);
+  \coordinate (V) at (1,2.2);
+  \coordinate (UV) at ($(U)+(V)$);
+
+  \fill[blue!10] (O) -- (U) -- (UV) -- (V) -- cycle;
+  \draw[thick, blue!70!black, ->] (O) -- (U) node[midway, below right] {$\vec{u}$};
+  \draw[thick, red!70!black, ->] (O) -- (V) node[midway, above left] {$\vec{v}$};
+  \draw[dashed, gray] (U) -- (UV) -- (V);
+
+  \node at ($(O)!0.5!(UV)$) {$\abs{\det}$};
+
+  % Orientation arc
+  \draw[->, thick, green!50!black] (0.9,0.24) arc[start angle=15, end angle=55, radius=0.9]
+    node[midway, right] {\small $+$};
+\end{tikzpicture}
+\captionof{figure}{The absolute value of $\det\begin{psmallmatrix}a&b\\c&d\end{psmallmatrix}$
+  gives the area of the parallelogram; the sign encodes orientation.}
+\label{fig:det-parallelogram-intro}
+\end{center}
+
+In this chapter we develop the theory of determinants rigorously. We
+begin with the combinatorial machinery of permutations and their
+signatures, define the determinant via the Leibniz formula, establish
+its fundamental properties, prove cofactor expansion, derive Cramer's
+rule, and explore geometric interpretations and applications.
+
+Throughout this chapter, $\K$ denotes a field (typically $\R$ or~$\C$),
+and all matrices are square unless stated otherwise. We write
+$\Mat_n(\K)$ for the space of $n\times n$ matrices with entries
+in~$\K$, and we freely use notation and results from
+ef{ch:vector-spaces,ch:linear-maps}.
+
+
+% ============================================================
+\section{Permutations and the symmetric group}\label{sec:permutations}
+% ============================================================
+
+\begin{definition}{Permutation}{def:permutation}
+\index{permutation}\index{symmetric group}
+A \emph{permutation} of the set $\set{1,2,\ldots,n}$ is a bijection
+$\sigma\colon\set{1,\ldots,n}\to\set{1,\ldots,n}$.
+The set of all such permutations, equipped with composition, is the
+\emph{symmetric group}\index{symmetric group} $\mathfrak{S}_n$.
+Its cardinality is $\card{\mathfrak{S}_n} = n!$.
+\end{definition}
+
+We use two-line notation and cycle notation interchangeably. For
+instance, the permutation $\sigma\in\mathfrak{S}_4$ with
+$\sigma(1)=2$, $\sigma(2)=4$, $\sigma(3)=3$, $\sigma(4)=1$ is written
+\[
+  \sigma = \begin{pmatrix} 1 & 2 & 3 & 4 \\ 2 & 4 & 3 & 1 \end{pmatrix}
+  = (1\;2\;4).
+\]
+
+\begin{definition}{Transposition}{def:transposition}
+\index{transposition}
+A \emph{transposition} is a permutation that exchanges exactly two
+elements and fixes all others. We write $\tau_{ij}$ for the
+transposition that swaps $i$ and~$j$ (with $i\neq j$).
+\end{definition}
+
+\begin{proposition}{Generation by transpositions}{prop:gen-transpositions}
+Every permutation $\sigma\in\mathfrak{S}_n$ can be written as a
+product (composition) of transpositions.
+\end{proposition}
+
+\begin{proof}
+It suffices to show every cycle decomposes into transpositions, since
+every permutation is a product of disjoint cycles. Indeed,
+$(a_1\;a_2\;\cdots\;a_k) = \tau_{a_1 a_k}\circ\tau_{a_1 a_{k-1}}
+\circ\cdots\circ\tau_{a_1 a_2}$.
+\end{proof}
+
+\begin{definition}{Inversions and signature}{def:signature}
+\index{inversion}\index{signature!of a permutation}
+An \emph{inversion} of $\sigma\in\mathfrak{S}_n$ is a pair $(i,j)$
+with $1\leq i < j \leq n$ and $\sigma(i)>\sigma(j)$.
+The \emph{signature} (or \emph{sign}) of~$\sigma$ is
+\[
+  \sgn(\sigma) \deff (-1)^{N(\sigma)},
+\]
+where $N(\sigma)$ denotes the number of inversions of~$\sigma$.
+Equivalently,
+\[
+  \sgn(\sigma) = \prod_{1\leq i < j \leq n}
+    \frac{\sigma(j)-\sigma(i)}{j-i}.
+\]
+A permutation is called \emph{even}\index{even permutation} if
+$\sgn(\sigma)=+1$ and \emph{odd}\index{odd permutation} if
+$\sgn(\sigma)=-1$.
+\end{definition}
+
+\begin{proposition}{Properties of the signature}{prop:sgn-properties}
+For all $\sigma,\tau\in\mathfrak{S}_n$:
+\begin{enumerate}[label=(\roman*)]
+  \item $\sgn(\sigma\circ\tau) = \sgn(\sigma)\cdot\sgn(\tau)$.
+  \item $\sgn(\sigma^{-1}) = \sgn(\sigma)$.
+  \item Every transposition has signature $-1$.
+  \item If $\sigma = \tau_1\circ\cdots\circ\tau_r$ is a product of
+    transpositions, then $\sgn(\sigma)=(-1)^r$. In particular, the
+    parity of~$r$ depends only on~$\sigma$, not on the decomposition.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+Consider the product formula
+$\sgn(\sigma) = \prod_{i<j}\frac{\sigma(j)-\sigma(i)}{j-i}$.
+
+(iii) Let $\tau = \tau_{pq}$ with $p < q$. In the product
+$\prod_{i<j}(\tau(j)-\tau(i))$, compared to $\prod_{i<j}(j-i)$,
+the factor $(q-p)$ changes sign (to $(p-q)$), and for each $k$
+strictly between $p$ and $q$, the two factors involving $k$ and $p$,
+and $k$ and $q$, exchange roles, contributing no net sign change.
+A careful count shows the total sign is $-1$.
+
+(i) From the product formula,
+$\sgn(\sigma\circ\tau) = \prod_{i<j}
+\frac{(\sigma\circ\tau)(j)-(\sigma\circ\tau)(i)}{j-i}$.
+Write $j-i = \frac{j-i}{\tau(j)-\tau(i)}\cdot(\tau(j)-\tau(i))$
+(since $\tau$ is a bijection, the denominator is nonzero when $i<j$),
+and rearrange to factor the product as $\sgn(\sigma)\cdot\sgn(\tau)$.
+
+(ii) Follows from (i) applied to $\sigma\circ\sigma^{-1}=\Id$
+and $\sgn(\Id)=+1$.
+
+(iv) Follows from (i) and (iii) by induction.
+\end{proof}
+
+\begin{example}{Signatures in $\mathfrak{S}_3$}{ex:S3-signatures}
+The group $\mathfrak{S}_3$ has $3!=6$ elements:
+\[
+\begin{array}{c|cccccc}
+  \sigma & \Id & (1\;2) & (1\;3) & (2\;3) & (1\;2\;3) & (1\;3\;2) \\
+  \hline
+  \sgn(\sigma) & +1 & -1 & -1 & -1 & +1 & +1
+\end{array}
+\]
+The three-cycles are even (each is a product of two transpositions:
+$(1\;2\;3)=(1\;3)(1\;2)$), while the transpositions are odd.
+\end{example}
+
+\begin{example}{Computing a signature}{ex:signature-computation}
+Let $\sigma = (1\;3\;5\;2)\in\mathfrak{S}_5$, so $\sigma(1)=3$,
+$\sigma(3)=5$, $\sigma(5)=2$, $\sigma(2)=1$, $\sigma(4)=4$.
+The inversions are $(1,2),(2,5),(3,5)$, giving $N(\sigma)=3$.
+Alternatively, $(1\;3\;5\;2)=(1\;2)(1\;5)(1\;3)$ is a product of
+3~transpositions, so $\sgn(\sigma)=(-1)^3 = -1$.
+\end{example}
+
+
+% ============================================================
+\section{Definition of the determinant}\label{sec:det-definition}
+% ============================================================
+
+\begin{definition}{Determinant (Leibniz formula)}{def:determinant}
+\index{determinant!Leibniz formula}\index{Leibniz formula}
+Let $A = (a_{ij})_{1\leq i,j\leq n}\in\Mat_n(\K)$. The
+\emph{determinant} of~$A$ is
+\[
+  \det(A) \deff \sum_{\sigma\in\mathfrak{S}_n}
+    \sgn(\sigma)\,\prod_{i=1}^n a_{i,\sigma(i)}.
+\]
+\end{definition}
+
+\begin{remark}{Small cases}{rem:small-det}
+For $n=1$: $\det(a) = a$.
+
+For $n=2$:
+$\det\begin{pmatrix} a & b \\ c & d \end{pmatrix} = ad - bc$.
+
+For $n=3$:
+$\det\begin{pmatrix} a_1 & a_2 & a_3 \\ b_1 & b_2 & b_3 \\
+c_1 & c_2 & c_3 \end{pmatrix}
+= a_1 b_2 c_3 + a_2 b_3 c_1 + a_3 b_1 c_2
+  - a_3 b_2 c_1 - a_2 b_1 c_3 - a_1 b_3 c_2$,
+which is the \emph{Sarrus rule}\index{Sarrus rule}.
+\end{remark}
+
+
+% ============================================================
+\section{Alternating multilinear characterization}\label{sec:multilinear}
+% ============================================================
+
+We now give an axiomatic characterization of the determinant. Denote
+the rows of $A$ by $R_1,\ldots,R_n\in\K^n$, so that we may write
+$\det(A)$ as a function of these row vectors:
+$\det(A) = D(R_1,\ldots,R_n)$.
+
+\begin{definition}{Multilinear and alternating}{def:multilinear-alternating}
+\index{multilinear form}\index{alternating form}
+A function $D\colon (\K^n)^n \to \K$ is:
+\begin{enumerate}[label=(\roman*)]
+  \item \emph{multilinear} (in the rows) if for each $i$,
+    $D$ is linear in the $i$-th argument with all other arguments fixed:
+    \[
+      D(R_1,\ldots,\alpha R_i + \beta R_i',\ldots,R_n)
+      = \alpha\,D(R_1,\ldots,R_i,\ldots,R_n)
+        + \beta\,D(R_1,\ldots,R_i',\ldots,R_n).
+    \]
+  \item \emph{alternating} if $D(R_1,\ldots,R_n)=0$ whenever two rows
+    are equal: $R_i = R_j$ for some $i\neq j$.
+\end{enumerate}
+\end{definition}
+
+\begin{lemma}{Alternating implies antisymmetric}{lem:alt-antisymmetric}
+If $D$ is multilinear and alternating, then swapping two rows changes
+the sign:
+\[
+  D(R_1,\ldots,R_i,\ldots,R_j,\ldots,R_n)
+  = -D(R_1,\ldots,R_j,\ldots,R_i,\ldots,R_n).
+\]
+\end{lemma}
+
+\begin{proof}
+Expand $D(\ldots,R_i+R_j,\ldots,R_i+R_j,\ldots) = 0$ by multilinearity.
+Two of the four terms vanish (identical rows), leaving
+$D(\ldots,R_i,\ldots,R_j,\ldots) + D(\ldots,R_j,\ldots,R_i,\ldots) = 0$.
+\end{proof}
+
+\begin{theorem}{Uniqueness of the determinant}{thm:det-unique}
+\index{determinant!axiomatic characterization}
+The determinant is the unique function
+$D\colon (\K^n)^n \to \K$ that is:
+\begin{enumerate}[label=(\roman*)]
+  \item multilinear in the rows,
+  \item alternating,
+  \item normalized: $D(I_n)=1$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+\textbf{Existence.} We verify that the Leibniz formula defines a
+function satisfying (i)--(iii).
+
+Multilinearity: each term
+$\sgn(\sigma)\prod_{i=1}^n a_{i,\sigma(i)}$ is linear in each
+row~$R_k$ (the factor $a_{k,\sigma(k)}$ appears linearly), and the
+sum of linear functions is linear.
+
+Alternating: suppose $R_p = R_q$ for $p\neq q$. Pair each
+$\sigma\in\mathfrak{S}_n$ with $\sigma'=\sigma\circ\tau_{pq}$.
+Then $\sgn(\sigma')=-\sgn(\sigma)$ while
+$\prod_i a_{i,\sigma'(i)}=\prod_i a_{i,\sigma(i)}$ (since
+swapping rows $p,q$ with identical entries has no effect on the
+product). Hence the terms cancel pairwise, giving $D=0$.
+
+Normalization: for $A=I_n$, $a_{i,\sigma(i)}=\delta_{i,\sigma(i)}$,
+so the only surviving permutation is $\sigma=\Id$, giving
+$D(I_n)=\sgn(\Id)\cdot 1 = 1$.
+
+\textbf{Uniqueness.} Let $D$ satisfy (i)--(iii). Write
+$R_i = \sum_{j=1}^n a_{ij}\,\vece{j}$. By multilinearity,
+\[
+  D(R_1,\ldots,R_n)
+  = \sum_{j_1,\ldots,j_n=1}^{n}
+    a_{1,j_1}\cdots a_{n,j_n}\,D(\vece{j_1},\ldots,\vece{j_n}).
+\]
+By the alternating property, $D(\vece{j_1},\ldots,\vece{j_n})=0$
+unless $j_1,\ldots,j_n$ are all distinct, i.e.\ $(j_1,\ldots,j_n)$
+is a permutation $\sigma$. In that case, repeated application of
+ef{lem:lem:alt-antisymmetric} gives
+$D(\vece{\sigma(1)},\ldots,\vece{\sigma(n)})
+= \sgn(\sigma)\,D(\vece{1},\ldots,\vece{n})
+= \sgn(\sigma)$.
+Therefore $D(R_1,\ldots,R_n) = \sum_{\sigma\in\mathfrak{S}_n}
+\sgn(\sigma)\prod_{i=1}^n a_{i,\sigma(i)}$, which is the Leibniz
+formula.
+\end{proof}
+
+
+% ============================================================
+\section{Properties of the determinant}\label{sec:det-properties}
+% ============================================================
+
+\begin{proposition}{Effect of row operations}{prop:row-ops}
+\index{determinant!row operations}
+Let $A\in\Mat_n(\K)$ with rows $R_1,\ldots,R_n$.
+\begin{enumerate}[label=(\roman*)]
+  \item \textbf{Scaling:} Multiplying row $R_i$ by $\lambda\in\K$
+    multiplies $\det(A)$ by $\lambda$.
+  \item \textbf{Swap:} Swapping two rows multiplies $\det(A)$ by $-1$.
+  \item \textbf{Row addition:} Adding a scalar multiple of one row to
+    another does not change $\det(A)$:
+    replacing $R_i$ by $R_i + \lambda R_j$ (with $j\neq i$) leaves
+    $\det$ unchanged.
+\end{enumerate}
+In particular, $\det(\lambda A)=\lambda^n\det(A)$ for all
+$\lambda\in\K$.
+\end{proposition}
+
+\begin{proof}
+(i) and (ii) follow immediately from multilinearity and
+ef{lem:lem:alt-antisymmetric}.
+
+(iii) By multilinearity in row~$i$,
+$D(R_1,\ldots,R_i+\lambda R_j,\ldots,R_n)
+= D(R_1,\ldots,R_i,\ldots,R_n)
++ \lambda\,D(R_1,\ldots,R_j,\ldots,R_n)$,
+where in the second term row~$j$ appears in both positions $i$
+and~$j$, so the alternating property gives $0$.
+\end{proof}
+
+\begin{theorem}{Determinant of a transpose}{thm:det-transpose}
+\index{determinant!of transpose}
+For all $A\in\Mat_n(\K)$,
+$\det(\transpose{A}) = \det(A)$.
+\end{theorem}
+
+\begin{proof}
+Denote $B = \transpose{A}$, so $b_{ij}=a_{ji}$. Then
+\begin{align*}
+  \det(B) &= \sum_{\sigma\in\mathfrak{S}_n}\sgn(\sigma)
+    \prod_{i=1}^n b_{i,\sigma(i)}
+  = \sum_{\sigma\in\mathfrak{S}_n}\sgn(\sigma)
+    \prod_{i=1}^n a_{\sigma(i),i}.
+\end{align*}
+Substituting $\tau = \sigma^{-1}$ (a bijection on $\mathfrak{S}_n$
+with $\sgn(\tau)=\sgn(\sigma)$), and writing $j=\sigma(i)$
+so $i=\tau(j)$:
+\[
+  \det(B) = \sum_{\tau\in\mathfrak{S}_n}\sgn(\tau)
+    \prod_{j=1}^n a_{j,\tau(j)} = \det(A). \qedhere
+\]
+\end{proof}
+
+\begin{remark}{Columns behave like rows}{rem:columns}
+Since $\det(\transpose{A})=\det(A)$, every property of $\det$ stated
+for rows also holds for columns: the determinant is also multilinear
+and alternating in the columns.
+\end{remark}
+
+\begin{theorem}{Determinant of a product}{thm:det-product}
+\index{determinant!of product}
+For all $A,B\in\Mat_n(\K)$,
+\[
+  \det(AB) = \det(A)\det(B).
+\]
+\end{theorem}
+
+\begin{proof}
+Fix $A\in\Mat_n(\K)$ and define $D\colon\Mat_n(\K)\to\K$ by
+$D(B) = \det(AB)$, viewed as a function of the rows of~$B$.
+
+If $B$ has rows $R_1,\ldots,R_n$, then $AB$ has rows
+$AR_1^{\mathsf{T}},\ldots,AR_n^{\mathsf{T}}$ (where we view each
+$R_i$ as a row vector and $A$ acts by left-multiplication after
+transposing). More precisely, the $i$-th row of $AB$ is
+$\sum_{k=1}^n b_{ik}\,C_k$, where $C_k$ is the $k$-th row of~$A$
+viewed appropriately. Rewriting: the $i$-th row of $AB$ is a linear
+function of the $i$-th row of~$B$.
+
+Hence $B\mapsto\det(AB)$ is multilinear and alternating in the
+rows of~$B$ (since $\det$ itself is). By the uniqueness
+ef{thm:thm:det-unique},
+$D(B) = D(I_n)\cdot\det(B) = \det(A)\cdot\det(B)$.
+\end{proof}
+
+\begin{corollary}{Determinant of an inverse}{cor:det-inverse}
+\index{determinant!of inverse}
+If $A\in\GL_n(\K)$, then $\det(\inv{A}) = \frac{1}{\det(A)}$.
+\end{corollary}
+
+\begin{proof}
+$\det(A)\det(\inv{A}) = \det(A\inv{A}) = \det(I_n)=1$.
+\end{proof}
+
+\begin{proposition}{Triangular matrices}{prop:det-triangular}
+\index{determinant!triangular matrix}\index{triangular matrix!determinant}
+If $A$ is upper or lower triangular, then
+$\det(A) = \prod_{i=1}^n a_{ii}$.
+In particular, $\det(I_n)=1$ and
+$\det(\diag(\lambda_1,\ldots,\lambda_n)) = \lambda_1\cdots\lambda_n$.
+\end{proposition}
+
+\begin{proof}
+In the Leibniz formula, the product $\prod_{i=1}^n a_{i,\sigma(i)}$
+vanishes unless $\sigma(i)\geq i$ for all~$i$ (upper triangular case).
+The only permutation satisfying this is $\sigma=\Id$, so
+$\det(A) = \prod_{i=1}^n a_{ii}$.
+\end{proof}
+
+\begin{proposition}{Block triangular matrices}{prop:det-block}
+\index{determinant!block matrix}
+Let $A$ be a block upper (or lower) triangular matrix:
+\[
+  A = \begin{pmatrix} A_{11} & A_{12} \\ 0 & A_{22} \end{pmatrix},
+\]
+where $A_{11}\in\Mat_p(\K)$ and $A_{22}\in\Mat_q(\K)$ with $p+q=n$.
+Then $\det(A) = \det(A_{11})\cdot\det(A_{22})$.
+\end{proposition}
+
+\begin{proof}
+Fix $A_{11}$ and $A_{12}$, and consider
+$D(A_{22}) \deff \det(A)$ as a function of the rows of $A_{22}$
+(these are the last $q$ rows of $A$). Since the block has zeros below
+$A_{11}$, the last $q$ rows of $A$ are
+$(0,\ldots,0,r_{q,1},\ldots,r_{q,q})$ where $(r_{q,1},\ldots,r_{q,q})$
+is a row of~$A_{22}$. By multilinearity and the alternating property
+of $\det$, $D$ is multilinear and alternating in the rows of $A_{22}$.
+Hence $D(A_{22}) = D(I_q)\cdot\det(A_{22})$. But when $A_{22}=I_q$,
+the matrix $A$ is block upper triangular with $A_{22}=I_q$, and we
+can row-reduce $A_{12}$ to zero using the last $q$ rows without
+changing the determinant, obtaining
+$\det\begin{psmallmatrix} A_{11} & 0 \\ 0 & I_q\end{psmallmatrix}
+= \det(A_{11})$.
+Therefore $D(I_q)=\det(A_{11})$.
+\end{proof}
+
+
+% ============================================================
+\section{Cofactor expansion (Laplace expansion)}\label{sec:cofactor}
+% ============================================================
+
+\begin{definition}{Minor and cofactor}{def:cofactor}
+\index{minor}\index{cofactor}
+Let $A=(a_{ij})\in\Mat_n(\K)$. The \emph{$(i,j)$-minor} of~$A$,
+denoted $M_{ij}$, is the determinant of the $(n-1)\times(n-1)$
+submatrix obtained by deleting row~$i$ and column~$j$. The
+\emph{$(i,j)$-cofactor} is
+\[
+  C_{ij} \deff (-1)^{i+j}\,M_{ij}.
+\]
+\end{definition}
+
+\begin{theorem}{Laplace expansion}{thm:laplace}
+\index{Laplace expansion}\index{cofactor expansion}
+For any $A\in\Mat_n(\K)$:
+\begin{enumerate}[label=(\roman*)]
+  \item \textbf{Expansion along row~$i$:}\quad
+    $\displaystyle\det(A) = \sum_{j=1}^n a_{ij}\,C_{ij}
+     = \sum_{j=1}^n (-1)^{i+j}\,a_{ij}\,M_{ij}$.
+  \item \textbf{Expansion along column~$j$:}\quad
+    $\displaystyle\det(A) = \sum_{i=1}^n a_{ij}\,C_{ij}
+     = \sum_{i=1}^n (-1)^{i+j}\,a_{ij}\,M_{ij}$.
+\end{enumerate}
+Moreover, expanding along a ``foreign'' row or column gives zero:
+\[
+  \sum_{j=1}^n a_{ij}\,C_{kj} = 0 \quad\text{for } i\neq k,
+  \qquad
+  \sum_{i=1}^n a_{ij}\,C_{ik} = 0 \quad\text{for } j\neq k.
+\]
+\end{theorem}
+
+\begin{proof}
+\textbf{(i) Expansion along row~$i$.}
+In the Leibniz formula $\det(A)=\sum_{\sigma}\sgn(\sigma)
+\prod_{\ell=1}^n a_{\ell,\sigma(\ell)}$, group the terms according
+to the value $\sigma(i)=j$:
+\[
+  \det(A) = \sum_{j=1}^n a_{ij}
+    \sum_{\substack{\sigma\in\mathfrak{S}_n\\\sigma(i)=j}}
+    \sgn(\sigma)\prod_{\ell\neq i}a_{\ell,\sigma(\ell)}.
+\]
+We claim that
+$\sum_{\sigma:\sigma(i)=j}\sgn(\sigma)\prod_{\ell\neq i}
+a_{\ell,\sigma(\ell)} = (-1)^{i+j}M_{ij}$.
+
+To see this, consider the permutations $\sigma\in\mathfrak{S}_n$
+with $\sigma(i)=j$. Any such $\sigma$ is determined by its restriction
+to $\set{1,\ldots,n}\setminus\set{i}$, which is a bijection onto
+$\set{1,\ldots,n}\setminus\set{j}$. We can identify this restriction
+with a permutation $\sigma'\in\mathfrak{S}_{n-1}$ after relabelling:
+the rows $1,\ldots,i-1,i+1,\ldots,n$ become $1,\ldots,n-1$ and
+similarly for columns. The relabelling involves moving index~$i$ to
+position~$n$ (via $i-1$ adjacent transpositions in the row indices)
+and index~$j$ to position~$n$ (via $j-1$ adjacent transpositions
+in the column indices), contributing a sign of
+$(-1)^{(n-i)+(n-j)}=(-1)^{i+j}$ (since $(-1)^{2n}=1$).
+Thus $\sgn(\sigma) = (-1)^{i+j}\sgn(\sigma')$, and the inner sum
+becomes $(-1)^{i+j}\det(A_{ij})=(-1)^{i+j}M_{ij}=C_{ij}$.
+
+\textbf{(ii)} follows from (i) applied to $\transpose{A}$, using
+$\det(\transpose{A})=\det(A)$.
+
+\textbf{Foreign expansion.}
+Consider $\sum_{j=1}^n a_{ij}C_{kj}$ with $i\neq k$. This equals the
+determinant of the matrix $A'$ obtained from $A$ by replacing row~$k$
+with row~$R_i$ (since the cofactors $C_{kj}$ depend only on the rows
+other than row~$k$, and the formula gives the expansion of $\det(A')$
+along row~$k$). But $A'$ has two identical rows ($R_i$ appears in both
+positions $i$ and~$k$), so $\det(A')=0$ by the alternating property.
+\end{proof}
+
+\begin{example}{$3\times 3$ determinant by cofactor expansion}{ex:3x3-cofactor}
+Compute $\det\begin{pmatrix} 2 & 1 & 3 \\ 0 & -1 & 4 \\ 5 & 2 & 1
+\end{pmatrix}$ by expanding along the first column:
+\begin{align*}
+  \det(A) &= 2\cdot(-1)^{1+1}\det\begin{pmatrix}-1&4\\2&1\end{pmatrix}
+  + 0\cdot(-1)^{2+1}\det\begin{pmatrix}1&3\\2&1\end{pmatrix}
+  + 5\cdot(-1)^{3+1}\det\begin{pmatrix}1&3\\-1&4\end{pmatrix}\\
+  &= 2(-1-8) + 0 + 5(4+3) = 2(-9)+5\cdot 7 = -18+35 = 17.
+\end{align*}
+\end{example}
+
+
+% ============================================================
+\section{The adjugate matrix and Cramer's rule}\label{sec:adjugate}
+% ============================================================
+
+\begin{definition}{Adjugate (classical adjoint)}{def:adjugate}
+\index{adjugate matrix}\index{comatrix}
+The \emph{adjugate} (or \emph{classical adjoint}, or
+\emph{comatrix}\index{comatrix|see{adjugate matrix}}) of
+$A\in\Mat_n(\K)$ is the $n\times n$ matrix
+\[
+  \operatorname{adj}(A) \deff \bigl(C_{ji}\bigr)_{1\leq i,j\leq n}
+  = \transpose{(\text{cofactor matrix})},
+\]
+where $C_{ij}=(-1)^{i+j}M_{ij}$ is the $(i,j)$-cofactor.
+\end{definition}
+
+\begin{theorem}{Adjugate identity}{thm:adjugate}
+\index{adjugate matrix!identity}
+For all $A\in\Mat_n(\K)$,
+\[
+  A\cdot\operatorname{adj}(A) = \operatorname{adj}(A)\cdot A
+  = \det(A)\cdot I_n.
+\]
+\end{theorem}
+
+\begin{proof}
+The $(i,k)$-entry of $A\cdot\operatorname{adj}(A)$ is
+$\sum_{j=1}^n a_{ij}\,[\operatorname{adj}(A)]_{jk}
+= \sum_{j=1}^n a_{ij}\,C_{kj}$.
+By ef{thm:thm:laplace}, this equals $\det(A)$ if $i=k$ and $0$ if
+$i\neq k$ (foreign expansion). Thus
+$A\cdot\operatorname{adj}(A)=\det(A)\,I_n$. The identity
+$\operatorname{adj}(A)\cdot A = \det(A)\,I_n$ is proved by
+considering columns instead of rows (or by applying the row result
+to $\transpose{A}$ and transposing).
+\end{proof}
+
+\begin{corollary}{Inverse via adjugate}{cor:inverse-adjugate}
+\index{inverse matrix!via adjugate}
+If $\det(A)\neq 0$, then $A$ is invertible and
+\[
+  \inv{A} = \frac{1}{\det(A)}\operatorname{adj}(A).
+\]
+\end{corollary}
+
+\begin{theorem}{Cramer's rule}{thm:cramer}
+\index{Cramer's rule}
+Let $A\in\Mat_n(\K)$ with $\det(A)\neq 0$, and let $b\in\K^n$.
+The unique solution $x=(x_1,\ldots,x_n)^{\mathsf{T}}$ of $Ax=b$ is
+given by
+\[
+  x_j = \frac{\det(A_j)}{\det(A)},\qquad j=1,\ldots,n,
+\]
+where $A_j$ is the matrix obtained from~$A$ by replacing column~$j$
+with~$b$.
+\end{theorem}
+
+\begin{proof}
+Since $\det(A)\neq 0$, the system has a unique solution
+$x = \inv{A}b = \frac{1}{\det(A)}\operatorname{adj}(A)\,b$.
+The $j$-th component is
+\[
+  x_j = \frac{1}{\det(A)}\sum_{i=1}^n C_{ij}\,b_i
+  = \frac{1}{\det(A)}\sum_{i=1}^n (-1)^{i+j}M_{ij}\,b_i.
+\]
+But $\sum_{i=1}^n (-1)^{i+j}b_i\,M_{ij}$ is precisely the cofactor
+expansion of $\det(A_j)$ along column~$j$ (since column~$j$ of $A_j$
+is~$b$, and the minors $M_{ij}$ are unchanged). Hence
+$x_j = \det(A_j)/\det(A)$.
+\end{proof}
+
+\begin{example}{Cramer's rule in dimension 2}{ex:cramer-2d}
+Solve $\begin{cases} 3x+2y=7 \\ x-y=1\end{cases}$.
+
+Here $A=\begin{psmallmatrix}3&2\\1&-1\end{psmallmatrix}$,
+$\det(A)=-3-2=-5$,
+$\det(A_1)=\det\begin{psmallmatrix}7&2\\1&-1\end{psmallmatrix}=-9$,
+$\det(A_2)=\det\begin{psmallmatrix}3&7\\1&1\end{psmallmatrix}=-4$.
+So $x = \frac{-9}{-5}=\frac{9}{5}$,
+$y=\frac{-4}{-5}=\frac{4}{5}$.
+\end{example}
+
+
+% ============================================================
+\section{Determinant and invertibility}\label{sec:det-invertibility}
+% ============================================================
+
+\begin{theorem}{Invertibility criterion}{thm:det-invertibility}
+\index{determinant!and invertibility}\index{invertible matrix!determinant criterion}
+A matrix $A\in\Mat_n(\K)$ is invertible if and only if $\det(A)\neq 0$.
+\end{theorem}
+
+\begin{proof}
+$(\Rightarrow)$\; If $A$ is invertible, then
+$\det(A)\det(\inv{A})=\det(I_n)=1$, so $\det(A)\neq 0$.
+
+$(\Leftarrow)$\; If $\det(A)\neq 0$, then by ef{thm:thm:adjugate},
+$A\cdot\frac{1}{\det(A)}\operatorname{adj}(A) = I_n$,
+so $A$ is invertible (with explicit inverse given by
+ef{cor:cor:inverse-adjugate}).
+
+Alternatively, if $A$ is not invertible, its columns are linearly
+dependent: some column is a linear combination of the others. By
+multilinearity and the alternating property in columns,
+$\det(A)=0$.
+\end{proof}
+
+\begin{corollary}{The general linear group}{cor:GL-det}
+\index{general linear group}
+$\GL_n(\K) = \setcond{A\in\Mat_n(\K)}{\det(A)\neq 0}$.
+The determinant defines a group homomorphism
+$\det\colon\GL_n(\K)\to\K^*$ (where $\K^*=\K\setminus\set{0}$
+is the multiplicative group of~$\K$).
+\end{corollary}
+
+\begin{proof}
+The first statement is ef{thm:thm:det-invertibility}. The
+multiplicativity $\det(AB)=\det(A)\det(B)$
+(ef{thm:thm:det-product}) shows that $\det$ is a group homomorphism.
+Its kernel is the \emph{special linear group}
+$\SL_n(\K)=\setcond{A\in\GL_n(\K)}{\det(A)=1}$.
+\end{proof}
+
+
+% ============================================================
+\section{Determinant of a linear map}\label{sec:det-linear-map}
+% ============================================================
+
+\begin{definition}{Determinant of an endomorphism}{def:det-endo}
+\index{determinant!of a linear map}
+Let $E$ be a finite-dimensional $\K$-vector space and
+$f\in\End(E)$. Choose any basis $\cB$ of~$E$ and define
+\[
+  \det(f) \deff \det\bigl(\Mat_\cB(f)\bigr).
+\]
+\end{definition}
+
+\begin{proposition}{Well-definedness}{prop:det-well-defined}
+The determinant $\det(f)$ does not depend on the choice of basis.
+\end{proposition}
+
+\begin{proof}
+Let $\cB$ and $\cB'$ be two bases of~$E$, and let $P$ be the
+change-of-basis matrix from $\cB$ to $\cB'$. Then
+$\Mat_{\cB'}(f) = \inv{P}\,\Mat_\cB(f)\,P$, so
+\[
+  \det\bigl(\Mat_{\cB'}(f)\bigr)
+  = \det(\inv{P})\det\bigl(\Mat_\cB(f)\bigr)\det(P)
+  = \frac{1}{\det(P)}\det\bigl(\Mat_\cB(f)\bigr)\det(P)
+  = \det\bigl(\Mat_\cB(f)\bigr). \qedhere
+\]
+\end{proof}
+
+\begin{proposition}{Properties of $\det$ for endomorphisms}{prop:det-endo-props}
+Let $E$ be a finite-dimensional $\K$-vector space and
+$f,g\in\End(E)$.
+\begin{enumerate}[label=(\roman*)]
+  \item $\det(g\circ f) = \det(g)\det(f)$.
+  \item $f$ is an automorphism if and only if $\det(f)\neq 0$.
+  \item $\det(\Id_E)=1$.
+  \item $\det(\lambda f)=\lambda^n\det(f)$ where $n=\dim E$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+All properties follow immediately from the corresponding properties
+of matrix determinants and the identity
+$\Mat_\cB(g\circ f)=\Mat_\cB(g)\cdot\Mat_\cB(f)$.
+\end{proof}
+
+
+% ============================================================
+\section{Geometric interpretation}\label{sec:det-geometry}
+% ============================================================
+
+The determinant has a rich geometric meaning in~$\R^n$.
+
+\begin{theorem}{Determinant as signed volume}{thm:signed-volume}
+\index{determinant!geometric interpretation}\index{signed volume}
+Let $v_1,\ldots,v_n\in\R^n$ be the column vectors of a matrix
+$A\in\Mat_n(\R)$. Then:
+\begin{enumerate}[label=(\roman*)]
+  \item $\abs{\det(A)}$ equals the $n$-dimensional volume of the
+    parallelepiped
+    $P = \setcond{t_1 v_1+\cdots+t_n v_n}{0\leq t_i\leq 1}$.
+  \item $\det(A)>0$ if and only if the ordered basis
+    $(v_1,\ldots,v_n)$ has the same orientation as the standard basis.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+(i) Both $\abs{\det}$ and the volume function are multiplicative
+under composition ($\abs{\det(AB)}=\abs{\det A}\abs{\det B}$), agree
+on elementary matrices (which correspond to elementary row
+operations with known geometric effects), and every invertible matrix
+is a product of elementary matrices. For the singular case, both
+sides equal zero.
+
+(ii) The determinant is a continuous function of the columns.
+The set of invertible matrices $\GL_n(\R)$ has exactly two connected
+components, distinguished by the sign of $\det$. The identity matrix
+$I_n$ has $\det=1>0$ and corresponds to the standard orientation.
+\end{proof}
+
+\begin{center}
+\begin{tikzpicture}[>=Stealth, scale=1.0]
+  % 2D parallelogram
+  \begin{scope}
+    \coordinate (O) at (0,0);
+    \coordinate (U) at (2.5,0.5);
+    \coordinate (V) at (0.8,2);
+    \coordinate (UV) at ($(U)+(V)$);
+
+    \fill[blue!15] (O) -- (U) -- (UV) -- (V) -- cycle;
+    \draw[thick, blue!70!black, ->] (O) -- (U)
+      node[below right] {$\vec{u}$};
+    \draw[thick, red!70!black, ->] (O) -- (V)
+      node[above left] {$\vec{v}$};
+    \draw[dashed, gray] (U) -- (UV) -- (V);
+    \node at (1.6,1.2) {Area $= \abs{\det}$};
+    \node[below] at (1.6,-0.5) {\textbf{2D:} parallelogram};
+  \end{scope}
+
+  % 3D parallelepiped
+  \begin{scope}[shift={(7,0)}, x={(1,0)}, y={(0.4,0.5)}, z={(0,1)}]
+    \coordinate (O) at (0,0,0);
+    \coordinate (A) at (2,0,0);
+    \coordinate (B) at (0,1.5,0);
+    \coordinate (C) at (0,0,1.8);
+    \coordinate (AB) at (2,1.5,0);
+    \coordinate (AC) at (2,0,1.8);
+    \coordinate (BC) at (0,1.5,1.8);
+    \coordinate (ABC) at (2,1.5,1.8);
+
+    % Back faces
+    \fill[red!8] (O) -- (B) -- (AB) -- (A) -- cycle;
+    \fill[blue!8] (O) -- (B) -- (BC) -- (C) -- cycle;
+    \fill[green!8] (O) -- (A) -- (AC) -- (C) -- cycle;
+
+    % Front faces
+    \fill[red!15] (C) -- (BC) -- (ABC) -- (AC) -- cycle;
+    \fill[blue!15] (A) -- (AB) -- (ABC) -- (AC) -- cycle;
+    \fill[green!15] (B) -- (AB) -- (ABC) -- (BC) -- cycle;
+
+    % Edges
+    \draw[thick] (O) -- (A) -- (AB) -- (B) -- cycle;
+    \draw[thick] (O) -- (C) -- (AC) -- (A);
+    \draw[thick] (C) -- (BC) -- (B);
+    \draw[thick] (AC) -- (ABC) -- (AB);
+    \draw[thick] (ABC) -- (BC);
+
+    % Vectors
+    \draw[->, very thick, blue!70!black] (O) -- (A)
+      node[below right] {$\vec{u}$};
+    \draw[->, very thick, red!70!black] (O) -- (B)
+      node[left] {$\vec{v}$};
+    \draw[->, very thick, green!60!black] (O) -- (C)
+      node[left] {$\vec{w}$};
+
+    \node at (1.2,0.7,0.9) {\small Vol};
+    \node[below] at (1,-0.2,-0.5) {\textbf{3D:} parallelepiped};
+  \end{scope}
+\end{tikzpicture}
+\captionof{figure}{The determinant computes signed areas and volumes.}
+\label{fig:det-area-volume}
+\end{center}
+
+\begin{center}
+\begin{tikzpicture}[>=Stealth, scale=1.2]
+  % Positive orientation
+  \begin{scope}
+    \draw[->] (-0.3,0) -- (2.5,0) node[right] {$x$};
+    \draw[->] (0,-0.3) -- (0,2.2) node[above] {$y$};
+    \draw[->, very thick, blue!70!black] (0,0) -- (2,0.3)
+      node[below right] {$\vec{u}$};
+    \draw[->, very thick, red!70!black] (0,0) -- (-0.2,1.8)
+      node[above left] {$\vec{v}$};
+    \draw[->, thick, green!50!black] (0.7,0.1) arc[start angle=8,
+      end angle=84, radius=0.7];
+    \node[green!50!black] at (0.7,0.9) {\small $+$};
+    \node[below] at (1,-0.6) {$\det > 0$};
+    \node[below] at (1,-1.0) {(positive orientation)};
+  \end{scope}
+
+  % Negative orientation
+  \begin{scope}[shift={(5.5,0)}]
+    \draw[->] (-0.3,0) -- (2.5,0) node[right] {$x$};
+    \draw[->] (0,-0.3) -- (0,2.2) node[above] {$y$};
+    \draw[->, very thick, blue!70!black] (0,0) -- (-0.2,1.8)
+      node[above left] {$\vec{u}$};
+    \draw[->, very thick, red!70!black] (0,0) -- (2,0.3)
+      node[below right] {$\vec{v}$};
+    \draw[->, thick, orange!70!red] (0.05,0.65) arc[start angle=84,
+      end angle=8, radius=0.7];
+    \node[orange!70!red] at (0.7,0.9) {\small $-$};
+    \node[below] at (1,-0.6) {$\det < 0$};
+    \node[below] at (1,-1.0) {(negative orientation)};
+  \end{scope}
+\end{tikzpicture}
+\captionof{figure}{The sign of the determinant encodes orientation.}
+\label{fig:det-orientation}
+\end{center}
+
+
+% ============================================================
+\section{Applications}\label{sec:det-applications}
+% ============================================================
+
+\subsection{Cross product in $\R^3$}\label{subsec:cross-product}
+
+\begin{definition}{Cross product}{def:cross-product}
+\index{cross product}
+For $\vec{u}=(u_1,u_2,u_3)$ and $\vec{v}=(v_1,v_2,v_3)$ in~$\R^3$,
+the \emph{cross product} is defined (formally) by
+\[
+  \vec{u}\times\vec{v} \deff
+  \det\begin{pmatrix}
+    \vece{1} & \vece{2} & \vece{3} \\
+    u_1 & u_2 & u_3 \\
+    v_1 & v_2 & v_3
+  \end{pmatrix}
+  = \begin{pmatrix}
+    u_2 v_3 - u_3 v_2 \\
+    u_3 v_1 - u_1 v_3 \\
+    u_1 v_2 - u_2 v_1
+  \end{pmatrix}.
+\]
+\end{definition}
+
+\begin{proposition}{Properties of the cross product}{prop:cross-product}
+For $\vec{u},\vec{v},\vec{w}\in\R^3$ and $\alpha\in\R$:
+\begin{enumerate}[label=(\roman*)]
+  \item \textbf{Antisymmetry:}
+    $\vec{v}\times\vec{u} = -(\vec{u}\times\vec{v})$.
+  \item \textbf{Bilinearity:}
+    $(\alpha\vec{u}+\vec{w})\times\vec{v}
+    = \alpha(\vec{u}\times\vec{v})+\vec{w}\times\vec{v}$.
+  \item \textbf{Orthogonality:}
+    $(\vec{u}\times\vec{v})\cdot\vec{u}
+    = (\vec{u}\times\vec{v})\cdot\vec{v} = 0$.
+  \item \textbf{Norm:}
+    $\norm{\vec{u}\times\vec{v}}$ equals the area of the
+    parallelogram Spanned by $\vec{u}$ and~$\vec{v}$.
+  \item \textbf{Scalar triple product:}
+    $(\vec{u}\times\vec{v})\cdot\vec{w}
+    = \det(\vec{u},\vec{v},\vec{w})$ (columns).
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(i)--(ii) follow from properties of the determinant.
+(iii) If we substitute $\vec{u}$ for $\vec{w}$ in the triple product
+$\det(\vec{u},\vec{v},\vec{w})$, the matrix has two identical columns,
+so $\det=0$.
+(iv) follows from the identity
+$\norm{\vec{u}\times\vec{v}}^2 = \norm{\vec{u}}^2\norm{\vec{v}}^2
+- (\vec{u}\cdot\vec{v})^2$ (Lagrange identity).
+(v) is verified by direct computation: both sides equal
+$u_1(v_2 w_3-v_3 w_2) - u_2(v_1 w_3-v_3 w_1) + u_3(v_1 w_2-v_2 w_1)$.
+\end{proof}
+
+\subsection{Area and volume formulas}\label{subsec:area-volume}
+
+\begin{proposition}{Area of a triangle}{prop:triangle-area}
+\index{area!triangle}
+The area of a triangle with vertices $P_1=(x_1,y_1)$,
+$P_2=(x_2,y_2)$, $P_3=(x_3,y_3)$ in $\R^2$ is
+\[
+  \text{Area} = \frac{1}{2}\abs*{\det\begin{pmatrix}
+    x_2-x_1 & x_3-x_1 \\
+    y_2-y_1 & y_3-y_1
+  \end{pmatrix}}
+  = \frac{1}{2}\abs*{\det\begin{pmatrix}
+    x_1 & y_1 & 1 \\
+    x_2 & y_2 & 1 \\
+    x_3 & y_3 & 1
+  \end{pmatrix}}.
+\]
+\end{proposition}
+
+\begin{proof}
+The triangle is half the parallelogram Spanned by
+$\overrightarrow{P_1 P_2}$ and $\overrightarrow{P_1 P_3}$.
+The second formula follows by cofactor expansion along the third
+column of the $3\times 3$ matrix.
+\end{proof}
+
+\subsection{Vandermonde determinant}\label{subsec:vandermonde}
+
+\begin{theorem}{Vandermonde determinant}{thm:vandermonde}
+\index{Vandermonde determinant}
+For $x_1,\ldots,x_n\in\K$,
+\[
+  V(x_1,\ldots,x_n) \deff
+  \det\begin{pmatrix}
+    1 & x_1 & x_1^2 & \cdots & x_1^{n-1} \\
+    1 & x_2 & x_2^2 & \cdots & x_2^{n-1} \\
+    \vdots & \vdots & \vdots & \ddots & \vdots \\
+    1 & x_n & x_n^2 & \cdots & x_n^{n-1}
+  \end{pmatrix}
+  = \prod_{1\leq i < j \leq n} (x_j - x_i).
+\]
+In particular, $V(x_1,\ldots,x_n)\neq 0$ if and only if the
+$x_i$ are pairwise distinct.
+\end{theorem}
+
+\begin{proof}
+We proceed by induction on~$n$. For $n=1$, $V(x_1)=1$ and the empty
+product is~$1$. For $n=2$, $V(x_1,x_2) = x_2 - x_1$.
+
+For the inductive step, subtract $x_1$ times column $j-1$ from
+column~$j$, for $j=n,n-1,\ldots,2$ (right to left). This does not
+change the determinant. Row~$1$ becomes $(1,0,0,\ldots,0)$, and for
+$i\geq 2$, the entry in row~$i$, column~$j$ becomes
+$x_i^{j-1}-x_1 x_i^{j-2} = x_i^{j-2}(x_i - x_1)$.
+Expanding along row~$1$ and factoring out $(x_i-x_1)$ from row~$i$
+(for $i=2,\ldots,n$):
+\[
+  V(x_1,\ldots,x_n) = \prod_{i=2}^n (x_i-x_1)\cdot V(x_2,\ldots,x_n).
+\]
+By the induction hypothesis,
+$V(x_2,\ldots,x_n) = \prod_{2\leq i<j\leq n}(x_j-x_i)$, so
+\[
+  V(x_1,\ldots,x_n)
+  = \prod_{i=2}^n (x_i-x_1)\cdot\prod_{2\leq i<j\leq n}(x_j-x_i)
+  = \prod_{1\leq i<j\leq n}(x_j-x_i). \qedhere
+\]
+\end{proof}
+
+\begin{example}{Vandermonde for $n=3$}{ex:vandermonde-3}
+\[
+  \det\begin{pmatrix}1 & a & a^2 \\ 1 & b & b^2 \\ 1 & c & c^2
+  \end{pmatrix}
+  = (b-a)(c-a)(c-b).
+\]
+\end{example}
+
+\begin{remark}{Application of Vandermonde}{rem:vandermonde-app}
+The Vandermonde determinant appears in polynomial interpolation:
+the system expressing a polynomial of degree $\leq n-1$ through
+$n$ points $(x_i,y_i)$ has a unique solution if and only if
+the $x_i$ are distinct, since the coefficient matrix is the
+Vandermonde matrix.
+\end{remark}
+
+
+% ============================================================
+\section{Exercises}\label{sec:det-exercises}
+% ============================================================
+
+\begin{exercise}{Determinants of small matrices \basic}{exo:det-small}
+Compute the following determinants:
+\begin{enumerate}[label=(\alph*)]
+  \item $\det\begin{pmatrix}3 & 1 \\ 5 & 2\end{pmatrix}$.
+  \item $\det\begin{pmatrix}2 & -1 & 3 \\ 0 & 4 & 1 \\ 1 & 2 & -1\end{pmatrix}$.
+  \item $\det\begin{pmatrix}1 & 2 & 3 & 4 \\ 0 & 1 & 2 & 3 \\
+    0 & 0 & 1 & 2 \\ 0 & 0 & 0 & 1\end{pmatrix}$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Row operations and determinant \basic}{exo:row-ops-det}
+Let $A\in\Mat_3(\R)$ with $\det(A)=6$. Compute $\det(B)$ where $B$ is
+obtained from $A$ by:
+\begin{enumerate}[label=(\alph*)]
+  \item swapping rows 1 and 3,
+  \item multiplying row 2 by $-4$,
+  \item adding 5 times row 1 to row 2,
+  \item performing all three operations in sequence.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Determinant and scalar multiplication \basic}{exo:det-scalar}
+\index{determinant!scalar multiplication}
+Let $A\in\Mat_n(\K)$ with $\det(A)=d$. Express the following in terms
+of $d$ and~$n$:
+\begin{enumerate}[label=(\alph*)]
+  \item $\det(3A)$.
+  \item $\det(-A)$.
+  \item $\det(\transpose{A})$.
+  \item $\det(A^2)$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Determinant of a rank-1 update \intermediate}{exo:rank-1-update}
+\index{matrix determinant lemma}
+Let $A\in\GL_n(\K)$ and let $u,v\in\K^n$ (column vectors). Prove
+the \emph{matrix determinant lemma}:
+\[
+  \det(A + uv^{\mathsf{T}}) = (1 + v^{\mathsf{T}}\inv{A}u)\det(A).
+\]
+\textit{Hint:} Factor $A+uv^{\mathsf{T}} = A(I+\inv{A}uv^{\mathsf{T}})$
+and compute the determinant of $I+wv^{\mathsf{T}}$ for a column
+vector $w=\inv{A}u$.
+\end{exercise}
+
+\begin{exercise}{Cofactor expansion practice \basic}{exo:cofactor-practice}
+Compute the determinant of
+\[
+  A = \begin{pmatrix}
+    2 & 0 & 1 & 3 \\
+    1 & -1 & 0 & 2 \\
+    3 & 2 & 0 & 1 \\
+    0 & 4 & -1 & 0
+  \end{pmatrix}
+\]
+by expanding along a row or column of your choice (choose wisely to
+minimise work).
+\end{exercise}
+
+\begin{exercise}{Adjugate of a $2\times 2$ matrix \basic}{exo:adjugate-2x2}
+For $A=\begin{psmallmatrix}a&b\\c&d\end{psmallmatrix}$, compute
+$\operatorname{adj}(A)$ and verify that
+$A\cdot\operatorname{adj}(A)=\det(A)\,I_2$.
+\end{exercise}
+
+\begin{exercise}{Cramer's rule application \intermediate}{exo:cramer-app}
+Use Cramer's rule to solve the system
+\[
+  \begin{cases}
+    x + 2y - z = 3,\\
+    2x - y + 3z = 1,\\
+    3x + y + 2z = 7.
+  \end{cases}
+\]
+\end{exercise}
+
+\begin{exercise}{Vandermonde determinant \intermediate}{exo:vandermonde}
+\begin{enumerate}[label=(\alph*)]
+  \item Compute the Vandermonde determinant $V(1,2,3,4)$.
+  \item For which values of $a\in\R$ is the Vandermonde matrix
+    with nodes $1,a,a^2$ singular?
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Determinant and eigenvalues \intermediate}{exo:det-eigenvalues}
+\index{eigenvalue!and determinant}
+Let $A\in\Mat_n(\K)$.
+\begin{enumerate}[label=(\alph*)]
+  \item Show that $\lambda$ is an eigenvalue of $A$ if and only if
+    $\det(A-\lambda I_n)=0$.
+  \item If $A$ has eigenvalues $\lambda_1,\ldots,\lambda_n$
+    (counted with algebraic multiplicity), prove that
+    $\det(A)=\lambda_1\cdots\lambda_n$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Determinant of a block diagonal matrix \basic}{exo:block-diag}
+Let $A=\diag(A_1,A_2,\ldots,A_k)$ be a block diagonal matrix where
+$A_i\in\Mat_{n_i}(\K)$. Prove that
+$\det(A)=\det(A_1)\det(A_2)\cdots\det(A_k)$.
+\end{exercise}
+
+\begin{exercise}{Antisymmetric matrices \intermediate}{exo:antisymmetric}
+\index{antisymmetric matrix!determinant}
+Let $A\in\Mat_n(\R)$ be \emph{antisymmetric}, i.e.\
+$\transpose{A}=-A$.
+\begin{enumerate}[label=(\alph*)]
+  \item Show that if $n$ is odd, then $\det(A)=0$.
+  \item Give an example of a $2\times 2$ antisymmetric matrix
+    with $\det(A)\neq 0$.
+  \item Show that for even~$n$, $\det(A)\geq 0$.
+    \textit{Hint:} Consider $\det(A)=\det(\transpose{A})=\det(-A)$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Derivative of the determinant \challenging}{exo:det-derivative}
+\index{determinant!derivative}
+Let $A(t)=(a_{ij}(t))$ be an $n\times n$ matrix whose entries are
+differentiable functions of $t\in\R$. Prove \emph{Jacobi's formula}:
+\[
+  \frac{d}{dt}\det(A(t))
+  = \sum_{i=1}^n \det\bigl(A_1(t),\ldots,A_i'(t),\ldots,A_n(t)\bigr),
+\]
+where $A_i(t)$ denotes the $i$-th row of $A(t)$ and $A_i'(t)$ its
+derivative.
+\textit{Hint:} Use multilinearity of $\det$ in the rows and the
+product rule.
+\end{exercise}
+
+\begin{exercise}{Cauchy determinant \challenging}{exo:cauchy-det}
+\index{Cauchy determinant}
+Let $x_1,\ldots,x_n$ and $y_1,\ldots,y_n$ be elements of a
+field~$\K$ with $x_i+y_j\neq 0$ for all $i,j$. The \emph{Cauchy
+matrix} is $C=(c_{ij})$ with $c_{ij}=\frac{1}{x_i+y_j}$.
+Prove the \emph{Cauchy determinant formula}:
+\[
+  \det(C) = \frac{\prod_{1\leq i<j\leq n}(x_j-x_i)(y_j-y_i)}%
+  {\prod_{i,j=1}^{n}(x_i+y_j)}.
+\]
+\textit{Hint:} Proceed by induction, reducing to a Vandermonde-type
+computation.
+\end{exercise}
+
+\begin{exercise}{Determinant of the commutator \challenging}{exo:commutator-det}
+Let $A,B\in\Mat_n(\K)$.
+\begin{enumerate}[label=(\alph*)]
+  \item Show that if $n=2$ and $\tr(A)=\tr(B)=0$, then
+    $\det(AB-BA)\leq 0$ when $\K=\R$.
+  \item Construct $A,B\in\Mat_3(\R)$ such that $\det(AB-BA)\neq 0$.
+  \item Show that for any $n$, $\tr(AB-BA)=0$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Polynomial identity for determinants \intermediate}{exo:det-poly}
+Let $A,B\in\Mat_n(\K)$. Show that
+\[
+  \det(A+B) + \det(A-B) = 2\sum_{k\text{ even}}D_k(A,B),
+\]
+where $D_k(A,B)$ is the sum of all determinants obtained by choosing
+$k$ rows from $B$ and the remaining $n-k$ rows from $A$ (in their
+original positions). Verify this for $n=2$ explicitly.
+\end{exercise}
+
+
+% ============================================================
+\section*{Chapter summary}\label{sec:summary-ch4}
+\addcontentsline{toc}{section}{Chapter summary}
+% ============================================================
+
+\begin{itemize}
+  \item A \textbf{permutation}\index{permutation} of $\set{1,\ldots,n}$
+    is a bijection; the set of all permutations forms the
+    \textbf{symmetric group}~$\mathfrak{S}_n$ of order $n!$.
+    Every permutation has a well-defined
+    \textbf{signature}\index{signature!of a permutation}
+    $\sgn(\sigma)=\pm 1$ (ef{def:def:signature}).
+
+  \item The \textbf{determinant}\index{determinant} of
+    $A\in\Mat_n(\K)$ is defined by the \textbf{Leibniz formula}
+    (ef{def:def:determinant}):
+    $\det(A) = \sum_{\sigma\in\mathfrak{S}_n}\sgn(\sigma)
+    \prod_{i=1}^n a_{i,\sigma(i)}$.
+
+  \item The determinant is the \emph{unique} function that is
+    \textbf{multilinear}, \textbf{alternating} in the rows, and
+    satisfies $\det(I_n)=1$ (ef{thm:thm:det-unique}).
+
+  \item Key \textbf{properties}: $\det(\transpose{A})=\det(A)$
+    (ef{thm:thm:det-transpose}), $\det(AB)=\det(A)\det(B)$
+    (ef{thm:thm:det-product}), triangular matrices have
+    $\det=\prod a_{ii}$ (ef{prop:prop:det-triangular}).
+
+  \item \textbf{Cofactor (Laplace) expansion}\index{Laplace expansion}
+    computes $\det$ by expanding along any row or column
+    (ef{thm:thm:laplace}).
+
+  \item The \textbf{adjugate matrix}\index{adjugate matrix} satisfies
+    $A\cdot\operatorname{adj}(A) = \det(A)\,I_n$
+    (ef{thm:thm:adjugate}), yielding the formula
+    $\inv{A}=\frac{1}{\det(A)}\operatorname{adj}(A)$.
+
+  \item \textbf{Cramer's rule}\index{Cramer's rule} gives an explicit
+    formula for the solution of $Ax=b$ when $\det(A)\neq 0$
+    (ef{thm:thm:cramer}).
+
+  \item $A$ is \textbf{invertible} if and only if $\det(A)\neq 0$
+    (ef{thm:thm:det-invertibility}).
+
+  \item The determinant of a \textbf{linear map} is well-defined
+    (independent of the choice of basis, ef{prop:prop:det-well-defined}).
+
+  \item \textbf{Geometrically}, $\abs{\det(A)}$ is the volume of the
+    parallelepiped Spanned by the columns, and $\sgn(\det)$ encodes
+    orientation (ef{thm:thm:signed-volume}).
+
+  \item \textbf{Applications}: the cross product in~$\R^3$, area and
+    volume formulas, and the \textbf{Vandermonde
+    determinant}\index{Vandermonde determinant}
+    $\prod_{i<j}(x_j-x_i)$ (ef{thm:thm:vandermonde}).
+\end{itemize}

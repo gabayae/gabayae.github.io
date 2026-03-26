@@ -1,0 +1,358 @@
+% =============================================================================
+\chapter{Deep Q-Network et Variantes}
+\label{ch:dqn}
+% =============================================================================
+
+En f\'evrier 2015, une \'equipe de DeepMind publie dans \emph{Nature} un r\'esultat qui fait sensation~: un algorithme, le \emph{Deep Q-Network} (DQN), apprend \`a jouer \`a 49 jeux Atari directement \`a partir des pixels de l'\'ecran, atteignant un niveau surhumain dans plusieurs d'entre eux. La cl\'e~: combiner le Q-learning tabul\'e du chapitre pr\'ec\'edent avec un r\'eseau de neurones profond qui approxime la fonction $Q$. Deux innovations techniques --- la \emph{m\'emoire de rejeu} (stocker les transitions et les r\'e\'echantillonner al\'eatoirement) et le \emph{r\'eseau cible} (mettre \`a jour les cibles plus lentement) --- stabilisent un apprentissage qui, sans elles, diverge. DQN a ouvert l'\`ere du \emph{deep reinforcement learning}.
+
+\begin{intuition}
+Le Deep Q-Network (DQN) de Mnih et al.\ (2013, 2015) a r\'evolutionn\'e le RL en
+combinant Q-Learning avec des r\'eseaux de neurones profonds. Deux innovations
+cl\'es --- la m\'emoire de rejeu et le r\'eseau cible --- stabilisent l'apprentissage,
+permettant d'apprendre directement \`a partir de pixels.
+\end{intuition}
+
+% -----------------------------------------------------------------------------
+\section{De Q tabulaire \`a l'approximation de fonction}
+% -----------------------------------------------------------------------------
+
+Le Q-Learning tabulaire ne peut pas g\'erer les espaces d'\'etats de grande
+dimension ou continus. L'id\'ee est d'approximer $Q^*(s,a)$ par un r\'eseau
+de neurones param\'etr\'e par $\theta$~:
+\[
+    Q(s, a; \theta) \approx Q^*(s, a).
+\]
+
+\begin{attention}[title=\textbf{Instabilit\'e na\"ive}]
+L'application directe de Q-Learning avec un r\'eseau de neurones diverge
+\`a cause de trois probl\`emes~:
+\begin{enumerate}
+    \item \textbf{Corr\'elation temporelle}~: les \'echantillons cons\'ecutifs
+    $(s_t, a_t, r_{t+1}, s_{t+1})$ sont fortement corr\'el\'es.
+    \item \textbf{Cible non stationnaire}~: la cible $r + \gamma \max_{a'} Q(s', a'; \theta)$
+    d\'epend des param\`etres $\theta$ qui changent \`a chaque mise \`a jour.
+    \item \textbf{Approximation de fonction}~: la convergence de Q-Learning
+    n'est plus garantie avec approximation non lin\'eaire.
+\end{enumerate}
+\end{attention}
+
+% -----------------------------------------------------------------------------
+\section{Architecture DQN}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[DQN]
+Le \textbf{Deep Q-Network} utilise deux m\'ecanismes de stabilisation~:
+\begin{enumerate}
+    \item \textbf{M\'emoire de rejeu} (\emph{experience replay})~: les transitions
+    $(s, a, r, s')$ sont stock\'ees dans un buffer $\mathcal{D}$ et \'echantillonn\'ees
+    al\'eatoirement pour les mises \`a jour.
+    \item \textbf{R\'eseau cible} (\emph{target network})~: un r\'eseau $Q(s,a;\theta^-)$
+    avec des param\`etres fig\'es $\theta^-$ est utilis\'e pour calculer la cible.
+    Les param\`etres $\theta^-$ sont copi\'es de $\theta$ tous les $C$ pas.
+\end{enumerate}
+\end{definition}
+
+\begin{formules}[title=\textbf{Fonction de perte DQN}]
+La perte est l'erreur quadratique moyenne sur un mini-lot \'echantillonn\'e
+de $\mathcal{D}$~:
+\[
+    \mathcal{L}(\theta) = \E_{(s,a,r,s') \sim \mathcal{D}} \left[
+    \left( r + \gamma \max_{a'} Q(s', a'; \theta^-) - Q(s, a; \theta) \right)^2
+    \right].
+\]
+\end{formules}
+
+\begin{algorithme}[title=\textbf{DQN}]
+\begin{enumerate}
+    \item Initialiser le r\'eseau $Q(\cdot; \theta)$ et le r\'eseau cible $Q(\cdot; \theta^-)$
+    \item Initialiser la m\'emoire de rejeu $\mathcal{D}$ (capacit\'e $N$)
+    \item Pour chaque \'episode~:
+    \begin{enumerate}
+        \item Initialiser $s_0$
+        \item Pour chaque pas $t$~:
+        \begin{enumerate}
+            \item Choisir $a_t$ par $\epsilon$-greedy sur $Q(s_t, \cdot; \theta)$
+            \item Ex\'ecuter $a_t$, observer $r_{t+1}, s_{t+1}$
+            \item Stocker $(s_t, a_t, r_{t+1}, s_{t+1})$ dans $\mathcal{D}$
+            \item \'Echantillonner un mini-lot de $\mathcal{D}$
+            \item Calculer les cibles~: $y_i = r_i + \gamma \max_{a'} Q(s'_i, a'; \theta^-)$
+            \item Descente de gradient sur $\frac{1}{|\text{batch}|}\sum_i (y_i - Q(s_i, a_i; \theta))^2$
+            \item Tous les $C$ pas~: $\theta^- \leftarrow \theta$
+        \end{enumerate}
+    \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+% -----------------------------------------------------------------------------
+\section{Am\'eliorations de DQN}
+% -----------------------------------------------------------------------------
+
+\subsection{Double DQN}
+
+\begin{definition}[Double DQN]
+\textbf{Double DQN} (van Hasselt et al., 2016) r\'eduit le biais de maximisation
+en d\'ecouplant la s\'election de l'action et son \'evaluation~:
+\[
+    y = r + \gamma \, Q\!\left(s', \argmax_{a'} Q(s', a'; \theta); \theta^-\right).
+\]
+L'action est s\'electionn\'ee par le r\'eseau courant $\theta$ mais \'evalu\'ee
+par le r\'eseau cible $\theta^-$.
+\end{definition}
+
+\subsection{Dueling DQN}
+
+\begin{definition}[Architecture Dueling]
+L'architecture \textbf{Dueling} (Wang et al., 2016) d\'ecompose $Q$ en une
+fonction de valeur et une fonction avantage~:
+\[
+    Q(s, a; \theta) = V(s; \theta_V) + A(s, a; \theta_A)
+    - \frac{1}{|\mathcal{A}|} \sum_{a'} A(s, a'; \theta_A).
+\]
+La soustraction de la moyenne assure l'identifiabilit\'e de la d\'ecomposition.
+\end{definition}
+
+\subsection{Prioritized Experience Replay}
+
+\begin{definition}[Rejeu prioritis\'e]
+Le \textbf{rejeu prioritis\'e} (Schaul et al., 2016) \'echantillonne les transitions
+proportionnellement \`a leur erreur TD~:
+\[
+    p_i = |\delta_i| + \epsilon_{\text{prio}}, \qquad
+    P(i) = \frac{p_i^\alpha}{\sum_j p_j^\alpha}.
+\]
+Pour corriger le biais, on utilise des poids d'importance~:
+$w_i = (N \cdot P(i))^{-\beta}$ avec $\beta \to 1$ au cours de l'entra\^inement.
+\end{definition}
+
+\subsection{Noisy Networks}
+
+\begin{definition}[NoisyNet]
+\textbf{NoisyNet} (Fortunato et al., 2018) remplace l'exploration $\epsilon$-greedy
+par du bruit param\'etrique~:
+\[
+    y = (b + W x) + (b_{\text{noisy}} \odot \epsilon^b + (W_{\text{noisy}} \odot \epsilon^W) x)
+\]
+o\`u $\epsilon^b, \epsilon^W$ sont des bruits al\'eatoires. L'agent apprend
+quand explorer.
+\end{definition}
+
+\subsection{Rainbow}
+
+\begin{remarque}
+\textbf{Rainbow} (Hessel et al., 2018) combine six am\'eliorations~:
+Double DQN, Dueling, Prioritized Replay, NoisyNet, C51 (distributional), et
+n-step returns. Il constitue l'\'etat de l'art pour le RL discret.
+\end{remarque}
+
+% -----------------------------------------------------------------------------
+\section{DQN distributional --- C51}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[RL distributionnel]
+Au lieu d'estimer $Q(s,a) = \E[G_t]$, le RL distributionnel apprend la
+\textbf{distribution compl\`ete} du retour $Z(s,a)$ telle que $Q(s,a) = \E[Z(s,a)]$.
+
+L'algorithme \textbf{C51} (Bellemare et al., 2017) repr\'esente la distribution
+par un histogramme discret sur $N_{\text{atoms}} = 51$ atomes
+$\{z_i\}_{i=0}^{50}$ uniform\'ement espac\'es dans $[V_{\min}, V_{\max}]$~:
+\[
+    Z(s,a) = \sum_{i=0}^{N_{\text{atoms}}-1} p_i(s,a) \, \delta_{z_i}.
+\]
+\end{definition}
+
+% -----------------------------------------------------------------------------
+\section{Impl\'ementation PyTorch}
+% -----------------------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{R\'eseau DQN}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import numpy as np
+from collections import deque
+import random
+
+class DQN(nn.Module):
+    def __init__(self, obs_dim, n_actions, hidden=128):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(obs_dim, hidden),
+            nn.ReLU(),
+            nn.Linear(hidden, hidden),
+            nn.ReLU(),
+            nn.Linear(hidden, n_actions)
+        )
+
+    def forward(self, x):
+        return self.net(x)
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{M\'emoire de rejeu}]
+\begin{minted}{python}
+class ReplayBuffer:
+    def __init__(self, capacity=100000):
+        self.buffer = deque(maxlen=capacity)
+
+    def push(self, state, action, reward, next_state, done):
+        self.buffer.append((state, action, reward, next_state, done))
+
+    def sample(self, batch_size):
+        batch = random.sample(self.buffer, batch_size)
+        states, actions, rewards, next_states, dones = zip(*batch)
+        return (np.array(states), np.array(actions),
+                np.array(rewards, dtype=np.float32),
+                np.array(next_states),
+                np.array(dones, dtype=np.float32))
+
+    def __len__(self):
+        return len(self.buffer)
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Boucle d'entra\^inement DQN}]
+\begin{minted}{python}
+import gymnasium as gym
+
+def train_dqn(env_name="CartPole-v1", n_episodes=500,
+              gamma=0.99, lr=1e-3, batch_size=64,
+              buffer_size=100000, target_update=10,
+              epsilon_start=1.0, epsilon_end=0.01,
+              epsilon_decay=0.995):
+    env = gym.make(env_name)
+    obs_dim = env.observation_space.shape[0]
+    n_actions = env.action_space.n
+
+    q_net = DQN(obs_dim, n_actions)
+    target_net = DQN(obs_dim, n_actions)
+    target_net.load_state_dict(q_net.state_dict())
+    optimizer = optim.Adam(q_net.parameters(), lr=lr)
+    buffer = ReplayBuffer(buffer_size)
+    epsilon = epsilon_start
+
+    for ep in range(n_episodes):
+        state, _ = env.reset()
+        total_reward = 0
+        done = False
+
+        while not done:
+            # Epsilon-greedy
+            if random.random() < epsilon:
+                action = env.action_space.sample()
+            else:
+                with torch.no_grad():
+                    q_vals = q_net(torch.FloatTensor(state))
+                    action = q_vals.argmax().item()
+
+            next_state, reward, terminated, truncated, _ = env.step(action)
+            done = terminated or truncated
+            buffer.push(state, action, reward, next_state, terminated)
+            state = next_state
+            total_reward += reward
+
+            # Entrainement
+            if len(buffer) >= batch_size:
+                s, a, r, s2, d = buffer.sample(batch_size)
+                s_t = torch.FloatTensor(s)
+                a_t = torch.LongTensor(a)
+                r_t = torch.FloatTensor(r)
+                s2_t = torch.FloatTensor(s2)
+                d_t = torch.FloatTensor(d)
+
+                q_values = q_net(s_t).gather(1, a_t.unsqueeze(1)).squeeze()
+                with torch.no_grad():
+                    next_q = target_net(s2_t).max(1)[0]
+                    targets = r_t + gamma * next_q * (1 - d_t)
+
+                loss = nn.MSELoss()(q_values, targets)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+        epsilon = max(epsilon_end, epsilon * epsilon_decay)
+        if ep % target_update == 0:
+            target_net.load_state_dict(q_net.state_dict())
+
+        if ep % 50 == 0:
+            print(f"Episode {ep}, Reward: {total_reward:.0f}, "
+                  f"Epsilon: {epsilon:.3f}")
+    return q_net
+
+q_net = train_dqn()
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Architecture Dueling DQN}]
+\begin{minted}{python}
+class DuelingDQN(nn.Module):
+    def __init__(self, obs_dim, n_actions, hidden=128):
+        super().__init__()
+        self.feature = nn.Sequential(
+            nn.Linear(obs_dim, hidden), nn.ReLU()
+        )
+        self.value_stream = nn.Sequential(
+            nn.Linear(hidden, hidden), nn.ReLU(),
+            nn.Linear(hidden, 1)
+        )
+        self.advantage_stream = nn.Sequential(
+            nn.Linear(hidden, hidden), nn.ReLU(),
+            nn.Linear(hidden, n_actions)
+        )
+
+    def forward(self, x):
+        feat = self.feature(x)
+        value = self.value_stream(feat)
+        advantage = self.advantage_stream(feat)
+        # Soustraction de la moyenne pour identifiabilite
+        q = value + advantage - advantage.mean(dim=1, keepdim=True)
+        return q
+\end{minted}
+\end{codeblock}
+
+% -----------------------------------------------------------------------------
+\section{Analyse th\'eorique}
+% -----------------------------------------------------------------------------
+
+\begin{theoreme}[Erreur d'approximation de DQN]
+Soit $\hat{Q}$ la solution de DQN et $Q^*$ la vraie fonction de valeur optimale.
+L'erreur de performance de la politique gloutonne $\hat{\pi}(s) = \argmax_a \hat{Q}(s,a)$
+est born\'ee par~:
+\[
+    \norm{V^* - V^{\hat{\pi}}}_\infty \leq \frac{2\gamma}{(1-\gamma)^2}
+    \norm{Q^* - \hat{Q}}_\infty.
+\]
+\end{theoreme}
+
+\begin{remarque}
+Cette borne montre que l'erreur d'approximation est amplifi\'ee par un facteur
+$O(1/(1-\gamma)^2)$, ce qui explique pourquoi DQN peut \^etre instable avec
+des valeurs de $\gamma$ proches de 1.
+\end{remarque}
+
+% -----------------------------------------------------------------------------
+\section{Exercices}
+% -----------------------------------------------------------------------------
+
+\begin{exercice}[Double DQN]
+Modifiez le code de DQN pour impl\'ementer Double DQN. Comparez les performances
+sur \texttt{CartPole-v1} et \texttt{LunarLander-v3}. Mesurez le biais de
+maximisation en tra\c{c}ant $\max_a Q(s_0, a)$ au cours de l'entra\^inement.
+\end{exercice}
+
+\begin{exercice}[Rejeu prioritis\'e]
+Impl\'ementez une m\'emoire de rejeu prioritis\'ee utilisant un arbre de somme
+(sum-tree). Comparez la vitesse de convergence avec le rejeu uniforme sur
+\texttt{CartPole-v1}.
+\end{exercice}
+
+\begin{exercice}[DQN sur Atari]
+Impl\'ementez un DQN convolutif pour jouer \`a \texttt{Breakout} (Atari).
+Utilisez un empilement de 4 frames, un pr\'etraitement en niveaux de gris
+$84 \times 84$ et l'architecture convolutive originale de Mnih et al.
+\end{exercice}
+
+\begin{exercice}[Analyse de la m\'emoire]
+\'Etudiez l'effet de la taille du replay buffer $N \in \{1000, 10000, 100000, 1000000\}$
+sur les performances de DQN. Expliquez le compromis m\'emoire/performance.
+\end{exercice}

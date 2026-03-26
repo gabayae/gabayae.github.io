@@ -1,0 +1,357 @@
+% ============================================================
+\chapter{Deep Q-Networks and Variants}
+\label{ch:dqn}
+% ============================================================
+
+In February 2015, a team from DeepMind published in \emph{Nature} a result that made headlines: an algorithm, the \emph{Deep Q-Network} (DQN), learned to play 49 Atari games directly from screen pixels, achieving superhuman performance in several of them. The key: combining the tabular Q-learning of the previous chapter with a deep neural network that approximates the $Q$ function. Two technical innovations---\emph{experience replay} (storing transitions and resampling them randomly) and the \emph{target network} (updating targets more slowly)---stabilised a learning process that, without them, diverges. DQN opened the era of \emph{deep reinforcement learning}.
+
+\begin{intuition}
+The Deep Q-Network (DQN) by Mnih et al.\ (2013, 2015) revolutionized RL
+by combining Q-Learning with deep neural networks. Two key innovations
+--- experience replay and a target network --- stabilize training,
+enabling agents to learn directly from raw pixels and achieve human-level
+performance on Atari games.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{From Tabular Q to Function Approximation}
+\label{sec:dqn:approx}
+% ------------------------------------------------------------
+
+Tabular Q-Learning cannot handle high-dimensional or continuous state
+spaces. The idea is to approximate $Q^*(s,a)$ with a neural network
+parameterized by $\theta$:
+\[
+    Q(s, a; \theta) \approx Q^*(s, a).
+\]
+
+\begin{attention}[title=\textbf{Naive Instability}]
+\index{deadly triad}
+Directly applying Q-Learning with a neural network diverges due to three
+issues (the \textbf{deadly triad}):
+\begin{enumerate}
+    \item \textbf{Temporal correlation}: consecutive samples
+    $(s_t, a_t, r_{t+1}, s_{t+1})$ are strongly correlated.
+    \item \textbf{Non-stationary target}: the target
+    $r + \gamma \max_{a'} Q(s', a'; \theta)$ depends on $\theta$,
+    which changes at every update.
+    \item \textbf{Function approximation}: Q-Learning convergence
+    is no longer guaranteed with nonlinear approximators.
+\end{enumerate}
+\end{attention}
+
+% ------------------------------------------------------------
+\section{DQN Architecture}
+\label{sec:dqn:arch}
+% ------------------------------------------------------------
+
+\begin{definition}[Deep Q-Network]
+\index{DQN}
+The \textbf{DQN} uses two stabilization mechanisms:
+\begin{enumerate}
+    \item \textbf{Experience replay}\index{experience replay}: transitions
+    $(s, a, r, s')$ are stored in a replay buffer $\mathcal{D}$ of capacity
+    $N$ and uniformly sampled in mini-batches for updates.
+    \item \textbf{Target network}\index{target network}: a separate network
+    $Q(s,a;\theta^-)$ with frozen parameters $\theta^-$ computes the target.
+    Parameters $\theta^-$ are copied from $\theta$ every $C$ steps.
+\end{enumerate}
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{DQN Loss Function}]
+The loss is the mean squared error over a mini-batch sampled from
+$\mathcal{D}$:
+\[
+    \mathcal{L}(\theta) = \E_{(s,a,r,s') \sim \mathcal{D}} \left[
+    \left( r + \gamma \max_{a'} Q(s', a'; \theta^-) - Q(s, a; \theta) \right)^2
+    \right].
+\]
+\end{keyformulas}
+
+\begin{algorithme}[title=\textbf{DQN Algorithm}]
+\begin{enumerate}
+    \item Initialize replay buffer $\mathcal{D}$ with capacity $N$
+    \item Initialize $Q(s,a;\theta)$ with random weights $\theta$
+    \item Set target parameters $\theta^- \leftarrow \theta$
+    \item For each episode:
+    \begin{enumerate}
+        \item Initialize state $s_0$ (preprocess frame stack)
+        \item For each step $t$:
+        \begin{enumerate}
+            \item Select $a_t = \argmax_a Q(s_t, a; \theta)$ with probability
+                  $1-\epsilon$, else random action
+            \item Execute $a_t$, observe $r_{t+1}, s_{t+1}$
+            \item Store $(s_t, a_t, r_{t+1}, s_{t+1})$ in $\mathcal{D}$
+            \item Sample mini-batch from $\mathcal{D}$
+            \item Compute targets: $y_j = r_j + \gamma \max_{a'} Q(s'_j, a'; \theta^-)$
+            \item Update $\theta$ by gradient descent on
+                  $\frac{1}{B}\sum_j (y_j - Q(s_j, a_j; \theta))^2$
+            \item Every $C$ steps: $\theta^- \leftarrow \theta$
+        \end{enumerate}
+    \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+\begin{theorem}[Experience Replay Decorrelation]
+Uniform sampling from a sufficiently large replay buffer produces
+approximately i.i.d.\ samples, satisfying the stochastic gradient
+descent assumption. Each transition can be reused multiple times,
+improving sample efficiency.
+\end{theorem}
+
+% ------------------------------------------------------------
+\section{DQN for Atari}
+\label{sec:dqn:atari}
+% ------------------------------------------------------------
+
+\begin{example}[Atari 2600 Results]
+\index{Atari}
+The DQN architecture for Atari processes a stack of 4 grayscale
+$84 \times 84$ frames through three convolutional layers followed by
+two fully connected layers. Key results from Mnih et al.\ (2015):
+\begin{itemize}
+    \item Superhuman performance on 29 out of 49 Atari games.
+    \item Single architecture and hyperparameters across all games.
+    \item Learned from raw pixels with reward clipping to $[-1, +1]$.
+\end{itemize}
+\end{example}
+
+% ------------------------------------------------------------
+\section{Double DQN}
+\label{sec:ddqn}
+% ------------------------------------------------------------
+
+\begin{definition}[Double DQN]
+\index{Double DQN}
+Double DQN (van Hasselt et al., 2016) addresses the maximization bias
+by decoupling action selection from evaluation:
+\[
+    y_t = R_{t+1} + \gamma Q\Big(S_{t+1},
+    \argmax_{a'} Q(S_{t+1}, a'; \theta)\,; \theta^-\Big).
+\]
+The online network $\theta$ selects the best action; the target network
+$\theta^-$ evaluates it.
+\end{definition}
+
+\begin{proposition}[Overestimation Reduction]
+Standard DQN overestimates Q-values because
+$\E[\max_a Q] \geq \max_a \E[Q]$. Double DQN reduces this bias
+significantly, leading to more stable training and improved final
+performance on most Atari games.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Dueling DQN}
+\label{sec:dueling}
+% ------------------------------------------------------------
+
+\begin{definition}[Dueling Architecture]
+\index{Dueling DQN}
+The dueling architecture (Wang et al., 2016) decomposes the Q-function:
+\[
+    Q(s, a; \theta, \alpha, \beta) = V(s; \theta, \beta)
+    + \left( A(s, a; \theta, \alpha) - \frac{1}{\abs{\mathcal{A}}}
+    \sum_{a'} A(s, a'; \theta, \alpha) \right).
+\]
+\end{definition}
+
+\begin{intuition}
+The value stream $V(s)$ captures state quality independently of action
+choice. The advantage stream $A(s,a)$ captures the \emph{relative}
+benefit of each action. This decomposition accelerates learning in
+states where action choice has little impact.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Prioritized Experience Replay}
+\label{sec:per}
+% ------------------------------------------------------------
+
+\begin{definition}[Prioritized Replay]
+\index{prioritized experience replay}
+Prioritized experience replay (Schaul et al., 2016) samples transitions
+with probability proportional to their TD error magnitude:
+\[
+    P(i) = \frac{p_i^\alpha}{\sum_k p_k^\alpha}, \qquad
+    p_i = \abs{\delta_i} + \epsilon_p
+\]
+where $\delta_i$ is the last observed TD error, $\alpha \in [0,1]$
+controls prioritization, and $\epsilon_p > 0$ ensures nonzero
+probability.
+\end{definition}
+
+\begin{definition}[Importance Sampling Correction]
+To compensate for the non-uniform sampling bias, importance sampling
+weights are applied:
+\[
+    w_i = \left(\frac{1}{N \cdot P(i)}\right)^\beta
+\]
+where $\beta$ is annealed from $\beta_0$ to $1$ during training. The
+weighted loss becomes
+$\mathcal{L} = \frac{1}{B}\sum_j w_j (y_j - Q(s_j, a_j; \theta))^2$.
+\end{definition}
+
+\begin{remark}
+Prioritized replay significantly improves sample efficiency by focusing
+updates on ``surprising'' transitions. The sum-tree data structure
+enables efficient $O(\log N)$ priority-based sampling.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Rainbow DQN}
+\label{sec:rainbow}
+% ------------------------------------------------------------
+
+\begin{definition}[Rainbow]
+\index{Rainbow}
+Rainbow (Hessel et al., 2018) combines six DQN extensions:
+\begin{enumerate}
+    \item Double Q-Learning
+    \item Prioritized experience replay
+    \item Dueling architecture
+    \item Multi-step returns ($n$-step TD targets)
+    \item Distributional RL (C51)
+    \item Noisy networks (learned exploration)
+\end{enumerate}
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{$n$-Step DQN Target}]
+\[
+    y_t^{(n)} = \sum_{k=0}^{n-1} \gamma^k R_{t+k+1}
+    + \gamma^n \max_{a'} Q(S_{t+n}, a'; \theta^-)
+\]
+\end{keyformulas}
+
+\begin{proposition}[Rainbow Ablation]
+Ablation studies show that prioritized replay and $n$-step returns
+provide the largest individual contributions. Removing distributional
+RL or dueling networks also hurts performance, but less dramatically.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Soft Target Updates}
+\label{sec:soft_target}
+% ------------------------------------------------------------
+
+\begin{definition}[Polyak Averaging]
+\index{Polyak averaging}
+Instead of periodically copying $\theta \to \theta^-$, soft updates
+blend the parameters at every step:
+\[
+    \theta^- \leftarrow \tau \theta + (1 - \tau) \theta^-
+\]
+with $\tau \ll 1$ (typically $\tau = 0.005$). This provides smoother
+target evolution and is widely used in actor-critic methods.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Python Implementation}
+\label{sec:dqn:code}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Minimal DQN with PyTorch}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+import numpy as np
+from collections import deque
+import random
+
+class QNetwork(nn.Module):
+    def __init__(self, state_dim, action_dim, hidden=128):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, hidden), nn.ReLU(),
+            nn.Linear(hidden, hidden), nn.ReLU(),
+            nn.Linear(hidden, action_dim)
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+class ReplayBuffer:
+    def __init__(self, capacity=100000):
+        self.buffer = deque(maxlen=capacity)
+
+    def push(self, s, a, r, s_next, done):
+        self.buffer.append((s, a, r, s_next, done))
+
+    def sample(self, batch_size):
+        batch = random.sample(self.buffer, batch_size)
+        s, a, r, s2, d = zip(*batch)
+        return (np.array(s), np.array(a), np.array(r),
+                np.array(s2), np.array(d, dtype=np.float32))
+
+def dqn_train(env, n_episodes=500, gamma=0.99, lr=1e-3,
+              batch_size=64, target_update=100):
+    sd = env.observation_space.shape[0]
+    ad = env.action_space.n
+    q_net = QNetwork(sd, ad)
+    q_target = QNetwork(sd, ad)
+    q_target.load_state_dict(q_net.state_dict())
+    optimizer = torch.optim.Adam(q_net.parameters(), lr=lr)
+    buf = ReplayBuffer()
+    step = 0
+    for ep in range(n_episodes):
+        s, _ = env.reset()
+        done = False
+        while not done:
+            eps = max(0.01, 1.0 - step / 5000)
+            if random.random() < eps:
+                a = env.action_space.sample()
+            else:
+                with torch.no_grad():
+                    a = q_net(torch.FloatTensor(s)).argmax().item()
+            s2, r, term, trunc, _ = env.step(a)
+            buf.push(s, a, r, s2, term)
+            s = s2
+            done = term or trunc
+            step += 1
+            if len(buf.buffer) >= batch_size:
+                sb, ab, rb, s2b, db = buf.sample(batch_size)
+                q_vals = q_net(torch.FloatTensor(sb)).gather(
+                    1, torch.LongTensor(ab).unsqueeze(1)).squeeze()
+                with torch.no_grad():
+                    q_next = q_target(
+                        torch.FloatTensor(s2b)).max(1)[0]
+                    targets = (torch.FloatTensor(rb)
+                        + gamma * q_next
+                        * (1 - torch.FloatTensor(db)))
+                loss = nn.MSELoss()(q_vals, targets)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+            if step % target_update == 0:
+                q_target.load_state_dict(q_net.state_dict())
+    return q_net
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+\label{sec:dqn:exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}[DQN on CartPole]
+Implement DQN for \texttt{CartPole-v1}. Train with and without a target
+network. Plot the learning curves and explain the effect of the target
+network on stability.
+\end{exercise}
+
+\begin{exercise}[Double DQN]
+Modify the DQN implementation to use Double DQN. Compare Q-value
+estimates with standard DQN on \texttt{LunarLander-v2} and verify that
+Double DQN reduces overestimation.
+\end{exercise}
+
+\begin{exercise}[Dueling Architecture]
+Implement the dueling architecture. Train on \texttt{CartPole-v1} and
+compare with the standard architecture. In which states does the
+advantage stream have the largest variance?
+\end{exercise}
+
+\begin{exercise}[Prioritized Replay]
+Implement prioritized experience replay with importance sampling
+correction. Compare sample efficiency with uniform replay on
+\texttt{LunarLander-v2}.
+\end{exercise}

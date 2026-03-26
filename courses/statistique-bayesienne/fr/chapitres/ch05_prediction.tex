@@ -1,0 +1,345 @@
+% ============================================================
+\chapter{Pr\'ediction Bay\'esienne}
+\label{ch:prediction}
+% ============================================================
+
+En statistique fr\'equentiste, la pr\'ediction utilise un estimateur ponctuel~: on estime $\theta$, puis on pr\'edit $\tilde{y}$ comme si $\hat\theta$ \'etait la vraie valeur. Cette approche ignore l'incertitude sur le param\`etre et produit des intervalles de pr\'ediction trop \'etroits. L'approche bay\'esienne est fondamentalement diff\'erente~: au lieu de fixer $\theta$, on \emph{int\`egre} sur toutes les valeurs possibles de $\theta$, pond\'er\'ees par la loi a posteriori. La distribution pr\'edictive qui en r\'esulte incorpore naturellement deux sources d'incertitude --- l'al\'ea intrins\`eque des donn\'ees et l'incertitude sur le mod\`ele --- et produit des pr\'evisions mieux calibr\'ees.
+
+\begin{intuition}[title=\textbf{Id\'ee centrale}]
+La pr\'ediction bay\'esienne int\`egre l'incertitude sur le param\`etre
+en moyennant la distribution pr\'edictive sur le posterior. Cela produit
+des intervalles pr\'edictifs calibr\'es et \'evite le sur-ajustement
+inh\'erent \`a l'utilisation d'estimations ponctuelles.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Distribution pr\'edictive a priori}
+% ------------------------------------------------------------
+
+\begin{definition}[Distribution pr\'edictive a priori]
+La \textbf{distribution pr\'edictive a priori} (ou marginale) d'une
+nouvelle observation $\tilde{x}$ est~:
+\[
+  m(\tilde{x}) = \int_\Theta f(\tilde{x} \mid \theta)\,\pi(\theta)\,d\theta.
+\]
+Elle ne d\'epend pas des donn\'ees et repr\'esente la pr\'ediction avant
+toute observation.
+\end{definition}
+
+\begin{exemple}
+\textbf{Mod\`ele Bernoulli--B\^eta.}
+Avec $\theta \sim \text{Be}(a, b)$ et $\tilde{X} \mid \theta \sim \text{Ber}(\theta)$~:
+\[
+  m(\tilde{x} = 1) = \E[\theta] = \frac{a}{a + b}.
+\]
+Pour le prior de Laplace $\text{Be}(1, 1)$~: $m(\tilde{x} = 1) = 1/2$.
+\end{exemple}
+
+\begin{exemple}
+\textbf{Mod\`ele Normal--Normal.}
+Avec $\mu \sim \mathcal{N}(\mu_0, \tau_0^2)$ et
+$\tilde{X} \mid \mu \sim \mathcal{N}(\mu, \sigma^2)$~:
+\[
+  m(\tilde{x}) = \int \mathcal{N}(\tilde{x} \mid \mu, \sigma^2)
+  \cdot \mathcal{N}(\mu \mid \mu_0, \tau_0^2)\,d\mu
+  = \mathcal{N}(\tilde{x} \mid \mu_0, \sigma^2 + \tau_0^2).
+\]
+La variance pr\'edictive $\sigma^2 + \tau_0^2$ additionne l'incertitude
+al\'eatoire et l'incertitude \'epist\'emique.
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Distribution pr\'edictive a posteriori}
+% ------------------------------------------------------------
+
+\begin{definition}[Distribution pr\'edictive a posteriori]
+La \textbf{distribution pr\'edictive a posteriori} de $\tilde{x}$
+\'etant donn\'e $x = (x_1, \ldots, x_n)$ est~:
+\[
+  f(\tilde{x} \mid x) = \int_\Theta f(\tilde{x} \mid \theta)\,\pi(\theta \mid x)\,d\theta.
+\]
+\end{definition}
+
+\begin{formules}[title=\textbf{D\'ecomposition de la variance pr\'edictive}]
+\[
+  \Var[\tilde{X} \mid x]
+  = \underbrace{\E_{\theta \mid x}[\Var[\tilde{X} \mid \theta]]}_{\text{incertitude al\'eatoire}}
+  + \underbrace{\Var_{\theta \mid x}[\E[\tilde{X} \mid \theta]]}_{\text{incertitude \'epist\'emique}}.
+\]
+Cette d\'ecomposition est la \textbf{loi de la variance totale}.
+\end{formules}
+
+\begin{theoreme}[Pr\'edictive a posteriori Normal--Normal]
+Si $X_i \overset{\text{iid}}{\sim} \mathcal{N}(\mu, \sigma^2)$ avec
+$\mu \mid x \sim \mathcal{N}(\mu_n, \tau_n^2)$, alors~:
+\[
+  \tilde{X} \mid x \sim \mathcal{N}(\mu_n, \sigma^2 + \tau_n^2).
+\]
+\end{theoreme}
+
+\begin{proof}
+Conditionnellement \`a $\mu$, $\tilde{X} \sim \mathcal{N}(\mu, \sigma^2)$.
+En int\'egrant sur $\mu \mid x \sim \mathcal{N}(\mu_n, \tau_n^2)$,
+la somme de deux gaussiennes ind\'ependantes donne~:
+\[
+  \tilde{X} \mid x \sim \mathcal{N}(\mu_n, \sigma^2 + \tau_n^2).
+\]
+\end{proof}
+
+\begin{theoreme}[Pr\'edictive a posteriori Bernoulli--B\^eta]
+Si $X_i \overset{\text{iid}}{\sim} \text{Ber}(\theta)$ avec
+$\theta \mid x \sim \text{Be}(a_n, b_n)$, alors~:
+\[
+  \PP(\tilde{X} = 1 \mid x) = \E[\theta \mid x] = \frac{a_n}{a_n + b_n}.
+\]
+C'est la \textbf{r\`egle de succession de Laplace} quand $a = b = 1$~:
+$\PP(\tilde{X} = 1 \mid x) = (s+1)/(n+2)$.
+\end{theoreme}
+
+\begin{theoreme}[Pr\'edictive Poisson--Gamma]
+Si $X_i \overset{\text{iid}}{\sim} \text{Poi}(\lambda)$ avec
+$\lambda \mid x \sim \text{Ga}(\alpha_n, \beta_n)$, la pr\'edictive est
+une \textbf{binomiale n\'egative}~:
+\[
+  \tilde{X} \mid x \sim \text{NegBin}\!\left(\alpha_n, \frac{\beta_n}{\beta_n + 1}\right).
+\]
+\end{theoreme}
+
+\begin{proof}
+\begin{align*}
+  \PP(\tilde{X} = k \mid x)
+  &= \int_0^\infty \frac{e^{-\lambda}\lambda^k}{k!}
+  \cdot \frac{\beta_n^{\alpha_n}}{\Gamma(\alpha_n)}
+  \lambda^{\alpha_n - 1} e^{-\beta_n \lambda}\,d\lambda \\
+  &= \frac{\beta_n^{\alpha_n}}{k!\,\Gamma(\alpha_n)}
+  \int_0^\infty \lambda^{k + \alpha_n - 1} e^{-(\beta_n + 1)\lambda}\,d\lambda \\
+  &= \frac{\beta_n^{\alpha_n}}{k!\,\Gamma(\alpha_n)}
+  \cdot \frac{\Gamma(k + \alpha_n)}{(\beta_n + 1)^{k + \alpha_n}} \\
+  &= \binom{k + \alpha_n - 1}{k}
+  \left(\frac{\beta_n}{\beta_n + 1}\right)^{\alpha_n}
+  \left(\frac{1}{\beta_n + 1}\right)^k.
+\end{align*}
+\end{proof}
+
+\begin{theoreme}[Pr\'edictive Normal--NIG]
+Si $(\mu, \sigma^2) \mid x \sim \text{NIG}(\mu_n, \kappa_n, \alpha_n, \beta_n)$,
+la pr\'edictive a posteriori est une Student~:
+\[
+  \tilde{X} \mid x \sim t_{2\alpha_n}\!\left(\mu_n,\;
+  \frac{\beta_n(\kappa_n + 1)}{\alpha_n \kappa_n}\right).
+\]
+\end{theoreme}
+
+% ------------------------------------------------------------
+\section{V\'erification pr\'edictive a posteriori}
+% ------------------------------------------------------------
+
+\begin{definition}[Posterior predictive check]
+La \textbf{v\'erification pr\'edictive a posteriori} consiste \`a
+simuler des r\'epliques $x^{\text{rep}}$ depuis la pr\'edictive et \`a
+les comparer aux donn\'ees observ\'ees pour \'evaluer l'ad\'equation du
+mod\`ele.
+\end{definition}
+
+\begin{definition}[$p$-valeur pr\'edictive bay\'esienne]
+La \textbf{$p$-valeur pr\'edictive} pour une statistique de test
+$T(x)$ est~:
+\[
+  p_B = \PP(T(x^{\text{rep}}) \geq T(x_{\text{obs}}) \mid x_{\text{obs}}).
+\]
+Des valeurs proches de $0$ ou $1$ sugg\`erent un mauvais ajustement.
+\end{definition}
+
+\begin{algorithme}[title=\textbf{V\'erification pr\'edictive a posteriori}]
+\begin{enumerate}
+  \item Pour $t = 1, \ldots, T$~:
+  \begin{enumerate}
+    \item Tirer $\theta^{(t)} \sim \pi(\theta \mid x_{\text{obs}})$ (depuis MCMC).
+    \item Tirer $x^{\text{rep},(t)} \sim f(x \mid \theta^{(t)})$.
+    \item Calculer $T^{(t)} = T(x^{\text{rep},(t)})$.
+  \end{enumerate}
+  \item Estimer $p_B = \frac{1}{T}\sum_{t=1}^T \mathbf{1}(T^{(t)} \geq T(x_{\text{obs}}))$.
+  \item Tracer la distribution de $T^{(t)}$ et comparer \`a $T(x_{\text{obs}})$.
+\end{enumerate}
+\end{algorithme}
+
+% ------------------------------------------------------------
+\section{Intervalles pr\'edictifs}
+% ------------------------------------------------------------
+
+\begin{definition}[Intervalle pr\'edictif]
+Un \textbf{intervalle pr\'edictif} \`a $100(1-\alpha)\%$ pour $\tilde{X}$ est
+un intervalle $[a, b]$ tel que~:
+\[
+  \PP(\tilde{X} \in [a, b] \mid x) = 1 - \alpha.
+\]
+\end{definition}
+
+\begin{remarque}
+L'intervalle pr\'edictif est toujours plus large que l'intervalle de
+cr\'edibilit\'e pour $\theta$, car il int\`egre \`a la fois l'incertitude
+param\'etrique et l'al\'ea de la nouvelle observation.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Pr\'ediction bay\'esienne vs. plug-in}
+% ------------------------------------------------------------
+
+\begin{attention}[title=\textbf{Danger du plug-in}]
+L'approche \textit{plug-in} remplace $\theta$ par une estimation
+ponctuelle $\hat{\theta}$ et pr\'edit via $f(\tilde{x} \mid \hat{\theta})$.
+Elle sous-estime l'incertitude pr\'edictive car elle ignore l'incertitude
+sur $\theta$. La pr\'ediction bay\'esienne est mieux calibr\'ee.
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Impl\'ementation Python}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Distribution pr\'edictive a posteriori}]
+\begin{minted}{python}
+import numpy as np
+import pymc as pm
+import arviz as az
+import matplotlib.pyplot as plt
+
+# Données gaussiennes
+np.random.seed(42)
+n = 30
+mu_true, sigma_true = 5.0, 2.0
+data = np.random.normal(mu_true, sigma_true, n)
+
+# Modèle bayésien
+with pm.Model() as model_pred:
+    mu = pm.Normal("mu", mu=0, sigma=10)
+    sigma = pm.HalfNormal("sigma", sigma=10)
+    y = pm.Normal("y", mu=mu, sigma=sigma, observed=data)
+    # Prédictive
+    y_pred = pm.Normal("y_pred", mu=mu, sigma=sigma)
+    trace = pm.sample(3000, random_seed=42)
+    ppc = pm.sample_posterior_predictive(trace,
+                                         random_seed=42)
+
+# Visualisation
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+# Prédictive vs données
+az.plot_ppc(ppc, observed_adata=trace, ax=axes[0])
+axes[0].set_title("Vérification prédictive")
+
+# Intervalle prédictif
+y_pred_samples = ppc.posterior_predictive["y_pred"].values.flatten()
+ci_pred = np.percentile(y_pred_samples, [2.5, 97.5])
+axes[1].hist(y_pred_samples, bins=50, density=True,
+             alpha=0.5, label="Prédictive")
+axes[1].axvline(ci_pred[0], color="red", linestyle="--",
+                label=f"IC 95%: [{ci_pred[0]:.1f}, {ci_pred[1]:.1f}]")
+axes[1].axvline(ci_pred[1], color="red", linestyle="--")
+axes[1].legend()
+axes[1].set_title("Distribution prédictive a posteriori")
+
+plt.tight_layout()
+plt.savefig("predictive.pdf")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{$p$-valeur pr\'edictive bay\'esienne}]
+\begin{minted}{python}
+# Statistique de test: écart-type des données
+T_obs = data.std()
+
+# Simuler des répliques
+T_rep = []
+mu_samples = trace.posterior["mu"].values.flatten()
+sigma_samples = trace.posterior["sigma"].values.flatten()
+for i in range(len(mu_samples)):
+    x_rep = np.random.normal(mu_samples[i],
+                              sigma_samples[i], n)
+    T_rep.append(x_rep.std())
+T_rep = np.array(T_rep)
+
+# p-valeur prédictive
+p_B = np.mean(T_rep >= T_obs)
+print(f"T(x_obs) = {T_obs:.3f}")
+print(f"p-valeur prédictive = {p_B:.3f}")
+
+# Visualisation
+plt.figure(figsize=(8, 4))
+plt.hist(T_rep, bins=50, density=True, alpha=0.5,
+         label="T(x_rep)")
+plt.axvline(T_obs, color="red",
+            label=f"T(x_obs) = {T_obs:.2f}")
+plt.xlabel("Écart-type")
+plt.ylabel("Densité")
+plt.legend()
+plt.title(f"p-valeur prédictive = {p_B:.3f}")
+plt.tight_layout()
+plt.savefig("ppc_pvalue.pdf")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Pr\'edictive Poisson--Gamma (binomiale n\'egative)}]
+\begin{minted}{python}
+from scipy import stats
+
+# Données Poisson
+np.random.seed(123)
+data_pois = np.random.poisson(3.0, size=20)
+
+# Prior Gamma(2, 1)
+alpha_n = 2 + data_pois.sum()
+beta_n = 1 + len(data_pois)
+p_nb = beta_n / (beta_n + 1)
+
+# Prédictive: NegBin(alpha_n, p_nb)
+x_grid = np.arange(0, 15)
+pred_pmf = stats.nbinom.pmf(x_grid, alpha_n, p_nb)
+
+plt.figure(figsize=(8, 4))
+plt.bar(x_grid, pred_pmf, alpha=0.7,
+        label="Prédictive NegBin")
+plt.xlabel(r"$\tilde{x}$")
+plt.ylabel("Probabilité")
+plt.title("Prédictive Poisson-Gamma")
+plt.legend()
+plt.tight_layout()
+plt.savefig("pred_negbin.pdf")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}
+D\'eriver la distribution pr\'edictive a posteriori pour le mod\`ele
+Bernoulli--B\^eta pour $m$ nouvelles observations (pas une seule).
+Montrer qu'il s'agit d'une loi b\^eta-binomiale.
+\end{exercice}
+
+\begin{exercice}
+Montrer que la variance pr\'edictive est toujours sup\'erieure ou
+\'egale \`a la variance conditionnelle $\Var[\tilde{X} \mid \theta]$
+pour toute valeur de $\theta$.
+\end{exercice}
+
+\begin{exercice}
+D\'eriver la distribution pr\'edictive pour le mod\`ele Normal--NIG et
+montrer qu'il s'agit d'une Student.
+\end{exercice}
+
+\begin{exercice}
+\textbf{(Num\'erique)} Simuler des donn\'ees Poisson et comparer~:
+\begin{enumerate}
+  \item la pr\'edictive bay\'esienne (binomiale n\'egative),
+  \item la pr\'edictive plug-in (Poisson avec $\hat{\lambda} = \bar{x}$).
+\end{enumerate}
+Calculer la couverture r\'eelle des intervalles pr\'edictifs \`a $95\%$
+des deux approches sur $1000$ r\'ep\'etitions.
+\end{exercice}
+
+\begin{exercice}
+Effectuer une v\'erification pr\'edictive a posteriori pour un mod\`ele
+Poisson appliqu\'e \`a des donn\'ees sur-dispers\'ees. Utiliser la
+variance comme statistique de test.
+\end{exercice}

@@ -1,0 +1,397 @@
+% ============================================================
+\chapter{Pricing des Options}
+\label{ch:pricing}
+% ============================================================
+
+\section{Introduction}
+
+La formule de Black-Scholes est \'el\'egante, mais elle ne s'applique qu'aux options europ\'eennes sur un sous-jacent suivant un mouvement brownien g\'eom\'etrique. Que faire pour une option am\'ericaine (exercice anticip\'e), une option asiatique (d\'ependant de la moyenne du cours), ou un produit exotique \`a barri\`ere~? Les formules ferm\'ees n'existent plus, et il faut recourir au calcul num\'erique. Trois grandes familles de m\'ethodes se partagent le terrain~: les arbres binomiaux, h\'erit\'es du mod\`ele de Cox-Ross-Rubinstein (1979), qui discr\'etisent le temps et construisent l'option par r\'ecurrence arri\`ere~; les m\'ethodes de Monte Carlo, qui simulent des milliers de trajectoires du sous-jacent et moyennent les payoffs actualis\'es~; et les diff\'erences finies, qui r\'esolvent num\'eriquement l'EDP de Black-Scholes sur une grille.
+
+Chacune a ses forces et ses faiblesses, et le choix d\'epend du produit, de la dimension et de la pr\'ecision requise.
+
+\section{Arbres binomiaux}
+
+\subsection{Algorithme CRR}
+
+Rappelons le mod\`ele de Cox--Ross--Rubinstein (chapitre 1). L'algorithme
+proc\`ede en deux phases~:
+\begin{enumerate}
+    \item \textbf{Phase forward}~: construction de l'arbre des prix
+          $S_{n,j} = S_0 u^j d^{n-j}$ pour $n = 0, \ldots, N$ et
+          $j = 0, \ldots, n$.
+    \item \textbf{Phase backward}~: calcul r\'ecursif des valeurs de
+          l'option de $n = N$ \`a $n = 0$.
+\end{enumerate}
+
+\begin{formules}[title=\textbf{R\'ecurrence backward}]
+Pour une option europ\'eenne~:
+\[
+    V_{n,j} = e^{-r\Delta t}\bigl[q \cdot V_{n+1,j+1}
+              + (1-q) \cdot V_{n+1,j}\bigr],
+\]
+avec condition terminale $V_{N,j} = h(S_{N,j})$.
+
+Pour une option am\'ericaine, on ajoute la possibilit\'e d'exercice
+anticip\'e~:
+\[
+    V_{n,j} = \max\!\bigl(h(S_{n,j}),\;
+              e^{-r\Delta t}[q V_{n+1,j+1} + (1-q) V_{n+1,j}]\bigr).
+\]
+\end{formules}
+
+\subsection{Arbre trinomial}
+
+\begin{definition}[Arbre trinomial]
+L'arbre trinomial utilise trois mouvements possibles~:
+\[
+    S_{n+1} \in \{u S_n,\; S_n,\; d S_n\}
+\]
+avec des probabilit\'es $(p_u, p_m, p_d)$ choisies pour respecter
+les deux premiers moments~:
+\begin{align}
+    p_u &= \frac{1}{2}\left(\frac{\sigma^2\Delta t + \nu^2\Delta t^2}
+           {(\Delta x)^2} + \frac{\nu\Delta t}{\Delta x}\right), \\
+    p_d &= \frac{1}{2}\left(\frac{\sigma^2\Delta t + \nu^2\Delta t^2}
+           {(\Delta x)^2} - \frac{\nu\Delta t}{\Delta x}\right), \\
+    p_m &= 1 - p_u - p_d,
+\end{align}
+o\`u $\nu = r - \sigma^2/2$ et $\Delta x = \sigma\sqrt{3\Delta t}$.
+\end{definition}
+
+\begin{remarque}
+L'arbre trinomial converge plus rapidement que le binomial et pr\'esente
+moins d'oscillations dans le prix en fonction de $N$.
+\end{remarque}
+
+\section{M\'ethodes de Monte Carlo}
+
+\subsection{Principe g\'en\'eral}
+
+\begin{theoreme}[Pricing par Monte Carlo]
+Le prix d'un d\'eriv\'e europ\'een de payoff $h(S_T)$ est~:
+\[
+    V_0 = e^{-rT}\E^\mathbb{Q}[h(S_T)]
+        \approx \frac{e^{-rT}}{M}\sum_{m=1}^{M} h(S_T^{(m)}),
+\]
+o\`u les $S_T^{(m)}$ sont des r\'ealisations ind\'ependantes de $S_T$
+sous $\mathbb{Q}$.
+\end{theoreme}
+
+La convergence est en $O(1/\sqrt{M})$ par le th\'eor\`eme central limite,
+ind\'ependamment de la dimension du probl\`eme. C'est l'avantage majeur
+de Monte Carlo pour les probl\`emes en grande dimension.
+
+\begin{proposition}[Intervalle de confiance]
+L'estimateur Monte Carlo $\hat{V}_M$ satisfait~:
+\[
+    \PP\!\left(\abs{\hat{V}_M - V_0} \leq z_{\alpha/2}
+    \frac{\hat{\sigma}_{\text{MC}}}{\sqrt{M}}\right) \approx 1 - \alpha,
+\]
+o\`u $\hat{\sigma}_{\text{MC}}$ est l'\'ecart-type empirique des payoffs
+actualis\'es et $z_{\alpha/2}$ le quantile de la loi normale.
+\end{proposition}
+
+\subsection{Simulation du MBG}
+
+Sous la mesure risque-neutre~:
+\[
+    S_T = S_0 \exp\!\left[\left(r - \frac{\sigma^2}{2}\right)T
+          + \sigma\sqrt{T}\,Z\right], \quad Z \sim \mathcal{N}(0,1).
+\]
+
+Pour une simulation sur une grille $0 = t_0 < t_1 < \cdots < t_N = T$
+(n\'ecessaire pour les options path-dependent)~:
+\[
+    S_{t_{i+1}} = S_{t_i} \exp\!\left[\left(r - \frac{\sigma^2}{2}\right)
+    \Delta t + \sigma\sqrt{\Delta t}\,Z_i\right].
+\]
+
+\begin{codeblock}[title=\textbf{Monte Carlo pour un call europ\'een}]
+\begin{minted}{python}
+import numpy as np
+
+def mc_european(S0, K, T, r, sigma, M=100000, option='call'):
+    """Prix Monte Carlo d'une option europeenne."""
+    Z = np.random.standard_normal(M)
+    ST = S0 * np.exp((r - 0.5*sigma**2)*T + sigma*np.sqrt(T)*Z)
+
+    if option == 'call':
+        payoffs = np.maximum(ST - K, 0)
+    else:
+        payoffs = np.maximum(K - ST, 0)
+
+    disc_payoffs = np.exp(-r*T) * payoffs
+    price = np.mean(disc_payoffs)
+    std_err = np.std(disc_payoffs) / np.sqrt(M)
+    ci_95 = (price - 1.96*std_err, price + 1.96*std_err)
+    return price, std_err, ci_95
+
+np.random.seed(42)
+price, se, ci = mc_european(100, 100, 1.0, 0.05, 0.20)
+print(f"Prix MC: {price:.4f} +/- {se:.4f}")
+print(f"IC 95%: [{ci[0]:.4f}, {ci[1]:.4f}]")
+\end{minted}
+\end{codeblock}
+
+\subsection{R\'eduction de variance}
+
+\begin{definition}[Variables antith\'etiques]
+Pour chaque $Z_i$, on calcule aussi le payoff avec $-Z_i$, puis on
+moyenne~:
+\[
+    \hat{V} = \frac{e^{-rT}}{M}\sum_{m=1}^{M}
+    \frac{h(S_T^{(Z_m)}) + h(S_T^{(-Z_m)})}{2}.
+\]
+\end{definition}
+
+\begin{definition}[Variable de contr\^ole]
+On utilise un estimateur $Y$ de moyenne connue $\E[Y]$ corr\'el\'e au
+payoff $X = h(S_T)$~:
+\[
+    \hat{V}_{\text{CV}} = \frac{1}{M}\sum_{m=1}^{M}
+    \bigl[X^{(m)} - \beta(Y^{(m)} - \E[Y])\bigr],
+\]
+o\`u $\beta = \Cov(X,Y)/\Var(Y)$ est le coefficient optimal.
+Un choix classique est $Y = S_T$ avec $\E^\mathbb{Q}[S_T] = S_0 e^{rT}$.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Monte Carlo avec r\'eduction de variance}]
+\begin{minted}{python}
+def mc_antithetic(S0, K, T, r, sigma, M=100000):
+    """Monte Carlo avec variables antithetiques."""
+    Z = np.random.standard_normal(M)
+    ST_plus = S0 * np.exp((r - 0.5*sigma**2)*T + sigma*np.sqrt(T)*Z)
+    ST_minus = S0 * np.exp((r - 0.5*sigma**2)*T - sigma*np.sqrt(T)*Z)
+    payoffs = 0.5*(np.maximum(ST_plus - K, 0)
+                   + np.maximum(ST_minus - K, 0))
+    disc = np.exp(-r*T) * payoffs
+    return np.mean(disc), np.std(disc)/np.sqrt(M)
+
+def mc_control_variate(S0, K, T, r, sigma, M=100000):
+    """Monte Carlo avec variable de controle (S_T)."""
+    Z = np.random.standard_normal(M)
+    ST = S0 * np.exp((r - 0.5*sigma**2)*T + sigma*np.sqrt(T)*Z)
+    X = np.exp(-r*T) * np.maximum(ST - K, 0)
+    Y = np.exp(-r*T) * ST
+    EY = S0  # E^Q[exp(-rT)*S_T] = S_0
+
+    beta = np.cov(X, Y)[0, 1] / np.var(Y)
+    X_cv = X - beta * (Y - EY)
+    return np.mean(X_cv), np.std(X_cv)/np.sqrt(M)
+
+np.random.seed(42)
+p1, s1 = mc_antithetic(100, 100, 1.0, 0.05, 0.20)
+p2, s2 = mc_control_variate(100, 100, 1.0, 0.05, 0.20)
+print(f"Antithetique: {p1:.4f} (se={s1:.4f})")
+print(f"Controle:     {p2:.4f} (se={s2:.4f})")
+\end{minted}
+\end{codeblock}
+
+\section{Diff\'erences finies}
+
+L'\'EDP de Black--Scholes peut \^etre r\'esolue num\'eriquement par
+la m\'ethode des diff\'erences finies.
+
+\subsection{Transformation et discr\'etisation}
+
+On pose $x = \ln(S/K)$, $\tau = T - t$. L'EDP se transforme en~:
+\[
+    \frac{\partial u}{\partial\tau} = \frac{\sigma^2}{2}
+    \frac{\partial^2 u}{\partial x^2}
+    + \left(r - \frac{\sigma^2}{2}\right)\frac{\partial u}{\partial x} - ru.
+\]
+
+\begin{definition}[Sch\'ema explicite]
+On discr\'etise sur une grille $(x_i, \tau_j)$~:
+\[
+    \frac{u_i^{j+1} - u_i^j}{\Delta\tau}
+    = \frac{\sigma^2}{2}\frac{u_{i+1}^j - 2u_i^j + u_{i-1}^j}{(\Delta x)^2}
+    + \nu\frac{u_{i+1}^j - u_{i-1}^j}{2\Delta x} - ru_i^j.
+\]
+Ce sch\'ema est \textbf{explicite} (la valeur au pas suivant se calcule
+directement) mais soumis \`a une condition de stabilit\'e CFL.
+\end{definition}
+
+\begin{definition}[Sch\'ema implicite (Crank--Nicolson)]
+Le sch\'ema de Crank--Nicolson moyenne les pas explicite et implicite~:
+\[
+    \frac{u_i^{j+1} - u_i^j}{\Delta\tau}
+    = \frac{1}{2}\bigl[\mathcal{L}u_i^j + \mathcal{L}u_i^{j+1}\bigr],
+\]
+o\`u $\mathcal{L}$ est l'op\'erateur diff\'erentiel spatial. Ce sch\'ema
+est inconditionnellement stable et d'ordre 2 en temps et en espace.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Diff\'erences finies --- Crank--Nicolson}]
+\begin{minted}{python}
+import numpy as np
+from scipy.linalg import solve_banded
+
+def fd_crank_nicolson(S0, K, T, r, sigma, Nx=200, Nt=500):
+    """Prix d'un call europeen par Crank-Nicolson."""
+    x_max = 5 * sigma * np.sqrt(T)
+    dx = 2 * x_max / Nx
+    dt = T / Nt
+    x = np.linspace(-x_max, x_max, Nx + 1)
+
+    nu = r - 0.5 * sigma**2
+    alpha = 0.5 * dt * sigma**2 / dx**2
+    beta_val = 0.5 * dt * nu / (2 * dx)
+
+    # Condition terminale (call)
+    u = np.maximum(K * (np.exp(x) - 1), 0)
+
+    # Coefficients tridiagonaux
+    a = -0.5 * (alpha - beta_val)  # sous-diag
+    b = 1 + alpha + 0.5 * r * dt  # diag
+    c = -0.5 * (alpha + beta_val)  # sur-diag
+
+    a_e = 0.5 * (alpha - beta_val)
+    b_e = 1 - alpha - 0.5 * r * dt
+    c_e = 0.5 * (alpha + beta_val)
+
+    # Matrice bande pour solve_banded
+    AB = np.zeros((3, Nx + 1))
+    AB[0, 1:] = c       # sur-diag
+    AB[1, :] = b         # diag
+    AB[2, :-1] = a       # sous-diag
+
+    for j in range(Nt):
+        rhs = a_e * np.roll(u, 1) + b_e * u + c_e * np.roll(u, -1)
+        rhs[0] = 0  # condition aux limites
+        rhs[-1] = K * (np.exp(x[-1]) - np.exp(-r * (j+1)*dt))
+        AB[1, 0] = 1; AB[0, 1] = 0
+        AB[1, -1] = 1; AB[2, -2] = 0
+        u = solve_banded((1, 1), AB, rhs)
+        AB[1, 0] = b; AB[0, 1] = c
+        AB[1, -1] = b; AB[2, -2] = a
+
+    # Interpolation pour S = S0
+    x0 = np.log(S0 / K)
+    price = np.interp(x0, x, u)
+    return price
+
+price_fd = fd_crank_nicolson(100, 100, 1.0, 0.05, 0.20)
+print(f"Prix Crank-Nicolson: {price_fd:.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{Comparaison des m\'ethodes}
+
+\begin{center}
+\begin{tabular}{lccc}
+    \toprule
+    \textbf{Crit\`ere} & \textbf{Arbres} & \textbf{Monte Carlo}
+    & \textbf{Diff. finies} \\
+    \midrule
+    Dimension & faible & \'elev\'ee & faible \\
+    Am\'ericaines & oui & difficile & oui \\
+    Path-dependent & non & oui & difficile \\
+    Convergence & $O(1/N)$ & $O(1/\sqrt{M})$ & $O(h^2)$ \\
+    Grecques & diff. finies & bump-and-reprice & directes \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+\section{M\'ethode de Longstaff--Schwartz (options am\'ericaines)}
+
+\begin{theoreme}[Algorithme LSM]
+Pour une option am\'ericaine, l'algorithme de Longstaff--Schwartz (2001)
+estime la valeur de continuation par r\'egression sur des polyn\^omes
+des prix simul\'es. \`A chaque pas de temps $t_n$ en backward~:
+\begin{enumerate}
+    \item Calculer le payoff d'exercice imm\'ediat $h(S_{t_n}^{(m)})$.
+    \item R\'egresser les flux futurs actualis\'es sur des fonctions de base
+          $\psi_k(S_{t_n}^{(m)})$ (e.g., polyn\^omes de Laguerre).
+    \item Exercer si $h(S_{t_n}^{(m)}) > \hat{C}(S_{t_n}^{(m)})$
+          (continuation estim\'ee).
+\end{enumerate}
+\end{theoreme}
+
+\begin{codeblock}[title=\textbf{Longstaff--Schwartz pour put am\'ericain}]
+\begin{minted}{python}
+def lsm_american_put(S0, K, T, r, sigma, M=50000, N=100):
+    """Put americain par Longstaff-Schwartz."""
+    dt = T / N
+    discount = np.exp(-r * dt)
+
+    # Simulation des trajectoires
+    Z = np.random.standard_normal((N, M))
+    S = np.zeros((N + 1, M))
+    S[0] = S0
+    for i in range(N):
+        S[i+1] = S[i] * np.exp((r - 0.5*sigma**2)*dt
+                                + sigma*np.sqrt(dt)*Z[i])
+
+    # Payoff terminal
+    cashflow = np.maximum(K - S[N], 0)
+    stopping = np.full(M, N)
+
+    # Backward induction
+    for n in range(N - 1, 0, -1):
+        exercise = np.maximum(K - S[n], 0)
+        itm = exercise > 0
+
+        if np.sum(itm) > 0:
+            X = S[n, itm]
+            Y = cashflow[itm] * discount**(stopping[itm] - n)
+            # Regression polynomiale (degre 3)
+            A = np.column_stack([np.ones_like(X), X, X**2, X**3])
+            coeffs = np.linalg.lstsq(A, Y, rcond=None)[0]
+            continuation = A @ coeffs
+
+            exercise_now = exercise[itm] > continuation
+            idx = np.where(itm)[0][exercise_now]
+            cashflow[idx] = exercise[idx]
+            stopping[idx] = n
+
+    price = np.mean(cashflow * discount**stopping)
+    return price
+
+np.random.seed(42)
+p_am = lsm_american_put(100, 100, 1.0, 0.05, 0.20)
+print(f"Put americain (LSM): {p_am:.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{Exercices}
+
+\begin{exercice}[Convergence des m\'ethodes]
+\begin{enumerate}
+    \item Comparer les prix CRR, Monte Carlo et Crank--Nicolson pour un
+          call europ\'een avec les param\`etres $S_0=100$, $K=100$, $T=1$,
+          $r=0.05$, $\sigma=0.20$.
+    \item Tracer l'erreur par rapport \`a Black--Scholes en fonction du
+          param\`etre de discr\'etisation ($N$ ou $M$).
+    \item Mesurer le temps de calcul pour chaque m\'ethode.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[R\'eduction de variance]
+\begin{enumerate}
+    \item Impl\'ementer les variables antith\'etiques et la variable de
+          contr\^ole.
+    \item Comparer les erreurs standard pour $M = 10^4, 10^5, 10^6$.
+    \item Calculer le facteur de r\'eduction de variance pour chaque
+          technique.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Options am\'ericaines]
+\begin{enumerate}
+    \item Comparer le prix d'un put am\'ericain par l'arbre CRR, par
+          Crank--Nicolson avec exercice anticip\'e, et par LSM.
+    \item D\'eterminer la prime d'exercice anticip\'e
+          $P_{\text{am}} - P_{\text{eu}}$ en fonction de $r$ et $\sigma$.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Grecques par Monte Carlo]
+\begin{enumerate}
+    \item Calculer $\Delta$ et $\Gamma$ par \textit{bump-and-reprice}~:
+          $\Delta \approx (V(S+h) - V(S-h))/(2h)$.
+    \item Calculer $\Delta$ par la m\'ethode des \textit{likelihood ratios}~:
+          $\Delta = e^{-rT}\E\bigl[h(S_T)\frac{Z}{\sigma S_0\sqrt{T}}\bigr]$.
+    \item Comparer les \'ecarts-types des deux estimateurs.
+\end{enumerate}
+\end{exercice}

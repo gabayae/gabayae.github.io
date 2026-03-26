@@ -1,0 +1,136 @@
+% ============================================================
+% Chapter 7: Classical Tests z, t, chi2, F
+% ============================================================
+\chapter{Classical Tests: $z$, $t$, $\chi^2$, $F$}
+\label{ch:classical-tests}
+
+\begin{center}
+\textit{``Theory without practice is sterile; practice without theory is blind.''}
+\end{center}
+
+\section{Motivating Example}
+Two machines A and B produce parts. We want to compare precision (variance) and mean length. Machine A: $n_1=20$, $\bar{x}_1=50.2$, $s_1=1.5$. Machine B: $n_2=25$, $\bar{x}_2=49.5$, $s_2=2.1$.
+
+\section{$z$-Test (Known Variance)}
+\index{z-test@$z$-test}
+
+For $H_0:\mu=\mu_0$ with $\sigma$ known: $Z = (\xbar-\mu_0)/(\sigma/\sqrt{n}) \sim \mathcal{N}(0,1)$.
+
+\textbf{Proportions:} $Z = (\phat-p_0)/\sqrt{p_0(1-p_0)/n}$.
+
+\textbf{Two proportions:} $Z = (\phat_1-\phat_2)/\sqrt{\phat_{\mathrm{pool}}(1-\phat_{\mathrm{pool}})(1/n_1+1/n_2)}$.
+
+\section{Student's $t$-Test}
+\index{t-test@$t$-test}
+
+\textbf{One sample:} $T = (\xbar-\mu_0)/(S/\sqrt{n}) \sim t(n-1)$.
+
+\textbf{Two independent samples (equal variances):}
+\[
+T = \frac{\xbar-\bar{Y}}{S_p\sqrt{1/n_1+1/n_2}} \sim t(n_1+n_2-2), \quad S_p^2=\frac{(n_1-1)S_1^2+(n_2-1)S_2^2}{n_1+n_2-2}.
+\]
+
+\textbf{Welch's test (unequal variances):}
+\[
+T = \frac{\xbar-\bar{Y}}{\sqrt{S_1^2/n_1+S_2^2/n_2}} \sim t(\nu), \quad \nu = \frac{(S_1^2/n_1+S_2^2/n_2)^2}{\frac{(S_1^2/n_1)^2}{n_1-1}+\frac{(S_2^2/n_2)^2}{n_2-1}}.
+\]
+
+\textbf{Paired test:} On differences $D_i=X_i-Y_i$: $T=\bar{D}/(S_D/\sqrt{n})\sim t(n-1)$.
+
+\section{$\chi^2$ Tests}
+\index{chi-squared test}
+
+\textbf{Variance test:} $\chi^2 = (n-1)S^2/\sigma_0^2 \sim \chi^2(n-1)$.
+
+\textbf{Goodness-of-fit:} $\chi^2 = \sum (O_i-E_i)^2/E_i \sim \chi^2(k-1-r)$.
+
+\textbf{Independence test:} For $r\times c$ contingency table: $\chi^2 = \sum\sum(O_{ij}-E_{ij})^2/E_{ij} \sim \chi^2((r-1)(c-1))$.
+
+\section{$F$-Test}
+\index{F-test@$F$-test}
+
+For $H_0:\sigma_1^2=\sigma_2^2$: $F = S_1^2/S_2^2 \sim F(n_1-1,n_2-1)$.
+
+\section{Test Selection Guide}
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, rounded corners, minimum width=2.8cm, minimum height=0.9cm, text centered, font=\small},
+  arrow/.style={-{Stealth}, thick}
+]
+\node[box, fill=blue!10] (start) at (0,0) {Parameter?};
+\node[box, fill=green!10] (mu) at (-4,-1.8) {Mean $\mu$};
+\node[box, fill=green!10] (sig) at (0,-1.8) {Variance $\sigma^2$};
+\node[box, fill=green!10] (prop) at (4,-1.8) {Proportion $p$};
+\node[box, fill=orange!10] (z) at (-6,-3.6) {$\sigma$ known $\to z$};
+\node[box, fill=orange!10] (t) at (-2,-3.6) {$\sigma$ unknown $\to t$};
+\node[box, fill=orange!10] (chi) at (0,-3.6) {$\chi^2$};
+\node[box, fill=orange!10] (zprop) at (4,-3.6) {$z$ (large $n$)};
+\draw[arrow] (start) -- (mu); \draw[arrow] (start) -- (sig);
+\draw[arrow] (start) -- (prop); \draw[arrow] (mu) -- (z);
+\draw[arrow] (mu) -- (t); \draw[arrow] (sig) -- (chi);
+\draw[arrow] (prop) -- (zprop);
+\end{tikzpicture}
+\end{center}
+
+\section{Python Implementation}
+
+\begin{python}
+\begin{minted}{python}
+import numpy as np
+from scipy import stats
+
+# One-sample t-test
+data = np.array([50.2, 49.8, 51.1, 48.9, 50.5, 49.3, 50.8, 49.1,
+                 50.0, 49.7, 50.3, 49.5, 50.6, 49.2, 50.4])
+t_stat, p_val = stats.ttest_1samp(data, 50)
+print(f"One-sample t: t={t_stat:.4f}, p={p_val:.4f}")
+
+# Two-sample t-test (Welch)
+A = np.random.normal(50, 1.5, 20)
+B = np.random.normal(49.5, 2.1, 25)
+t_w, p_w = stats.ttest_ind(A, B, equal_var=False)
+print(f"Welch: t={t_w:.4f}, p={p_w:.4f}")
+
+# F-test for equal variances
+f_stat = np.var(A, ddof=1) / np.var(B, ddof=1)
+p_f = 2*min(stats.f.cdf(f_stat, 19, 24), 1-stats.f.cdf(f_stat, 19, 24))
+print(f"F-test: F={f_stat:.4f}, p={p_f:.4f}")
+
+# Chi-squared goodness-of-fit
+obs = np.array([8, 12, 10, 11, 9, 10])
+chi2, p_chi = stats.chisquare(obs)
+print(f"Chi2 GoF: chi2={chi2:.4f}, p={p_chi:.4f}")
+
+# Chi-squared independence
+table = np.array([[30, 20, 10], [25, 30, 15], [15, 20, 35]])
+chi2_ind, p_ind, dof, _ = stats.chi2_contingency(table)
+print(f"Chi2 independence: chi2={chi2_ind:.4f}, p={p_ind:.4f}")
+\end{minted}
+\end{python}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+Reaction times after coffee for 12 subjects. Normal mean is 220ms. Does coffee reduce reaction time?
+\end{exercise}
+
+\begin{exercise}[$\star$]
+A die rolled 120 times. Test whether it is fair at 5\%.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Compare two treatments: first test equality of variances ($F$-test), then choose the appropriate $t$-test.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Project]
+Study the robustness of the $t$-test to non-normality via simulation.
+\end{exercise}
+
+\begin{keyformulas}
+\begin{align*}
+z &= \frac{\xbar-\mu_0}{\sigma/\sqrt{n}} & t &= \frac{\xbar-\mu_0}{S/\sqrt{n}} \\
+\chi^2 &= \frac{(n-1)S^2}{\sigma_0^2} & F &= S_1^2/S_2^2 \\
+\chi^2_{\text{GoF}} &= \sum\frac{(O_i-E_i)^2}{E_i} & S_p^2 &= \frac{(n_1-1)S_1^2+(n_2-1)S_2^2}{n_1+n_2-2}
+\end{align*}
+\end{keyformulas}

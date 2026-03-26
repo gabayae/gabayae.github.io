@@ -1,0 +1,368 @@
+% =============================================================================
+\chapter{Q-Learning et SARSA}
+\label{ch:q_learning}
+% =============================================================================
+
+En 1989, Christopher Watkins, dans sa th\`ese de doctorat \`a Cambridge, propose un algorithme d'une simplicit\'e trompeuse~: \`a chaque transition, mettre \`a jour la valeur d'une paire \'etat-action en utilisant le maximum sur les actions suivantes. C'est le \emph{Q-learning}, le premier algorithme d'apprentissage par renforcement dont on a pu prouver la convergence vers la politique optimale \emph{sans} conna\^itre le mod\`ele de l'environnement. Presque simultan\'ement, Rummery et Niranjan proposent \emph{SARSA}, une variante \emph{on-policy}. La distinction entre ces deux approches --- \emph{off-policy} et \emph{on-policy} --- est l'une des lignes de fracture fondamentales de l'apprentissage par renforcement.
+
+\begin{intuition}
+Q-Learning et SARSA sont les algorithmes fondamentaux de contr\^ole sans mod\`ele.
+Ils apprennent directement la fonction $Q(s,a)$ \`a partir de l'exp\'erience.
+SARSA est \emph{on-policy} (en-politique)~: il apprend la valeur de la politique
+qu'il suit. Q-Learning est \emph{off-policy} (hors-politique)~: il apprend la
+valeur de la politique optimale ind\'ependamment de la politique d'exploration.
+\end{intuition}
+
+% -----------------------------------------------------------------------------
+\section{Contr\^ole TD --- Cadre g\'en\'eral}
+% -----------------------------------------------------------------------------
+
+Le probl\`eme de \textbf{contr\^ole} consiste \`a trouver une politique optimale
+$\pi^*$ sans conna\^itre le mod\`ele. On combine l'estimation de $Q^\pi$ par
+m\'ethodes TD avec l'am\'elioration $\epsilon$-gloutonne, dans l'esprit de GPI.
+
+% -----------------------------------------------------------------------------
+\section{SARSA --- Contr\^ole en-politique}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[SARSA]
+L'algorithme SARSA met \`a jour $Q(S_t, A_t)$ en utilisant le quintuplet
+$(S_t, A_t, R_{t+1}, S_{t+1}, A_{t+1})$~:
+\[
+    Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha \big[
+    R_{t+1} + \gamma Q(S_{t+1}, A_{t+1}) - Q(S_t, A_t) \big].
+\]
+\end{definition}
+
+\begin{formules}[title=\textbf{Mise \`a jour SARSA}]
+\[
+    Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha \big[
+    R_{t+1} + \gamma Q(S_{t+1}, A_{t+1}) - Q(S_t, A_t) \big]
+\]
+o\`u $A_{t+1} \sim \pi_\epsilon(\cdot | S_{t+1})$ est l'action effectivement
+choisie par la politique $\epsilon$-gloutonne.
+\end{formules}
+
+\begin{algorithme}[title=\textbf{SARSA}]
+\begin{enumerate}
+    \item Initialiser $Q(s,a)$ arbitrairement, $Q(\text{terminal}, \cdot) = 0$
+    \item Pour chaque \'episode~:
+    \begin{enumerate}
+        \item Initialiser $S_0$~; choisir $A_0$ selon $\pi_\epsilon$ d\'eriv\'ee de $Q$
+        \item Pour chaque pas $t = 0, 1, \ldots$ jusqu'\`a terminaison~:
+        \begin{enumerate}
+            \item Ex\'ecuter $A_t$, observer $R_{t+1}, S_{t+1}$
+            \item Choisir $A_{t+1}$ selon $\pi_\epsilon$ d\'eriv\'ee de $Q$
+            \item $Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha[R_{t+1} + \gamma Q(S_{t+1}, A_{t+1}) - Q(S_t, A_t)]$
+        \end{enumerate}
+    \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+\begin{theoreme}[Convergence de SARSA]
+Sous les conditions de Robbins-Monro et si tous les couples $(s,a)$ sont visit\'es
+infiniment souvent (condition GLIE~: Greedy in the Limit with Infinite Exploration),
+SARSA converge vers $Q^*$ presque s\^urement.
+\end{theoreme}
+
+% -----------------------------------------------------------------------------
+\section{Q-Learning --- Contr\^ole hors-politique}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Q-Learning]
+L'algorithme Q-Learning de Watkins (1989) met \`a jour~:
+\[
+    Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha \big[
+    R_{t+1} + \gamma \max_{a'} Q(S_{t+1}, a') - Q(S_t, A_t) \big].
+\]
+\end{definition}
+
+\begin{formules}[title=\textbf{Mise \`a jour Q-Learning}]
+\[
+    Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha \Big[
+    R_{t+1} + \gamma \max_{a' \in \mathcal{A}} Q(S_{t+1}, a') - Q(S_t, A_t) \Big]
+\]
+\end{formules}
+
+La diff\'erence cl\'e avec SARSA est l'utilisation du $\max$ au lieu de $Q(S_{t+1}, A_{t+1})$.
+Q-Learning apprend $Q^*$ directement, quelle que soit la politique de comportement
+(tant que tous les couples $(s,a)$ sont visit\'es).
+
+\begin{algorithme}[title=\textbf{Q-Learning}]
+\begin{enumerate}
+    \item Initialiser $Q(s,a)$ arbitrairement, $Q(\text{terminal}, \cdot) = 0$
+    \item Pour chaque \'episode~:
+    \begin{enumerate}
+        \item Initialiser $S_0$
+        \item Pour chaque pas $t = 0, 1, \ldots$ jusqu'\`a terminaison~:
+        \begin{enumerate}
+            \item Choisir $A_t$ selon $\pi_\epsilon$ d\'eriv\'ee de $Q$
+            \item Ex\'ecuter $A_t$, observer $R_{t+1}, S_{t+1}$
+            \item $Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha[R_{t+1} + \gamma \max_{a'} Q(S_{t+1}, a') - Q(S_t, A_t)]$
+        \end{enumerate}
+    \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+\begin{theoreme}[Convergence de Q-Learning]
+\label{thm:q_learning_conv}
+Si chaque couple $(s,a)$ est visit\'e infiniment souvent et si les taux
+d'apprentissage $\alpha_t(s,a)$ satisfont les conditions de Robbins-Monro~:
+\[
+    \sum_t \alpha_t(s,a) = \infty, \qquad \sum_t \alpha_t^2(s,a) < \infty,
+\]
+alors $Q(s,a) \to Q^*(s,a)$ presque s\^urement pour tout $(s,a)$.
+\end{theoreme}
+
+\begin{proof}[Id\'ee de la preuve]
+La preuve repose sur la th\'eorie des approximations stochastiques.
+On \'ecrit la mise \`a jour sous la forme~:
+\[
+    Q_{t+1}(s,a) = (1-\alpha_t)Q_t(s,a) + \alpha_t [R_{t+1} + \gamma \max_{a'} Q_t(S_{t+1}, a')].
+\]
+C'est un processus d'approximation stochastique de l'op\'erateur de Bellman
+$\mathcal{T}^*$. La contraction de $\mathcal{T}^*$ en norme infinie garantit
+la convergence sous les conditions de Robbins-Monro (th\'eor\`eme de Jaakkola
+et al., 1994).
+\end{proof}
+
+% -----------------------------------------------------------------------------
+\section{SARSA vs Q-Learning~: l'exemple de la falaise}
+% -----------------------------------------------------------------------------
+
+\begin{exemple}[Cliff Walking]
+L'environnement \texttt{CliffWalking-v0} illustre la diff\'erence~:
+\begin{itemize}
+    \item \textbf{Q-Learning} apprend la politique optimale (le long de la falaise),
+    mais la politique d'exploration peut faire tomber l'agent.
+    \item \textbf{SARSA} apprend une politique plus s\^ure (loin de la falaise)
+    car il tient compte du comportement $\epsilon$-glouton.
+\end{itemize}
+Q-Learning optimise le retour de la politique \emph{cible} (gloutonne), tandis que
+SARSA optimise le retour de la politique \emph{effective} ($\epsilon$-gloutonne).
+\end{exemple}
+
+% -----------------------------------------------------------------------------
+\section{Expected SARSA}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[Expected SARSA]
+\textbf{Expected SARSA} utilise l'esp\'erance sur les actions futures au lieu
+d'une action \'echantillonn\'ee~:
+\[
+    Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha \Big[
+    R_{t+1} + \gamma \sum_{a'} \pi(a' | S_{t+1}) Q(S_{t+1}, a') - Q(S_t, A_t) \Big].
+\]
+\end{definition}
+
+\begin{remarque}
+Expected SARSA g\'en\'eralise \`a la fois SARSA et Q-Learning~:
+\begin{itemize}
+    \item Si $\pi$ est la politique $\epsilon$-gloutonne courante, c'est une
+    version \`a variance r\'eduite de SARSA.
+    \item Si $\pi$ est la politique gloutonne, c'est exactement Q-Learning.
+\end{itemize}
+\end{remarque}
+
+% -----------------------------------------------------------------------------
+\section{Double Q-Learning}
+% -----------------------------------------------------------------------------
+
+\begin{attention}[title=\textbf{Biais de maximisation}]
+Q-Learning souffre d'un \textbf{biais de maximisation}~: $\E[\max_a Q(s,a)] \geq
+\max_a \E[Q(s,a)]$ (in\'egalit\'e de Jensen). Ce biais conduit \`a surestimer
+syst\'ematiquement les valeurs Q.
+\end{attention}
+
+\begin{definition}[Double Q-Learning]
+\textbf{Double Q-Learning} (Hasselt, 2010) maintient deux tables $Q^A$ et $Q^B$.
+\`A chaque pas, avec probabilit\'e $0.5$~:
+\[
+    Q^A(S_t, A_t) \leftarrow Q^A(S_t, A_t) + \alpha \Big[
+    R_{t+1} + \gamma Q^B\big(S_{t+1}, \argmax_{a'} Q^A(S_{t+1}, a')\big) - Q^A(S_t, A_t) \Big]
+\]
+ou on met \`a jour $Q^B$ sym\'etriquement. L'action est s\'electionn\'ee par une
+table et \'evalu\'ee par l'autre, \'eliminant le biais.
+\end{definition}
+
+% -----------------------------------------------------------------------------
+\section{SARSA($\lambda$) et Q($\lambda$)}
+% -----------------------------------------------------------------------------
+
+\begin{definition}[SARSA($\lambda$)]
+SARSA($\lambda$) combine SARSA avec les traces d'\'eligibilit\'e~:
+\[
+    e_t(s,a) = \gamma \lambda \, e_{t-1}(s,a) + \mathbb{1}_{S_t=s, A_t=a}
+\]
+\[
+    Q(s,a) \leftarrow Q(s,a) + \alpha \, \delta_t \, e_t(s,a)
+\]
+o\`u $\delta_t = R_{t+1} + \gamma Q(S_{t+1}, A_{t+1}) - Q(S_t, A_t)$.
+\end{definition}
+
+% -----------------------------------------------------------------------------
+\section{Impl\'ementation en Python}
+% -----------------------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Q-Learning tabulaire}]
+\begin{minted}{python}
+import numpy as np
+import gymnasium as gym
+
+def q_learning(env, n_episodes=5000, alpha=0.1, gamma=0.99,
+               epsilon=0.1):
+    """Q-Learning tabulaire avec politique epsilon-gloutonne."""
+    nS = env.observation_space.n
+    nA = env.action_space.n
+    Q = np.zeros((nS, nA))
+
+    def epsilon_greedy(s):
+        if np.random.random() < epsilon:
+            return env.action_space.sample()
+        return np.argmax(Q[s])
+
+    rewards_per_episode = []
+    for ep in range(n_episodes):
+        s, _ = env.reset()
+        total_reward = 0
+        done = False
+        while not done:
+            a = epsilon_greedy(s)
+            s_next, r, terminated, truncated, _ = env.step(a)
+            done = terminated or truncated
+            # Mise a jour Q-Learning
+            target = r + gamma * np.max(Q[s_next]) * (not terminated)
+            Q[s, a] += alpha * (target - Q[s, a])
+            s = s_next
+            total_reward += r
+        rewards_per_episode.append(total_reward)
+
+    pi = np.argmax(Q, axis=1)
+    return Q, pi, rewards_per_episode
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{SARSA tabulaire}]
+\begin{minted}{python}
+def sarsa(env, n_episodes=5000, alpha=0.1, gamma=0.99,
+          epsilon=0.1):
+    """SARSA tabulaire avec politique epsilon-gloutonne."""
+    nS = env.observation_space.n
+    nA = env.action_space.n
+    Q = np.zeros((nS, nA))
+
+    def epsilon_greedy(s):
+        if np.random.random() < epsilon:
+            return env.action_space.sample()
+        return np.argmax(Q[s])
+
+    rewards_per_episode = []
+    for ep in range(n_episodes):
+        s, _ = env.reset()
+        a = epsilon_greedy(s)
+        total_reward = 0
+        done = False
+        while not done:
+            s_next, r, terminated, truncated, _ = env.step(a)
+            done = terminated or truncated
+            a_next = epsilon_greedy(s_next) if not done else 0
+            # Mise a jour SARSA
+            target = r + gamma * Q[s_next, a_next] * (not terminated)
+            Q[s, a] += alpha * (target - Q[s, a])
+            s, a = s_next, a_next
+            total_reward += r
+        rewards_per_episode.append(total_reward)
+
+    pi = np.argmax(Q, axis=1)
+    return Q, pi, rewards_per_episode
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Comparaison sur CliffWalking}]
+\begin{minted}{python}
+import matplotlib.pyplot as plt
+
+env = gym.make("CliffWalking-v0")
+
+Q_ql, pi_ql, rewards_ql = q_learning(env, n_episodes=5000)
+Q_sa, pi_sa, rewards_sa = sarsa(env, n_episodes=5000)
+
+# Lissage par moyenne glissante
+def smooth(x, window=100):
+    return np.convolve(x, np.ones(window)/window, mode='valid')
+
+plt.figure(figsize=(10, 5))
+plt.plot(smooth(rewards_ql), label='Q-Learning')
+plt.plot(smooth(rewards_sa), label='SARSA')
+plt.xlabel('Episode')
+plt.ylabel('Recompense cumulee (lissee)')
+plt.legend()
+plt.title('CliffWalking: Q-Learning vs SARSA')
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Double Q-Learning}]
+\begin{minted}{python}
+def double_q_learning(env, n_episodes=5000, alpha=0.1,
+                      gamma=0.99, epsilon=0.1):
+    """Double Q-Learning tabulaire."""
+    nS = env.observation_space.n
+    nA = env.action_space.n
+    QA = np.zeros((nS, nA))
+    QB = np.zeros((nS, nA))
+
+    def epsilon_greedy(s):
+        if np.random.random() < epsilon:
+            return env.action_space.sample()
+        return np.argmax(QA[s] + QB[s])
+
+    for ep in range(n_episodes):
+        s, _ = env.reset()
+        done = False
+        while not done:
+            a = epsilon_greedy(s)
+            s_next, r, terminated, truncated, _ = env.step(a)
+            done = terminated or truncated
+            if np.random.random() < 0.5:
+                a_star = np.argmax(QA[s_next])
+                target = r + gamma * QB[s_next, a_star] * (not terminated)
+                QA[s, a] += alpha * (target - QA[s, a])
+            else:
+                a_star = np.argmax(QB[s_next])
+                target = r + gamma * QA[s_next, a_star] * (not terminated)
+                QB[s, a] += alpha * (target - QB[s, a])
+            s = s_next
+
+    Q = (QA + QB) / 2
+    pi = np.argmax(Q, axis=1)
+    return Q, pi
+\end{minted}
+\end{codeblock}
+
+% -----------------------------------------------------------------------------
+\section{Exercices}
+% -----------------------------------------------------------------------------
+
+\begin{exercice}[Biais de maximisation]
+Construisez un MDP \`a 2 \'etats o\`u Q-Learning surestime syst\'ematiquement
+les valeurs. Ex\'ecutez 1000 r\'ep\'etitions et comparez les estimations de
+Q-Learning, Double Q-Learning et la vraie valeur $Q^*$.
+\end{exercice}
+
+\begin{exercice}[Taux d'apprentissage]
+\'Etudiez l'effet de $\alpha$ sur la convergence de Q-Learning pour
+$\alpha \in \{0.01, 0.05, 0.1, 0.5, 1.0\}$ sur \texttt{Taxi-v3}.
+Tracez les courbes de convergence.
+\end{exercice}
+
+\begin{exercice}[Expected SARSA]
+Impl\'ementez Expected SARSA et montrez qu'il r\'eduit la variance par rapport
+\`a SARSA sur \texttt{CliffWalking-v0}. Comparez les \'ecarts-types des
+r\'ecompenses cumulatives sur 100 ex\'ecutions.
+\end{exercice}
+
+\begin{exercice}[Preuve formelle]
+Montrez que Q-Learning est un cas sp\'ecial d'Expected SARSA lorsque la
+politique cible est la politique gloutonne. \'Ecrivez la preuve formelle.
+\end{exercice}

@@ -1,0 +1,269 @@
+% ============================================================
+\chapter{Scott Domains and Scott Topology}
+\label{ch:scott}
+% ============================================================
+
+In 1970, Dana Scott was searching for a mathematical model for the untyped lambda calculus---a formal system where a function can take itself as an argument. Classical topological spaces would not do: what was needed was a space isomorphic to its own function space. Scott discovered that certain complete partial orders, equipped with a carefully chosen topology---the \emph{Scott topology}---possess exactly this property. \emph{Scott domains} thus became the foundation of denotational semantics for programming languages, revealing a deep connection between topology, logic, and computer science.
+
+\begin{intuition}
+The Scott topology is the natural topology on a directed-complete partial order (dcpo) that
+captures the notion of ``upward convergence.'' It is the fundamental topology in
+denotational semantics, where programs are modeled as elements of domains and the
+denotation of a recursive program is the supremum of a chain of approximations.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Directed-Complete Partial Orders}
+% ------------------------------------------------------------
+
+\begin{definition}[Directed set]
+Let $(P,\leq)$ be a partially ordered set. A subset $D \subseteq P$ is \emph{directed}
+if $D \neq \emptyset$ and for all $d_1, d_2 \in D$, there exists $d \in D$ with
+$d_1 \leq d$ and $d_2 \leq d$.
+\end{definition}
+
+\begin{definition}[Dcpo]
+A \emph{dcpo} (directed-complete partial order) is a poset $(D,\leq)$ in which every
+directed subset has a supremum. We write $\bigsqcup S$ or $\bigvee S$ for the supremum of
+a directed set $S$.
+\end{definition}
+
+\begin{example}[Examples of dcpos]
+\begin{enumerate}
+  \item Every complete lattice is a dcpo.
+  \item $(\mathcal{P}(X), \subseteq)$ is a dcpo (and a complete lattice).
+  \item $([0,1], \leq)$ is a dcpo.
+  \item The set $\Sigma^{\leq\omega}$ of finite and infinite words over an alphabet
+    $\Sigma$, ordered by the prefix relation, is a dcpo.
+  \item The set $X \rightharpoonup Y$ of partial functions from $X$ to $Y$, ordered by
+    graph extension, is a dcpo.
+\end{enumerate}
+\end{example}
+
+\begin{definition}[Pointed dcpo]
+A dcpo is \emph{pointed} if it has a least element, denoted $\bot$.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{The Scott Topology}
+% ------------------------------------------------------------
+
+\begin{definition}[Scott topology]
+Let $(D,\leq)$ be a dcpo. A subset $U \subseteq D$ is \emph{Scott-open} if:
+\begin{enumerate}
+  \item $U$ is upward-closed: $x \in U$ and $x \leq y \Rightarrow y \in U$.
+  \item $U$ is \emph{inaccessible by directed suprema}: if $S$ is directed and
+    $\bigsqcup S \in U$, then $S \cap U \neq \emptyset$.
+\end{enumerate}
+The collection of Scott-open sets forms the \emph{Scott topology} $\sigma(D)$.
+\end{definition}
+
+\begin{proposition}[The Scott topology is indeed a topology]
+The Scott-open sets satisfy:
+\begin{enumerate}
+  \item $\emptyset$ and $D$ are Scott-open.
+  \item Any union of Scott-open sets is Scott-open.
+  \item Any finite intersection of Scott-open sets is Scott-open.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+Only (3) requires verification. Let $U_1, U_2$ be Scott-open and $S$ directed with
+$\bigsqcup S \in U_1 \cap U_2$. There exist $s_1 \in S \cap U_1$ and
+$s_2 \in S \cap U_2$. By directedness, there exists $s \in S$ with $s_1 \leq s$ and
+$s_2 \leq s$. Since $U_1$ and $U_2$ are upward-closed, $s \in U_1 \cap U_2$, so
+$S \cap (U_1 \cap U_2) \neq \emptyset$.
+\end{proof}
+
+\begin{proposition}[Specialization order]
+The specialization order of the Scott topology coincides with the original order:
+$x \leq_\sigma y \Leftrightarrow x \leq y$.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Scott-Continuous Functions}
+% ------------------------------------------------------------
+
+\begin{definition}[Scott-continuous function]
+Let $D$ and $E$ be dcpos. A function $f\colon D \to E$ is \emph{Scott-continuous} if it is
+continuous for the Scott topologies, equivalently:
+\begin{enumerate}
+  \item $f$ is monotone: $x \leq y \Rightarrow f(x) \leq f(y)$.
+  \item $f$ preserves directed suprema: for every directed set $S$,
+    $f(\bigsqcup S) = \bigsqcup f(S)$.
+\end{enumerate}
+\end{definition}
+
+\begin{theorem}[Characterization of Scott-continuity]
+For a function $f\colon D \to E$ between dcpos, the following are equivalent:
+\begin{enumerate}
+  \item $f$ is continuous for the Scott topologies.
+  \item $f$ is monotone and preserves directed suprema.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+$(1) \Rightarrow (2)$: Continuity implies monotonicity (since the specialization order is
+the original order). Let $S$ be directed in $D$. Since $f$ is monotone, $f(\bigsqcup S)$
+is an upper bound of $f(S)$. Let $e$ be any upper bound of $f(S)$ and suppose
+$f(\bigsqcup S) \not\leq e$. Then there is a Scott-open $V \ni f(\bigsqcup S)$ with
+$e \notin V$. The preimage $f^{-1}(V)$ is Scott-open and contains $\bigsqcup S$, so some
+$s \in S$ is in $f^{-1}(V)$, giving $f(s) \in V$. Since $f(s) \leq e$ and $V$ is
+upward-closed, $e \in V$, contradiction. So $f(\bigsqcup S) = \bigsqcup f(S)$.
+
+$(2) \Rightarrow (1)$: Let $V$ be Scott-open in $E$. Then $f^{-1}(V)$ is upward-closed
+since $f$ is monotone. If $S$ is directed with $\bigsqcup S \in f^{-1}(V)$, then
+$f(\bigsqcup S) = \bigsqcup f(S) \in V$. Since $V$ is Scott-open and $f(S)$ is directed,
+some $s \in S$ has $f(s) \in V$, so $s \in f^{-1}(V)$.
+\end{proof}
+
+% ------------------------------------------------------------
+\section{The Category $\mathbf{Dcpo}$}
+% ------------------------------------------------------------
+
+\begin{theorem}[Properties of $\mathbf{Dcpo}$]
+\begin{enumerate}
+  \item The category $\mathbf{Dcpo}$ of dcpos and Scott-continuous functions is cartesian
+    closed.
+  \item The product of dcpos is the cartesian product with the componentwise order.
+  \item The exponential $[D \to E]$ is the set of Scott-continuous functions from $D$ to
+    $E$, ordered pointwise.
+  \item $[D \to E]$ is a dcpo, and the Scott topology on $[D \to E]$ is the Isbell
+    topology (which coincides with the compact-open topology for compact Scott-open sets).
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+For (3): let $(f_i)_{i\in I}$ be directed in $[D \to E]$. For every $d \in D$,
+$(f_i(d))_{i\in I}$ is directed in $E$ (by pointwise monotonicity and directedness of
+$(f_i)$). Define $(\bigsqcup f_i)(d) = \bigsqcup_i f_i(d)$. One must verify that
+$\bigsqcup f_i$ is Scott-continuous, which uses the fact that directed suprema commute in
+a dcpo.
+\end{proof}
+
+% ------------------------------------------------------------
+\section{Continuous Domains}
+% ------------------------------------------------------------
+
+\begin{definition}[Way-below relation]
+In a dcpo $D$, we say $x$ is \emph{way below} $y$ (written $x \ll y$) if for every
+directed set $S$ with $y \leq \bigsqcup S$, there exists $s \in S$ with $x \leq s$.
+\end{definition}
+
+\begin{definition}[Basis of a dcpo]
+A subset $B \subseteq D$ is a \emph{basis} for the dcpo $D$ if for every $x \in D$, the
+set $\{b \in B : b \ll x\}$ is directed with supremum $x$.
+\end{definition}
+
+\begin{definition}[Continuous domain]
+A dcpo $D$ is a \emph{continuous domain} if for every $x \in D$, the set
+$\mathop{\Downarrow}\! x = \{y \in D : y \ll x\}$ is directed and
+$x = \bigsqcup(\mathop{\Downarrow}\! x)$.
+\end{definition}
+
+\begin{theorem}[Scott topology of a continuous domain]
+If $D$ is a continuous domain, then:
+\begin{enumerate}
+  \item The sets $\mathop{\uparrow\!\!\uparrow} b = \{x \in D : b \ll x\}$ form a base
+    for the Scott topology.
+  \item The Scott topology is sober.
+  \item The lattice $\sigma(D)$ is a continuous lattice.
+  \item $(D,\sigma(D))$ is locally compact.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(1) Let $U$ be Scott-open and $x \in U$. Since $x = \bigsqcup(\mathop{\Downarrow}\! x)$
+and $U$ is inaccessible, there exists $b \ll x$ with $b \in U$. Then
+$x \in \mathop{\uparrow\!\!\uparrow} b \subseteq \uparrow\! b \subseteq U$ since $U$ is
+upward-closed.
+
+(2) Let $F$ be an irreducible closed set. The set
+$B_F = \{b : \exists x \in F,\, b \ll x\}$ is directed. Indeed, if $b_1 \ll x_1 \in F$
+and $b_2 \ll x_2 \in F$, then $\mathop{\uparrow\!\!\uparrow} b_1$ and
+$\mathop{\uparrow\!\!\uparrow} b_2$ are opens meeting $F$, so by irreducibility,
+$F \cap \mathop{\uparrow\!\!\uparrow} b_1 \cap \mathop{\uparrow\!\!\uparrow} b_2 \neq
+\emptyset$, giving some $y \in F$ with $b_1 \ll y$ and $b_2 \ll y$. The supremum
+$\bigsqcup B_F$ lies in $F$ (since $F$ is Scott-closed) and is the generic point.
+\end{proof}
+
+% ------------------------------------------------------------
+\section{Algebraic Domains}
+% ------------------------------------------------------------
+
+\begin{definition}[Compact element]
+An element $k \in D$ is \emph{compact} (or \emph{finite}) if $k \ll k$. The set of
+compact elements is denoted $K(D)$.
+\end{definition}
+
+\begin{definition}[Algebraic domain]
+A dcpo $D$ is \emph{algebraic} if for every $x \in D$, the set
+$\{k \in K(D) : k \leq x\}$ is directed and $x = \bigsqcup\{k \in K(D) : k \leq x\}$.
+\end{definition}
+
+\begin{proposition}
+Every algebraic domain is a continuous domain. The converse is false.
+\end{proposition}
+
+\begin{example}
+$(\mathcal{P}(\N), \subseteq)$ is an algebraic domain: the compact elements are the finite
+subsets. The interval domain $\mathbf{I}\R = \{[a,b] : a \leq b, a,b \in \R\}$ ordered by
+reverse inclusion is a continuous domain that is not algebraic.
+\end{example}
+
+% ------------------------------------------------------------
+\section{Representation Theorem}
+% ------------------------------------------------------------
+
+\begin{theorem}[Algebraic domains and ideals]
+If $D$ is an algebraic domain, then $D$ is isomorphic (as a dcpo) to the set
+$\mathrm{Idl}(K(D))$ of ideals of $(K(D), \leq)$ (directed downward-closed subsets of
+$K(D)$), ordered by inclusion.
+\end{theorem}
+
+\begin{proof}
+The isomorphism sends $x \in D$ to $\downarrow\! x \cap K(D)$. This is an ideal: it is
+downward-closed in $K(D)$ by definition, and directed because $D$ is algebraic. The
+inverse sends an ideal $I$ to $\bigsqcup I$. The key point is that directed unions of
+ideals correspond to directed suprema in $D$.
+\end{proof}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+Show that the Scott topology on $(\R, \leq)$ consists of $\emptyset$, $\R$, and the
+intervals $(a, +\infty)$ for $a \in \R$.
+\end{exercise}
+
+\begin{exercise}
+Show that the Scott topology on $(\mathcal{P}(\N), \subseteq)$ is not metrizable.
+\end{exercise}
+
+\begin{exercise}
+Show that the product of two dcpos (with the product order) is a dcpo and that the Scott
+topology of the product is finer than the product of the Scott topologies. Give an example
+where the inclusion is strict.
+\end{exercise}
+
+\begin{exercise}
+Let $D$ be a pointed dcpo. Show that the function $\mathrm{fix}\colon [D \to D] \to D$
+sending $f$ to its least fixed point is Scott-continuous.
+\end{exercise}
+
+\begin{exercise}
+Let $D$ be a continuous domain. Show that $x \ll y$ if and only if
+$y \in \mathrm{Int}(\uparrow\! x)$ (Scott interior).
+\end{exercise}
+
+\begin{exercise}
+Show that a dcpo $D$ is continuous if and only if $\sigma(D)$ is a completely distributive
+lattice.
+\end{exercise}
+
+\begin{exercise}[Step functions]
+Let $D$ be an algebraic domain and $E$ a dcpo. Show that every Scott-continuous function
+$f\colon D \to E$ is the directed supremum of ``step functions'' (functions defined on
+compact elements of $D$ and extended by directed suprema).
+\end{exercise}

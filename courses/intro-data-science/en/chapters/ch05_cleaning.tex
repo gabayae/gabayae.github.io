@@ -1,0 +1,425 @@
+% !TEX root = ../main.tex
+\chapter{Data Cleaning and Preparation}
+\label{ch:nettoyage}
+
+\begin{intuition}
+It is estimated that data scientists spend about 80\,\% of their time cleaning and preparing data. Poorly prepared data inevitably lead to flawed models: ``Garbage in, garbage out.''
+\end{intuition}
+
+% ============================================================
+\section{Why Clean Data?}
+\index{data cleaning}
+
+Real-world data are rarely clean. Common issues include:
+\begin{itemize}
+    \item \textbf{Missing values}\index{missing values} (faulty sensors, unfilled fields);
+    \item \textbf{Duplicates}\index{duplicates} (multiple entries, table merges);
+    \item \textbf{Incorrect types}\index{data types} (numbers stored as text);
+    \item \textbf{Outliers}\index{outliers} (data entry errors);
+    \item \textbf{Textual inconsistencies} (capitalization, spaces, abbreviations).
+\end{itemize}
+
+% ============================================================
+\section{Cleaning Pipeline}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=0.9cm,
+    block/.style={rectangle, draw=teal!80, fill=teal!10, rounded corners, text width=4cm, align=center, minimum height=0.9cm, font=\small},
+    arrow/.style={->, thick, >=stealth, color=gray!70}
+]
+\node[block] (raw) {Raw data};
+\node[block, below=of raw] (dup) {Remove duplicates};
+\node[block, below=of dup] (types) {Fix data types};
+\node[block, below=of types] (miss) {Handle missing values};
+\node[block, below=of miss] (out) {Handle outliers};
+\node[block, below=of out] (text) {Text cleaning};
+\node[block, below=of text] (feat) {Feature engineering};
+\node[block, below=of feat] (enc) {Encoding and scaling};
+\node[block, below=of enc] (clean) {Clean data};
+
+\foreach \a/\b in {raw/dup, dup/types, types/miss, miss/out, out/text, text/feat, feat/enc, enc/clean}
+    \draw[arrow] (\a) -- (\b);
+\end{tikzpicture}
+\end{center}
+
+% ============================================================
+\section{Case Study: The Titanic Dataset}
+\index{Titanic}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+import seaborn as sns
+
+titanic = sns.load_dataset('titanic')
+print(f"Initial dimensions: {titanic.shape}")
+print(titanic.info())
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Initial dimensions: (891, 15)
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 891 entries, 0 to 890
+Data columns (total 15 columns):
+ #   Column       Non-Null Count  Dtype
+ 0   survived     891 non-null    int64
+ 1   pclass       891 non-null    int64
+ 2   sex          891 non-null    object
+ 3   age          714 non-null    float64
+ ...
+ 7   embarked     889 non-null    object
+ 11  deck         203 non-null    category
+\end{minted}
+\end{codeoutput}
+
+% ============================================================
+\section{Missing Values}
+\index{missing values}\index{MCAR}\index{MAR}\index{MNAR}
+
+\subsection{Types of Missing Data}
+
+\begin{definition}[Classification of Missing Values]
+\begin{itemize}
+    \item \textbf{MCAR} (\emph{Missing Completely At Random}): the missingness does not depend on any variable.
+    \item \textbf{MAR} (\emph{Missing At Random}): the missingness depends on other observed variables.
+    \item \textbf{MNAR} (\emph{Missing Not At Random}): the missingness depends on the value itself.
+\end{itemize}
+\end{definition}
+
+\begin{example}
+In the Titanic dataset, cabins (\py{deck}) are missing mainly for third-class passengers (MAR). Age could be MCAR or MAR depending on whether passengers without a full ticket had no recorded age.
+\end{example}
+
+\subsection{Detection and Treatment}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Detection
+print(titanic.isnull().sum().sort_values(ascending=False).head(5))
+
+# Strategy 1: drop the deck column (too many missing values)
+titanic_clean = titanic.drop(columns=['deck'])
+
+# Strategy 2: fill age with median by class
+titanic_clean['age'] = titanic_clean.groupby('pclass')['age'] \
+    .transform(lambda x: x.fillna(x.median()))
+
+# Strategy 3: fill embarked with the mode
+titanic_clean['embarked'].fillna(
+    titanic_clean['embarked'].mode()[0], inplace=True)
+titanic_clean['embark_town'].fillna(
+    titanic_clean['embark_town'].mode()[0], inplace=True)
+
+print(f"\nRemaining missing values: {titanic_clean.isnull().sum().sum()}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+deck           688
+age            177
+embarked         2
+embark_town      2
+survived         0
+
+Remaining missing values: 0
+\end{minted}
+\end{codeoutput}
+
+\begin{bestpractice}
+Imputation by \emph{conditional} median (here by class) is preferable to using the global median because it preserves the structure of subgroups. For time series data, use \py{ffill()} or \py{bfill()}.
+\end{bestpractice}
+
+% ============================================================
+\section{Duplicates}
+\index{duplicates}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Detection
+n_dup = titanic_clean.duplicated().sum()
+print(f"Number of duplicates: {n_dup}")
+
+# Inspect potential duplicates
+if n_dup > 0:
+    print(titanic_clean[titanic_clean.duplicated(keep=False)]
+          .sort_values(by='name').head())
+    titanic_clean = titanic_clean.drop_duplicates()
+    print(f"After removal: {titanic_clean.shape}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Number of duplicates: 0
+\end{minted}
+\end{codeoutput}
+
+% ============================================================
+\section{Type Conversion}
+\index{type conversion}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Convert survived to boolean
+titanic_clean['survived'] = titanic_clean['survived'].astype(bool)
+
+# Convert pclass to ordered categorical
+titanic_clean['pclass'] = pd.Categorical(
+    titanic_clean['pclass'], categories=[1, 2, 3], ordered=True)
+
+# Example of date conversion (with dummy data)
+dates_str = pd.Series(['2023-01-15', '2023-02-20', '2023-03-10'])
+dates = pd.to_datetime(dates_str)
+print(dates.dt.month)
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+0    1
+1    2
+2    3
+dtype: int32
+\end{minted}
+\end{codeoutput}
+
+% ============================================================
+\section{Handling Outliers}
+\index{outliers}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# IQR method for fare
+Q1 = titanic_clean['fare'].quantile(0.25)
+Q3 = titanic_clean['fare'].quantile(0.75)
+IQR = Q3 - Q1
+
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+
+# Option 1: capping/winsorizing
+titanic_clean['fare_capped'] = titanic_clean['fare'].clip(
+    lower=lower_bound, upper=upper_bound)
+
+print(f"Before: max = {titanic_clean['fare'].max():.2f}")
+print(f"After capping: max = {titanic_clean['fare_capped'].max():.2f}")
+print(f"Upper bound: {upper_bound:.2f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Before: max = 512.33
+After capping: max = 65.63
+Upper bound: 65.63
+\end{minted}
+\end{codeoutput}
+
+\begin{warning}
+Never remove outliers without careful thought. A fare of \$512 may be legitimate (luxury suite). Capping is often preferable to removal. Always document your choices.
+\end{warning}
+
+% ============================================================
+\section{Text Cleaning}
+\index{text cleaning}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Example with textual data
+names = pd.Series(['  Alice ', 'BOB', 'charlie', ' Dave  '])
+print("Before:", names.tolist())
+
+names_clean = (names.str.strip()
+                  .str.lower()
+                  .str.capitalize())
+print("After:", names_clean.tolist())
+
+# Pattern replacement
+cities = pd.Series(['New-York', 'new york', 'NEW YORK', 'N.Y.'])
+cities_norm = cities.str.lower().str.replace(
+    r'[^a-z\s]', '', regex=True).str.strip()
+print("Normalized cities:", cities_norm.tolist())
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Before: ['  Alice ', 'BOB', 'charlie', ' Dave  ']
+After: ['Alice', 'Bob', 'Charlie', 'Dave']
+Normalized cities: ['newyork', 'new york', 'new york', 'ny']
+\end{minted}
+\end{codeoutput}
+
+% ============================================================
+\section{Feature Engineering}
+\index{feature engineering}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Create new variables from existing ones
+titanic_clean['family_size'] = (titanic_clean['sibsp']
+                                + titanic_clean['parch'] + 1)
+titanic_clean['is_child'] = titanic_clean['age'] < 18
+titanic_clean['fare_per_person'] = (titanic_clean['fare']
+                                    / titanic_clean['family_size'])
+
+# Discretize age into categories
+titanic_clean['age_group'] = pd.cut(
+    titanic_clean['age'],
+    bins=[0, 12, 18, 35, 60, 100],
+    labels=['Child', 'Teen', 'Young Adult', 'Adult', 'Senior'])
+
+print(titanic_clean['age_group'].value_counts())
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Young Adult    371
+Adult          267
+Child           89
+Teen            79
+Senior          85
+Name: age_group, dtype: int64
+\end{minted}
+\end{codeoutput}
+
+% ============================================================
+\section{Encoding Categorical Variables}
+\index{encoding}\index{one-hot encoding}\index{label encoding}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# One-hot encoding with pandas
+embarked_dummies = pd.get_dummies(
+    titanic_clean['embarked'], prefix='embarked', dtype=int)
+print(embarked_dummies.head())
+
+# Label encoding with sklearn
+from sklearn.preprocessing import LabelEncoder
+
+le = LabelEncoder()
+titanic_clean['sex_encoded'] = le.fit_transform(
+    titanic_clean['sex'])
+print("\nMapping:", dict(zip(le.classes_,
+                              le.transform(le.classes_))))
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+   embarked_C  embarked_Q  embarked_S
+0           0           0           1
+1           1           0           0
+2           0           0           1
+3           0           0           1
+4           0           0           1
+
+Mapping: {'female': 0, 'male': 1}
+\end{minted}
+\end{codeoutput}
+
+\begin{warning}
+\textbf{Label encoding}\index{label encoding} imposes an artificial order on categories. It is only suitable for ordinal variables or tree-based algorithms. For linear models, prefer \textbf{one-hot encoding}\index{one-hot encoding}.
+\end{warning}
+
+% ============================================================
+\section{Feature Scaling}
+\index{standardization}\index{normalization}\index{StandardScaler}\index{MinMaxScaler}
+
+\begin{definition}[Standardization and Normalization]
+\begin{itemize}
+    \item \textbf{Standardization} (StandardScaler): $z = \dfrac{x - \mu}{\sigma}$, resulting in mean 0 and standard deviation 1.
+    \item \textbf{Normalization} (MinMaxScaler): $x' = \dfrac{x - x_{\min}}{x_{\max} - x_{\min}}$, resulting in values in $[0, 1]$.
+\end{itemize}
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+
+cols = ['age', 'fare']
+data_num = titanic_clean[cols].copy()
+
+# Standardization
+scaler_std = StandardScaler()
+data_std = pd.DataFrame(scaler_std.fit_transform(data_num),
+                        columns=[c + '_std' for c in cols])
+
+# Normalization
+scaler_mm = MinMaxScaler()
+data_norm = pd.DataFrame(scaler_mm.fit_transform(data_num),
+                         columns=[c + '_norm' for c in cols])
+
+print("Standardized:")
+print(data_std.describe().loc[['mean', 'std']].round(2))
+print("\nNormalized:")
+print(data_norm.describe().loc[['min', 'max']].round(2))
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Standardized:
+      age_std  fare_std
+mean     0.00      0.00
+std      1.00      1.00
+
+Normalized:
+      age_norm  fare_norm
+min       0.00       0.00
+max       1.00       1.00
+\end{minted}
+\end{codeoutput}
+
+\begin{bestpractice}
+Apply scaling \emph{after} the train/test split to avoid information leakage (\emph{data leakage}\index{data leakage}). Use \py{fit\_transform()} on the training set and \py{transform()} on the test set.
+\end{bestpractice}
+
+% ============================================================
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+Load the \py{titanic} dataset. Display the number and percentage of missing values per column. Which columns have more than 50\,\% missing values?
+\end{exercise}
+
+\begin{exercise}[$\star$]
+Remove duplicates from the \py{titanic} dataset (if any). Then convert the \py{sex} column to a categorical variable with \py{pd.Categorical()}.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Impute the missing values of \py{age} using the median conditioned on \py{sex} and \py{pclass} (6 groups). Compare the age distribution before and after imputation with overlapping histograms.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Create the following variables: \py{title} (extracted from the name using a regular expression), \py{is\_alone} (true if \py{family\_size} = 1), \py{fare\_bin} (fare quartiles with \py{pd.qcut}). Compute the survival rate for each of these new variables.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+Build a complete cleaning pipeline for the \py{titanic} dataset: (a) drop \py{deck}, (b) impute \py{age} and \py{embarked}, (c) create \py{family\_size} and \py{is\_child}, (d) one-hot encode \py{sex}, \py{embarked}, \py{class}, (e) standardize numerical variables. The final result should be a fully numerical DataFrame with no missing values.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+Load the \py{penguins} dataset (\py{sns.load\_dataset('penguins')}). This dataset contains missing values. Apply three different strategies (deletion, median imputation, median imputation conditioned by species). Compare the descriptive statistics obtained with each strategy and discuss the best approach.
+\end{exercise}
+
+% ============================================================
+\begin{keyformulas}
+\textbf{Chapter Summary -- Data Cleaning and Preparation}
+\begin{itemize}
+    \item \textbf{Missing values}: \py{isnull().sum()}, MCAR/MAR/MNAR types, \py{fillna()}, \py{dropna()}.
+    \item \textbf{Duplicates}: \py{duplicated()}, \py{drop\_duplicates()}.
+    \item \textbf{Types}: \py{astype()}, \py{pd.to\_datetime()}, \py{pd.Categorical()}.
+    \item \textbf{Outliers}: IQR method, capping with \py{clip()}.
+    \item \textbf{Text}: \py{str.strip()}, \py{str.lower()}, \py{str.replace()}.
+    \item \textbf{Feature engineering}: \py{pd.cut()}, \py{pd.qcut()}, column combination.
+    \item \textbf{Encoding}: \py{pd.get\_dummies()} (one-hot), \py{LabelEncoder} (ordinal).
+    \item \textbf{Scaling}: $z = \frac{x - \mu}{\sigma}$ (StandardScaler), $x' = \frac{x - x_{\min}}{x_{\max} - x_{\min}}$ (MinMaxScaler).
+    \item \textbf{Golden rule}: document every transformation and avoid \emph{data leakage}.
+\end{itemize}
+\end{keyformulas}

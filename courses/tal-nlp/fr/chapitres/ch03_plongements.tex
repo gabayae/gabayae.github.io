@@ -1,0 +1,347 @@
+% ============================================================
+\chapter{Plongements de Mots}
+\label{ch:plongements}
+% ============================================================
+
+En 2013, Tomas Mikolov et son \'equipe chez Google publient un article qui va transformer le traitement du langage naturel~: \emph{Efficient Estimation of Word Representations in Vector Space}. L'id\'ee est d'entra\^iner un r\'eseau de neurones superficiel \`a pr\'edire les mots \`a partir de leur contexte (ou inversement), et d'utiliser les poids appris comme repr\'esentations vectorielles des mots. Le r\'esultat, Word2Vec, r\'ev\`ele une structure g\'eom\'etrique stupéfiante~: les analogies s\'emantiques deviennent des \emph{op\'erations vectorielles}. Le vecteur \og roi \fg $-$ \og homme \fg $+$ \og femme \fg pointe vers \og reine \fg. La g\'eom\'etrie capture le sens.
+
+Mais Word2Vec n'est pas n\'e de rien. Il s'inscrit dans une longue tradition fond\'ee sur l'\emph{hypoth\`ese distributionnelle} de J.R.~Firth (1957)~: \og on conna\^it un mot par la compagnie qu'il fr\'equente. \fg Ce chapitre retrace le chemin qui m\`ene des matrices de co-occurrence aux plongements denses, en passant par l'analyse s\'emantique latente et GloVe.
+
+\begin{intuition}[title=\textbf{L'hypoth\`ese distributionnelle}]
+\og You shall know a word by the company it keeps \fg (J.R. Firth, 1957).
+Les plongements de mots (\emph{word embeddings}) sont des repr\'esentations
+vectorielles denses qui capturent la similarit\'e s\'emantique : les mots
+apparaissant dans des contextes similaires ont des vecteurs proches.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{De la repr\'esentation creuse \`a la repr\'esentation dense}
+\label{sec:plg:motivation}
+% ------------------------------------------------------------
+
+Rappelons qu'une repr\'esentation one-hot encode chaque mot $w_i$ comme un
+vecteur $\mathbf{e}_i \in \R^V$ avec $(\mathbf{e}_i)_j = \delta_{ij}$.
+Cette repr\'esentation souffre de deux d\'efauts majeurs :
+\begin{enumerate}
+    \item \textbf{Dimensionnalit\'e} : $V$ peut atteindre $10^5$ \`a $10^6$.
+    \item \textbf{Orthogonalit\'e} : $\inner{\mathbf{e}_i}{\mathbf{e}_j} = 0$
+          pour $i \neq j$, m\^eme pour des synonymes.
+\end{enumerate}
+
+L'objectif des plongements est d'apprendre une fonction
+$\phi : \mathcal{V} \to \R^d$ avec $d \ll V$ (typiquement $d \in [100, 300]$)
+telle que la proximit\'e g\'eom\'etrique refl\`ete la similarit\'e s\'emantique.
+
+% ------------------------------------------------------------
+\section{Word2Vec}
+\label{sec:plg:word2vec}
+% ------------------------------------------------------------
+
+\subsection{Architecture CBOW}
+
+\begin{definition}[Continuous Bag of Words (CBOW)]
+Le mod\`ele CBOW pr\'edit le mot central $w_t$ \`a partir de son contexte
+$C_t = \{w_{t-c}, \ldots, w_{t-1}, w_{t+1}, \ldots, w_{t+c}\}$ o\`u $c$ est
+la taille de la fen\^etre. L'objectif est de maximiser :
+\[
+\mathcal{L}_{\text{CBOW}} = \sum_{t=1}^{T} \log P(w_t \mid C_t)
+\]
+avec :
+\[
+P(w_t \mid C_t) = \frac{\exp(\inner{\mathbf{v}_{w_t}}{\bar{\mathbf{u}}_{C_t}})}{\sum_{w \in \mathcal{V}} \exp(\inner{\mathbf{v}_w}{\bar{\mathbf{u}}_{C_t}})}
+\]
+o\`u $\bar{\mathbf{u}}_{C_t} = \frac{1}{2c} \sum_{w \in C_t} \mathbf{u}_w$
+est la moyenne des vecteurs de contexte.
+\end{definition}
+
+\subsection{Architecture Skip-gram}
+
+\begin{definition}[Skip-gram]
+Le mod\`ele Skip-gram pr\'edit les mots du contexte \`a partir du mot central.
+L'objectif est de maximiser :
+\[
+\mathcal{L}_{\text{SG}} = \sum_{t=1}^{T} \sum_{\substack{j=-c \\ j \neq 0}}^{c} \log P(w_{t+j} \mid w_t)
+\]
+avec :
+\[
+P(w_o \mid w_i) = \frac{\exp(\inner{\mathbf{v}_{w_o}}{\mathbf{u}_{w_i}})}{\sum_{w \in \mathcal{V}} \exp(\inner{\mathbf{v}_w}{\mathbf{u}_{w_i}})}
+\]
+\end{definition}
+
+\begin{attention}[title=\textbf{Co\^ut du softmax}]
+Le d\'enominateur du softmax n\'ecessite une somme sur tout le vocabulaire $V$,
+ce qui est prohibitif. Deux approximations sont couramment utilis\'ees :
+l'\'echantillonnage n\'egatif et le softmax hi\'erarchique.
+\end{attention}
+
+\subsection{\'Echantillonnage n\'egatif (NEG)}
+
+\begin{definition}[Negative Sampling]
+L'objectif avec \'echantillonnage n\'egatif remplace le softmax par :
+\[
+\mathcal{L}_{\text{NEG}} = \log \sigma(\inner{\mathbf{v}_{w_o}}{\mathbf{u}_{w_i}}) + \sum_{k=1}^{K} \E_{w_k \sim P_n} \left[\log \sigma(-\inner{\mathbf{v}_{w_k}}{\mathbf{u}_{w_i}})\right]
+\]
+o\`u $K$ est le nombre d'exemples n\'egatifs et $P_n(w) \propto \text{count}(w)^{3/4}$.
+\end{definition}
+
+\begin{theoreme}[\'Equivalence NEG et PMI]
+\label{thm:neg-pmi}
+Levy et Goldberg (2014) ont montr\'e que Skip-gram avec \'echantillonnage
+n\'egatif factorise implicitement une matrice de PMI d\'ecal\'ee :
+\[
+\mathbf{u}_w^\top \mathbf{v}_c = \text{PMI}(w, c) - \log K
+\]
+o\`u $\text{PMI}(w, c) = \log \frac{P(w, c)}{P(w) P(c)}$ est l'information
+mutuelle ponctuelle.
+\end{theoreme}
+
+% ------------------------------------------------------------
+\section{GloVe}
+\label{sec:plg:glove}
+% ------------------------------------------------------------
+
+\begin{definition}[GloVe]
+Le mod\`ele GloVe (Pennington et al., 2014) apprend les plongements en
+minimisant l'erreur quadratique pond\'er\'ee sur la matrice de co-occurrence :
+\[
+\mathcal{L}_{\text{GloVe}} = \sum_{i,j=1}^{V} f(X_{ij}) \left(\inner{\mathbf{u}_i}{\mathbf{v}_j} + b_i + c_j - \log X_{ij}\right)^2
+\]
+o\`u $X_{ij}$ est le nombre de co-occurrences, $b_i, c_j$ sont des biais, et
+$f$ est une fonction de pond\'eration :
+\[
+f(x) = \begin{cases}
+(x / x_{\max})^\alpha & \text{si } x < x_{\max} \\
+1 & \text{sinon}
+\end{cases}
+\]
+avec typiquement $x_{\max} = 100$ et $\alpha = 0.75$.
+\end{definition}
+
+\begin{remarque}
+GloVe combine les avantages des m\'ethodes globales (factorisation matricielle)
+et locales (fen\^etre de contexte). L'objectif GloVe est \'equivalent \`a une
+factorisation de la matrice de log-co-occurrence.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{FastText}
+\label{sec:plg:fasttext}
+% ------------------------------------------------------------
+
+\begin{definition}[FastText]
+FastText (Bojanowski et al., 2017) enrichit Skip-gram en repr\'esentant chaque
+mot comme la somme de ses $n$-grammes de caract\`eres. Pour un mot $w$ avec
+l'ensemble de $n$-grammes $\mathcal{G}_w$ :
+\[
+\mathbf{u}_w = \sum_{g \in \mathcal{G}_w} \mathbf{z}_g
+\]
+o\`u $\mathbf{z}_g \in \R^d$ est le vecteur du $n$-gramme $g$.
+\end{definition}
+
+\begin{bonnepratique}[title=\textbf{Avantages de FastText}]
+\begin{itemize}
+    \item G\`ere les mots hors vocabulaire (OOV) par d\'ecomposition en $n$-grammes.
+    \item Capture la morphologie (pr\'efixes, suffixes).
+    \item Particuli\`erement efficace pour les langues morphologiquement riches
+          (turc, finnois, arabe).
+\end{itemize}
+\end{bonnepratique}
+
+% ------------------------------------------------------------
+\section{Propri\'et\'es g\'eom\'etriques}
+\label{sec:plg:geometrie}
+% ------------------------------------------------------------
+
+\subsection{Analogies vectorielles}
+
+L'une des propri\'et\'es les plus remarquables des plongements est leur capacit\'e
+\`a capturer des relations s\'emantiques par des op\'erations arithm\'etiques :
+
+\begin{exemple}
+\[
+\mathbf{v}_{\text{roi}} - \mathbf{v}_{\text{homme}} + \mathbf{v}_{\text{femme}} \approx \mathbf{v}_{\text{reine}}
+\]
+\end{exemple}
+
+Formellement, pour r\'esoudre l'analogie $a : b :: c : ?$, on cherche :
+\[
+d^* = \argmax_{d \in \mathcal{V} \setminus \{a,b,c\}} \cos(\mathbf{v}_d, \mathbf{v}_b - \mathbf{v}_a + \mathbf{v}_c)
+\]
+
+\begin{theoreme}[Structure lin\'eaire des analogies]
+Sous l'hypoth\`ese que les plongements factorisent une matrice de PMI
+(th\'eor\`eme~\ref{thm:neg-pmi}), les relations s\'emantiques r\'eguli\`eres
+se manifestent comme des directions lin\'eaires dans l'espace de plongement :
+\[
+\mathbf{v}_b - \mathbf{v}_a \approx \mathbf{v}_{b'} - \mathbf{v}_{a'}
+\]
+pour toutes les paires $(a, b)$ et $(a', b')$ partageant la m\^eme relation.
+\end{theoreme}
+
+\subsection{Visualisation par t-SNE}
+
+\begin{codeblock}[title=\textbf{Visualisation des plongements}]
+\begin{minted}{python}
+import numpy as np
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
+from gensim.models import KeyedVectors
+
+# Charger des plongements pre-entraines
+wv = KeyedVectors.load_word2vec_format('GoogleNews-vectors.bin', binary=True)
+words = ['king', 'queen', 'man', 'woman', 'prince', 'princess',
+         'paris', 'france', 'berlin', 'germany', 'rome', 'italy']
+vectors = np.array([wv[w] for w in words])
+
+tsne = TSNE(n_components=2, random_state=42, perplexity=5)
+coords = tsne.fit_transform(vectors)
+
+plt.figure(figsize=(10, 8))
+for i, word in enumerate(words):
+    plt.scatter(coords[i, 0], coords[i, 1])
+    plt.annotate(word, (coords[i, 0]+0.5, coords[i, 1]+0.5))
+plt.title("Visualisation t-SNE des plongements Word2Vec")
+plt.show()
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{\'Evaluation des plongements}
+\label{sec:plg:evaluation}
+% ------------------------------------------------------------
+
+\subsection{\'Evaluation intrins\`eque}
+
+\begin{itemize}
+    \item \textbf{Analogies} : pr\'ecision sur des benchmarks d'analogies
+          (Google analogy dataset, BATS).
+    \item \textbf{Similarit\'e} : corr\'elation de Spearman entre la similarit\'e
+          cosinus et les jugements humains (SimLex-999, WordSim-353).
+\end{itemize}
+
+\subsection{\'Evaluation extrins\`eque}
+
+Performance des plongements comme features dans des t\^aches en aval :
+classification de sentiments, NER, d\'esambiguation lexicale.
+
+\begin{formules}[title=\textbf{M\'etriques d'\'evaluation des plongements}]
+\begin{align}
+\text{Pr\'ecision analogies} &= \frac{\text{analogies correctes}}{\text{total analogies}} \\
+\rho_{\text{Spearman}} &= 1 - \frac{6 \sum_i d_i^2}{n(n^2 - 1)} & \text{(corr\'elation de rang)}
+\end{align}
+\end{formules}
+
+% ------------------------------------------------------------
+\section{Biais dans les plongements}
+\label{sec:plg:biais}
+% ------------------------------------------------------------
+
+Les plongements appris sur de grands corpus textuels h\'eritent des biais
+soci\'etaux pr\'esents dans les donn\'ees.
+
+\begin{exemple}
+Bolukbasi et al.\ (2016) ont montr\'e que :
+\[
+\mathbf{v}_{\text{informaticien}} - \mathbf{v}_{\text{homme}} + \mathbf{v}_{\text{femme}} \approx \mathbf{v}_{\text{m\'enag\`ere}}
+\]
+Ce r\'esultat refl\`ete des st\'er\'eotypes de genre pr\'esents dans les corpus.
+\end{exemple}
+
+\begin{definition}[D\'ebiaisage par projection]
+Le d\'ebiaisage de Bolukbasi et al.\ consiste \`a :
+\begin{enumerate}
+    \item Identifier la direction de biais $\mathbf{g}$ (par ACP sur des paires
+          de genre).
+    \item Projeter les mots neutres orthogonalement \`a $\mathbf{g}$ :
+          $\mathbf{v}_w' = \mathbf{v}_w - \inner{\mathbf{v}_w}{\mathbf{g}} \mathbf{g}$.
+    \item \'Egaliser les paires d\'efinitionnelles.
+\end{enumerate}
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Plongements contextuels vs.\ statiques}
+\label{sec:plg:contextuels}
+% ------------------------------------------------------------
+
+Les plongements statiques (Word2Vec, GloVe, FastText) assignent un vecteur
+unique \`a chaque mot, ind\'ependamment du contexte. Cela pose probl\`eme
+pour les mots polysmiques :
+
+\begin{exemple}
+Le mot \og avocat \fg d\'esigne soit un fruit, soit un professionnel du
+droit. Un plongement statique repr\'esente ces deux sens par un seul vecteur,
+qui sera un compromis entre les deux.
+\end{exemple}
+
+Les plongements contextuels (ELMo, BERT, GPT) r\'esolvent ce probl\`eme en
+produisant des repr\'esentations diff\'erentes selon le contexte. Ils seront
+\'etudi\'es au chapitre~\ref{ch:pretraines}.
+
+% ------------------------------------------------------------
+\section{Impl\'ementation compl\`ete}
+\label{sec:plg:implementation}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Entra\^inement Skip-gram avec PyTorch}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+
+class SkipGram(nn.Module):
+    def __init__(self, vocab_size, embed_dim):
+        super().__init__()
+        self.target_embed = nn.Embedding(vocab_size, embed_dim)
+        self.context_embed = nn.Embedding(vocab_size, embed_dim)
+
+    def forward(self, target, context, negatives):
+        # target: (B,), context: (B,), negatives: (B, K)
+        t = self.target_embed(target)          # (B, d)
+        c = self.context_embed(context)        # (B, d)
+        n = self.context_embed(negatives)      # (B, K, d)
+
+        # Positive score
+        pos_score = torch.sum(t * c, dim=1)    # (B,)
+        pos_loss = -torch.log(torch.sigmoid(pos_score) + 1e-10)
+
+        # Negative scores
+        neg_score = torch.bmm(n, t.unsqueeze(2)).squeeze(2)  # (B, K)
+        neg_loss = -torch.log(torch.sigmoid(-neg_score) + 1e-10).sum(dim=1)
+
+        return (pos_loss + neg_loss).mean()
+
+model = SkipGram(vocab_size=50000, embed_dim=300)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercices}
+\label{sec:plg:exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}[$\star$]
+Montrez que la similarit\'e cosinus entre deux vecteurs one-hot est nulle
+pour des mots diff\'erents.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+D\'erivez le gradient de l'objectif Skip-gram avec \'echantillonnage n\'egatif
+par rapport aux vecteurs $\mathbf{u}_{w_i}$ et $\mathbf{v}_{w_o}$.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Montrez que l'objectif GloVe est \'equivalent \`a une factorisation de matrice
+pond\'er\'ee de la matrice $\log X_{ij}$.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Entra\^inez des plongements Word2Vec (avec \texttt{gensim}) sur un corpus
+fran\c{c}ais (Wikip\'edia). \'Evaluez les analogies ``roi -- homme + femme = ?''
+et ``Paris -- France + Allemagne = ?''.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$]
+Impl\'ementez la m\'ethode de d\'ebiaisage de Bolukbasi et al.\ (2016).
+Mesurez le biais de genre avant et apr\`es correction sur un ensemble de
+mots li\'es aux professions.
+\end{exercice}

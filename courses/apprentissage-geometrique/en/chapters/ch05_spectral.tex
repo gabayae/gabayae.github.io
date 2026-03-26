@@ -1,0 +1,344 @@
+% ============================================================
+\chapter{Spectral Graph Learning}
+\label{ch:spectral}
+% ============================================================
+
+The Fourier transform is one of the most powerful tools in analysis---but it assumes that data lives on a regular grid. How does one define a Fourier transform on a graph? The answer passes through the \emph{graph Laplacian}, an operator whose eigenvectors play the role of sinusoids. Low frequencies correspond to smooth signals (similar neighbours), high frequencies to oscillating signals. This spectral analogy, developed by Fan Chung in the 1990s and applied to deep learning by Bruna et al.\ (2014), provides the mathematical foundations for spectral convolutional networks on graphs.
+
+\section{Spectral Graph Theory}
+
+\subsection{The Graph Laplacian}
+
+\begin{definition}[Graph Laplacian]
+Let $G = (V, E)$ be an undirected graph with $n$ nodes. The \textbf{combinatorial
+Laplacian} is:
+\[
+    \mathbf{L} = \mathbf{D} - \mathbf{A}
+\]
+The \textbf{normalized Laplacian} is:
+\[
+    \tilde{\mathbf{L}} = \mathbf{D}^{-1/2}\mathbf{L}\mathbf{D}^{-1/2}
+    = \mathbf{I} - \mathbf{D}^{-1/2}\mathbf{A}\mathbf{D}^{-1/2}
+\]
+\end{definition}
+
+\begin{theorem}[Laplacian properties]
+The Laplacian $\mathbf{L}$ satisfies:
+\begin{enumerate}
+    \item $\mathbf{L}$ is \textbf{positive semi-definite}: $\mathbf{x}^\top \mathbf{L} \mathbf{x} \geq 0$
+          for all $\mathbf{x} \in \R^n$.
+    \item \textbf{Quadratic form}:
+          $\mathbf{x}^\top \mathbf{L} \mathbf{x} = \sum_{(i,j) \in E} (x_i - x_j)^2$.
+    \item $\mathbf{L}$ has \textbf{eigenvalues} $0 = \lambda_1 \leq \lambda_2 \leq \cdots \leq \lambda_n$.
+    \item The \textbf{multiplicity} of $\lambda = 0$ equals the number of
+          connected components.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+For the quadratic form:
+\[
+    \mathbf{x}^\top \mathbf{L} \mathbf{x} = \mathbf{x}^\top (\mathbf{D} - \mathbf{A})\mathbf{x}
+    = \sum_i d_i x_i^2 - \sum_{(i,j) \in E} 2x_i x_j
+    = \sum_{(i,j) \in E} (x_i^2 + x_j^2 - 2x_i x_j)
+    = \sum_{(i,j) \in E} (x_i - x_j)^2. \qedhere
+\]
+\end{proof}
+
+\begin{intuition}[title=\textbf{The Laplacian as a smoothing operator}]
+The quadratic form $\mathbf{x}^\top \mathbf{L} \mathbf{x}$ measures the
+\textbf{total variation} of the signal $\mathbf{x}$ on the graph. A signal
+$\mathbf{x}$ is smooth when neighboring nodes have similar values,
+corresponding to a small value of $\mathbf{x}^\top \mathbf{L} \mathbf{x}$.
+\end{intuition}
+
+\subsection{Spectral Decomposition}
+
+\begin{definition}[Graph spectrum]
+The \textbf{spectrum} of the graph is the set of eigenvalues of the Laplacian:
+\[
+    \mathbf{L} = \mathbf{U} \boldsymbol{\Lambda} \mathbf{U}^\top
+\]
+where $\mathbf{U} = [\mathbf{u}_1, \ldots, \mathbf{u}_n]$ is the matrix of
+eigenvectors (the \textbf{graph Fourier basis}) and
+$\boldsymbol{\Lambda} = \mathrm{diag}(\lambda_1, \ldots, \lambda_n)$.
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{Graph Fourier Transform}]
+The \textbf{Fourier transform} of a signal $\mathbf{x} \in \R^n$ on the
+graph is:
+\[
+    \hat{\mathbf{x}} = \mathbf{U}^\top \mathbf{x}
+\]
+The \textbf{inverse transform} is:
+\[
+    \mathbf{x} = \mathbf{U} \hat{\mathbf{x}}
+\]
+The coefficient $\hat{x}_k = \mathbf{u}_k^\top \mathbf{x}$ measures the
+projection of the signal onto the $k$-th graph Fourier mode.
+\end{keyformulas}
+
+\begin{codeblock}[title=\textbf{Spectral decomposition and Fourier transform}]
+\begin{minted}{python}
+import torch
+import numpy as np
+import networkx as nx
+
+# Create a graph
+G = nx.karate_club_graph()
+n = G.number_of_nodes()
+
+# Normalized Laplacian
+L = nx.normalized_laplacian_matrix(G).toarray()
+L = torch.tensor(L, dtype=torch.float)
+
+# Spectral decomposition
+eigenvalues, eigenvectors = torch.linalg.eigh(L)
+print(f"Smallest eigenvalues: {eigenvalues[:5]}")
+print(f"Largest eigenvalue: {eigenvalues[-1]:.4f}")
+
+# Fourier transform of a signal
+x = torch.randn(n)
+x_hat = eigenvectors.T @ x  # spectral domain
+x_reconstructed = eigenvectors @ x_hat
+print(f"Reconstruction error: {(x - x_reconstructed).norm():.2e}")
+\end{minted}
+\end{codeblock}
+
+\section{Spectral Convolution on Graphs}
+
+\subsection{Definition}
+
+\begin{definition}[Spectral convolution]
+By analogy with the classical convolution theorem (convolution in the spatial
+domain is multiplication in the frequency domain), the \textbf{spectral
+convolution} on a graph is defined as:
+\[
+    \mathbf{x} *_G \mathbf{g} = \mathbf{U}\!\left(\mathbf{U}^\top \mathbf{x}
+    \odot \mathbf{U}^\top \mathbf{g}\right)
+    = \mathbf{U}\, \hat{\mathbf{g}} \odot \hat{\mathbf{x}}
+\]
+where $\odot$ denotes element-wise multiplication.
+\end{definition}
+
+\begin{definition}[Parameterized spectral filter]
+A \textbf{spectral filter} is defined by a function
+$g_\theta: \R \to \R$ applied to the eigenvalues:
+\[
+    g_\theta(\mathbf{L})\, \mathbf{x} = \mathbf{U}\, g_\theta(\boldsymbol{\Lambda})\,
+    \mathbf{U}^\top \mathbf{x}
+    = \mathbf{U}\, \mathrm{diag}(g_\theta(\lambda_1), \ldots, g_\theta(\lambda_n))\,
+    \mathbf{U}^\top \mathbf{x}
+\]
+where $\theta$ are the learned filter parameters.
+\end{definition}
+
+\begin{warning}[title=\textbf{Computational cost}]
+Naive spectral convolution has three problems:
+\begin{enumerate}
+    \item The diagonalization $\mathbf{L} = \mathbf{U}\boldsymbol{\Lambda}\mathbf{U}^\top$
+          costs $\mathcal{O}(n^3)$.
+    \item The number of parameters is $n$ (one per eigenvalue).
+    \item The filter is \textbf{not localized} in the spatial domain.
+\end{enumerate}
+\end{warning}
+
+\subsection{ChebNet: Chebyshev Polynomials}
+
+\begin{definition}[Chebyshev filter --- Defferrard et al., 2016]
+To address the above issues, $g_\theta$ is approximated by a Chebyshev
+polynomial of order $K$:
+\[
+    g_\theta(\mathbf{L}) = \sum_{k=0}^{K} \theta_k\, T_k(\tilde{\mathbf{L}})
+\]
+where $\tilde{\mathbf{L}} = \frac{2}{\lambda_{\max}}\mathbf{L} - \mathbf{I}$
+(rescaling to $[-1, 1]$) and $T_k$ is the $k$-th Chebyshev polynomial:
+\begin{align}
+    T_0(x) &= 1, \quad T_1(x) = x \\
+    T_{k+1}(x) &= 2x\, T_k(x) - T_{k-1}(x)
+\end{align}
+\end{definition}
+
+\begin{theorem}[Chebyshev filter properties]
+\begin{enumerate}
+    \item \textbf{Localization}: a filter of order $K$ is localized to a
+          $K$-hop neighborhood.
+    \item \textbf{Complexity}: $\mathcal{O}(K \cdot \abs{E})$ instead of
+          $\mathcal{O}(n^3)$---linear in the number of edges.
+    \item \textbf{Parameters}: $K + 1$ instead of $n$.
+    \item \textbf{No spectral decomposition} required.
+\end{enumerate}
+\end{theorem}
+
+\begin{codeblock}[title=\textbf{ChebNet implementation}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+from torch_geometric.nn import ChebConv
+from torch_geometric.datasets import Planetoid
+
+class ChebNet(nn.Module):
+    def __init__(self, in_channels, hidden_channels, out_channels, K=3):
+        super().__init__()
+        self.conv1 = ChebConv(in_channels, hidden_channels, K=K)
+        self.conv2 = ChebConv(hidden_channels, out_channels, K=K)
+
+    def forward(self, x, edge_index):
+        x = torch.relu(self.conv1(x, edge_index))
+        x = torch.dropout(x, p=0.5, train=self.training)
+        x = self.conv2(x, edge_index)
+        return x
+
+dataset = Planetoid(root='/tmp/Cora', name='Cora')
+data = dataset[0]
+model = ChebNet(dataset.num_features, 32, dataset.num_classes, K=3)
+print(f"ChebNet parameters: {sum(p.numel() for p in model.parameters()):,}")
+\end{minted}
+\end{codeblock}
+
+\subsection{From ChebNet to GCN}
+
+\begin{proposition}[GCN as a special case]
+The GCN layer of Kipf and Welling is obtained by setting $K = 1$ in the
+Chebyshev filter and $\lambda_{\max} \approx 2$:
+\[
+    g_\theta * \mathbf{x} \approx \theta_0 \mathbf{x} + \theta_1
+    (\mathbf{L} - \mathbf{I})\mathbf{x}
+    = \theta_0 \mathbf{x} - \theta_1 \mathbf{D}^{-1/2}\mathbf{A}\mathbf{D}^{-1/2}\mathbf{x}
+\]
+Setting $\theta_0 = -\theta_1 = \theta$ and adding renormalization:
+\[
+    g_\theta * \mathbf{x} = \theta\,\hat{\mathbf{D}}^{-1/2}\hat{\mathbf{A}}
+    \hat{\mathbf{D}}^{-1/2}\mathbf{x}
+\]
+\end{proposition}
+
+\section{Advanced Spectral Analysis}
+
+\subsection{Spectral Cuts and Fiedler}
+
+\begin{definition}[Fiedler value]
+The \textbf{Fiedler value} $\lambda_2$ (second smallest eigenvalue of the
+Laplacian) measures the \textbf{algebraic connectivity} of the graph. The
+associated eigenvector $\mathbf{u}_2$ (Fiedler vector) defines a bipartition
+of the graph.
+\end{definition}
+
+\begin{theorem}[Cheeger inequality]
+For a graph $G$, the isoperimetric constant $h(G)$ satisfies:
+\[
+    \frac{\lambda_2}{2} \leq h(G) \leq \sqrt{2\lambda_2}
+\]
+where $h(G) = \min_{S \subset V} \frac{\abs{\partial S}}{\min(\mathrm{vol}(S),
+\mathrm{vol}(\bar{S}))}$ and $\abs{\partial S}$ is the number of edges
+cutting $S$ and $\bar{S}$.
+\end{theorem}
+
+\subsection{Spectral Positional Encodings}
+
+\begin{definition}[Laplacian Positional Encoding (LPE)]
+\textbf{Laplacian positional encodings} use the first $k$ eigenvectors of
+the Laplacian as additional node features:
+\[
+    \text{LPE}(v) = [\mathbf{u}_2(v), \mathbf{u}_3(v), \ldots, \mathbf{u}_{k+1}(v)]
+    \in \R^k
+\]
+\end{definition}
+
+\begin{warning}[title=\textbf{Sign ambiguity}]
+Eigenvectors are defined up to a sign: if $\mathbf{u}$ is an eigenvector,
+so is $-\mathbf{u}$. To resolve this ambiguity:
+\begin{itemize}
+    \item \textbf{SignNet} (Lim et al., 2022): $\phi(\mathbf{u}) + \phi(-\mathbf{u})$.
+    \item \textbf{BasisNet}: treat the set of eigenvectors as a subspace basis.
+\end{itemize}
+\end{warning}
+
+\begin{codeblock}[title=\textbf{Spectral positional encodings}]
+\begin{minted}{python}
+import torch
+from torch_geometric.transforms import AddLaplacianEigenvectorPE
+from torch_geometric.datasets import Planetoid
+
+dataset = Planetoid(root='/tmp/Cora', name='Cora',
+                    transform=AddLaplacianEigenvectorPE(k=8))
+data = dataset[0]
+print(f"Original features: {data.x.shape}")
+print(f"Positional encodings: {data.laplacian_eigenvector_pe.shape}")
+
+x_augmented = torch.cat([data.x, data.laplacian_eigenvector_pe], dim=1)
+print(f"Augmented features: {x_augmented.shape}")
+\end{minted}
+\end{codeblock}
+
+\section{Graph Transformers}
+
+\begin{definition}[Graph Transformer]
+A \textbf{Graph Transformer} applies attention over all nodes (not just
+neighbors), breaking graph locality. Spectral positional encodings provide
+structural information:
+\[
+    \mathbf{h}_v^{(\ell+1)} = \sum_{u \in V} \frac{\exp(\mathbf{q}_v^\top \mathbf{k}_u / \sqrt{d})}
+    {\sum_{w \in V} \exp(\mathbf{q}_v^\top \mathbf{k}_w / \sqrt{d})}\, \mathbf{v}_u
+\]
+where $\mathbf{q}_v, \mathbf{k}_u, \mathbf{v}_u$ are query, key, value projections.
+\end{definition}
+
+\begin{remark}[Graphormer --- Ying et al., 2021]
+Graphormer encodes graph structure via:
+\begin{enumerate}
+    \item \textbf{Centrality encoding}: $\mathbf{h}_v^{(0)} = \mathbf{x}_v + \mathbf{z}_{d_v^+} + \mathbf{z}_{d_v^-}$.
+    \item \textbf{Spatial encoding}: $b_{vu} = g(\text{SPD}(v, u))$ (shortest path distance).
+    \item \textbf{Edge encoding}: encoding edge features along the path.
+\end{enumerate}
+\end{remark}
+
+\section{Wavelets on Graphs}
+
+\begin{definition}[Spectral wavelets]
+\textbf{Graph wavelets} (Hammond et al., 2011) use a scaling function $g$
+in the spectral domain:
+\[
+    \psi_s(v, u) = \sum_{k=1}^{n} g(s\lambda_k)\, u_k(v)\, u_k(u)
+\]
+where $s > 0$ is the scale parameter. Wavelets at different scales capture
+structures at different resolutions.
+\end{definition}
+
+\section*{Exercises}
+
+\begin{exercise}[Spectrum of the complete graph and cycle]
+\begin{enumerate}
+    \item Analytically compute the Laplacian spectrum of the complete graph $K_n$.
+    \item Compute the spectrum of the cycle $C_n$.
+    \item Implement and verify numerically.
+    \item Visualize the first eigenvectors (Fourier modes).
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Spectral filtering]
+\begin{enumerate}
+    \item Implement a spectral low-pass filter $g(\lambda) = e^{-\alpha\lambda}$.
+    \item Apply it to a noisy signal on the karate club graph.
+    \item Compare with GCN propagation-based smoothing.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Spectral partitioning]
+Implement spectral graph partitioning using the Fiedler vector.
+\begin{enumerate}
+    \item Generate a graph with two clear communities.
+    \item Compute the Fiedler vector.
+    \item Partition according to the sign of the components.
+    \item Compare with the Louvain algorithm.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[ChebNet vs.\ GCN]
+Experimentally compare ChebNet (with $K = 2, 3, 5, 10$) and GCN on Cora.
+\begin{enumerate}
+    \item Plot accuracy as a function of $K$.
+    \item Analyze the locality/expressivity trade-off.
+    \item Measure training time.
+\end{enumerate}
+\end{exercise}

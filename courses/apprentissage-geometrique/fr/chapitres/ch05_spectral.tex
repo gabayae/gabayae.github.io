@@ -1,0 +1,347 @@
+% ============================================================
+\chapter{Apprentissage Spectral sur Graphes}
+\label{ch:spectral}
+% ============================================================
+
+La transform\'ee de Fourier est l'un des outils les plus puissants de l'analyse --- mais elle suppose que les donn\'ees vivent sur une grille r\'eguli\`ere. Comment d\'efinir une transform\'ee de Fourier sur un graphe~? La r\'eponse passe par le \emph{laplacien de graphe}, un op\'erateur dont les vecteurs propres jouent le r\^ole des sinuso\"ides. Les basses fr\'equences correspondent \`a des signaux lisses (voisins similaires), les hautes fr\'equences \`a des signaux oscillants. Cette analogie spectrale, d\'evelopp\'ee par Fan Chung dans les ann\'ees 1990 et appliqu\'ee \`a l'apprentissage profond par Bruna et al.\ (2014), fournit les fondements math\'ematiques des r\'eseaux convolutifs spectraux sur graphes.
+
+\section{Th\'eorie spectrale des graphes}
+
+\subsection{Le laplacien de graphe}
+
+\begin{definition}[Laplacien de graphe]
+Soit $G = (V, E)$ un graphe non dirig\'e \`a $n$ n\oe uds. Le \textbf{laplacien
+combinatoire} est~:
+\[
+    \mathbf{L} = \mathbf{D} - \mathbf{A}
+\]
+Le \textbf{laplacien normalis\'e} est~:
+\[
+    \tilde{\mathbf{L}} = \mathbf{D}^{-1/2}\mathbf{L}\mathbf{D}^{-1/2}
+    = \mathbf{I} - \mathbf{D}^{-1/2}\mathbf{A}\mathbf{D}^{-1/2}
+\]
+\end{definition}
+
+\begin{theoreme}[Propri\'et\'es du laplacien]
+Le laplacien $\mathbf{L}$ satisfait~:
+\begin{enumerate}
+    \item $\mathbf{L}$ est \textbf{semi-d\'efini positif}~: $\mathbf{x}^\top \mathbf{L} \mathbf{x} \geq 0$
+          pour tout $\mathbf{x} \in \R^n$.
+    \item \textbf{Forme quadratique}~:
+          $\mathbf{x}^\top \mathbf{L} \mathbf{x} = \sum_{(i,j) \in E} (x_i - x_j)^2$.
+    \item $\mathbf{L}$ a pour \textbf{valeurs propres} $0 = \lambda_1 \leq \lambda_2 \leq \cdots \leq \lambda_n$.
+    \item La \textbf{multiplicit\'e} de $\lambda = 0$ \'egale le nombre de
+          composantes connexes.
+\end{enumerate}
+\end{theoreme}
+
+\begin{proof}
+Pour la forme quadratique~:
+\[
+    \mathbf{x}^\top \mathbf{L} \mathbf{x} = \mathbf{x}^\top (\mathbf{D} - \mathbf{A})\mathbf{x}
+    = \sum_i d_i x_i^2 - \sum_{(i,j) \in E} 2x_i x_j
+    = \sum_{(i,j) \in E} (x_i^2 + x_j^2 - 2x_i x_j)
+    = \sum_{(i,j) \in E} (x_i - x_j)^2. \qedhere
+\]
+\end{proof}
+
+\begin{intuition}[title=\textbf{Le laplacien comme op\'erateur de lissage}]
+La forme quadratique $\mathbf{x}^\top \mathbf{L} \mathbf{x}$ mesure la
+\textbf{variation totale} du signal $\mathbf{x}$ sur le graphe. Un signal
+$\mathbf{x}$ est lisse si les n\oe uds voisins ont des valeurs proches, ce
+qui correspond \`a une petite valeur de $\mathbf{x}^\top \mathbf{L} \mathbf{x}$.
+\end{intuition}
+
+\subsection{D\'ecomposition spectrale}
+
+\begin{definition}[Spectre du graphe]
+Le \textbf{spectre} du graphe est l'ensemble des valeurs propres du laplacien~:
+\[
+    \mathbf{L} = \mathbf{U} \boldsymbol{\Lambda} \mathbf{U}^\top
+\]
+o\`u $\mathbf{U} = [\mathbf{u}_1, \ldots, \mathbf{u}_n]$ est la matrice
+des vecteurs propres (la \textbf{base de Fourier du graphe}) et
+$\boldsymbol{\Lambda} = \mathrm{diag}(\lambda_1, \ldots, \lambda_n)$.
+\end{definition}
+
+\begin{formules}[title=\textbf{Transform\'ee de Fourier sur graphe}]
+La \textbf{transform\'ee de Fourier} d'un signal $\mathbf{x} \in \R^n$
+sur le graphe est~:
+\[
+    \hat{\mathbf{x}} = \mathbf{U}^\top \mathbf{x}
+\]
+La \textbf{transform\'ee inverse} est~:
+\[
+    \mathbf{x} = \mathbf{U} \hat{\mathbf{x}}
+\]
+Le coefficient $\hat{x}_k = \mathbf{u}_k^\top \mathbf{x}$ mesure la
+projection du signal sur le $k$-i\`eme mode de Fourier du graphe.
+\end{formules}
+
+\begin{codeblock}[title=\textbf{D\'ecomposition spectrale et transform\'ee de Fourier}]
+\begin{minted}{python}
+import torch
+import numpy as np
+import networkx as nx
+
+# Creer un graphe
+G = nx.karate_club_graph()
+n = G.number_of_nodes()
+
+# Laplacien normalise
+L = nx.normalized_laplacian_matrix(G).toarray()
+L = torch.tensor(L, dtype=torch.float)
+
+# Decomposition spectrale
+eigenvalues, eigenvectors = torch.linalg.eigh(L)
+print(f"Plus petites valeurs propres: {eigenvalues[:5]}")
+print(f"Plus grande valeur propre: {eigenvalues[-1]:.4f}")
+
+# Transformee de Fourier d'un signal
+x = torch.randn(n)  # signal aleatoire
+x_hat = eigenvectors.T @ x  # domaine spectral
+x_reconstructed = eigenvectors @ x_hat  # reconstruction
+print(f"Erreur reconstruction: {(x - x_reconstructed).norm():.2e}")
+\end{minted}
+\end{codeblock}
+
+\section{Convolution spectrale sur graphes}
+
+\subsection{D\'efinition}
+
+\begin{definition}[Convolution spectrale]
+Par analogie avec le th\'eor\`eme de convolution classique (la convolution
+dans le domaine spatial est un produit dans le domaine fr\'equentiel), la
+\textbf{convolution spectrale} sur graphe est d\'efinie par~:
+\[
+    \mathbf{x} *_G \mathbf{g} = \mathbf{U}\!\left(\mathbf{U}^\top \mathbf{x}
+    \odot \mathbf{U}^\top \mathbf{g}\right)
+    = \mathbf{U}\, \hat{\mathbf{g}} \odot \hat{\mathbf{x}}
+\]
+o\`u $\odot$ d\'enote le produit \'el\'ement par \'el\'ement.
+\end{definition}
+
+\begin{definition}[Filtre spectral param\'etr\'e]
+Un \textbf{filtre spectral} est d\'efini par une fonction
+$g_\theta: \R \to \R$ appliqu\'ee aux valeurs propres~:
+\[
+    g_\theta(\mathbf{L})\, \mathbf{x} = \mathbf{U}\, g_\theta(\boldsymbol{\Lambda})\,
+    \mathbf{U}^\top \mathbf{x}
+    = \mathbf{U}\, \mathrm{diag}(g_\theta(\lambda_1), \ldots, g_\theta(\lambda_n))\,
+    \mathbf{U}^\top \mathbf{x}
+\]
+o\`u $\theta$ sont les param\`etres appris du filtre.
+\end{definition}
+
+\begin{attention}[title=\textbf{Co\^ut computationnel}]
+La convolution spectrale na\"ive a trois probl\`emes~:
+\begin{enumerate}
+    \item La diagonalisation $\mathbf{L} = \mathbf{U}\boldsymbol{\Lambda}\mathbf{U}^\top$
+          co\^ute $\mathcal{O}(n^3)$.
+    \item Le nombre de param\`etres est $n$ (un par valeur propre).
+    \item Le filtre n'est \textbf{pas localis\'e} dans l'espace spatial.
+\end{enumerate}
+\end{attention}
+
+\subsection{ChebNet~: polyn\^omes de Chebyshev}
+
+\begin{definition}[Filtre de Chebyshev --- Defferrard et al., 2016]
+Pour r\'esoudre les probl\`emes ci-dessus, on approche $g_\theta$ par un
+polyn\^ome de Chebyshev d'ordre $K$~:
+\[
+    g_\theta(\mathbf{L}) = \sum_{k=0}^{K} \theta_k\, T_k(\tilde{\mathbf{L}})
+\]
+o\`u $\tilde{\mathbf{L}} = \frac{2}{\lambda_{\max}}\mathbf{L} - \mathbf{I}$
+(rescaling dans $[-1, 1]$) et $T_k$ est le $k$-i\`eme polyn\^ome de Chebyshev~:
+\begin{align}
+    T_0(x) &= 1, \quad T_1(x) = x \\
+    T_{k+1}(x) &= 2x\, T_k(x) - T_{k-1}(x)
+\end{align}
+\end{definition}
+
+\begin{theoreme}[Propri\'et\'es du filtre de Chebyshev]
+\begin{enumerate}
+    \item \textbf{Localisation}~: le filtre d'ordre $K$ est localis\'e dans
+          un voisinage de rayon $K$ (support spatial de taille $K$).
+    \item \textbf{Complexit\'e}~: $\mathcal{O}(K \cdot \abs{E})$ au lieu de
+          $\mathcal{O}(n^3)$ --- lin\'eaire en le nombre d'ar\^etes.
+    \item \textbf{Param\`etres}~: $K + 1$ au lieu de $n$.
+    \item \textbf{Pas de d\'ecomposition spectrale} n\'ecessaire.
+\end{enumerate}
+\end{theoreme}
+
+\begin{codeblock}[title=\textbf{Impl\'ementation ChebNet}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+from torch_geometric.nn import ChebConv
+from torch_geometric.datasets import Planetoid
+
+class ChebNet(nn.Module):
+    def __init__(self, in_channels, hidden_channels, out_channels, K=3):
+        super().__init__()
+        self.conv1 = ChebConv(in_channels, hidden_channels, K=K)
+        self.conv2 = ChebConv(hidden_channels, out_channels, K=K)
+
+    def forward(self, x, edge_index):
+        x = torch.relu(self.conv1(x, edge_index))
+        x = torch.dropout(x, p=0.5, train=self.training)
+        x = self.conv2(x, edge_index)
+        return x
+
+dataset = Planetoid(root='/tmp/Cora', name='Cora')
+data = dataset[0]
+model = ChebNet(dataset.num_features, 32, dataset.num_classes, K=3)
+print(f"Parametres ChebNet: {sum(p.numel() for p in model.parameters()):,}")
+\end{minted}
+\end{codeblock}
+
+\subsection{Du ChebNet au GCN}
+
+\begin{proposition}[GCN comme cas particulier]
+La couche GCN de Kipf et Welling s'obtient en prenant $K = 1$ dans le filtre
+de Chebyshev et en posant $\lambda_{\max} \approx 2$~:
+\[
+    g_\theta * \mathbf{x} \approx \theta_0 \mathbf{x} + \theta_1
+    (\mathbf{L} - \mathbf{I})\mathbf{x}
+    = \theta_0 \mathbf{x} - \theta_1 \mathbf{D}^{-1/2}\mathbf{A}\mathbf{D}^{-1/2}\mathbf{x}
+\]
+En posant $\theta_0 = -\theta_1 = \theta$ et en ajoutant la renormalisation~:
+\[
+    g_\theta * \mathbf{x} = \theta\,\hat{\mathbf{D}}^{-1/2}\hat{\mathbf{A}}
+    \hat{\mathbf{D}}^{-1/2}\mathbf{x}
+\]
+\end{proposition}
+
+\section{Analyse spectrale avanc\'ee}
+
+\subsection{Coupure spectrale et Fiedler}
+
+\begin{definition}[Valeur de Fiedler]
+La \textbf{valeur de Fiedler} $\lambda_2$ (deuxi\`eme plus petite valeur propre
+du laplacien) mesure la \textbf{connectivit\'e alg\'ebrique} du graphe. Le
+vecteur propre associ\'e $\mathbf{u}_2$ (vecteur de Fiedler) d\'efinit une
+partition en deux du graphe.
+\end{definition}
+
+\begin{theoreme}[In\'egalit\'e de Cheeger]
+Pour un graphe $G$, la constante isop\'erim\'etrique $h(G)$ satisfait~:
+\[
+    \frac{\lambda_2}{2} \leq h(G) \leq \sqrt{2\lambda_2}
+\]
+o\`u $h(G) = \min_{S \subset V} \frac{\abs{\partial S}}{\min(\mathrm{vol}(S),
+\mathrm{vol}(\bar{S}))}$ et $\abs{\partial S}$ est le nombre d'ar\^etes
+coupant $S$ et $\bar{S}$.
+\end{theoreme}
+
+\subsection{Encodages positionnels spectraux}
+
+\begin{definition}[Encodage positionnel laplacien (LPE)]
+Les \textbf{encodages positionnels laplaciens} utilisent les $k$ premiers
+vecteurs propres du laplacien comme attributs suppl\'ementaires des n\oe uds~:
+\[
+    \text{LPE}(v) = [\mathbf{u}_2(v), \mathbf{u}_3(v), \ldots, \mathbf{u}_{k+1}(v)]
+    \in \R^k
+\]
+\end{definition}
+
+\begin{attention}[title=\textbf{Ambigu\"it\'e de signe}]
+Les vecteurs propres sont d\'efinis \`a un signe pr\`es~: si $\mathbf{u}$ est
+vecteur propre, alors $-\mathbf{u}$ l'est aussi. Pour lever cette ambigu\"it\'e~:
+\begin{itemize}
+    \item \textbf{SignNet} (Lim et al., 2022)~: $\phi(\mathbf{u}) + \phi(-\mathbf{u})$.
+    \item \textbf{BasisNet}~: traiter l'ensemble des vecteurs propres comme
+          base d'un sous-espace.
+\end{itemize}
+\end{attention}
+
+\begin{codeblock}[title=\textbf{Encodages positionnels spectraux}]
+\begin{minted}{python}
+import torch
+from torch_geometric.transforms import AddLaplacianEigenvectorPE
+from torch_geometric.datasets import Planetoid
+
+dataset = Planetoid(root='/tmp/Cora', name='Cora',
+                    transform=AddLaplacianEigenvectorPE(k=8))
+data = dataset[0]
+print(f"Attributs originaux: {data.x.shape}")
+print(f"Encodages positionnels: {data.laplacian_eigenvector_pe.shape}")
+
+# Concatenation pour l'entree du GNN
+x_augmented = torch.cat([data.x, data.laplacian_eigenvector_pe], dim=1)
+print(f"Attributs augmentes: {x_augmented.shape}")
+\end{minted}
+\end{codeblock}
+
+\section{Graph Transformers}
+
+\begin{definition}[Graph Transformer]
+Un \textbf{Graph Transformer} applique l'attention sur tous les n\oe uds
+(pas seulement les voisins), brisant la localit\'e du graphe. Les encodages
+positionnels spectraux fournissent l'information structurelle~:
+\[
+    \mathbf{h}_v^{(\ell+1)} = \sum_{u \in V} \frac{\exp(\mathbf{q}_v^\top \mathbf{k}_u / \sqrt{d})}
+    {\sum_{w \in V} \exp(\mathbf{q}_v^\top \mathbf{k}_w / \sqrt{d})}\, \mathbf{v}_u
+\]
+o\`u $\mathbf{q}_v, \mathbf{k}_u, \mathbf{v}_u$ sont les projections query, key, value.
+\end{definition}
+
+\begin{remarque}[Graphormer --- Ying et al., 2021]
+Graphormer encode la structure du graphe via~:
+\begin{enumerate}
+    \item \textbf{Biais de centralit\'e}~: $\mathbf{h}_v^{(0)} = \mathbf{x}_v + \mathbf{z}_{d_v^+} + \mathbf{z}_{d_v^-}$.
+    \item \textbf{Biais spatial}~: $b_{vu} = g(\text{SPD}(v, u))$ (distance du plus court chemin).
+    \item \textbf{Biais d'ar\^ete}~: encodage des attributs d'ar\^etes le long du chemin.
+\end{enumerate}
+\end{remarque}
+
+\section{Wavelets sur graphes}
+
+\begin{definition}[Ondelettes spectrales]
+Les \textbf{ondelettes sur graphes} (Hammond et al., 2011) utilisent une
+fonction d'\'echelle $g$ dans le domaine spectral~:
+\[
+    \psi_s(v, u) = \sum_{k=1}^{n} g(s\lambda_k)\, u_k(v)\, u_k(u)
+\]
+o\`u $s > 0$ est le param\`etre d'\'echelle. Les ondelettes \`a diff\'erentes
+\'echelles capturent des structures \`a diff\'erentes r\'esolutions.
+\end{definition}
+
+\section*{Exercices}
+
+\begin{exercice}[Spectre du graphe complet et du cycle]
+\begin{enumerate}
+    \item Calculer analytiquement le spectre du laplacien du graphe complet $K_n$.
+    \item Calculer le spectre du cycle $C_n$.
+    \item Impl\'ementer et v\'erifier num\'eriquement.
+    \item Visualiser les premiers vecteurs propres (modes de Fourier).
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Filtrage spectral]
+\begin{enumerate}
+    \item Impl\'ementer un filtre passe-bas spectral $g(\lambda) = e^{-\alpha\lambda}$.
+    \item L'appliquer \`a un signal bruit\'e sur le graphe du club de karat\'e.
+    \item Comparer avec le lissage par propagation GCN.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Partitionnement spectral]
+Impl\'ementer le partitionnement spectral d'un graphe en utilisant le vecteur
+de Fiedler.
+\begin{enumerate}
+    \item G\'en\'erer un graphe \`a deux communaut\'es claires.
+    \item Calculer le vecteur de Fiedler.
+    \item Partitionner selon le signe des composantes.
+    \item Comparer avec l'algorithme de Louvain.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[ChebNet vs.\ GCN]
+Comparer exp\'erimentalement ChebNet (avec $K = 2, 3, 5, 10$) et GCN sur Cora.
+\begin{enumerate}
+    \item Tracer la pr\'ecision en fonction de $K$.
+    \item Analyser le compromis localit\'e / expressivit\'e.
+    \item Mesurer le temps d'entra\^inement.
+\end{enumerate}
+\end{exercice}

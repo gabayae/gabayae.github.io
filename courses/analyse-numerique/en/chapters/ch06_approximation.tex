@@ -1,0 +1,440 @@
+%!TEX root = ../main.tex
+% Chapter 6 — Approximation: Least Squares and Chebyshev
+
+\chapter{Approximation --- Least Squares and Chebyshev}
+\label{ch:approximation}
+
+
+\section{Introduction}
+
+In many practical situations, we have a set of data points and wish to find a function that \emph{best represents} them. Unlike interpolation, which requires the approximating function to pass exactly through every data point, approximation seeks the function that is \emph{closest} in some well-defined sense.
+
+\begin{definition}[Approximation problem]
+\label{def:approximation}
+\index{approximation}
+Given data points $(x_i, y_i)$, $i = 0, 1, \ldots, m$, and a family of functions $\{g(x; a_0, \ldots, a_n)\}$ with $n < m$, the \textbf{approximation problem} consists of finding the parameters $a_0, \ldots, a_n$ that minimize a measure of the discrepancy between $g(x_i; a_0, \ldots, a_n)$ and $y_i$.
+\end{definition}
+
+The two principal approaches are:
+\begin{itemize}
+    \item \textbf{Least squares approximation}: minimize the sum of squared residuals;
+    \item \textbf{Chebyshev (minimax) approximation}: minimize the maximum absolute error.
+\end{itemize}
+
+%==============================================================================
+\section{Discrete Least Squares}
+%==============================================================================
+
+\subsection{Problem formulation}
+
+\begin{definition}[Discrete least squares problem]
+\label{def:least-squares}
+\index{least squares!discrete}
+Given $m+1$ data points $(x_i, y_i)$ for $i = 0, \ldots, m$ and a basis of functions $\varphi_0, \varphi_1, \ldots, \varphi_n$ with $n < m$, we seek coefficients $a_0, a_1, \ldots, a_n$ minimizing
+\[
+    S(a_0, \ldots, a_n) = \sum_{i=0}^{m} \left( y_i - \sum_{j=0}^{n} a_j \varphi_j(x_i) \right)^2.
+\]
+\end{definition}
+
+\begin{remark}
+The condition $n < m$ is essential: the system is \emph{overdetermined}, so we cannot in general satisfy all equations exactly. When $n = m$, we recover the interpolation problem.
+\end{remark}
+
+\subsection{Normal equations}
+
+\begin{theorem}[Normal equations]
+\label{thm:normal-equations}
+\index{normal equations}
+The least squares solution satisfies the \textbf{normal equations}:
+\[
+    \mathbf{A}^\top \mathbf{A} \, \mathbf{a} = \mathbf{A}^\top \mathbf{y},
+\]
+where $\mathbf{A}$ is the $(m+1) \times (n+1)$ matrix with entries $A_{ij} = \varphi_j(x_i)$, $\mathbf{a} = (a_0, \ldots, a_n)^\top$, and $\mathbf{y} = (y_0, \ldots, y_m)^\top$.
+\end{theorem}
+
+\begin{proof}
+Define $\mathbf{r} = \mathbf{y} - \mathbf{A}\mathbf{a}$ (the residual vector). Then
+\[
+    S(\mathbf{a}) = \|\mathbf{r}\|_2^2 = (\mathbf{y} - \mathbf{A}\mathbf{a})^\top (\mathbf{y} - \mathbf{A}\mathbf{a})
+    = \mathbf{y}^\top\mathbf{y} - 2\mathbf{a}^\top\mathbf{A}^\top\mathbf{y} + \mathbf{a}^\top\mathbf{A}^\top\mathbf{A}\,\mathbf{a}.
+\]
+Setting the gradient with respect to $\mathbf{a}$ to zero:
+\[
+    \nabla_{\mathbf{a}} S = -2\mathbf{A}^\top\mathbf{y} + 2\mathbf{A}^\top\mathbf{A}\,\mathbf{a} = \mathbf{0}.
+\]
+This gives $\mathbf{A}^\top\mathbf{A}\,\mathbf{a} = \mathbf{A}^\top\mathbf{y}$.
+
+Since $S$ is a convex quadratic form (the Hessian $2\mathbf{A}^\top\mathbf{A}$ is positive semi-definite), any critical point is a global minimum. If the columns of $\mathbf{A}$ are linearly independent, then $\mathbf{A}^\top\mathbf{A}$ is positive definite and the solution is unique.
+\end{proof}
+
+\begin{example}[Linear least squares fit]
+\label{ex:linear-ls}
+Given the data
+\[
+\begin{array}{c|ccccc}
+    x_i & 0 & 1 & 2 & 3 & 4 \\
+    \hline
+    y_i & 1.0 & 2.1 & 2.9 & 4.2 & 4.8
+\end{array}
+\]
+we fit $g(x) = a_0 + a_1 x$. The matrix $\mathbf{A}$ and the normal equations are:
+\[
+    \mathbf{A} = \begin{pmatrix} 1 & 0 \\ 1 & 1 \\ 1 & 2 \\ 1 & 3 \\ 1 & 4 \end{pmatrix}, \qquad
+    \mathbf{A}^\top\mathbf{A} = \begin{pmatrix} 5 & 10 \\ 10 & 30 \end{pmatrix}, \qquad
+    \mathbf{A}^\top\mathbf{y} = \begin{pmatrix} 15.0 \\ 38.8 \end{pmatrix}.
+\]
+Solving: $a_0 = 1.08$, $a_1 = 0.96$, so $g(x) = 1.08 + 0.96x$.
+\end{example}
+
+\begin{warning}
+The matrix $\mathbf{A}^\top\mathbf{A}$ can be very ill-conditioned, especially when using monomials $\varphi_j(x) = x^j$ of high degree. This is why orthogonal polynomials or QR factorization are preferred in practice.
+\end{warning}
+
+%==============================================================================
+\subsection{Polynomial least squares via QR factorization}
+
+\begin{proposition}
+\label{prop:qr-ls}
+\index{QR factorization!least squares}
+If $\mathbf{A} = \mathbf{Q}\mathbf{R}$ is the (thin) QR factorization of $\mathbf{A}$ where $\mathbf{Q} \in \R^{(m+1)\times(n+1)}$ has orthonormal columns and $\mathbf{R} \in \R^{(n+1)\times(n+1)}$ is upper triangular, then the least squares solution is
+\[
+    \mathbf{R}\,\mathbf{a} = \mathbf{Q}^\top \mathbf{y}.
+\]
+\end{proposition}
+
+\begin{proof}
+From $\mathbf{A} = \mathbf{Q}\mathbf{R}$, we get $\mathbf{A}^\top\mathbf{A} = \mathbf{R}^\top\mathbf{Q}^\top\mathbf{Q}\mathbf{R} = \mathbf{R}^\top\mathbf{R}$ and $\mathbf{A}^\top\mathbf{y} = \mathbf{R}^\top\mathbf{Q}^\top\mathbf{y}$. The normal equations become $\mathbf{R}^\top\mathbf{R}\,\mathbf{a} = \mathbf{R}^\top\mathbf{Q}^\top\mathbf{y}$. Since $\mathbf{R}$ is invertible, we may multiply on the left by $(\mathbf{R}^\top)^{-1}$ to obtain $\mathbf{R}\,\mathbf{a} = \mathbf{Q}^\top\mathbf{y}$.
+\end{proof}
+
+%==============================================================================
+\section{Continuous Least Squares and Orthogonal Polynomials}
+%==============================================================================
+
+\subsection{Continuous least squares}
+
+\begin{definition}[Continuous least squares]
+\label{def:continuous-ls}
+\index{least squares!continuous}
+Given a weight function $w(x) > 0$ on $[a,b]$ and a function $f \in C([a,b])$, we seek a polynomial $p_n \in \mathcal{P}_n$ minimizing
+\[
+    \|f - p_n\|_w^2 = \int_a^b w(x) \left[f(x) - p_n(x)\right]^2 \, dx.
+\]
+\end{definition}
+
+The solution satisfies the continuous normal equations:
+\[
+    \sum_{j=0}^{n} a_j \underbrace{\int_a^b w(x)\,\varphi_j(x)\,\varphi_k(x)\,dx}_{\langle \varphi_j, \varphi_k \rangle_w} = \underbrace{\int_a^b w(x)\,f(x)\,\varphi_k(x)\,dx}_{\langle f, \varphi_k \rangle_w}, \qquad k = 0, \ldots, n.
+\]
+
+\subsection{Orthogonal polynomials}
+
+\begin{definition}[Orthogonal polynomials]
+\label{def:orthogonal-polynomials}
+\index{orthogonal polynomials}
+A sequence $\{p_k\}_{k \geq 0}$ of polynomials (with $\deg p_k = k$) is \textbf{orthogonal} with respect to the inner product $\langle \cdot, \cdot \rangle_w$ if
+\[
+    \langle p_j, p_k \rangle_w = \int_a^b w(x)\,p_j(x)\,p_k(x)\,dx = 0 \quad \text{for } j \neq k.
+\]
+\end{definition}
+
+\begin{theorem}[Three-term recurrence]
+\label{thm:three-term}
+\index{three-term recurrence}
+Orthogonal polynomials satisfy a recurrence of the form
+\[
+    p_{k+1}(x) = (\alpha_k x + \beta_k)\,p_k(x) - \gamma_k\,p_{k-1}(x), \qquad k \geq 1,
+\]
+with $p_0(x) = 1$ and $p_1(x) = \alpha_0 x + \beta_0$.
+\end{theorem}
+
+\begin{example}[Classical orthogonal polynomials]
+\label{ex:classical-orthogonal}
+\begin{center}
+\begin{tabular}{lccc}
+    \toprule
+    \textbf{Name} & \textbf{Interval} & $w(x)$ & \textbf{Notation} \\
+    \midrule
+    Legendre     & $[-1,1]$          & $1$                   & $P_k(x)$ \\
+    Chebyshev    & $[-1,1]$          & $(1-x^2)^{-1/2}$     & $T_k(x)$ \\
+    Laguerre     & $[0,\infty)$      & $e^{-x}$             & $L_k(x)$ \\
+    Hermite      & $(-\infty,\infty)$& $e^{-x^2}$           & $H_k(x)$ \\
+    \bottomrule
+\end{tabular}
+\end{center}
+\end{example}
+
+\begin{proposition}
+\label{prop:ls-orthogonal}
+If $\{p_0, p_1, \ldots, p_n\}$ is an orthogonal basis, the best approximation is
+\[
+    f_n(x) = \sum_{k=0}^{n} c_k\, p_k(x), \qquad c_k = \frac{\langle f, p_k \rangle_w}{\langle p_k, p_k \rangle_w}.
+\]
+The normal equations decouple because the Gram matrix is diagonal.
+\end{proposition}
+
+%==============================================================================
+\section{Chebyshev Polynomials}
+%==============================================================================
+
+\begin{definition}[Chebyshev polynomials]
+\label{def:chebyshev}
+\index{Chebyshev polynomials}
+The Chebyshev polynomials of the first kind are defined by
+\[
+    T_k(x) = \cos(k \arccos x), \qquad x \in [-1,1], \quad k = 0, 1, 2, \ldots
+\]
+They satisfy the recurrence $T_0(x)=1$, $T_1(x)=x$, $T_{k+1}(x) = 2x\,T_k(x) - T_{k-1}(x)$.
+\end{definition}
+
+\begin{theorem}[Properties of Chebyshev polynomials]
+\label{thm:chebyshev-properties}
+\begin{enumerate}
+    \item $T_k$ has exactly $k$ zeros on $(-1,1)$: $x_j = \cos\!\left(\frac{(2j-1)\pi}{2k}\right)$, $j=1,\ldots,k$.
+    \item $|T_k(x)| \leq 1$ for all $x \in [-1,1]$.
+    \item $T_k$ attains the values $\pm 1$ at $k+1$ extremal points:
+    $x_j^* = \cos\!\left(\frac{j\pi}{k}\right)$, $j = 0, \ldots, k$.
+    \item Orthogonality: $\displaystyle\int_{-1}^{1} \frac{T_j(x)\,T_k(x)}{\sqrt{1-x^2}}\,dx = \begin{cases} 0 & j \neq k, \\ \pi & j = k = 0, \\ \pi/2 & j = k \neq 0. \end{cases}$
+\end{enumerate}
+\end{theorem}
+
+\begin{theorem}[Minimax property]
+\label{thm:chebyshev-minimax}
+\index{minimax property}
+Among all monic polynomials of degree $n$, the polynomial $\widetilde{T}_n(x) = 2^{1-n} T_n(x)$ has the smallest uniform norm on $[-1,1]$:
+\[
+    \max_{x \in [-1,1]} |\widetilde{T}_n(x)| = 2^{1-n}.
+\]
+\end{theorem}
+
+%==============================================================================
+\section{Best Uniform Approximation (Chebyshev / Minimax)}
+%==============================================================================
+
+\begin{definition}[Best uniform approximation]
+\label{def:best-uniform}
+\index{best uniform approximation}
+Given $f \in C([a,b])$, the \textbf{best uniform (minimax) approximation} of degree $n$ is the polynomial $p_n^*$ satisfying
+\[
+    \|f - p_n^*\|_\infty = \min_{p \in \mathcal{P}_n} \|f - p\|_\infty = \min_{p \in \mathcal{P}_n} \max_{x \in [a,b]} |f(x) - p(x)|.
+\]
+\end{definition}
+
+\begin{theorem}[Chebyshev equioscillation theorem]
+\label{thm:equioscillation}
+\index{equioscillation theorem}
+A polynomial $p_n^* \in \mathcal{P}_n$ is the best uniform approximation to $f \in C([a,b])$ if and only if the error $e(x) = f(x) - p_n^*(x)$ \textbf{equioscillates} at least $n+2$ times: there exist $n+2$ points
+\[
+    a \leq x_0 < x_1 < \cdots < x_{n+1} \leq b
+\]
+such that
+\[
+    e(x_j) = (-1)^j \, \sigma \, \|e\|_\infty, \qquad j = 0, 1, \ldots, n+1,
+\]
+where $\sigma = \pm 1$.
+\end{theorem}
+
+\begin{remark}
+The equioscillation theorem guarantees both existence and uniqueness of the best uniform approximation. The Remez algorithm is a classical iterative method for computing it.
+\end{remark}
+
+%==============================================================================
+\section{Near-best Approximation via Chebyshev Interpolation}
+%==============================================================================
+
+\begin{theorem}[Near-optimality of Chebyshev interpolation]
+\label{thm:near-best}
+Let $p_n^{\mathrm{Cheb}}$ be the interpolation polynomial at Chebyshev nodes and $p_n^*$ the best uniform approximation. Then
+\[
+    \|f - p_n^{\mathrm{Cheb}}\|_\infty \leq \left(1 + \Lambda_n^{\mathrm{Cheb}}\right) \|f - p_n^*\|_\infty,
+\]
+where $\Lambda_n^{\mathrm{Cheb}} = \BigO(\ln n)$ is the Lebesgue constant for Chebyshev nodes.
+\end{theorem}
+
+\begin{method}
+\textbf{Practical guideline:} For most applications, Chebyshev interpolation provides a near-optimal approximation that is much simpler to compute than the true minimax approximation.
+\end{method}
+
+%==============================================================================
+\section{Python Implementation}
+%==============================================================================
+
+\begin{codeblock}[title=\textbf{Python --- Least squares via normal equations and \texttt{polyfit}]}
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Data points
+x = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+y = np.array([1.0, 2.1, 2.9, 4.2, 4.8])
+
+# --- Method 1: Normal equations ---
+A = np.column_stack([np.ones_like(x), x])
+ATA = A.T @ A
+ATy = A.T @ y
+a_normal = np.linalg.solve(ATA, ATy)
+print("Normal equations: a0 = {:.4f}, a1 = {:.4f}".format(*a_normal))
+
+# --- Method 2: QR factorization ---
+Q, R = np.linalg.qr(A)
+a_qr = np.linalg.solve(R, Q.T @ y)
+print("QR method:        a0 = {:.4f}, a1 = {:.4f}".format(*a_qr))
+
+# --- Method 3: numpy.polyfit ---
+coeffs = np.polyfit(x, y, 1)  # returns [a1, a0]
+print("polyfit:          a0 = {:.4f}, a1 = {:.4f}".format(coeffs[1], coeffs[0]))
+
+# --- Higher degree fit ---
+for deg in [1, 2, 3]:
+    c = np.polyfit(x, y, deg)
+    p = np.poly1d(c)
+    residual = np.sqrt(np.sum((y - p(x))**2))
+    print(f"Degree {deg}: residual = {residual:.6f}")
+
+# --- Plot ---
+xfine = np.linspace(-0.5, 4.5, 200)
+plt.figure(figsize=(8, 5))
+plt.plot(x, y, 'ko', markersize=8, label='Data')
+for deg, ls in [(1, '-'), (2, '--'), (3, ':')]:
+    c = np.polyfit(x, y, deg)
+    plt.plot(xfine, np.polyval(c, xfine), ls,
+             label=f'Degree {deg}')
+plt.xlabel('$x$')
+plt.ylabel('$y$')
+plt.legend()
+plt.title('Least squares polynomial fits')
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.savefig('least_squares_fit.pdf')
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Python --- Chebyshev approximation}]
+\begin{minted}{python}
+import numpy as np
+from numpy.polynomial import chebyshev as C
+
+# Approximate f(x) = exp(x) on [-1, 1]
+f = lambda x: np.exp(x)
+n = 10
+
+# Chebyshev interpolation nodes
+k = np.arange(n + 1)
+nodes = np.cos((2*k + 1) * np.pi / (2*(n + 1)))
+values = f(nodes)
+
+# Chebyshev coefficients
+coeffs = C.chebfit(nodes, values, n)
+
+# Evaluate and compare
+xfine = np.linspace(-1, 1, 1000)
+approx = C.chebval(xfine, coeffs)
+error = np.max(np.abs(f(xfine) - approx))
+print(f"Max error (degree {n}): {error:.2e}")
+\end{minted}
+\end{codeblock}
+
+%==============================================================================
+\section{Exercises}
+%==============================================================================
+
+\begin{exercise}[$\star$]
+\label{ex:ch6-ls-line}
+Given the data points $(0,1)$, $(1,3)$, $(2,4)$, $(3,5)$, find the least squares line $y = a_0 + a_1 x$.
+\begin{enumerate}
+    \item Write the matrix $\mathbf{A}$ and the normal equations $\mathbf{A}^\top\mathbf{A}\,\mathbf{a} = \mathbf{A}^\top\mathbf{y}$.
+    \item Solve the system.
+    \item Compute the residual $\|\mathbf{y} - \mathbf{A}\mathbf{a}\|_2$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[$\star$]
+\label{ex:ch6-parabola}
+Fit a quadratic $y = a_0 + a_1 x + a_2 x^2$ to the data
+\[
+\begin{array}{c|cccccc}
+    x_i & -2 & -1 & 0 & 1 & 2 & 3 \\
+    \hline
+    y_i & 5.1 & 2.2 & 0.9 & 1.8 & 5.3 & 10.1
+\end{array}
+\]
+using the normal equations. Compare with \texttt{numpy.polyfit}.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+\label{ex:ch6-conditioning}
+Consider the Vandermonde matrix $A_{ij} = x_i^j$ for $m+1$ equispaced points on $[0,1]$.
+\begin{enumerate}
+    \item For $m = 10$ and $n = 2, 4, 6, 8$, compute $\cond_2(\mathbf{A}^\top\mathbf{A})$.
+    \item Compare with $\cond_2(\mathbf{R})$ from the QR factorization of $\mathbf{A}$.
+    \item What do you conclude about the numerical stability of normal equations?
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+\label{ex:ch6-chebyshev-zeros}
+\begin{enumerate}
+    \item Verify that $T_4(x) = 8x^4 - 8x^2 + 1$ using the recurrence relation.
+    \item Compute its four zeros.
+    \item Show that $\|T_4\|_\infty = 1$ on $[-1,1]$ and identify the five extremal points.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+\label{ex:ch6-remez}
+Implement a simplified Remez algorithm:
+\begin{enumerate}
+    \item Choose $n+2$ initial reference points (e.g., Chebyshev extrema).
+    \item Solve the equioscillation system for $p_n$ and the leveled error $E$.
+    \item Find the point of maximum error and exchange it with the worst reference point.
+    \item Repeat until convergence.
+\end{enumerate}
+Test on $f(x) = |x|$ on $[-1,1]$ with $n = 2, 4, 6$.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+\label{ex:ch6-weighted-ls}
+Consider the weighted least squares problem: minimize
+\[
+    S_w(\mathbf{a}) = \sum_{i=0}^{m} w_i \left(y_i - \sum_{j=0}^{n} a_j \varphi_j(x_i)\right)^2
+\]
+where $w_i > 0$ are given weights.
+\begin{enumerate}
+    \item Derive the weighted normal equations.
+    \item Show that they can be written as $\mathbf{A}^\top\mathbf{W}\mathbf{A}\,\mathbf{a} = \mathbf{A}^\top\mathbf{W}\mathbf{y}$ where $\mathbf{W} = \diag(w_0, \ldots, w_m)$.
+    \item Implement in Python and test with data where some points should be trusted more.
+\end{enumerate}
+\end{exercise}
+
+%==============================================================================
+\section*{Summary of Key Formulas}
+%==============================================================================
+
+\begin{keyformulas}
+\textbf{Normal equations:}
+\[
+    \mathbf{A}^\top \mathbf{A} \, \mathbf{a} = \mathbf{A}^\top \mathbf{y}
+\]
+
+\textbf{QR approach:}
+\[
+    \mathbf{R}\,\mathbf{a} = \mathbf{Q}^\top\mathbf{y} \qquad (\mathbf{A} = \mathbf{Q}\mathbf{R})
+\]
+
+\textbf{Continuous least squares with orthogonal polynomials:}
+\[
+    c_k = \frac{\langle f, p_k \rangle_w}{\langle p_k, p_k \rangle_w}, \qquad f_n(x) = \sum_{k=0}^{n} c_k\, p_k(x)
+\]
+
+\textbf{Chebyshev polynomials:}
+\[
+    T_k(x) = \cos(k\arccos x), \qquad T_{k+1}(x) = 2xT_k(x) - T_{k-1}(x)
+\]
+
+\textbf{Equioscillation theorem:} $p_n^*$ is the best uniform approximation $\iff$ the error equioscillates at $\geq n+2$ points.
+
+\textbf{Near-best bound:}
+\[
+    \|f - p_n^{\mathrm{Cheb}}\|_\infty \leq (1 + \Lambda_n^{\mathrm{Cheb}}) \, \|f - p_n^*\|_\infty, \quad \Lambda_n^{\mathrm{Cheb}} = \BigO(\ln n)
+\]
+\end{keyformulas}

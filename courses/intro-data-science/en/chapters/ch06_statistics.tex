@@ -1,0 +1,465 @@
+% !TEX root = ../main.tex
+\chapter{Applied Statistics}
+\label{ch:statistiques}
+
+\begin{intuition}
+Statistics provide the mathematical framework for moving from observation to inference. In data science, they are used to quantify uncertainty, test hypotheses, and measure relationships between variables.
+\end{intuition}
+
+% ============================================================
+\section{Descriptive Statistics}
+\index{descriptive statistics}
+
+\subsection{Measures of Central Tendency and Dispersion}
+
+\begin{definition}[Fundamental Measures]
+For a sample $(x_1, x_2, \ldots, x_n)$:
+\begin{itemize}
+    \item \textbf{Mean}\index{mean}: $\bar{x} = \dfrac{1}{n}\displaystyle\sum_{i=1}^{n} x_i$
+    \item \textbf{Median}\index{median}: the value such that 50\,\% of observations are below it.
+    \item \textbf{Mode}\index{mode}: the most frequent value.
+    \item \textbf{Variance}\index{variance}: $s^2 = \dfrac{1}{n-1}\displaystyle\sum_{i=1}^{n}(x_i - \bar{x})^2$
+    \item \textbf{Standard deviation}\index{standard deviation}: $s = \sqrt{s^2}$
+    \item \textbf{Quantiles}\index{quantile}: $Q_1$ (25\,\%), $Q_2$ (50\,\%), $Q_3$ (75\,\%).
+\end{itemize}
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+import seaborn as sns
+from scipy import stats
+
+tips = sns.load_dataset('tips')
+
+col = tips['total_bill']
+print(f"Mean        : {col.mean():.2f}")
+print(f"Median      : {col.median():.2f}")
+print(f"Mode        : {col.mode()[0]:.2f}")
+print(f"Variance    : {col.var():.2f}")
+print(f"Std dev     : {col.std():.2f}")
+print(f"Q1, Q3      : {col.quantile(0.25):.2f}, "
+      f"{col.quantile(0.75):.2f}")
+print(f"Skewness    : {col.skew():.2f}")
+print(f"Kurtosis    : {col.kurtosis():.2f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Mean        : 19.79
+Median      : 17.80
+Mode        : 13.42
+Variance    : 79.25
+Std dev     : 8.90
+Q1, Q3      : 13.35, 24.13
+Skewness    : 1.13
+Kurtosis    : 1.22
+\end{minted}
+\end{codeoutput}
+
+\begin{remark}
+The positive skewness (1.13) and the mean being greater than the median confirm a right-skewed distribution. The positive kurtosis indicates heavier tails than the normal distribution.
+\end{remark}
+
+% ============================================================
+\section{Probability Distributions}
+\index{probability distribution}
+
+\subsection{Normal Distribution}
+\index{normal distribution}
+
+\begin{definition}[Normal Distribution]
+A random variable $X$ follows a normal distribution $\mathcal{N}(\mu, \sigma^2)$ if its density is:
+\[
+f(x) = \frac{1}{\sigma\sqrt{2\pi}} \exp\!\left(-\frac{(x-\mu)^2}{2\sigma^2}\right)
+\]
+\end{definition}
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+    width=10cm, height=6cm,
+    domain=-4:4, samples=100,
+    xlabel={$x$}, ylabel={$f(x)$},
+    title={Normal distribution $\mathcal{N}(0,1)$ with critical regions},
+    axis lines=middle,
+    every axis x label/.style={at={(ticklabel* cs:1)}, anchor=west},
+    every axis y label/.style={at={(ticklabel* cs:1)}, anchor=south},
+    ymin=0, ymax=0.45,
+    xtick={-3,-1.96,-1,0,1,1.96,3},
+    xticklabels={$-3$,$-1.96$,$-1$,$0$,$1$,$1.96$,$3$},
+    xticklabel style={font=\scriptsize},
+]
+% Main curve
+\addplot[thick, steelblue, smooth] {exp(-x^2/2)/sqrt(2*pi)};
+
+% Critical regions (alpha = 0.05)
+\addplot[fill=red!30, draw=none, domain=-4:-1.96, samples=50]
+    {exp(-x^2/2)/sqrt(2*pi)} \closedcycle;
+\addplot[fill=red!30, draw=none, domain=1.96:4, samples=50]
+    {exp(-x^2/2)/sqrt(2*pi)} \closedcycle;
+
+% Annotations
+\node[font=\scriptsize, color=red!70!black] at (axis cs:-2.8,0.06) {$\alpha/2$};
+\node[font=\scriptsize, color=red!70!black] at (axis cs:2.8,0.06) {$\alpha/2$};
+\node[font=\scriptsize, color=steelblue!70!black] at (axis cs:0,0.25) {$1-\alpha = 95\,\%$};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+from scipy.stats import norm
+import matplotlib.pyplot as plt
+
+# Normal distribution: probabilities and quantiles
+print(f"P(X < 1.96) = {norm.cdf(1.96):.4f}")
+print(f"P(-1.96 < X < 1.96) = {norm.cdf(1.96) - norm.cdf(-1.96):.4f}")
+print(f"97.5% quantile = {norm.ppf(0.975):.4f}")
+
+# Visualization
+x = np.linspace(-4, 4, 200)
+fig, ax = plt.subplots(figsize=(7, 4))
+ax.plot(x, norm.pdf(x), 'steelblue', lw=2, label='$\mathcal{N}(0,1)$')
+ax.fill_between(x, norm.pdf(x), where=(x > 1.96) | (x < -1.96),
+                color='red', alpha=0.3, label='Critical regions')
+ax.legend()
+ax.set_title('Standard Normal Distribution')
+plt.show()
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+P(X < 1.96) = 0.9750
+P(-1.96 < X < 1.96) = 0.9500
+97.5% quantile = 1.9600
+\end{minted}
+\end{codeoutput}
+
+\subsection{Binomial and Poisson Distributions}
+\index{binomial distribution}\index{Poisson distribution}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+from scipy.stats import binom, poisson
+
+# Binomial: n=20 trials, p=0.5
+print("--- Binomial distribution B(20, 0.5) ---")
+print(f"P(X = 10) = {binom.pmf(10, n=20, p=0.5):.4f}")
+print(f"P(X <= 10) = {binom.cdf(10, n=20, p=0.5):.4f}")
+print(f"Expected value = {binom.mean(n=20, p=0.5):.1f}")
+print(f"Variance = {binom.var(n=20, p=0.5):.1f}")
+
+# Poisson: lambda=5 events per interval
+print("\n--- Poisson distribution P(5) ---")
+print(f"P(X = 3) = {poisson.pmf(3, mu=5):.4f}")
+print(f"P(X <= 3) = {poisson.cdf(3, mu=5):.4f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+--- Binomial distribution B(20, 0.5) ---
+P(X = 10) = 0.1762
+P(X <= 10) = 0.5881
+Expected value = 10.0
+Variance = 5.0
+
+--- Poisson distribution P(5) ---
+P(X = 3) = 0.1404
+P(X <= 3) = 0.2650
+\end{minted}
+\end{codeoutput}
+
+% ============================================================
+\section{Confidence Intervals}
+\index{confidence interval}
+
+\begin{definition}[Confidence Interval]
+A $(1-\alpha)\times 100\,\%$ confidence interval for the mean $\mu$ is:
+\[
+\text{CI} = \left[\bar{x} - z_{\alpha/2}\,\frac{s}{\sqrt{n}},\; \bar{x} + z_{\alpha/2}\,\frac{s}{\sqrt{n}}\right]
+\]
+where $z_{\alpha/2}$ is the quantile of the normal distribution (1.96 for 95\,\%).
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# 95% CI for the mean tip
+tip = tips['tip']
+n = len(tip)
+mean = tip.mean()
+se = tip.std() / np.sqrt(n)
+
+ci_low = mean - 1.96 * se
+ci_high = mean + 1.96 * se
+print(f"Mean: {mean:.3f}")
+print(f"95% CI: [{ci_low:.3f}, {ci_high:.3f}]")
+
+# With scipy (exact method, t-distribution)
+ci = stats.t.interval(confidence=0.95, df=n-1,
+                      loc=mean, scale=se)
+print(f"95% CI (t-Student): [{ci[0]:.3f}, {ci[1]:.3f}]")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Mean: 2.998
+95% CI: [2.823, 3.173]
+95% CI (t-Student): [2.822, 3.175]
+\end{minted}
+\end{codeoutput}
+
+% ============================================================
+\section{Hypothesis Testing}
+\index{hypothesis test}
+
+\begin{definition}[Hypothesis Test]
+A hypothesis test opposes:
+\begin{itemize}
+    \item $H_0$ (null hypothesis): no effect, no difference.
+    \item $H_1$ (alternative hypothesis): there is an effect or a difference.
+\end{itemize}
+The \textbf{p-value}\index{p-value} is the probability of observing a result at least as extreme as the one observed, under $H_0$. We reject $H_0$ if $p < \alpha$ (typically $\alpha = 0.05$).
+\end{definition}
+
+\subsection{Student's $t$-Test}
+\index{Student's t-test}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Do men tip differently than women?
+tip_male = tips[tips['sex'] == 'Male']['tip']
+tip_female = tips[tips['sex'] == 'Female']['tip']
+
+t_stat, p_value = stats.ttest_ind(tip_male, tip_female)
+print(f"t-statistic: {t_stat:.4f}")
+print(f"p-value: {p_value:.4f}")
+print(f"Male mean: {tip_male.mean():.3f}")
+print(f"Female mean: {tip_female.mean():.3f}")
+
+if p_value < 0.05:
+    print("=> Significant difference (reject H0)")
+else:
+    print("=> No significant difference")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+t-statistic: 1.3879
+p-value: 0.1665
+Male mean: 3.090
+Female mean: 2.833
+=> No significant difference
+\end{minted}
+\end{codeoutput}
+
+\subsection{$\chi^2$ Test of Independence}
+\index{chi-squared test}\index{chi2\_contingency}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Is smoker status related to meal time?
+titanic = sns.load_dataset('titanic')
+
+# Test on Titanic: survival vs sex
+ct = pd.crosstab(titanic['sex'], titanic['survived'])
+print("Contingency table:")
+print(ct)
+
+chi2, p_value, dof, expected = stats.chi2_contingency(ct)
+print(f"\nChi2 = {chi2:.2f}")
+print(f"p-value = {p_value:.2e}")
+print(f"Degrees of freedom = {dof}")
+print(f"=> {'Significant dependence' if p_value < 0.05 else 'Independence'}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Contingency table:
+survived    0    1
+sex
+female     81  233
+male      468  109
+
+Chi2 = 260.72
+p-value = 1.20e-58
+Degrees of freedom = 1
+=> Significant dependence
+\end{minted}
+\end{codeoutput}
+
+\begin{remark}
+The $\chi^2$ test confirms with enormous statistical significance ($p \approx 10^{-58}$) that survival strongly depended on sex. This is the most striking result from the Titanic: ``Women and children first.''
+\end{remark}
+
+% ============================================================
+\section{Correlations}
+\index{correlation}\index{Pearson}\index{Spearman}
+
+\begin{definition}[Correlation Coefficients]
+\begin{itemize}
+    \item \textbf{Pearson}\index{Pearson}: measures \emph{linear} correlation:
+    $r = \dfrac{\sum(x_i - \bar{x})(y_i - \bar{y})}{\sqrt{\sum(x_i - \bar{x})^2 \cdot \sum(y_i - \bar{y})^2}}$
+    \item \textbf{Spearman}\index{Spearman}: measures \emph{monotonic} correlation (based on ranks).
+\end{itemize}
+Both coefficients lie in $[-1, 1]$. $|r| > 0.7$ indicates a strong correlation.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Correlation between bill and tip
+r_pearson, p_pearson = stats.pearsonr(tips['total_bill'],
+                                       tips['tip'])
+r_spearman, p_spearman = stats.spearmanr(tips['total_bill'],
+                                          tips['tip'])
+
+print(f"Pearson  : r = {r_pearson:.4f}, p = {p_pearson:.2e}")
+print(f"Spearman : r = {r_spearman:.4f}, p = {p_spearman:.2e}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+Pearson  : r = 0.6757, p = 6.69e-34
+Spearman : r = 0.6787, p = 2.83e-34
+\end{minted}
+\end{codeoutput}
+
+\begin{warning}
+Correlation does not imply causation. A strong correlation between two variables may be due to a confounding variable. Always complement with theoretical analysis and, if possible, an experimental design.
+\end{warning}
+
+% ============================================================
+\section{One-Way ANOVA}
+\index{ANOVA}
+
+\begin{definition}[ANOVA]
+Analysis of variance (ANOVA\index{ANOVA}) tests whether the means of $k$ groups are equal:
+\begin{itemize}
+    \item $H_0$: $\mu_1 = \mu_2 = \cdots = \mu_k$
+    \item $H_1$: at least two means differ.
+\end{itemize}
+The $F$-statistic compares the between-group variance to the within-group variance.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# Does the tip differ by day?
+days = tips['day'].unique()
+groups = [tips[tips['day'] == d]['tip'] for d in days]
+
+f_stat, p_value = stats.f_oneway(*groups)
+print(f"F-statistic: {f_stat:.4f}")
+print(f"p-value: {p_value:.4f}")
+
+# Means by day
+print("\nMean tip by day:")
+print(tips.groupby('day')['tip'].agg(['mean', 'std', 'count'])
+      .round(3))
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+F-statistic: 1.6724
+p-value: 0.1736
+
+Mean tip by day:
+       mean    std  count
+day
+Thur  2.771  1.240     62
+Fri   2.735  1.018     19
+Sat   2.993  1.631     87
+Sun   3.256  1.227     76
+
+\end{minted}
+\end{codeoutput}
+
+\begin{remark}
+ANOVA does not detect a significant difference ($p = 0.17$). Although Sunday has the highest mean, the within-group variability is too large to conclude.
+\end{remark}
+
+% ============================================================
+\section{Integrative Example: Titanic Analysis}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+# 1. Does the fare differ by class? (ANOVA)
+groups_fare = [titanic[titanic['pclass'] == c]['fare']
+                for c in [1, 2, 3]]
+f, p = stats.f_oneway(*groups_fare)
+print(f"ANOVA fare ~ class: F={f:.2f}, p={p:.2e}")
+
+# 2. Survival vs class? (Chi-squared)
+ct2 = pd.crosstab(titanic['pclass'], titanic['survived'])
+chi2, p2, _, _ = stats.chi2_contingency(ct2)
+print(f"Chi2 survival ~ class: chi2={chi2:.2f}, p={p2:.2e}")
+
+# 3. Correlation age-fare
+age_clean = titanic.dropna(subset=['age'])
+r, p3 = stats.pearsonr(age_clean['age'], age_clean['fare'])
+print(f"Pearson age ~ fare: r={r:.3f}, p={p3:.4f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{text}
+ANOVA fare ~ class: F=242.34, p=2.00e-84
+Chi2 survival ~ class: chi2=102.89, p=4.55e-23
+Pearson age ~ fare: r=0.096, p=0.0101
+\end{minted}
+\end{codeoutput}
+
+\begin{proposition}
+The results show that (1) the fare differs very significantly between classes, (2) survival strongly depends on class, and (3) age and fare have a very weak correlation although statistically significant (the large sample size makes small effects significant).
+\end{proposition}
+
+% ============================================================
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+Compute the mean, median, standard deviation, and quartiles of the \py{tip} variable from the \py{tips} dataset. Is the distribution symmetric? Justify using the skewness coefficient.
+\end{exercise}
+
+\begin{exercise}[$\star$]
+Generate 1000 samples of size 30 from a $\mathcal{N}(50, 10^2)$ distribution. For each sample, compute the 95\,\% CI. How many intervals actually contain $\mu = 50$? Is the result consistent with theory?
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Use a $t$-test to determine whether the mean tip differs between lunch (\py{time='Lunch'}) and dinner (\py{time='Dinner'}). Interpret the p-value and compute the effect size (difference in means divided by the pooled standard deviation).
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Perform a $\chi^2$ test to test the independence between \py{smoker} and \py{time} in the \py{tips} dataset. Display the contingency table, the expected frequencies, and draw a conclusion.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+On the \py{titanic} dataset, perform the following tests and summarize the results in a table: (a) $t$-test on age between survivors and non-survivors, (b) $\chi^2$ on survival vs port of embarkation, (c) ANOVA on fare by port of embarkation, (d) Spearman correlation between \py{pclass} and \py{survived}. Apply the Bonferroni correction ($\alpha_{\text{corrected}} = 0.05 / 4 = 0.0125$) and conclude.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$]
+Simulate the power of a $t$-test: generate two groups of size $n$ from $\mathcal{N}(0, 1)$ and $\mathcal{N}(\delta, 1)$ with $\delta \in \{0.2, 0.5, 0.8\}$ and $n \in \{10, 30, 100, 300\}$. For each combination, repeat 1000 times and compute the percentage of $H_0$ rejections. Plot the power as a function of $n$ for each $\delta$.
+\end{exercise}
+
+% ============================================================
+\begin{keyformulas}
+\textbf{Chapter Summary -- Applied Statistics}
+\begin{itemize}
+    \item \textbf{Descriptive}: \py{mean()}, \py{median()}, \py{std()}, \py{var()}, \py{quantile()}, \py{skew()}.
+    \item \textbf{Distributions}: \py{norm}, \py{binom}, \py{poisson} from \py{scipy.stats}; methods \py{.pdf()}, \py{.cdf()}, \py{.ppf()}.
+    \item \textbf{95\,\% CI}: $\bar{x} \pm 1.96 \cdot \dfrac{s}{\sqrt{n}}$; exact with \py{stats.t.interval()}.
+    \item \textbf{$t$-test}: \py{stats.ttest\_ind(a, b)} -- compares two independent means.
+    \item \textbf{$\chi^2$ test}: \py{stats.chi2\_contingency(ct)} -- independence of two categorical variables.
+    \item \textbf{Correlation}: \py{stats.pearsonr(x, y)}, \py{stats.spearmanr(x, y)}, $r \in [-1, 1]$.
+    \item \textbf{ANOVA}: \py{stats.f\_oneway(*groups)} -- compares $k \geq 3$ means.
+    \item \textbf{Decision}: reject $H_0$ if $p < \alpha$ (typically $\alpha = 0.05$).
+    \item \textbf{Caution}: correlation $\neq$ causation; statistical significance $\neq$ practical importance.
+\end{itemize}
+\end{keyformulas}

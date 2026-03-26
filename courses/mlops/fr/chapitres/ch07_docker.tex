@@ -1,0 +1,598 @@
+% ============================================================
+\chapter{Conteneurisation --- Docker pour le ML}
+\label{ch:docker}
+\index{Docker}
+% ============================================================
+
+\section{Pourquoi les conteneurs~?}
+\label{sec:why-containers}
+
+Le probl\`eme <<~\c{C}a marche sur ma machine~!~>> persiste m\^eme avec des
+environnements virtuels. Les causes profondes~:
+\begin{itemize}
+  \item Diff\'erences de syst\`eme d'exploitation (Ubuntu vs Debian vs Alpine)
+  \item Versions de biblioth\`eques syst\`eme (glibc, OpenSSL)
+  \item Drivers GPU et versions de CUDA non align\'es
+  \item Variables d'environnement, locales, fuseaux horaires
+  \item Services externes (bases de donn\'ees, files de messages)
+\end{itemize}
+
+Un environnement virtuel isole les packages Python, mais \textbf{pas} le
+syst\`eme d'exploitation ni les d\'ependances syst\`eme. Les conteneurs
+r\'esolvent ce probl\`eme en encapsulant \emph{tout} l'environnement
+d'ex\'ecution.
+
+\begin{definition}[Conteneur]
+Un \textbf{conteneur}\index{conteneur} est une unit\'e logicielle l\'eg\`ere
+et portable qui empaquette le code, les d\'ependances et la configuration
+dans un environnement isol\'e, partageant le noyau du syst\`eme h\^ote.
+\end{definition}
+
+\begin{remarque}
+Contrairement \`a une machine virtuelle, un conteneur ne virtualise pas le
+mat\'eriel~: il partage le noyau Linux de l'h\^ote. Cela le rend beaucoup
+plus l\'eger (d\'emarrage en secondes, empreinte m\'emoire r\'eduite).
+\end{remarque}
+
+\subsection{Conteneurs vs Machines virtuelles}
+
+\begin{center}
+\begin{tikzpicture}[
+  layer/.style={rectangle, draw, minimum width=5cm, minimum height=0.7cm,
+    align=center, font=\scriptsize},
+  title/.style={font=\small\bfseries, above=0.1cm}
+]
+  % VM side
+  \node[layer, fill=gray!20] (hw1) {Infrastructure (mat\'eriel)};
+  \node[layer, fill=orange!15, above=0cm of hw1] (hyp) {Hyperviseur};
+  \node[layer, fill=blue!10, above=0cm of hyp, minimum width=1.5cm,
+    xshift=-1.5cm] (os1) {OS invit\'e};
+  \node[layer, fill=blue!10, above=0cm of hyp, minimum width=1.5cm,
+    xshift=0cm] (os2) {OS invit\'e};
+  \node[layer, fill=blue!10, above=0cm of hyp, minimum width=1.5cm,
+    xshift=1.5cm] (os3) {OS invit\'e};
+  \node[layer, fill=green!15, above=0cm of os1, minimum width=1.5cm,
+    xshift=0cm] (app1) {App A};
+  \node[layer, fill=green!15, above=0cm of os2, minimum width=1.5cm,
+    xshift=0cm] (app2) {App B};
+  \node[layer, fill=green!15, above=0cm of os3, minimum width=1.5cm,
+    xshift=0cm] (app3) {App C};
+  \node[title] at ([yshift=0.3cm]app2.north) {Machine Virtuelle};
+
+  % Container side
+  \node[layer, fill=gray!20, right=3cm of hw1] (hw2) {Infrastructure (mat\'eriel)};
+  \node[layer, fill=orange!15, above=0cm of hw2] (hos) {OS h\^ote + Docker Engine};
+  \node[layer, fill=green!15, above=0cm of hos, minimum width=1.5cm,
+    xshift=-1.5cm] (c1) {App A};
+  \node[layer, fill=green!15, above=0cm of hos, minimum width=1.5cm,
+    xshift=0cm] (c2) {App B};
+  \node[layer, fill=green!15, above=0cm of hos, minimum width=1.5cm,
+    xshift=1.5cm] (c3) {App C};
+  \node[title] at ([yshift=0.3cm]c2.north) {Conteneurs};
+\end{tikzpicture}
+\end{center}
+
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Crit\`ere} & \textbf{VM} & \textbf{Conteneur} \\
+\midrule
+D\'emarrage & Minutes & Secondes \\
+Taille & Go & Mo \\
+Isolation & Compl\`ete & Niveau processus \\
+Performance & Overhead noyau & Quasi-native \\
+Portabilit\'e & Image lourde & Image l\'eg\`ere \\
+GPU passthrough & Complexe & NVIDIA Container Toolkit \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Concepts Docker}
+\label{sec:docker-concepts}
+\index{Docker!concepts}
+
+\begin{formules}[title=\textbf{Vocabulaire Docker essentiel}]
+\begin{description}
+  \item[Image]\index{Docker!image} Mod\`ele en lecture seule contenant le
+    syst\`eme de fichiers, les d\'ependances et le code. Analogue \`a une
+    <<~classe~>> en POO.
+  \item[Conteneur]\index{Docker!conteneur} Instance en cours d'ex\'ecution
+    d'une image. Analogue \`a un <<~objet~>> instanci\'e depuis la classe.
+  \item[Dockerfile]\index{Dockerfile} Fichier texte d\'ecrivant les
+    instructions pour construire une image, couche par couche.
+  \item[Layer (couche)]\index{Docker!layer} Chaque instruction du Dockerfile
+    cr\'ee une couche. Les couches sont cach\'ees et r\'eutilis\'ees.
+  \item[Registry]\index{Docker!registry} D\'ep\^ot d'images (Docker Hub,
+    GitHub Container Registry, AWS ECR).
+  \item[Volume]\index{Docker!volume} M\'ecanisme de persistance des donn\'ees
+    en dehors du conteneur.
+  \item[Tag] \'Etiquette de version d'une image (ex.\ \cli{python:3.11-slim}).
+\end{description}
+\end{formules}
+
+\section{Dockerfile pour projets ML}
+\label{sec:dockerfile-ml}
+\index{Dockerfile!ML}
+
+\begin{codeblock}[title=\textbf{Dockerfile ML complet}]
+\begin{minted}{dockerfile}
+# Image de base avec Python
+FROM python:3.11-slim AS base
+
+# Metadonnees
+LABEL maintainer="equipe-ml@example.com"
+LABEL description="ML training and inference image"
+
+# Variables d'environnement
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# Dependances systeme
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Creer un utilisateur non-root
+RUN useradd --create-home mluser
+WORKDIR /home/mluser/app
+
+# Installer les dependances Python d'abord (cache Docker)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copier le code source
+COPY src/ ./src/
+COPY configs/ ./configs/
+
+# Changer de proprietaire et d'utilisateur
+RUN chown -R mluser:mluser /home/mluser/app
+USER mluser
+
+# Port pour l'API (si applicable)
+EXPOSE 8000
+
+# Commande par defaut
+CMD ["python", "src/train.py", "--config", "configs/config.yaml"]
+\end{minted}
+\end{codeblock}
+
+\begin{bonnepratique}[title=\textbf{Ordre des instructions et cache}]
+Docker met en cache chaque couche. Si une couche change, toutes les couches
+suivantes sont reconstruites. R\`egle d'or~:
+\begin{enumerate}
+  \item Placer les \'el\'ements qui changent \textbf{rarement} en haut
+    (OS, d\'ependances syst\`eme).
+  \item Copier \file{requirements.txt} \textbf{avant} le code source.
+  \item Copier le code source en \textbf{dernier}.
+\end{enumerate}
+Ainsi, modifier le code ne d\'eclenche pas la r\'einstallation des packages.
+\end{bonnepratique}
+
+\subsection{Dockerfile avec support CUDA}
+
+\begin{codeblock}[title=\textbf{Dockerfile GPU avec CUDA}]
+\begin{minted}{dockerfile}
+# Image de base NVIDIA CUDA
+FROM nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Installer Python
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 python3-pip python3.11-venv \
+    && ln -s /usr/bin/python3.11 /usr/bin/python \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY src/ ./src/
+COPY configs/ ./configs/
+
+RUN useradd --create-home mluser && chown -R mluser:mluser /app
+USER mluser
+
+CMD ["python", "src/train.py"]
+\end{minted}
+\end{codeblock}
+
+\section{Commandes Docker essentielles}
+\label{sec:docker-commands}
+
+\begin{codeblock}[title=\textbf{Cycle de vie d'un conteneur}]
+\begin{minted}{bash}
+# Construire une image
+docker build -t mon-projet-ml:v1.0 .
+
+# Lancer un conteneur
+docker run --name ml-train mon-projet-ml:v1.0
+
+# Lancer en mode interactif
+docker run -it mon-projet-ml:v1.0 bash
+
+# Lancer avec un volume (donnees persistantes)
+docker run -v $(pwd)/data:/app/data mon-projet-ml:v1.0
+
+# Lancer avec GPU
+docker run --gpus all mon-projet-ml:v1.0
+
+# Lister les conteneurs
+docker ps -a
+
+# Voir les logs
+docker logs ml-train
+
+# Arreter et supprimer
+docker stop ml-train && docker rm ml-train
+
+# Lister et supprimer les images
+docker images
+docker rmi mon-projet-ml:v1.0
+\end{minted}
+\end{codeblock}
+
+\section{Multi-stage builds}
+\label{sec:multi-stage}
+\index{Docker!multi-stage build}
+
+Les \textbf{multi-stage builds} permettent de s\'eparer l'environnement de
+construction de l'environnement d'ex\'ecution, r\'eduisant drastiquement la
+taille de l'image finale.
+
+\begin{codeblock}[title=\textbf{Multi-stage build pour ML}]
+\begin{minted}{dockerfile}
+# === Stage 1 : construction ===
+FROM python:3.11-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential gfortran libopenblas-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# === Stage 2 : execution ===
+FROM python:3.11-slim AS runtime
+
+# Copier seulement les packages installes
+COPY --from=builder /install /usr/local
+
+RUN useradd --create-home mluser
+WORKDIR /home/mluser/app
+
+COPY src/ ./src/
+COPY configs/ ./configs/
+COPY models/ ./models/
+
+RUN chown -R mluser:mluser /home/mluser/app
+USER mluser
+
+EXPOSE 8000
+CMD ["python", "src/serve.py"]
+\end{minted}
+\end{codeblock}
+
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Approche} & \textbf{Taille image} & \textbf{S\'ecurit\'e} \\
+\midrule
+Single-stage (python:3.11) & $\sim$1.2~Go & Compilateurs pr\'esents \\
+Single-stage (python:3.11-slim) & $\sim$800~Mo & Am\'elior\'ee \\
+Multi-stage (slim $\to$ slim) & $\sim$400~Mo & Pas de compilateurs \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Docker Compose pour environnements multi-services}
+\label{sec:docker-compose}
+\index{Docker Compose}
+
+En ML, on a souvent besoin de plusieurs services~: l'application, une base
+de donn\'ees pour les m\'etadonn\'ees, un serveur MLflow pour le suivi des
+exp\'eriences, etc. \textbf{Docker Compose}\index{Docker Compose} orchestre
+ces services dans un seul fichier.
+
+\begin{codeblock}[title=\textbf{docker-compose.yml --- Stack ML compl\`ete}]
+\begin{minted}{yaml}
+version: "3.9"
+
+services:
+  # --- Application ML ---
+  ml-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - DATABASE_URL=postgresql://user:pass@db:5432/mldb
+    depends_on:
+      - db
+      - mlflow
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+
+  # --- Base de donnees PostgreSQL ---
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: mldb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # --- MLflow Tracking Server ---
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.10.0
+    command: >
+      mlflow server
+      --backend-store-uri postgresql://user:pass@db:5432/mldb
+      --default-artifact-root /mlflow/artifacts
+      --host 0.0.0.0
+      --port 5000
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow-artifacts:/mlflow/artifacts
+    depends_on:
+      - db
+
+volumes:
+  pgdata:
+  mlflow-artifacts:
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Commandes Docker Compose}]
+\begin{minted}{bash}
+# Demarrer tous les services
+docker compose up -d
+
+# Voir les logs de tous les services
+docker compose logs -f
+
+# Voir les logs d'un service specifique
+docker compose logs -f ml-app
+
+# Arreter tous les services
+docker compose down
+
+# Arreter et supprimer les volumes
+docker compose down -v
+
+# Reconstruire les images
+docker compose build --no-cache
+
+# Lancer une commande dans un service
+docker compose exec ml-app python src/train.py
+\end{minted}
+\end{codeblock}
+
+\section{Le fichier .dockerignore}
+\label{sec:dockerignore}
+\index{.dockerignore}
+
+Le fichier \file{.dockerignore} emp\^eche l'envoi de fichiers inutiles
+au d\'emon Docker lors du build. Sans lui, Docker copie \emph{tout} le
+contexte, y compris les donn\'ees, les mod\`eles et les environnements
+virtuels.
+
+\begin{codeblock}[title=\textbf{.dockerignore pour projet ML}]
+\begin{minted}{text}
+# Environnements virtuels
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Donnees volumineuses
+data/raw/
+data/processed/
+*.csv
+*.parquet
+
+# Modeles sauvegardes
+models/*.joblib
+models/*.pkl
+*.onnx
+
+# Git et IDE
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Notebooks
+*.ipynb
+.ipynb_checkpoints/
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Documentation
+*.md
+docs/
+\end{minted}
+\end{codeblock}
+
+\section{Bonnes pratiques Docker pour le ML}
+\label{sec:docker-best-practices}
+
+\begin{bonnepratique}[title=\textbf{R\`egles d'or Docker en ML}]
+\begin{enumerate}
+  \item \textbf{Images l\'eg\`eres}~: utiliser \cli{python:3.11-slim} ou
+    \cli{alpine}, pas \cli{python:3.11} (\'economie de 600~Mo).
+  \item \textbf{Utilisateur non-root}~: toujours cr\'eer et utiliser un
+    utilisateur d\'edi\'e (\cli{USER mluser}).
+  \item \textbf{Exploiter le cache}~: copier \file{requirements.txt} avant
+    le code source.
+  \item \textbf{Multi-stage builds}~: s\'eparer construction et ex\'ecution.
+  \item \textbf{.dockerignore}~: exclure donn\'ees, mod\`eles, \file{.git/}.
+  \item \textbf{Tags explicites}~: \cli{python:3.11-slim}, jamais
+    \cli{python:latest}.
+  \item \textbf{Un processus par conteneur}~: ne pas lancer la base de
+    donn\'ees et l'application dans le m\^eme conteneur.
+  \item \textbf{Healthchecks}~: ajouter \cli{HEALTHCHECK} pour les services
+    de serving.
+\end{enumerate}
+\end{bonnepratique}
+
+\begin{antipattern}[title=\textbf{Anti-patterns Docker en ML}]
+\begin{itemize}
+  \item \textbf{Images g\'eantes}~: inclure les compilateurs, les donn\'ees
+    d'entra\^inement et les checkpoints dans l'image (r\'esultat~: 10+~Go).
+  \item \textbf{Ex\'ecution en root}~: lancer le conteneur en tant que root
+    expose l'h\^ote en cas de vuln\'erabilit\'e.
+  \item \textbf{Secrets dans l'image}~: mettre des cl\'es API, mots de passe
+    ou tokens dans le Dockerfile ou dans les couches de l'image. Utiliser
+    plut\^ot des variables d'environnement ou Docker Secrets.
+  \item \textbf{Tag \cli{latest}}~: ne permet pas de reproduire un build.
+    Toujours \'epingler une version pr\'ecise.
+  \item \textbf{Ignorer le .dockerignore}~: envoyer des Go de donn\'ees au
+    d\'emon Docker \`a chaque build.
+  \item \textbf{Un seul gros conteneur}~: mettre l'app, la BDD et MLflow
+    dans le m\^eme conteneur.
+  \item \textbf{Pas de healthcheck}~: impossible de savoir si le service
+    est r\'eellement fonctionnel.
+\end{itemize}
+\end{antipattern}
+
+\section{Registries et publication d'images}
+\label{sec:registries}
+\index{Docker!registry}
+
+\begin{codeblock}[title=\textbf{Publier une image sur Docker Hub}]
+\begin{minted}{bash}
+# Se connecter
+docker login
+
+# Taguer l'image
+docker tag mon-projet-ml:v1.0 monuser/mon-projet-ml:v1.0
+
+# Pousser l'image
+docker push monuser/mon-projet-ml:v1.0
+
+# Tirer l'image (sur une autre machine)
+docker pull monuser/mon-projet-ml:v1.0
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Utiliser GitHub Container Registry}]
+\begin{minted}{bash}
+# Se connecter avec un token GitHub
+echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+
+# Taguer et pousser
+docker tag mon-projet-ml:v1.0 ghcr.io/USERNAME/mon-projet-ml:v1.0
+docker push ghcr.io/USERNAME/mon-projet-ml:v1.0
+\end{minted}
+\end{codeblock}
+
+\section{Mini-projet~: conteneuriser le projet ML du cours}
+\label{sec:mini-project-ch7}
+
+\begin{miniprojet}[title=\textbf{Mini-projet 7~: Conteneurisation compl\`ete}]
+En reprenant le projet ML structur\'e des chapitres pr\'ec\'edents~:
+\begin{enumerate}
+  \item \'Ecrivez un \file{Dockerfile} multi-stage pour le projet~:
+    \begin{itemize}
+      \item Stage 1~: installer les d\'ependances et compiler
+      \item Stage 2~: copier uniquement les packages et le code
+    \end{itemize}
+  \item Cr\'eez un \file{.dockerignore} adapt\'e.
+  \item Construisez l'image et v\'erifiez sa taille
+    (\cli{docker images}).
+  \item Lancez un entra\^inement dans le conteneur avec un volume
+    pour les donn\'ees~: \cli{docker run -v \$(pwd)/data:/app/data ...}
+  \item \'Ecrivez un \file{docker-compose.yml} avec trois services~:
+    \begin{itemize}
+      \item \cli{ml-app}~: votre application ML
+      \item \cli{db}~: PostgreSQL pour MLflow
+      \item \cli{mlflow}~: serveur de suivi des exp\'eriences
+    \end{itemize}
+  \item V\'erifiez que \cli{docker compose up} d\'emarre tout
+    correctement et que MLflow est accessible sur
+    \cli{http://localhost:5000}.
+\end{enumerate}
+\end{miniprojet}
+
+\section{Exercices}
+\label{sec:exercises-ch7}
+
+\begin{exercice}[$\bigstar$ --- Premier Dockerfile]
+\'Ecrivez un \file{Dockerfile} pour un script Python simple qui charge un
+dataset CSV avec \pkg{pandas} et affiche des statistiques descriptives.
+Construisez l'image, lancez le conteneur et v\'erifiez la sortie.
+Comparez la taille de l'image avec \cli{python:3.11} vs
+\cli{python:3.11-slim}.
+\end{exercice}
+
+\begin{exercice}[$\bigstar\bigstar$ --- Optimisation d'image]
+Partez d'un Dockerfile na\"if (image \cli{python:3.11}, pas de
+\file{.dockerignore}, copie de tout le r\'epertoire, ex\'ecution en root).
+Am\'eliorez-le it\'erativement~:
+\begin{enumerate}
+  \item Passez \`a \cli{python:3.11-slim} --- notez la r\'eduction de taille
+  \item Ajoutez un \file{.dockerignore} --- mesurez le temps de build
+  \item R\'eordonnez les instructions pour exploiter le cache
+  \item Passez en multi-stage build
+  \item Ajoutez un utilisateur non-root
+\end{enumerate}
+Documentez la taille de l'image et le temps de build \`a chaque \'etape.
+\end{exercice}
+
+\begin{exercice}[$\bigstar\bigstar\bigstar$ --- Stack ML compl\`ete avec Docker Compose]
+Cr\'eez un \file{docker-compose.yml} complet pour un projet ML incluant~:
+\begin{enumerate}
+  \item Un service d'entra\^inement (GPU si disponible)
+  \item Un service d'inf\'erence FastAPI (port 8000)
+  \item Un serveur MLflow (port 5000)
+  \item Une base de donn\'ees PostgreSQL
+  \item Un dashboard Streamlit (port 8501)
+  \item Des healthchecks pour chaque service
+  \item Des volumes pour la persistance des donn\'ees et des mod\`eles
+\end{enumerate}
+V\'erifiez que tous les services communiquent correctement~: l'entra\^inement
+loggue dans MLflow, l'API charge le mod\`ele depuis le volume partag\'e, et
+le dashboard interroge l'API.
+\end{exercice}
+
+\section{Aide-m\'emoire}
+
+\begin{cheatsheet}[title=\textbf{R\'esum\'e du chapitre 7}]
+\begin{tabular}{@{}p{4cm}p{8.5cm}@{}}
+\toprule
+\textbf{Concept} & \textbf{Commande / Point cl\'e} \\
+\midrule
+Construire & \cli{docker build -t name:tag .} \\
+Lancer & \cli{docker run -v data:/app/data name:tag} \\
+GPU & \cli{docker run --gpus all name:tag} \\
+Multi-stage & \cli{FROM ... AS builder} puis \cli{COPY --from=builder} \\
+Compose up & \cli{docker compose up -d} \\
+Compose down & \cli{docker compose down -v} \\
+Cache optimal & \file{requirements.txt} avant code source \\
+S\'ecurit\'e & \cli{USER mluser}, jamais de secrets dans l'image \\
+Image l\'eg\`ere & \cli{python:3.11-slim} + multi-stage \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}

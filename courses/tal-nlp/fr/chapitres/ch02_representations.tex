@@ -1,0 +1,357 @@
+% ============================================================
+\chapter{Repr\'esentations Textuelles Classiques}
+\label{ch:representations}
+% ============================================================
+
+Un algorithme ne lit pas. Il calcule. Pour qu'un classifieur, un moteur de
+recherche ou un syst\`eme de traduction puisse travailler sur du texte, il
+faut d'abord transformer les mots en nombres --- ou plus pr\'ecis\'ement, en
+\emph{vecteurs}. Comment effectuer cette transformation~? C'est l'une des
+questions fondatrices du TAL, et les r\'eponses ont \'evolu\'e
+consid\'erablement~: des repr\'esentations \og sac de mots\fg{} des ann\'ees
+1990 aux plongements denses de Word2Vec, en passant par la pond\'eration
+TF-IDF.
+
+\begin{intuition}[title=\textbf{Du texte aux vecteurs}]
+Les algorithmes d'apprentissage automatique op\`erent sur des vecteurs
+num\'eriques, pas sur du texte brut. Ce chapitre pr\'esente les m\'ethodes
+classiques pour transformer un document textuel en une repr\'esentation
+vectorielle exploitable par un classifieur ou un moteur de recherche.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Repr\'esentation sac-de-mots}
+\label{sec:rep:bow}
+% ------------------------------------------------------------
+
+\begin{definition}[Sac-de-mots (Bag of Words)]
+Le mod\`ele \emph{sac-de-mots} repr\'esente un document $d$ comme un vecteur
+$\mathbf{x}_d \in \N^V$ o\`u la $j$-\`eme composante est le nombre
+d'occurrences du terme $t_j$ dans $d$ :
+\[
+x_{d,j} = \text{count}(t_j, d)
+\]
+\end{definition}
+
+Ce mod\`ele ignore compl\`etement l'ordre des mots. La phrase \og le chat mange
+la souris \fg et \og la souris mange le chat \fg ont la m\^eme
+repr\'esentation.
+
+\begin{remarque}
+Malgr\'e sa simplicit\'e, le mod\`ele sac-de-mots reste utile comme ligne de
+base (\emph{baseline}) et dans des applications o\`u l'ordre des mots est
+moins important (classification th\'ematique, filtrage de documents).
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Pond\'eration TF-IDF}
+\label{sec:rep:tfidf}
+% ------------------------------------------------------------
+
+La fr\'equence brute ne refl\`ete pas l'importance discriminative d'un terme.
+Les mots tr\`es fr\'equents (``le'', ``de'', ``et'') dominent la repr\'esentation
+sans apporter d'information s\'emantique.
+
+\begin{definition}[TF -- Term Frequency]
+La \emph{fr\'equence du terme} $t$ dans le document $d$ est :
+\[
+\text{tf}(t, d) = \frac{\text{count}(t, d)}{\sum_{t' \in d} \text{count}(t', d)}
+\]
+\end{definition}
+
+\begin{definition}[IDF -- Inverse Document Frequency]
+La \emph{fr\'equence inverse de document} du terme $t$ dans un corpus
+$\mathcal{D}$ de $N$ documents est :
+\[
+\text{idf}(t, \mathcal{D}) = \log \frac{N}{\abs{\{d \in \mathcal{D} : t \in d\}}}
+\]
+\end{definition}
+
+\begin{definition}[TF-IDF]
+La pond\'eration \emph{TF-IDF} combine les deux mesures :
+\[
+\text{tf-idf}(t, d, \mathcal{D}) = \text{tf}(t, d) \times \text{idf}(t, \mathcal{D})
+\]
+\end{definition}
+
+\begin{theoreme}[Propri\'et\'es de TF-IDF]
+Soit $\mathbf{v}_d \in \R^V$ le vecteur TF-IDF du document $d$. Alors :
+\begin{enumerate}
+    \item $\text{tf-idf}(t, d) = 0$ si $t \notin d$ ;
+    \item $\text{tf-idf}(t, d)$ est \'elev\'e si $t$ est fr\'equent dans $d$
+          mais rare dans le corpus ;
+    \item $\text{idf}(t) = 0$ si $t$ appara\^it dans tous les documents.
+\end{enumerate}
+\end{theoreme}
+
+\begin{formules}[title=\textbf{Variantes de TF-IDF}]
+\begin{align}
+\text{tf}_{\log}(t,d) &= 1 + \log(\text{count}(t,d)) & \text{(tf logarithmique)} \\
+\text{idf}_{\text{smooth}}(t) &= \log\frac{N+1}{\text{df}(t)+1} + 1 & \text{(idf liss\'e)} \\
+\text{tf-idf}_{\text{norm}} &= \frac{\text{tf-idf}(t,d)}{\norm{\mathbf{v}_d}} & \text{(normalis\'e $L_2$)}
+\end{align}
+\end{formules}
+
+\begin{codeblock}[title=\textbf{TF-IDF avec scikit-learn}]
+\begin{minted}{python}
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+corpus = [
+    "Le chat dort sur le tapis",
+    "Le chien court dans le jardin",
+    "Le chat et le chien jouent ensemble"
+]
+
+vectorizer = TfidfVectorizer()
+X = vectorizer.fit_transform(corpus)
+print(f"Forme de la matrice : {X.shape}")
+print(f"Vocabulaire : {vectorizer.get_feature_names_out()}")
+print(f"Matrice TF-IDF (dense) :\n{X.toarray().round(2)}")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Mod\`eles $n$-grammes}
+\label{sec:rep:ngrams}
+% ------------------------------------------------------------
+
+\begin{definition}[$n$-gramme]
+Un \emph{$n$-gramme} est une sous-s\'equence contigu\"e de $n$ tokens extraite
+d'un texte. Pour une s\'equence $(x_1, \ldots, x_T)$, les $n$-grammes sont :
+\[
+\{(x_t, x_{t+1}, \ldots, x_{t+n-1}) : t = 1, \ldots, T - n + 1\}
+\]
+\end{definition}
+
+\subsection{Mod\`ele de langue $n$-gramme}
+
+Un mod\`ele de langue $n$-gramme approche la probabilit\'e conditionnelle par
+une hypoth\`ese de Markov d'ordre $n-1$ :
+
+\begin{definition}[Mod\`ele de langue $n$-gramme]
+\[
+P(x_t \mid x_1, \ldots, x_{t-1}) \approx P(x_t \mid x_{t-n+1}, \ldots, x_{t-1})
+\]
+estim\'ee par maximum de vraisemblance :
+\[
+\hat{P}(x_t \mid x_{t-n+1}^{t-1}) = \frac{\text{count}(x_{t-n+1}, \ldots, x_t)}{\text{count}(x_{t-n+1}, \ldots, x_{t-1})}
+\]
+\end{definition}
+
+\begin{attention}[title=\textbf{Probl\`eme des z\'eros}]
+Si un $n$-gramme n'appara\^it jamais dans le corpus d'entra\^inement, sa
+probabilit\'e estim\'ee est nulle, ce qui rend la perplexit\'e infinie. Les
+techniques de lissage (Laplace, Kneser-Ney) sont indispensables.
+\end{attention}
+
+\subsection{Lissage de Laplace (add-$\alpha$)}
+
+\begin{definition}[Lissage de Laplace]
+Le lissage de Laplace ajoute un pseudo-comptage $\alpha > 0$ :
+\[
+\hat{P}_\alpha(x_t \mid x_{t-n+1}^{t-1}) = \frac{\text{count}(x_{t-n+1}^t) + \alpha}{\text{count}(x_{t-n+1}^{t-1}) + \alpha V}
+\]
+o\`u $V = \abs{\mathcal{V}}$.
+\end{definition}
+
+\subsection{Lissage de Kneser-Ney}
+
+\begin{definition}[Lissage de Kneser-Ney]
+Le lissage de Kneser-Ney utilise un discount absolu $\delta$ et une distribution
+de continuation :
+\[
+P_{\text{KN}}(w \mid h) = \frac{\max(\text{count}(h, w) - \delta, 0)}{\text{count}(h)} + \lambda(h) \cdot P_{\text{cont}}(w)
+\]
+o\`u $P_{\text{cont}}(w) \propto \abs{\{h' : \text{count}(h', w) > 0\}}$
+est la probabilit\'e de continuation et $\lambda(h)$ est un facteur de
+normalisation.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Similarit\'e entre documents}
+\label{sec:rep:similarite}
+% ------------------------------------------------------------
+
+\begin{definition}[Similarit\'e cosinus]
+La \emph{similarit\'e cosinus} entre deux vecteurs $\mathbf{u}, \mathbf{v} \in \R^V$ est :
+\[
+\cos(\mathbf{u}, \mathbf{v}) = \frac{\inner{\mathbf{u}}{\mathbf{v}}}{\norm{\mathbf{u}} \cdot \norm{\mathbf{v}}}
+\]
+\end{definition}
+
+\begin{proposition}[Propri\'et\'es de la similarit\'e cosinus]
+\begin{enumerate}
+    \item $\cos(\mathbf{u}, \mathbf{v}) \in [-1, 1]$
+    \item $\cos(\mathbf{u}, \mathbf{v}) = 1 \iff \mathbf{u} = \lambda \mathbf{v}$
+          pour $\lambda > 0$
+    \item Pour des vecteurs TF-IDF (composantes $\geq 0$) :
+          $\cos(\mathbf{u}, \mathbf{v}) \in [0, 1]$
+\end{enumerate}
+\end{proposition}
+
+\begin{definition}[Distance de Jaccard]
+Pour deux ensembles de termes $A$ et $B$ :
+\[
+J(A, B) = \frac{\abs{A \cap B}}{\abs{A \cup B}}, \qquad d_J(A, B) = 1 - J(A, B)
+\]
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Matrice documents-termes et SVD}
+\label{sec:rep:svd}
+% ------------------------------------------------------------
+
+La matrice documents-termes $\mathbf{M} \in \R^{N \times V}$ est g\'en\'eralement
+tr\`es creuse ($> 99\%$ de z\'eros). La d\'ecomposition en valeurs singuli\`eres
+(SVD) permet de r\'eduire la dimensionnalit\'e.
+
+\begin{definition}[Analyse s\'emantique latente (LSA)]
+L'analyse s\'emantique latente (LSA) applique la SVD tronqu\'ee \`a la matrice
+TF-IDF :
+\[
+\mathbf{M} \approx \mathbf{U}_k \boldsymbol{\Sigma}_k \mathbf{V}_k^\top
+\]
+o\`u $k \ll \min(N, V)$. Les documents sont alors repr\'esent\'es dans
+$\R^k$ par les lignes de $\mathbf{U}_k \boldsymbol{\Sigma}_k$.
+\end{definition}
+
+\begin{theoreme}[Optimalit\'e de la SVD tronqu\'ee (Eckart-Young)]
+La matrice de rang $k$ qui minimise l'erreur de Frobenius
+$\norm{\mathbf{M} - \hat{\mathbf{M}}}_F$ est donn\'ee par la SVD tronqu\'ee
+$\hat{\mathbf{M}} = \mathbf{U}_k \boldsymbol{\Sigma}_k \mathbf{V}_k^\top$.
+\end{theoreme}
+
+\begin{codeblock}[title=\textbf{LSA avec scikit-learn}]
+\begin{minted}{python}
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.decomposition import TruncatedSVD
+
+vectorizer = TfidfVectorizer(max_features=10000)
+X_tfidf = vectorizer.fit_transform(corpus)
+
+svd = TruncatedSVD(n_components=100, random_state=42)
+X_lsa = svd.fit_transform(X_tfidf)
+print(f"Variance expliquee : {svd.explained_variance_ratio_.sum():.2%}")
+print(f"Dimension reduite : {X_lsa.shape}")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Repr\'esentations par caract\`eres $n$-grammes}
+\label{sec:rep:char}
+% ------------------------------------------------------------
+
+Les $n$-grammes de caract\`eres capturent la morphologie et sont robustes aux
+fautes d'orthographe :
+
+\begin{exemple}
+Le mot \og bonjour \fg avec $n=3$ produit les trigrammes :
+\texttt{\#bo}, \texttt{bon}, \texttt{onj}, \texttt{njo}, \texttt{jou},
+\texttt{our}, \texttt{ur\#} (o\`u \texttt{\#} marque les fronti\`eres).
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Mod\`ele BM25}
+\label{sec:rep:bm25}
+% ------------------------------------------------------------
+
+\begin{definition}[BM25]
+Le score BM25 du document $d$ pour la requ\^ete $q = \{q_1, \ldots, q_m\}$ est :
+\[
+\text{BM25}(d, q) = \sum_{i=1}^{m} \text{idf}(q_i) \cdot
+\frac{\text{tf}(q_i, d) \cdot (k_1 + 1)}{\text{tf}(q_i, d) + k_1 \cdot \left(1 - b + b \cdot \frac{\abs{d}}{\text{avgdl}}\right)}
+\]
+o\`u $k_1$ et $b$ sont des hyperparam\`etres (typiquement $k_1 = 1.2$, $b = 0.75$)
+et $\text{avgdl}$ est la longueur moyenne des documents.
+\end{definition}
+
+\begin{bonnepratique}[title=\textbf{BM25 en pratique}]
+BM25 reste une m\'ethode de r\'ef\'erence pour la recherche d'information
+(\emph{information retrieval}). M\^eme les syst\`emes RAG modernes utilisent
+souvent BM25 comme premi\`ere \'etape de r\'ecup\'eration avant un reranking
+neuronal.
+\end{bonnepratique}
+
+% ------------------------------------------------------------
+\section{Limites des repr\'esentations creuses}
+\label{sec:rep:limites}
+% ------------------------------------------------------------
+
+Les m\'ethodes pr\'esent\'ees dans ce chapitre souffrent de plusieurs limitations :
+
+\begin{enumerate}
+    \item \textbf{Haute dimensionnalit\'e} : $V$ peut atteindre $10^5$ \`a $10^6$.
+    \item \textbf{Parcimonie} : les vecteurs sont tr\`es creux, rendant les
+          mesures de distance peu fiables.
+    \item \textbf{Absence de s\'emantique} : les mots synonymes ont des
+          composantes orthogonales (``voiture'' $\perp$ ``automobile'').
+    \item \textbf{Ind\'ependance contextuelle} : chaque mot a une repr\'esentation
+          fixe ind\'ependante du contexte.
+\end{enumerate}
+
+Ces limitations motivent les plongements denses (chapitre~\ref{ch:plongements}),
+qui repr\'esentent les mots dans un espace de faible dimension o\`u la proximit\'e
+g\'eom\'etrique refl\`ete la similarit\'e s\'emantique.
+
+% ------------------------------------------------------------
+\section{Application : classification na\"ive de Bayes}
+\label{sec:rep:naivebayes}
+% ------------------------------------------------------------
+
+\begin{definition}[Classifieur na\"if de Bayes multinomial]
+Soit un document repr\'esent\'e par ses comptes de mots $\mathbf{x} = (x_1, \ldots, x_V)$.
+Le classifieur na\"if de Bayes multinomial pr\'edit :
+\[
+\hat{y} = \argmax_{c \in \mathcal{Y}} \left[\log P(c) + \sum_{j=1}^{V} x_j \log P(t_j \mid c)\right]
+\]
+avec $P(t_j \mid c) = \frac{\text{count}(t_j, c) + \alpha}{\sum_{j'} \text{count}(t_{j'}, c) + \alpha V}$.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Classification na\"ive de Bayes}]
+\begin{minted}{python}
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.pipeline import Pipeline
+from sklearn.datasets import fetch_20newsgroups
+
+data = fetch_20newsgroups(subset='train', categories=['sci.space', 'rec.sport.baseball'])
+pipeline = Pipeline([
+    ('tfidf', TfidfVectorizer(max_features=10000)),
+    ('clf', MultinomialNB(alpha=0.1))
+])
+pipeline.fit(data.data, data.target)
+print(f"Accuracy (train) : {pipeline.score(data.data, data.target):.2%}")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercices}
+\label{sec:rep:exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}[$\star$]
+Calculez les vecteurs TF-IDF pour le corpus suivant :
+$d_1$ = ``le chat dort'', $d_2$ = ``le chien dort'', $d_3$ = ``le chat et le chien''.
+\end{exercice}
+
+\begin{exercice}[$\star$]
+Montrez que la similarit\'e cosinus est invariante par changement d'\'echelle
+positif : $\cos(\lambda \mathbf{u}, \mu \mathbf{v}) = \cos(\mathbf{u}, \mathbf{v})$
+pour $\lambda, \mu > 0$.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Impl\'ementez un mod\`ele de langue bigramme avec lissage de Laplace. Calculez
+la perplexit\'e sur un corpus de test.
+\end{exercice}
+
+\begin{exercice}[$\star\star$]
+Montrez que le th\'eor\`eme d'Eckart-Young implique que la SVD tronqu\'ee donne
+la meilleure approximation de rang $k$ au sens de la norme de Frobenius.
+\end{exercice}
+
+\begin{exercice}[$\star\star\star$]
+Comparez les performances de TF-IDF + r\'egression logistique, TF-IDF + SVM,
+et LSA + r\'egression logistique sur la classification de sentiments (dataset
+IMDB). Analysez l'impact de la dimension $k$ de LSA.
+\end{exercice}

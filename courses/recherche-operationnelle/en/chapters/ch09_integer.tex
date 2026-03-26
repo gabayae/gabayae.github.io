@@ -1,0 +1,232 @@
+% ============================================================
+\chapter{Integer Programming}
+\label{ch:integer}
+% ============================================================
+
+\section{Introduction}
+
+In linear programming, optimal solutions live in a continuous world: one can assign $3.7$ trucks to a route. But in the real world, a truck is an integer. You cannot cut an airplane in half to serve two routes. This integrality constraint, seemingly innocuous, radically transforms the nature of the problem: integer programming is NP-hard in general, and the solution methods are fundamentally different. The \emph{branch and bound} method, developed by Ailsa Land and Alison Doig in 1960, intelligently explores a tree of subproblems; \emph{Gomory cuts} (1958) add constraints to tighten the continuous relaxation; \emph{branch and cut} combines both. These algorithms are at the heart of modern solvers (CPLEX, Gurobi) that solve industrial problems with millions of variables.
+
+\begin{intuition}
+Continuous linear programming may produce fractional solutions (e.g., build 3.7
+tables). Naively rounding is generally neither optimal nor feasible. Integer
+programming provides systematic methods to find the best integer solution.
+\end{intuition}
+
+\section{Formulation}
+
+\begin{definition}[Integer linear program]
+\index{integer programming}
+An \textbf{integer linear program} (ILP) is:
+\[
+  \min\; c^\top x \quad \text{s.t.} \quad Ax \leq b, \quad x \in \Z^n_+.
+\]
+If only some variables are integer, it is a \textbf{mixed-integer program}
+(MIP). If all variables are binary ($x \in \{0,1\}^n$), it is a
+\textbf{binary program}.
+\end{definition}
+
+\begin{definition}[LP relaxation]
+\index{LP relaxation}
+The \textbf{LP relaxation} of an ILP is the linear program obtained by
+replacing $x \in \Z^n_+$ with $x \in \R^n_+$. Its optimal value provides a
+\textbf{lower bound} (for minimization) on the ILP optimum.
+\end{definition}
+
+\begin{proposition}[Relaxation bound]
+Let $z^*_{\mathrm{LP}}$ and $z^*_{\mathrm{IP}}$ be the LP and IP optima.
+Then $z^*_{\mathrm{LP}} \leq z^*_{\mathrm{IP}}$. If the LP optimum is
+integral, it is also optimal for the ILP.
+\end{proposition}
+
+\begin{keyformulas}[title=\textbf{Common binary modeling tricks}]
+\begin{itemize}
+  \item \textbf{Selection}: $x_j = 1$ if item $j$ is selected.
+  \item \textbf{Implication}: $x_i = 1 \Rightarrow x_j = 1$ modeled as
+        $x_i \leq x_j$.
+  \item \textbf{Disjunction}: at least one of $x_1, \ldots, x_k$:
+        $x_1 + \cdots + x_k \geq 1$.
+  \item \textbf{Big-M}: $y \leq M x$ forces $y = 0$ when $x = 0$.
+\end{itemize}
+\end{keyformulas}
+
+\section{Branch and Bound}
+
+\begin{definition}[Branch and Bound]
+\index{branch and bound}
+\textbf{Branch and Bound} (B\&B) solves an ILP by implicit enumeration over
+a search tree. At each node, the LP relaxation is solved and pruning rules
+eliminate suboptimal branches.
+\end{definition}
+
+\begin{algorithme}[title=\textbf{Branch and Bound}]
+\begin{enumerate}
+  \item Solve the LP relaxation of the original problem.
+  \item If the solution is integral, it is optimal. \textbf{Stop}.
+  \item Otherwise, choose a fractional variable $x_j$ (value $\bar{x}_j$).
+  \item \textbf{Branching}: create two subproblems:
+    \begin{itemize}
+      \item Left branch: add $x_j \leq \lfloor \bar{x}_j \rfloor$.
+      \item Right branch: add $x_j \geq \lceil \bar{x}_j \rceil$.
+    \end{itemize}
+  \item \textbf{Bounding}: solve the LP relaxation of each subproblem.
+  \item \textbf{Pruning}: eliminate a node if:
+    \begin{itemize}
+      \item the subproblem is infeasible,
+      \item its lower bound $\geq$ best known solution (incumbent),
+      \item its solution is integral (update incumbent).
+    \end{itemize}
+  \item Repeat until all nodes are pruned.
+\end{enumerate}
+\end{algorithme}
+
+\begin{example}[Branch and Bound]
+Consider the ILP:
+\[
+  \max\; 5x_1 + 4x_2 \quad \text{s.t.} \quad
+  6x_1 + 4x_2 \leq 24, \quad x_1 + 2x_2 \leq 6, \quad
+  x_1, x_2 \in \Z_+.
+\]
+The LP relaxation gives $x_1 = 3.6$, $x_2 = 0.6$, $z = 20.4$.
+Branching on $x_1$:
+\begin{itemize}
+  \item Branch $x_1 \leq 3$: LP optimum $x_1 = 3, x_2 = 1.5$, $z = 21$.
+  \item Branch $x_1 \geq 4$: LP optimum $x_1 = 4, x_2 = 0$, $z = 20$
+        (integral).
+\end{itemize}
+Continuing on the left branch by branching on $x_2$: $x_2 \leq 1$ gives
+$z = 19$ (integral); $x_2 \geq 2$ eventually yields $z = 18$. The optimum
+is $x_1 = 4, x_2 = 0$ with $z^* = 20$.
+\end{example}
+
+\section{Cutting plane methods}
+
+\begin{definition}[Valid inequality]
+\index{cutting plane}
+A \textbf{valid inequality} (or cut) is a linear constraint satisfied by all
+feasible integer solutions but violated by the current fractional LP solution.
+\end{definition}
+
+\subsection{Gomory cuts}
+
+\begin{theorem}[Gomory cut]
+\index{Gomory cuts}
+Let $x_i = \bar{b}_i - \sum_j \bar{a}_{ij} x_j$ be a row of the final
+simplex tableau with $\bar{b}_i \notin \Z$. Then the inequality:
+\[
+  \sum_j \{\bar{a}_{ij}\} \, x_j \geq \{\bar{b}_i\}
+\]
+is a valid cut, where $\{y\} = y - \lfloor y \rfloor$ is the fractional part.
+\end{theorem}
+
+\begin{proof}
+From the simplex row:
+$x_i + \sum_j \bar{a}_{ij} x_j = \bar{b}_i$. Decompose into integer and
+fractional parts:
+\[
+  \underbrace{x_i + \sum_j \lfloor \bar{a}_{ij} \rfloor x_j
+  - \lfloor \bar{b}_i \rfloor}_{\in \Z}
+  = \{\bar{b}_i\} - \sum_j \{\bar{a}_{ij}\} x_j.
+\]
+The left side is integer. Since $\{\bar{b}_i\} > 0$ and each
+$\{\bar{a}_{ij}\} x_j \geq 0$, we obtain
+$\sum_j \{\bar{a}_{ij}\} x_j \geq \{\bar{b}_i\}$.
+\end{proof}
+
+\begin{remark}
+In practice, \textbf{Branch and Cut} methods combine B\&B with cut
+generation at each node. Modern solvers (Gurobi, CPLEX) use many families
+of cuts beyond Gomory: mixed-integer rounding, lift-and-project, Chv\'atal
+cuts, etc.
+\end{remark}
+
+\section{Total unimodularity}
+
+\begin{definition}[Totally unimodular matrix]
+\index{total unimodularity}
+A matrix $A \in \Z^{m \times n}$ is \textbf{totally unimodular} (TU) if every
+square submatrix has determinant in $\{-1, 0, 1\}$.
+\end{definition}
+
+\begin{theorem}[Exact relaxation]
+If $A$ is TU and $b \in \Z^m$, then every vertex of the polyhedron
+$\{x \in \R^n : Ax \leq b, x \geq 0\}$ is integral. Hence the LP relaxation
+automatically yields an integer solution.
+\end{theorem}
+
+\begin{proof}
+Every vertex solves a system $A' x = b'$ where $A'$ is an invertible square
+submatrix. Since $A$ is TU, $\det(A') \in \{-1, 1\}$, so by Cramer's rule,
+$x = (A')^{-1} b'$ is integral.
+\end{proof}
+
+\begin{example}[Classical TU matrices]
+\begin{itemize}
+  \item The vertex-arc incidence matrix of a directed graph is TU.
+  \item The constraint matrix of the transportation problem is TU.
+  \item Consequence: flow and transportation problems are solved by the simplex
+        and automatically yield integer solutions.
+\end{itemize}
+\end{example}
+
+\section{Classical applications}
+
+\subsection{Knapsack problem}
+
+\begin{definition}[0-1 Knapsack]
+\index{knapsack problem}
+Given $n$ items with values $v_1, \ldots, v_n$ and weights $w_1, \ldots, w_n$,
+and a knapsack of capacity $W$:
+\[
+  \max \sum_{j=1}^n v_j x_j \quad \text{s.t.} \quad
+  \sum_{j=1}^n w_j x_j \leq W, \quad x_j \in \{0, 1\}.
+\]
+\end{definition}
+
+\subsection{Traveling salesman problem}
+
+\begin{definition}[TSP formulation]
+\index{traveling salesman problem}
+The \textbf{Traveling Salesman Problem} (TSP) on $n$ cities:
+\[
+  \min \sum_{i \ne j} d_{ij} x_{ij} \quad \text{s.t.} \quad
+  \sum_{j \ne i} x_{ij} = 1 \;\forall i, \quad
+  \sum_{i \ne j} x_{ij} = 1 \;\forall j, \quad x_{ij} \in \{0,1\},
+\]
+plus subtour elimination constraints (e.g., Miller-Tucker-Zemlin or
+exponentially many subtour cuts).
+\end{definition}
+
+\begin{warning}[title=\textbf{TSP complexity}]
+TSP is NP-hard. State-of-the-art solvers (Concorde) use advanced Branch and
+Cut and can solve instances with several thousand cities to optimality.
+\end{warning}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$ -- Branch and Bound]
+Solve by B\&B: $\max\; 3x_1 + 2x_2$ s.t. $2x_1 + x_2 \leq 6$,
+$x_1 + 3x_2 \leq 9$, $x_1, x_2 \in \Z_+$. Draw the search tree.
+\end{exercise}
+
+\begin{exercise}[$\star\star$ -- Gomory cuts]
+Consider $\max\; x_1 + x_2$ s.t. $3x_1 + 2x_2 \leq 6$,
+$x_1 + 4x_2 \leq 4$, $x_1, x_2 \geq 0$ integer. Generate a Gomory cut from
+the final simplex tableau and solve.
+\end{exercise}
+
+\begin{exercise}[$\star\star$ -- Knapsack]
+Solve the 0-1 knapsack with values $(10, 6, 12, 7)$, weights $(3, 2, 5, 3)$,
+capacity $W = 8$ by Branch and Bound.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- TSP formulation]
+Formulate TSP on 5 cities with MTZ constraints. Solve the LP relaxation and
+measure the integrality gap.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Total unimodularity]
+Prove that the vertex-arc incidence matrix of a directed graph is TU. Deduce
+that the minimum cost flow problem always has an integer optimal solution when
+the data are integral.
+\end{exercise}

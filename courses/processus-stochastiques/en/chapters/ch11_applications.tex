@@ -1,0 +1,327 @@
+% ============================================================
+\chapter{Applications}
+\label{ch:applications}
+% ============================================================
+
+\begin{center}
+\textit{``Theory is when you know everything but nothing works.
+Practice is when everything works but nobody knows why.''}\\[4pt]
+--- attributed to Albert Einstein
+\end{center}
+
+\bigskip
+
+This chapter presents major applications of stochastic calculus:
+the Black--Scholes formula in finance, the Feynman--Kac theorem linking
+PDEs and SDEs, Kalman filtering, applications in biology, and Monte
+Carlo methods for SDEs.
+
+% ------------------------------------------------------------
+\section{The Black--Scholes Formula}
+\label{sec:black_scholes}
+% ------------------------------------------------------------
+
+\begin{definition}[Black--Scholes Model]
+\index{Black--Scholes}
+In the \textbf{Black--Scholes model}, the price of a risky asset follows
+geometric Brownian motion:
+\[
+  dS_t = \mu\,S_t\,dt + \sigma\,S_t\,dB_t,
+\]
+and there exists a risk-free asset with return $r$. One assumes
+no arbitrage opportunities and continuous frictionless trading.
+\end{definition}
+
+\begin{theorem}[Black--Scholes Formula]
+\label{thm:bs}
+\index{Black--Scholes formula}
+The price at time $t$ of a European call option with strike $K$ and
+maturity $T$ is:
+\[
+  C(t, S_t) = S_t\,\Phi(d_1) - K\,e^{-r(T-t)}\,\Phi(d_2),
+\]
+where $\Phi$ is the standard normal CDF and:
+\[
+  d_1 = \frac{\ln(S_t/K) + (r + \sigma^2/2)(T-t)}{\sigma\sqrt{T-t}},
+  \qquad d_2 = d_1 - \sigma\sqrt{T-t}.
+\]
+\end{theorem}
+
+\begin{proof}
+Under the risk-neutral measure $\mathbb{Q}$, the discounted price is
+a martingale: $C(t, S_t) = e^{-r(T-t)}\,\E^{\mathbb{Q}}[(S_T - K)^+
+\mid \mathcal{F}_t]$. Under $\mathbb{Q}$,
+$S_T = S_t\exp[(r - \sigma^2/2)(T-t) + \sigma(B_T^{\mathbb{Q}} -
+B_t^{\mathbb{Q}})]$ where $B^{\mathbb{Q}}$ is a $\mathbb{Q}$-Brownian
+motion (Girsanov's theorem\index{Girsanov}). Setting
+$Z = (B_T^{\mathbb{Q}} - B_t^{\mathbb{Q}})/\sqrt{T-t} \sim \mathcal{N}(0,1)$:
+\[
+  C = e^{-r(T-t)}\int_{-\infty}^{\infty}
+    \bigl(S_t\,e^{(r-\sigma^2/2)(T-t)+\sigma\sqrt{T-t}\,z} - K\bigr)^+
+    \frac{e^{-z^2/2}}{\sqrt{2\pi}}\,dz.
+\]
+The integral splits over $\{z > -d_2\}$. Substituting $z' = z -
+\sigma\sqrt{T-t}$ in the first term yields the stated expressions.
+\end{proof}
+
+\begin{intuition}
+The Black--Scholes formula shows that the option price does \emph{not}
+depend on the expected return $\mu$ of the asset, only on its volatility
+$\sigma$. This is a consequence of no-arbitrage: the option can be
+perfectly hedged by dynamically adjusting a portfolio of the stock and
+the risk-free asset.
+\end{intuition}
+
+\begin{definition}[Black--Scholes PDE]
+\index{Black--Scholes PDE}
+The pricing function $V(t,S)$ satisfies the PDE:
+\[
+  \frac{\partial V}{\partial t} + r\,S\,\frac{\partial V}{\partial S}
+  + \frac{1}{2}\sigma^2 S^2\,\frac{\partial^2 V}{\partial S^2}
+  - r\,V = 0,
+\]
+with terminal condition $V(T,S) = (S-K)^+$ for a call.
+\end{definition}
+
+\begin{keyformulas}
+\textbf{Black--Scholes Formulas and Greeks}
+\begin{align*}
+  C &= S\,\Phi(d_1) - Ke^{-r\tau}\Phi(d_2), \quad \tau = T-t \\[4pt]
+  \Delta &= \frac{\partial C}{\partial S} = \Phi(d_1), \qquad
+  \Gamma = \frac{\partial^2 C}{\partial S^2}
+    = \frac{\varphi(d_1)}{S\sigma\sqrt{\tau}} \\[4pt]
+  \Theta &= \frac{\partial C}{\partial t}
+    = -\frac{S\sigma\varphi(d_1)}{2\sqrt{\tau}}
+    - rKe^{-r\tau}\Phi(d_2), \qquad
+  \mathcal{V} = \frac{\partial C}{\partial\sigma}
+    = S\sqrt{\tau}\,\varphi(d_1)
+\end{align*}
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{The Feynman--Kac Theorem}
+\label{sec:feynman_kac}
+% ------------------------------------------------------------
+
+\begin{theorem}[Feynman--Kac]
+\label{thm:feynman_kac}
+\index{Feynman--Kac}
+Let $u(t,x)$ solve the PDE:
+\[
+  \frac{\partial u}{\partial t} + b(x)\,\frac{\partial u}{\partial x}
+  + \frac{1}{2}\sigma^2(x)\,\frac{\partial^2 u}{\partial x^2}
+  - r\,u = 0, \qquad u(T,x) = g(x).
+\]
+Then $u$ admits the probabilistic representation:
+\[
+  u(t,x) = \E\bigl[e^{-r(T-t)}\,g(X_T) \mid X_t = x\bigr],
+\]
+where $X$ solves $dX_s = b(X_s)\,ds + \sigma(X_s)\,dB_s$.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+Apply It\^o's formula to $e^{-rs}\,u(s,X_s)$ on $[t,T]$. The $ds$ term
+vanishes because $u$ satisfies the PDE, leaving a stochastic integral
+(a martingale). Taking the conditional expectation, the stochastic
+integral drops out, giving
+$e^{-rt}\,u(t,x) = \E[e^{-rT}\,g(X_T) \mid X_t = x]$.
+\end{proof}
+
+\begin{remark}
+The Feynman--Kac theorem establishes a fundamental link between
+parabolic PDEs and diffusion processes. It allows solving PDEs via Monte
+Carlo simulation, and conversely, analyzing stochastic problems using
+PDE techniques.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Kalman Filtering}
+\label{sec:kalman}
+% ------------------------------------------------------------
+
+\begin{definition}[Linear Filtering Model]
+\index{Kalman filter}
+Consider the continuous-time linear system:
+\begin{align*}
+  dX_t &= A\,X_t\,dt + \sigma_X\,dB_t^{(1)} \quad \text{(signal)}, \\
+  dY_t &= H\,X_t\,dt + \sigma_Y\,dB_t^{(2)} \quad \text{(observation)},
+\end{align*}
+where $B^{(1)}$ and $B^{(2)}$ are independent Brownian motions.
+The \emph{filtering problem} is to estimate $X_t$ from the observations
+$(Y_s)_{0 \leq s \leq t}$.
+\end{definition}
+
+\begin{theorem}[Kalman--Bucy Filter]
+\label{thm:kalman_bucy}
+\index{Kalman--Bucy}
+The optimal estimator $\hat{X}_t = \E[X_t \mid \mathcal{F}_t^Y]$
+satisfies the SDE:
+\[
+  d\hat{X}_t = A\,\hat{X}_t\,dt
+    + \frac{P_t\,H^T}{\sigma_Y^2}\,\bigl(dY_t - H\,\hat{X}_t\,dt\bigr),
+\]
+where $P_t = \E[(X_t - \hat{X}_t)^2 \mid \mathcal{F}_t^Y]$ is the
+error variance, solving the Riccati equation:
+\[
+  \frac{dP_t}{dt} = 2A\,P_t + \sigma_X^2 - \frac{P_t^2\,H^2}{\sigma_Y^2}.
+\]
+\end{theorem}
+
+\begin{intuition}
+The Kalman filter achieves an optimal trade-off between the dynamic
+model prediction ($A\,\hat{X}_t\,dt$) and the innovation from
+observations ($dY_t - H\,\hat{X}_t\,dt$). The Kalman gain
+$K_t = P_t H^T/\sigma_Y^2$ weighs these two sources: the larger the
+uncertainty $P_t$, the more weight is given to observations.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Applications in Biology}
+\label{sec:biology}
+% ------------------------------------------------------------
+
+\begin{definition}[Stochastic Gene Expression]
+\index{stochastic gene expression}
+Gene expression is an intrinsically stochastic process. The protein
+count $P_t$ can be modeled by the Langevin-type SDE:
+\[
+  dP_t = (k_{\text{prod}} - k_{\text{deg}}\,P_t)\,dt
+    + \sqrt{k_{\text{prod}} + k_{\text{deg}}\,P_t}\,dB_t,
+\]
+where $k_{\text{prod}}$ is the production rate and $k_{\text{deg}}$ the
+degradation rate.
+\end{definition}
+
+\begin{proposition}[Gene Expression Noise]
+At equilibrium, the mean protein count is
+$\bar{P} = k_{\text{prod}}/k_{\text{deg}}$ and the \emph{coefficient
+of variation} (noise measure) is:
+\[
+  \text{CV}^2 = \frac{\Var(P)}{\E[P]^2} \approx \frac{1}{\bar{P}}.
+\]
+The noise is thus more significant when the mean molecule count is low.
+\end{proposition}
+
+\begin{remark}
+This relation $\text{CV}^2 \approx 1/\bar{P}$ is known as
+\emph{Poissonian noise}\index{Poissonian noise}. It was experimentally
+verified in bacterial cells by Elowitz et al.\ (2002).
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Monte Carlo Methods for SDEs}
+\label{sec:mc_sde}
+% ------------------------------------------------------------
+
+\begin{definition}[Euler--Maruyama Scheme]
+\index{Euler--Maruyama}
+The \textbf{Euler--Maruyama scheme} for the SDE
+$dX_t = b(X_t)\,dt + \sigma(X_t)\,dB_t$ is:
+\[
+  X_{n+1} = X_n + b(X_n)\,\Delta t + \sigma(X_n)\,\sqrt{\Delta t}\,Z_n,
+  \qquad Z_n \sim \mathcal{N}(0,1)\;\text{i.i.d.}
+\]
+\end{definition}
+
+\begin{theorem}[Strong Convergence of Euler--Maruyama]
+Under Lipschitz conditions on $b$ and $\sigma$, the Euler--Maruyama
+scheme converges with strong order $1/2$:
+\[
+  \E\left[\sup_{0 \leq t \leq T}
+  \abs{X_t - X_t^{(\Delta t)}}^2\right]^{1/2} \leq C\,\sqrt{\Delta t}.
+\]
+\end{theorem}
+
+\begin{definition}[Milstein Scheme]
+\index{Milstein}
+The \textbf{Milstein scheme} improves Euler--Maruyama by adding the
+It\^o--Taylor correction:
+\[
+  X_{n+1} = X_n + b(X_n)\,\Delta t + \sigma(X_n)\,\sqrt{\Delta t}\,Z_n
+    + \frac{1}{2}\,\sigma(X_n)\,\sigma'(X_n)\,(Z_n^2 - 1)\,\Delta t.
+\]
+This scheme achieves strong order 1:
+$(\E[\sup_t \abs{X_t - X_t^{(\Delta t)}}^2])^{1/2} \leq C\,\Delta t$.
+\end{definition}
+
+\begin{attention}
+For option pricing (weak convergence), Euler--Maruyama already has weak
+order 1, so Milstein offers no improvement for computing $\E[g(X_T)]$.
+The distinction between strong and weak convergence is crucial in
+practice.
+\end{attention}
+
+\begin{keyformulas}
+\textbf{Numerical Schemes for SDEs}
+\begin{align*}
+  \text{Euler--Maruyama:}\quad & X_{n+1} = X_n + b\,\Delta t
+    + \sigma\sqrt{\Delta t}\,Z_n
+    & \text{(strong order } 1/2\text{)} \\[4pt]
+  \text{Milstein:}\quad & X_{n+1} = X_n + b\,\Delta t
+    + \sigma\sqrt{\Delta t}\,Z_n
+    + \tfrac{1}{2}\sigma\sigma'(Z_n^2-1)\Delta t
+    & \text{(strong order } 1\text{)} \\[4pt]
+  \text{Monte Carlo:}\quad & \E[g(X_T)] \approx \frac{1}{M}\sum_{m=1}^M
+    g(X_T^{(m)})
+    & \text{(error } O(1/\sqrt{M})\text{)}
+\end{align*}
+\end{keyformulas}
+
+\begin{minted}{python}
+import numpy as np
+
+def euler_maruyama(b, sigma, x0, T, n_steps, n_paths):
+    """Euler-Maruyama scheme for a scalar SDE."""
+    dt = T / n_steps
+    sqrt_dt = np.sqrt(dt)
+    X = np.zeros((n_paths, n_steps + 1))
+    X[:, 0] = x0
+    for k in range(n_steps):
+        Z = np.random.randn(n_paths)
+        X[:, k+1] = (X[:, k] + b(X[:, k]) * dt
+                     + sigma(X[:, k]) * sqrt_dt * Z)
+    return X
+
+# Example: geometric Brownian motion
+mu_val, sigma_val, S0 = 0.05, 0.2, 100.0
+paths = euler_maruyama(
+    b=lambda x: mu_val * x,
+    sigma=lambda x: sigma_val * x,
+    x0=S0, T=1.0, n_steps=1000, n_paths=10000
+)
+# Call option price by Monte Carlo
+K = 105.0
+r = 0.03
+call_price = np.exp(-r) * np.mean(np.maximum(paths[:, -1] - K, 0))
+\end{minted}
+
+\begin{exercise}
+Derive the Black--Scholes formula for a put option using put-call
+parity: $C - P = S - Ke^{-r(T-t)}$. Verify that
+$P = Ke^{-r\tau}\Phi(-d_2) - S\Phi(-d_1)$.
+\end{exercise}
+
+\begin{exercise}
+Apply the Feynman--Kac theorem to show that the price of a knock-out
+barrier option satisfies the Black--Scholes PDE with boundary condition
+$V(t, B) = 0$ on the barrier $S = B$.
+\end{exercise}
+
+\begin{exercise}
+Implement the discrete Kalman filter to track a moving object observed
+with noise. Compare performance with and without a velocity model.
+\end{exercise}
+
+\begin{exercise}
+Compare the Euler--Maruyama and Milstein schemes for GBM: simulate
+$M = 10{,}000$ paths, estimate $\E[S_T]$, and compare the numerical
+error for different step sizes $\Delta t$. Verify the theoretical
+convergence orders.
+\end{exercise}
+
+\begin{exercise}
+Simulate a stochastic gene expression model with
+$k_{\text{prod}} = 10$, $k_{\text{deg}} = 0.1$ using the Gillespie
+algorithm. Verify that the stationary distribution is approximately
+Poisson and compute the coefficient of variation.
+\end{exercise}

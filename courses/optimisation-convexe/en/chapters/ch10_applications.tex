@@ -1,0 +1,316 @@
+% ============================================================
+\chapter{Applications}
+\label{ch:applications}
+% ============================================================
+
+\section{Introduction}
+
+This chapter illustrates the power of convex optimization on concrete problems
+from signal processing, finance, and machine learning. Each application is
+formulated as a convex optimization problem and solved with the tools from
+previous chapters.
+
+\begin{intuition}
+Convex optimization is not an abstract theory: it is a universal language for
+formulating and efficiently solving problems across many domains. The key is to
+\emph{recognize} the hidden convex structure in an applied problem, then apply
+the appropriate algorithm.
+\end{intuition}
+
+\section{Compressed sensing}
+
+\begin{definition}[Compressed sensing]
+\index{compressed sensing}
+\textbf{Compressed sensing} aims to recover a sparse signal
+$x^* \in \R^n$ from $m \ll n$ linear measurements $b = Ax^* + \epsilon$,
+where $A \in \R^{m \times n}$.
+\end{definition}
+
+\begin{theorem}[$\ell_1$ recovery]
+\index{$\ell_1$ recovery}
+If $x^*$ is $s$-sparse and $A$ satisfies the \textbf{restricted isometry
+property} (RIP) of order $2s$ with constant
+$\delta_{2s} < \sqrt{2} - 1$, then the solution of:
+\[
+  \min_x \norm{x}_1 \quad \text{s.t.} \quad \norm{Ax - b}_2 \leq \epsilon
+\]
+satisfies $\norm{\hat{x} - x^*}_2 \leq C \epsilon$ for a constant $C$.
+\end{theorem}
+
+\begin{remark}
+In practice, the equivalent LASSO formulation is often preferred:
+\[
+  \min_x \frac{1}{2} \norm{Ax - b}^2 + \lambda \norm{x}_1,
+\]
+which is a composite problem solvable by ISTA/FISTA
+(Chapter~\ref{ch:proximal}).
+\end{remark}
+
+\begin{example}[Sparse signal recovery]
+Let $x^* \in \R^{500}$ with 20 nonzero entries,
+$A \in \R^{100 \times 500}$ Gaussian, and $b = Ax^*$. LASSO with
+$\lambda = 0.1$ recovers $x^*$ exactly, whereas (underdetermined) least
+squares fails.
+\end{example}
+
+\section{LASSO and $\ell_1$ regularization}
+
+\begin{definition}[LASSO]
+\index{LASSO}
+The \textbf{LASSO} (Least Absolute Shrinkage and Selection Operator):
+\[
+  \min_{\beta \in \R^p} \frac{1}{2n} \norm{y - X\beta}^2
+  + \lambda \norm{\beta}_1
+\]
+simultaneously performs estimation and variable selection in linear regression.
+\end{definition}
+
+\begin{proposition}[LASSO properties]
+\begin{enumerate}
+  \item The $\ell_1$ penalty produces \textbf{sparse} solutions (many
+        coefficients exactly zero).
+  \item The parameter $\lambda$ controls sparsity:
+        $\lambda \to +\infty$ gives $\hat{\beta} = 0$;
+        $\lambda \to 0$ gives ordinary least squares.
+  \item The regularization path
+        $\lambda \mapsto \hat{\beta}(\lambda)$ is piecewise linear.
+\end{enumerate}
+\end{proposition}
+
+\begin{theorem}[LASSO optimality conditions]
+$\hat{\beta}$ solves LASSO if and only if:
+\[
+  \frac{1}{n} X^\top(X\hat{\beta} - y) + \lambda v = 0,
+\]
+where $v \in \partial \norm{\hat{\beta}}_1$, i.e.,
+$v_j = \sign(\hat{\beta}_j)$ if $\hat{\beta}_j \ne 0$ and
+$\abs{v_j} \leq 1$ otherwise.
+\end{theorem}
+
+\section{Portfolio optimization}
+
+\begin{definition}[Markowitz model]
+\index{portfolio optimization}
+\index{Markowitz model}
+The \textbf{Markowitz model} seeks the minimum-variance portfolio for a given
+expected return:
+\[
+  \min_w w^\top \Sigma w \quad \text{s.t.} \quad
+  \mu^\top w \geq r_{\min}, \quad
+  \mathbf{1}^\top w = 1, \quad w \geq 0,
+\]
+where $w \in \R^n$ is the weight vector, $\Sigma$ the covariance matrix, and
+$\mu$ the expected returns vector.
+\end{definition}
+
+\begin{remark}
+This is a convex \textbf{quadratic program} (QP) since $\Sigma$ is positive
+semidefinite. It can be solved by interior point methods or QP-specialized
+simplex.
+\end{remark}
+
+\begin{proposition}[Efficient frontier]
+The set of optimal portfolios (as $r_{\min}$ varies) forms the
+\textbf{efficient frontier} in the (standard deviation, return) plane. It is a
+convex curve.
+\end{proposition}
+
+\begin{example}[3-asset portfolio]
+With $\mu = (0.12, 0.10, 0.07)^\top$ and
+\[
+  \Sigma = \begin{pmatrix}
+    0.04 & 0.006 & 0.002 \\
+    0.006 & 0.025 & 0.004 \\
+    0.002 & 0.004 & 0.01
+  \end{pmatrix},
+\]
+the minimum variance portfolio (no return constraint) is
+$w^* \approx (0.14, 0.28, 0.58)^\top$ with $\sigma^* \approx 8.1\%$.
+\end{example}
+
+\section{Optimal transport}
+
+\begin{definition}[Kantorovich problem]
+\index{optimal transport}
+\index{Kantorovich problem}
+Given two discrete probability measures
+$\mu = \sum_{i=1}^n a_i \delta_{x_i}$ and
+$\nu = \sum_{j=1}^m b_j \delta_{y_j}$, the \textbf{Kantorovich optimal
+transport} problem is:
+\[
+  \min_{\Pi \geq 0} \sum_{i,j} C_{ij} \Pi_{ij} \quad \text{s.t.} \quad
+  \Pi \mathbf{1} = a, \quad \Pi^\top \mathbf{1} = b,
+\]
+where $C_{ij} = c(x_i, y_j)$ is the transport cost.
+\end{definition}
+
+\begin{remark}
+This is a linear program. The associated Wasserstein distance defines a metric
+on the space of probability measures, with applications in generative models,
+computer vision, and statistics.
+\end{remark}
+
+\begin{definition}[Entropic regularization]
+\index{entropic regularization}
+\textbf{Sinkhorn's} entropic regularization adds an entropy term:
+\[
+  \min_{\Pi \geq 0} \sum_{i,j} C_{ij} \Pi_{ij}
+  + \varepsilon \sum_{i,j} \Pi_{ij} \ln \Pi_{ij} \quad
+  \text{s.t.} \quad \Pi \mathbf{1} = a, \; \Pi^\top \mathbf{1} = b.
+\]
+Sinkhorn's algorithm solves this via alternating matrix-vector products.
+For discrete measures with $n$ points, the complexity per iteration is
+$\mathcal{O}(n^2)$, and the number of iterations to reach precision
+$\varepsilon$ is $\mathcal{O}(1/\varepsilon)$ (Altschuler et al., 2017).
+\end{definition}
+
+\section{Machine learning applications}
+
+\subsection{SVM dual}
+
+\begin{definition}[SVM -- dual formulation]
+\index{SVM}
+The linear \textbf{Support Vector Machine} (SVM) dual is:
+\[
+  \max_\alpha \sum_{i=1}^n \alpha_i
+  - \frac{1}{2} \sum_{i,j} \alpha_i \alpha_j y_i y_j x_i^\top x_j
+  \quad \text{s.t.} \quad
+  0 \leq \alpha_i \leq C, \quad \sum_i \alpha_i y_i = 0,
+\]
+where $(x_i, y_i) \in \R^d \times \{-1, +1\}$ are the data and $C > 0$.
+This is a convex QP.
+\end{definition}
+
+\begin{proposition}[Support vectors]
+The \textbf{support vectors} are the data points $x_i$ for which
+$\alpha_i^* > 0$. The separating hyperplane is
+$w^* = \sum_i \alpha_i^* y_i x_i$.
+\end{proposition}
+
+\subsection{Logistic regression}
+
+\begin{definition}[Regularized logistic regression]
+\index{logistic regression}
+Logistic regression with $\ell_2$ regularization:
+\[
+  \min_\beta \sum_{i=1}^n \ln(1 + e^{-y_i x_i^\top \beta})
+  + \frac{\lambda}{2} \norm{\beta}^2.
+\]
+The objective is strongly convex ($\lambda > 0$) and smooth. It is efficiently
+solved by Newton, L-BFGS, or proximal gradient (with $\ell_1$ regularization
+for sparsity).
+\end{definition}
+
+\begin{theorem}[Convexity of the logistic loss]
+The logistic loss $\ell(\beta) = \ln(1 + e^{-y x^\top \beta})$ is convex in
+$\beta$ for every $(x, y)$. With $\ell_2$ regularization, the problem is
+$\lambda$-strongly convex, guaranteeing uniqueness of the solution.
+\end{theorem}
+
+\section{Python implementation}
+
+\begin{codeblock}[title=\textbf{LASSO and portfolio with CVXPY}]
+\begin{minted}{python}
+import numpy as np
+import cvxpy as cp
+
+# --- LASSO ---
+n, p = 100, 200
+X = np.random.randn(n, p)
+beta_true = np.zeros(p)
+beta_true[:10] = np.random.randn(10)
+y = X @ beta_true + 0.1 * np.random.randn(n)
+
+beta = cp.Variable(p)
+lam = 0.1
+prob = cp.Problem(cp.Minimize(
+    0.5 * cp.sum_squares(X @ beta - y)
+    + lam * cp.norm1(beta)))
+prob.solve()
+print("LASSO: nnz =", np.sum(np.abs(beta.value) > 1e-4))
+
+# --- Markowitz Portfolio ---
+mu = np.array([0.12, 0.10, 0.07])
+Sigma = np.array([[0.04, 0.006, 0.002],
+                  [0.006, 0.025, 0.004],
+                  [0.002, 0.004, 0.01]])
+w = cp.Variable(3)
+ret = mu @ w
+risk = cp.quad_form(w, Sigma)
+prob2 = cp.Problem(cp.Minimize(risk),
+    [ret >= 0.09, cp.sum(w) == 1, w >= 0])
+prob2.solve()
+print("Portfolio:", np.round(w.value, 3))
+\end{minted}
+\end{codeblock}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$ -- LASSO]
+For $X \in \R^{20 \times 50}$ and $y = X\beta^* + \epsilon$ with $\beta^*$
+5-sparse, solve LASSO for $\lambda \in \{0.01, 0.1, 1\}$. Plot the number of
+nonzero components as a function of $\lambda$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$ -- Portfolio]
+Solve the Markowitz problem for 5 assets with historical data. Plot the
+efficient frontier for $r_{\min}$ ranging from 5\% to 15\%.
+\end{exercise}
+
+\begin{exercise}[$\star\star$ -- SVM]
+Formulate and solve the SVM dual for a linearly separable 2D dataset.
+Identify the support vectors.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Optimal transport]
+Implement Sinkhorn's algorithm for two discrete distributions on $\R^2$
+(50 points each). Plot the optimal transport plan and study the influence
+of $\varepsilon$.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Compressed sensing]
+Generate $A \in \R^{m \times n}$ Gaussian, $x^*$ $s$-sparse, and
+$b = Ax^*$. Study the phase transition experimentally: for $n = 200$, vary
+$m$ and $s$ and determine when $\ell_1$ recovery succeeds.
+\end{exercise}
+
+\begin{exercise}[$\star\star$ -- RIP constant properties]
+Let $A \in \R^{m \times n}$ and $\delta_s$ be the restricted isometry
+property (RIP) constant of order $s$, defined as the smallest $\delta \geq 0$
+such that:
+\[
+  (1 - \delta)\,\norm{x}_2^2 \leq \norm{Ax}_2^2 \leq (1 + \delta)\,\norm{x}_2^2
+\]
+for all $s$-sparse vectors $x$.
+\begin{enumerate}
+  \item Show that $\delta_s \leq \delta_{s'}$ for $s \leq s'$ (monotonicity).
+  \item Show that if $\delta_{2s} < 1$, then $A$ is injective on the set
+        of $s$-sparse vectors.
+  \item Let $A$ be an $m \times n$ Gaussian matrix with i.i.d.\
+        $\mathcal{N}(0, 1/m)$ entries. Using a concentration bound on the
+        norm over column subsets, show that $\delta_s < \delta$ with high
+        probability whenever $m \geq C\,\delta^{-2}\,s\,\ln(n/s)$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- LASSO regularization path]
+Consider the LASSO problem:
+$\hat{\beta}(\lambda) = \argmin_\beta \frac{1}{2n}\norm{y - X\beta}^2 + \lambda\norm{\beta}_1$.
+\begin{enumerate}
+  \item Show that for $\lambda \geq \lambda_{\max} = \frac{1}{n}\norm{X^\top y}_\infty$,
+        the solution is $\hat{\beta}(\lambda) = 0$.
+  \item Using the KKT conditions, show that the active set
+        $\mathcal{A}(\lambda) = \{j : \hat{\beta}_j(\lambda) \neq 0\}$ is
+        piecewise constant in $\lambda$ and that changes occur at finitely
+        many values $\lambda_1 > \lambda_2 > \cdots > 0$.
+  \item On each interval $(\lambda_{k+1}, \lambda_k)$, show that
+        $\hat{\beta}_{\mathcal{A}}(\lambda)$ is an affine function of $\lambda$:
+        \[
+          \hat{\beta}_{\mathcal{A}}(\lambda) = (X_{\mathcal{A}}^\top X_{\mathcal{A}})^{-1}
+          (X_{\mathcal{A}}^\top y - n\lambda\, s_{\mathcal{A}})
+        \]
+        where $s_{\mathcal{A}} = \sign(\hat{\beta}_{\mathcal{A}})$.
+        Conclude that the path $\lambda \mapsto \hat{\beta}(\lambda)$ is
+        piecewise linear.
+\end{enumerate}
+\end{exercise}

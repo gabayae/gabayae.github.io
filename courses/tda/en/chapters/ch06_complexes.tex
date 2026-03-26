@@ -1,0 +1,343 @@
+% ============================================================
+\chapter{Vietoris-Rips, \v{C}ech, and Alpha Complexes}
+\label{ch:complexes}
+% ============================================================
+
+Persistent homology needs a \emph{filtration} of simplicial complexes. But how does one build a complex from a point cloud? Three classical constructions dominate. The \emph{\v{C}ech complex} adds a simplex whenever the balls of radius $r$ centred at its vertices have a common intersection---it captures exactly the topology of the union of balls (nerve theorem). The \emph{Vietoris-Rips complex} is simpler: a simplex is present whenever all pairs of vertices are within distance $\leq 2r$---it is much easier to compute, but only approximates the \v{C}ech. The \emph{Alpha complex}, due to Edelsbrunner, restricts the \v{C}ech to Vorono\"i cells, producing a complex of linear size in the number of points.
+
+\begin{intuition}
+Constructing a simplicial complex from a point cloud is the fundamental
+step of TDA. Three constructions dominate: Vietoris--Rips (simple but
+large), \v{C}ech (exact but costly), and Alpha (small and exact in low
+dimensions).
+\end{intuition}
+
+% ============================================================
+\section{Vietoris--Rips Complex}
+% ============================================================
+
+\begin{definition}[Vietoris--Rips Complex]
+Let $X = \{x_1, \ldots, x_n\}$ be a finite set in a metric space
+$(M, d)$. The \emph{Vietoris--Rips complex} at parameter $r \geq 0$ is:
+\[
+  \mathrm{VR}(X, r) = \big\{
+    \sigma \subseteq X : d(x_i, x_j) \leq r
+    \;\text{for all}\; x_i, x_j \in \sigma
+  \big\}.
+\]
+\end{definition}
+
+\begin{remark}
+The Vietoris--Rips complex is the \emph{clique complex} (or \emph{flag
+complex}) of the proximity graph $G_r = (X, E_r)$ where
+$\{x_i, x_j\} \in E_r$ iff $d(x_i, x_j) \leq r$. That is,
+$\sigma \in \mathrm{VR}(X, r)$ iff all pairs of vertices of $\sigma$
+are connected in $G_r$.
+\end{remark}
+
+\begin{proposition}[Properties]
+\begin{enumerate}
+  \item $\mathrm{VR}(X, r)$ is entirely determined by its $1$-skeleton
+        (the graph $G_r$).
+  \item $r \leq s \implies \mathrm{VR}(X, r) \subseteq \mathrm{VR}(X, s)$.
+  \item The maximum dimension of $\mathrm{VR}(X, r)$ can reach $n - 1$.
+\end{enumerate}
+\end{proposition}
+
+\begin{warning}[title=\textbf{Combinatorial Explosion}]
+For $n$ points, the Vietoris--Rips complex can contain up to
+$2^n - 1$ simplices. In practice, one truncates the maximum dimension
+(typically $\leq 3$).
+\end{warning}
+
+% ============================================================
+\section{\v{C}ech Complex}
+% ============================================================
+
+\begin{definition}[\v{C}ech Complex]
+The \emph{\v{C}ech complex} at parameter $r$ is:
+\[
+  \check{C}(X, r) = \big\{
+    \sigma \subseteq X : \bigcap_{x_i \in \sigma} B(x_i, r) \neq \emptyset
+  \big\}
+\]
+where $B(x_i, r) = \{y \in M : d(x_i, y) \leq r\}$ is the closed ball
+of center $x_i$ and radius $r$.
+\end{definition}
+
+\begin{theorem}[Nerve Theorem --- Borsuk, 1948]
+Let $\mathcal{U} = \{U_i\}_{i \in I}$ be a finite cover of a
+topological space $X$ by convex open sets. Then the \emph{nerve} of
+$\mathcal{U}$:
+\[
+  \mathcal{N}(\mathcal{U}) = \big\{
+    \sigma \subseteq I : \bigcap_{i \in \sigma} U_i \neq \emptyset
+  \big\}
+\]
+has the same homotopy type as $\bigcup_{i \in I} U_i$.
+\end{theorem}
+
+\begin{corollary}
+In $\R^d$, $\check{C}(X, r)$ has the same homotopy type as
+$\bigcup_{i=1}^n B(x_i, r)$.
+\end{corollary}
+
+\begin{proposition}[Rips--\v{C}ech Relationship]
+For any point cloud $X \subset \R^d$ and $r > 0$:
+\[
+  \check{C}(X, r) \subseteq \mathrm{VR}(X, 2r) \subseteq
+  \check{C}\left(X, \frac{2r}{\sqrt{2}} \cdot \sqrt{\frac{d}{d+1}}\right).
+\]
+In particular: $\check{C}(X, r) \subseteq \mathrm{VR}(X, 2r)$.
+\end{proposition}
+
+% ============================================================
+\section{Alpha Complex}
+% ============================================================
+
+\begin{definition}[Vorono\"{\i} Diagram]
+The \emph{Vorono\"{\i} diagram} of $X \subset \R^d$ is the partition
+of $\R^d$ into cells:
+\[
+  V_i = \{y \in \R^d : \norm{y - x_i} \leq \norm{y - x_j}
+  \;\text{for all}\; j\}.
+\]
+\end{definition}
+
+\begin{definition}[Delaunay Triangulation]
+The \emph{Delaunay triangulation} $\mathrm{Del}(X)$ is the simplicial
+complex dual to the Vorono\"{\i} diagram:
+$\sigma = \{x_{i_0}, \ldots, x_{i_p}\} \in \mathrm{Del}(X)$ iff
+$\bigcap_{k=0}^p V_{i_k} \neq \emptyset$.
+\end{definition}
+
+\begin{definition}[Alpha Complex]
+The \emph{Alpha complex} at parameter $r$ is:
+\[
+  \mathrm{Alpha}(X, r) = \big\{
+    \sigma \in \mathrm{Del}(X) :
+    \bigcap_{x_i \in \sigma} (B(x_i, r) \cap V_i) \neq \emptyset
+  \big\}.
+\]
+It is the subcomplex of the Delaunay triangulation formed by simplices
+whose balls restricted to Vorono\"{\i} cells intersect.
+\end{definition}
+
+\begin{theorem}[Edelsbrunner, 1995]
+The Alpha complex satisfies:
+\begin{enumerate}
+  \item $\mathrm{Alpha}(X, r)$ has the same homotopy type as
+        $\bigcup_{i=1}^n B(x_i, r)$ (and hence as $\check{C}(X, r)$).
+  \item $\dim(\mathrm{Alpha}(X, r)) \leq d$ (the ambient dimension).
+  \item The total number of simplices is $O(n^{\lceil d/2 \rceil})$.
+\end{enumerate}
+\end{theorem}
+
+\begin{keyformulas}[title=\textbf{Size Comparison}]
+For $n$ points in $\R^d$:
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Complex} & \textbf{Max dimension} & \textbf{Nb simplices} \\
+\midrule
+Vietoris--Rips & $n - 1$ & $O(2^n)$ \\
+\v{C}ech & $n - 1$ & $O(2^n)$ \\
+Alpha & $d$ & $O(n^{\lceil d/2 \rceil})$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{keyformulas}
+
+% ============================================================
+\section{Practical Construction}
+% ============================================================
+
+\begin{codeblock}[title=\textbf{Rips Complex with GUDHI}]
+\begin{minted}{python}
+import gudhi
+import numpy as np
+
+# Point cloud
+np.random.seed(42)
+X = np.random.randn(50, 3)
+
+# Rips complex
+rips = gudhi.RipsComplex(points=X, max_edge_length=2.0)
+st = rips.create_simplex_tree(max_dimension=3)
+
+print(f"Number of simplices: {st.num_simplices()}")
+print(f"Number of vertices: {st.num_vertices()}")
+print(f"Dimension: {st.dimension()}")
+
+# Persistence
+pers = st.persistence()
+gudhi.plot_persistence_diagram(pers)
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Alpha Complex with GUDHI}]
+\begin{minted}{python}
+import gudhi
+import numpy as np
+
+# 2D point cloud
+np.random.seed(42)
+theta = np.linspace(0, 2*np.pi, 80, endpoint=False)
+X = np.column_stack([np.cos(theta), np.sin(theta)])
+X += 0.1 * np.random.randn(*X.shape)
+
+# Alpha complex
+alpha = gudhi.AlphaComplex(points=X)
+st = alpha.create_simplex_tree()
+
+print(f"Number of simplices: {st.num_simplices()}")
+print(f"Dimension: {st.dimension()}")
+
+# Persistence
+pers = st.persistence()
+gudhi.plot_persistence_diagram(pers)
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{\v{C}ech Complex Approximation}]
+\begin{minted}{python}
+import gudhi
+import numpy as np
+
+# 2D point cloud
+X = np.random.randn(30, 2)
+
+# The Alpha complex is homotopy-equivalent to Čech
+# and much smaller
+alpha = gudhi.AlphaComplex(points=X)
+st = alpha.create_simplex_tree()
+
+# Filtration values are squared radii of the
+# smallest enclosing ball of each simplex
+for simplex, filt in st.get_filtration():
+    if len(simplex) <= 3:
+        print(f"  {simplex}: radius^2 = {filt:.4f}")
+    if filt > 0.5:
+        break
+\end{minted}
+\end{codeblock}
+
+% ============================================================
+\section{Sparse Rips and Weighted Rips}
+% ============================================================
+
+\begin{definition}[Sparse Rips --- Sheehy, 2013]
+The \emph{Sparse Rips complex} is an approximation of the Vietoris--Rips
+complex containing $O(n)$ simplices per dimension, instead of $O(2^n)$.
+For a parameter $\varepsilon > 0$, it produces a
+$(1+\varepsilon)$-approximation of the persistence diagrams.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Sparse Rips with GUDHI}]
+\begin{minted}{python}
+import gudhi
+import numpy as np
+
+X = np.random.randn(500, 3)
+
+# Sparse Rips (epsilon = 0.3)
+sparse_rips = gudhi.RipsComplex(
+    points=X, max_edge_length=2.0, sparse=0.3)
+st = sparse_rips.create_simplex_tree(max_dimension=2)
+
+print(f"Sparse Rips: {st.num_simplices()} simplices")
+
+# Comparison with standard Rips
+rips = gudhi.RipsComplex(points=X[:100], max_edge_length=2.0)
+st_full = rips.create_simplex_tree(max_dimension=2)
+print(f"Full Rips (100 pts): {st_full.num_simplices()} simplices")
+\end{minted}
+\end{codeblock}
+
+% ============================================================
+\section{Cubical Complexes}
+% ============================================================
+
+\begin{definition}[Cubical Complex]
+A \emph{cubical complex} is the analogue of a simplicial complex where
+the building blocks are cubes (products of intervals) instead of
+simplices. It is particularly suited for grid data (images, 3D volumes).
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Persistent Homology of an Image}]
+\begin{minted}{python}
+import gudhi
+import numpy as np
+
+# Create a simple image (ring)
+x = np.linspace(-2, 2, 50)
+y = np.linspace(-2, 2, 50)
+XX, YY = np.meshgrid(x, y)
+image = np.sqrt(XX**2 + YY**2)  # distance to origin
+
+# Cubical complex
+cc = gudhi.CubicalComplex(
+    top_dimensional_cells=image.flatten(),
+    dimensions=image.shape
+)
+
+# Persistence
+pers = cc.persistence()
+print("Image persistence:")
+for dim, (b, d) in pers:
+    if d - b > 0.5:
+        print(f"  H_{dim}: ({b:.2f}, {d:.2f}), "
+              f"pers={d-b:.2f}")
+\end{minted}
+\end{codeblock}
+
+% ============================================================
+\section{Choosing a Complex in Practice}
+% ============================================================
+
+\begin{algorithme}[title=\textbf{Complex Selection Guide}]
+\begin{itemize}
+  \item \textbf{Low-dimensional data} ($d \leq 3$): use the
+        \textbf{Alpha} complex. It is small, exact, and fast to build.
+  \item \textbf{High-dimensional or metric data}: use
+        \textbf{Vietoris--Rips} (with \texttt{ripser} for speed).
+        Truncate dimension to $2$ or $3$.
+  \item \textbf{Grid data} (images, volumes): use a \textbf{cubical}
+        complex.
+  \item \textbf{Large number of points}: use \textbf{Sparse Rips} or
+        subsample.
+\end{itemize}
+\end{algorithme}
+
+% ============================================================
+\section{Exercises}
+% ============================================================
+
+\begin{exercise}
+For $4$ points at the vertices of a unit square, construct by hand the
+complexes $\mathrm{VR}(X, r)$ and $\check{C}(X, r)$ for
+$r = 0.5, 1.0, 1.5$. Verify the inclusion
+$\check{C}(X, r) \subseteq \mathrm{VR}(X, 2r)$.
+\end{exercise}
+
+\begin{exercise}
+Construct the Vorono\"{\i} diagram and Delaunay triangulation for $5$
+random points in $\R^2$ (possibly with
+\texttt{scipy.spatial.Delaunay}).
+\end{exercise}
+
+\begin{exercise}
+Compare the computation times of Alpha and Rips complexes for point
+clouds of $100$ to $1000$ points in dimensions $2$, $3$, and $10$.
+\end{exercise}
+
+\begin{exercise}
+Show that the Vietoris--Rips complex of $n+1$ points in general
+position in $\R^n$, for sufficiently large $r$, is the full simplex
+$\Delta^n$.
+\end{exercise}
+
+\begin{exercise}
+Compute the persistent homology of a binary image of your choice using
+a cubical complex with GUDHI.
+\end{exercise}

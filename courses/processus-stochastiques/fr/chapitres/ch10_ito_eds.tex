@@ -1,0 +1,393 @@
+% ============================================================
+\chapter{Calcul d'It\^o et \'Equations Diff\'erentielles Stochastiques}
+\label{ch:ito_eds}
+% ============================================================
+
+\begin{center}
+\textit{<<\,Le calcul stochastique est l'art de donner un sens
+rigoureux \`a des int\'egrales que l'analyse classique refuse.\,>>}
+\end{center}
+
+\bigskip
+
+La formule d'It\^o est au calcul stochastique ce que la r\`egle de la cha\^ine est au calcul diff\'erentiel classique --- mais avec un terme suppl\'ementaire. Quand on applique une fonction $f$ \`a un processus d'It\^o $X_t$, la diff\'erentielle de $f(X_t)$ contient non seulement le terme $f'(X_t)\, dX_t$ attendu, mais aussi un terme en $\frac{1}{2} f''(X_t) (dX_t)^2$ qui provient de la variation quadratique non nulle du mouvement brownien. Ce terme correctif, absent en analyse classique, est la signature du calcul stochastique. Il conduit aux \'equations diff\'erentielles stochastiques (EDS), dont les solutions d\'ecrivent l'\'evolution de syst\`emes soumis au bruit~: le mod\`ele de Black--Scholes en finance, le processus d'Ornstein--Uhlenbeck en physique, les \'equations de Langevin en chimie mol\'eculaire.
+
+Ce chapitre d\'eveloppe la th\'eorie de l'int\'egrale d'It\^o, \'etablit
+la formule d'It\^o (le <<\,changement de variable\,>> stochastique),
+puis \'etudie l'existence et l'unicit\'e des solutions d'\'equations
+diff\'erentielles stochastiques (EDS). On traite en d\'etail le mouvement
+brownien g\'eom\'etrique et le processus d'Ornstein--Uhlenbeck.
+
+% ------------------------------------------------------------
+\section{Construction de l'int\'egrale d'It\^o}
+\label{sec:integrale_ito}
+% ------------------------------------------------------------
+
+\begin{definition}[Int\'egrale d'It\^o pour les processus \'etag\'es]
+\index{int\'egrale d'It\^o}
+Soit $(B_t)_{t \geq 0}$ un mouvement brownien standard sur
+$(\Omega, \mathcal{F}, (\mathcal{F}_t), \PP)$. Pour un processus
+\'etag\'e $H_t = \sum_{i=0}^{n-1} h_i\,\ind_{(t_i, t_{i+1}]}(t)$
+o\`u chaque $h_i$ est $\mathcal{F}_{t_i}$-mesurable et born\'e,
+on d\'efinit~:
+\[
+  \int_0^T H_s\, dB_s = \sum_{i=0}^{n-1} h_i\,(B_{t_{i+1}} - B_{t_i}).
+\]
+\end{definition}
+
+\begin{theoreme}[Isom\'etrie d'It\^o]
+\label{thm:isometrie}
+Pour tout processus \'etag\'e $H$ adapt\'e, on a~:
+\[
+  \E\left[\left(\int_0^T H_s\, dB_s\right)^2\right]
+  = \E\left[\int_0^T H_s^2\, ds\right].
+\]
+\end{theoreme}
+
+\begin{proof}
+On d\'eveloppe le carr\'e~:
+\begin{align*}
+  \E\left[\left(\sum_{i} h_i\,\Delta B_i\right)^2\right]
+  &= \sum_{i} \E[h_i^2]\,\E[(\Delta B_i)^2]
+    + 2\sum_{i < j} \E[h_i\,\Delta B_i\, h_j\,\Delta B_j].
+\end{align*}
+Le premier terme donne $\sum_i \E[h_i^2]\,(t_{i+1} - t_i)$.
+Pour $i < j$, $h_j\,\Delta B_j$ est ind\'ependant de $\mathcal{F}_{t_j}$
+et $\E[\Delta B_j] = 0$, donc les termes crois\'es sont nuls.
+Ainsi $\E\bigl[\bigl(\int_0^T H\,dB\bigr)^2\bigr]
+= \E\bigl[\int_0^T H_s^2\,ds\bigr]$.
+\end{proof}
+
+\begin{intuition}
+L'isom\'etrie d'It\^o est l'analogue stochastique de l'identit\'e de
+Parseval en analyse de Fourier. Elle permet d'\'etendre l'int\'egrale
+d'It\^o par continuit\'e \`a tous les processus adapt\'es de carr\'e int\'egrable,
+en utilisant la compl\'etude de $L^2$.
+\end{intuition}
+
+\begin{definition}[Extension \`a $L^2$]
+\index{espace $\mathcal{H}^2$}
+Soit $\mathcal{H}^2_T$ l'espace des processus adapt\'es $(H_t)_{0 \leq t \leq T}$
+tels que $\E\bigl[\int_0^T H_s^2\,ds\bigr] < \infty$. L'int\'egrale d'It\^o
+s'\'etend de mani\`ere unique \`a $\mathcal{H}^2_T$ par densit\'e des processus
+\'etag\'es et par l'isom\'etrie d'It\^o.
+\end{definition}
+
+\begin{proposition}[Propri\'et\'es fondamentales]
+\label{prop:proprietes_ito}
+L'int\'egrale d'It\^o $M_t = \int_0^t H_s\,dB_s$ v\'erifie~:
+\begin{enumerate}
+  \item \textbf{Martingale}~: $(M_t)$ est une martingale de carr\'e int\'egrable.
+  \item \textbf{Lin\'earit\'e}~: $\int_0^t (\alpha H_s + \beta K_s)\,dB_s
+    = \alpha \int_0^t H_s\,dB_s + \beta \int_0^t K_s\,dB_s$.
+  \item \textbf{Trajectoires continues}~: $t \mapsto M_t$ est p.s.\ continu.
+\end{enumerate}
+\end{proposition}
+
+\begin{attention}
+L'int\'egrale d'It\^o n'est \emph{pas} une int\'egrale de
+Riemann--Stieltjes car les trajectoires du brownien sont \`a variation
+infinie. L'\'evaluation au bord \emph{gauche} de chaque intervalle
+est cruciale~: choisir le milieu donnerait l'int\'egrale de
+Stratonovich\index{int\'egrale de Stratonovich}, qui ob\'eit \`a des
+r\`egles de calcul diff\'erentes.
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Formule d'It\^o}
+\label{sec:formule_ito}
+% ------------------------------------------------------------
+
+\begin{theoreme}[Formule d'It\^o, cas unidimensionnel]
+\label{thm:ito_formula}
+\index{formule d'It\^o}
+Soit $X_t = X_0 + \int_0^t b_s\,ds + \int_0^t \sigma_s\,dB_s$ un
+processus d'It\^o et $f \in C^2(\R)$. Alors~:
+\[
+  f(X_t) = f(X_0) + \int_0^t f'(X_s)\,b_s\,ds
+    + \int_0^t f'(X_s)\,\sigma_s\,dB_s
+    + \frac{1}{2}\int_0^t f''(X_s)\,\sigma_s^2\,ds.
+\]
+\end{theoreme}
+
+\begin{proof}[Id\'ee de la preuve]
+On \'ecrit le d\'eveloppement de Taylor \`a l'ordre 2~:
+$f(X_{t+dt}) - f(X_t) \approx f'(X_t)\,dX_t + \frac{1}{2}f''(X_t)\,(dX_t)^2$.
+La r\`egle cl\'e est $(dB_t)^2 = dt$ (en moyenne quadratique), tandis que
+$dt\,dB_t = 0$ et $(dt)^2 = 0$. Donc
+$(dX_t)^2 = \sigma_t^2\,(dB_t)^2 + \cdots = \sigma_t^2\,dt$.
+L'int\'egration donne le r\'esultat.
+\end{proof}
+
+\begin{remarque}
+Le terme suppl\'ementaire $\frac{1}{2}f''(X_s)\,\sigma_s^2\,ds$,
+absent en calcul classique, est appel\'e \emph{terme correctif d'It\^o}.
+Il provient de la variation quadratique non nulle du brownien.
+\end{remarque}
+
+\begin{formules}
+\textbf{R\`egles de calcul d'It\^o}
+\begin{align*}
+  (dB_t)^2 &= dt, \qquad dt\cdot dB_t = 0, \qquad (dt)^2 = 0 \\[4pt]
+  d(X_t Y_t) &= X_t\,dY_t + Y_t\,dX_t + dX_t\,dY_t
+    \quad \text{(formule du produit)} \\[4pt]
+  df(X_t) &= f'(X_t)\,dX_t + \tfrac{1}{2}\,f''(X_t)\,(dX_t)^2
+\end{align*}
+\end{formules}
+
+\begin{corollaire}[Formule d'It\^o multidimensionnelle]
+Soit $\mathbf{X}_t = (X_t^1, \ldots, X_t^d)$ un vecteur de processus
+d'It\^o et $f \in C^2(\R^d)$. Alors~:
+\[
+  df(\mathbf{X}_t) = \sum_{i=1}^d \frac{\partial f}{\partial x_i}\,dX_t^i
+    + \frac{1}{2}\sum_{i,j=1}^d \frac{\partial^2 f}{\partial x_i \partial x_j}
+    \,d\langle X^i, X^j\rangle_t.
+\]
+\end{corollaire}
+
+\begin{exemple}
+Calculons $d(B_t^2)$ o\`u $B_t$ est un brownien standard.
+Avec $f(x) = x^2$, $f'(x) = 2x$, $f''(x) = 2$~:
+\[
+  d(B_t^2) = 2B_t\,dB_t + \tfrac{1}{2}\cdot 2\,dt = 2B_t\,dB_t + dt.
+\]
+Ainsi $\int_0^t B_s\,dB_s = \frac{1}{2}(B_t^2 - t)$, ce qui montre que
+l'int\'egrale d'It\^o diff\`ere de l'int\'egrale de Riemann--Stieltjes na\"ive.
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{\'Equations diff\'erentielles stochastiques}
+\label{sec:eds}
+% ------------------------------------------------------------
+
+\begin{definition}[\'Equation diff\'erentielle stochastique]
+\index{\'equation diff\'erentielle stochastique}
+Une \textbf{EDS} est une \'equation de la forme~:
+\[
+  dX_t = b(t, X_t)\,dt + \sigma(t, X_t)\,dB_t, \qquad X_0 = x_0,
+\]
+o\`u $b : [0,T] \times \R \to \R$ est le \emph{coefficient de d\'erive}
+et $\sigma : [0,T] \times \R \to \R$ le \emph{coefficient de diffusion}.
+\end{definition}
+
+\begin{theoreme}[Existence et unicit\'e (It\^o--Lipschitz)]
+\label{thm:existence_eds}
+\index{th\'eor\`eme d'existence pour les EDS}
+Si $b$ et $\sigma$ sont lipschitziens en $x$ uniform\'ement en $t$~:
+\[
+  \abs{b(t,x) - b(t,y)} + \abs{\sigma(t,x) - \sigma(t,y)} \leq K\,\abs{x-y},
+\]
+et \`a croissance lin\'eaire~:
+$\abs{b(t,x)} + \abs{\sigma(t,x)} \leq C(1 + \abs{x})$,
+alors l'EDS admet une unique solution forte $(X_t)_{0 \leq t \leq T}$
+adapt\'ee et \`a trajectoires continues, v\'erifiant
+$\E\bigl[\sup_{0 \leq t \leq T} X_t^2\bigr] < \infty$.
+\end{theoreme}
+
+\begin{proof}[Id\'ee de la preuve]
+On proc\`ede par it\'eration de Picard. On pose $X_t^{(0)} = x_0$ et~:
+\[
+  X_t^{(n+1)} = x_0 + \int_0^t b(s, X_s^{(n)})\,ds
+    + \int_0^t \sigma(s, X_s^{(n)})\,dB_s.
+\]
+Gr\^ace \`a la condition de Lipschitz et \`a l'isom\'etrie d'It\^o, on montre
+que $\E\bigl[\sup_{s \leq t} \abs{X_s^{(n+1)} - X_s^{(n)}}^2\bigr]
+\leq \frac{(Ct)^n}{n!}$ (lemme de Gronwall stochastique), d'o\`u
+la convergence uniforme en $L^2$.
+\end{proof}
+
+% ------------------------------------------------------------
+\section{Mouvement brownien g\'eom\'etrique}
+\label{sec:mbg}
+% ------------------------------------------------------------
+
+\begin{definition}[Mouvement brownien g\'eom\'etrique]
+\index{mouvement brownien g\'eom\'etrique}
+Le \textbf{mouvement brownien g\'eom\'etrique} (MBG) est la solution de~:
+\[
+  dS_t = \mu\, S_t\, dt + \sigma\, S_t\, dB_t, \qquad S_0 > 0.
+\]
+\end{definition}
+
+\begin{theoreme}[Solution explicite du MBG]
+\label{thm:mbg_solution}
+La solution du MBG est~:
+\[
+  S_t = S_0 \exp\left[\left(\mu - \frac{\sigma^2}{2}\right)t
+    + \sigma\, B_t\right].
+\]
+\end{theoreme}
+
+\begin{proof}
+Posons $Y_t = \ln S_t$. Par la formule d'It\^o avec $f(x) = \ln x$~:
+\[
+  dY_t = \frac{1}{S_t}\,dS_t - \frac{1}{2}\,\frac{1}{S_t^2}\,(dS_t)^2
+  = \mu\,dt + \sigma\,dB_t - \frac{\sigma^2}{2}\,dt
+  = \left(\mu - \frac{\sigma^2}{2}\right)dt + \sigma\,dB_t.
+\]
+Int\'egrant, $Y_t = Y_0 + (\mu - \sigma^2/2)\,t + \sigma B_t$, d'o\`u le r\'esultat.
+\end{proof}
+
+\begin{intuition}
+Le MBG est le mod\`ele canonique des prix d'actifs financiers (mod\`ele de
+Black--Scholes). Le terme $-\sigma^2/2$ dans l'exponentielle est la
+correction d'It\^o~: sans lui, on aurait $\E[S_t] = S_0 e^{(\mu + \sigma^2/2)t}$
+au lieu de $\E[S_t] = S_0 e^{\mu t}$.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Processus d'Ornstein--Uhlenbeck}
+\label{sec:ou}
+% ------------------------------------------------------------
+
+\begin{definition}[Processus d'Ornstein--Uhlenbeck]
+\index{Ornstein--Uhlenbeck}
+Le processus d'\textbf{Ornstein--Uhlenbeck} est solution de~:
+\[
+  dX_t = -\theta\,(X_t - \mu)\,dt + \sigma\,dB_t, \qquad X_0 = x_0,
+\]
+o\`u $\theta > 0$ est le taux de rappel, $\mu$ la moyenne \`a long terme
+et $\sigma > 0$ la volatilit\'e.
+\end{definition}
+
+\begin{proposition}[Solution explicite]
+La solution est~:
+\[
+  X_t = \mu + (x_0 - \mu)\,e^{-\theta t}
+    + \sigma \int_0^t e^{-\theta(t-s)}\,dB_s.
+\]
+En particulier, $X_t$ est gaussien avec
+$\E[X_t] = \mu + (x_0 - \mu)\,e^{-\theta t}$ et
+$\Var(X_t) = \frac{\sigma^2}{2\theta}(1 - e^{-2\theta t})$.
+\end{proposition}
+
+\begin{proof}
+Posons $Y_t = e^{\theta t}(X_t - \mu)$. Par la formule d'It\^o,
+$dY_t = \theta\,e^{\theta t}(X_t - \mu)\,dt + e^{\theta t}\,dX_t
+= \sigma\,e^{\theta t}\,dB_t$.
+Int\'egrant~: $Y_t = Y_0 + \sigma\int_0^t e^{\theta s}\,dB_s$,
+soit $X_t - \mu = (x_0 - \mu)e^{-\theta t}
++ \sigma\int_0^t e^{-\theta(t-s)}\,dB_s$.
+La variance se calcule par l'isom\'etrie d'It\^o.
+\end{proof}
+
+\begin{remarque}
+Le processus d'Ornstein--Uhlenbeck est le seul processus gaussien
+qui soit \`a la fois stationnaire (pour $t \to \infty$), markovien et
+\`a trajectoires continues. Sa mesure invariante est
+$\mathcal{N}(\mu,\, \sigma^2/(2\theta))$.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{\'Equation de Langevin}
+\label{sec:langevin}
+% ------------------------------------------------------------
+
+\begin{definition}[\'Equation de Langevin]
+\index{\'equation de Langevin}
+L'\textbf{\'equation de Langevin}\index{Langevin} pour une particule de
+masse $m$ soumise \`a une force de friction $-\gamma v$ et \`a un bruit
+thermique s'\'ecrit~:
+\[
+  m\,dv_t = -\gamma\,v_t\,dt + \sqrt{2\gamma k_B T}\,dB_t,
+\]
+o\`u $k_B$ est la constante de Boltzmann et $T$ la temp\'erature.
+\end{definition}
+
+\begin{proposition}[Relation de fluctuation-dissipation]
+\index{fluctuation-dissipation}
+\`A l'\'equilibre thermodynamique, la variance de la vitesse v\'erifie~:
+\[
+  \Var(v_\infty) = \frac{k_B T}{m},
+\]
+ce qui est coh\'erent avec le th\'eor\`eme d'\'equipartition de l'\'energie.
+Cette relation lie l'intensit\'e du bruit ($2\gamma k_B T$) au
+coefficient de friction ($\gamma$).
+\end{proposition}
+
+\begin{exercice}
+Montrer que $\int_0^t B_s\,dB_s = \frac{1}{2}(B_t^2 - t)$ en utilisant
+la formule d'It\^o. Interpr\'eter la diff\'erence avec le calcul
+d\'eterministe $\int_0^t x\,dx = x^2/2$.
+\end{exercice}
+
+\begin{exercice}
+R\'esoudre l'EDS $dX_t = X_t\,dt + X_t\,dB_t$ avec $X_0 = 1$.
+Calculer $\E[X_t]$ et $\Var(X_t)$.
+\end{exercice}
+
+\begin{exercice}
+Simuler num\'eriquement le processus d'Ornstein--Uhlenbeck par le sch\'ema
+d'Euler--Maruyama\index{Euler--Maruyama}~:
+\[
+  X_{n+1} = X_n - \theta\,(X_n - \mu)\,\Delta t + \sigma\,\sqrt{\Delta t}\,Z_n,
+  \quad Z_n \sim \mathcal{N}(0,1).
+\]
+V\'erifier que la distribution stationnaire est bien
+$\mathcal{N}(\mu, \sigma^2/(2\theta))$.
+\end{exercice}
+
+\begin{exercice}
+Soit $f(t,x) = e^{-rt}\,x^\alpha$ et $X_t$ un MBG de param\`etres
+$(\mu, \sigma)$. Appliquer la formule d'It\^o pour calculer $df(t, X_t)$
+et d\'eterminer la valeur de $\alpha$ pour laquelle $f(t, X_t)$ est
+une martingale.
+\end{exercice}
+
+\begin{exercice}[Conversion Stratonovich--It\^o]
+Consid\'erer l'EDS au sens de Stratonovich~:
+\[
+  dX_t = X_t \circ dB_t.
+\]
+\begin{enumerate}
+  \item Rappeler la relation g\'en\'erale entre l'int\'egrale de Stratonovich
+        $\int_0^t \sigma(X_s) \circ dB_s$ et l'int\'egrale d'It\^o, faisant
+        intervenir le terme correctif $\frac{1}{2}\int_0^t \sigma'(X_s)\,\sigma(X_s)\,ds$.
+  \item Convertir l'EDS ci-dessus en une EDS au sens d'It\^o.
+  \item R\'esoudre l'EDS d'It\^o obtenue et v\'erifier que la solution
+        est $X_t = X_0\,e^{B_t}$. Comparer avec le MBG de param\`etres
+        $\mu = \sigma^2/2$, $\sigma = 1$.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Th\'eor\`eme de Girsanov]
+Soit $(B_t)_{0 \leq t \leq T}$ un brownien standard sous $\PP$ et
+soit $\theta \in \R$ une constante. On d\'efinit la martingale
+exponentielle~:
+\[
+  Z_t = \exp\!\left(\theta B_t - \frac{\theta^2}{2}\,t\right).
+\]
+\begin{enumerate}
+  \item V\'erifier par la formule d'It\^o que $Z_t$ est une martingale
+        sous $\PP$.
+  \item On d\'efinit la mesure $\mathbb{Q}$ par $d\mathbb{Q} = Z_T\,d\PP$.
+        Montrer que $\widetilde{B}_t = B_t - \theta t$ est un brownien
+        standard sous $\mathbb{Q}$ (th\'eor\`eme de Girsanov).
+  \item Application~: soit $X_t$ solution de
+        $dX_t = \mu\,dt + \sigma\,dB_t$ sous $\PP$. Trouver une mesure
+        $\mathbb{Q}$ sous laquelle $X_t$ est un mouvement brownien
+        (sans d\'erive). Donner $d\mathbb{Q}/d\PP$ explicitement.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Solutions fortes et faibles]
+Consid\'erer l'EDS de Tanaka~:
+\[
+  dX_t = \mathrm{sign}(X_t)\,dB_t, \qquad X_0 = 0,
+\]
+o\`u $\mathrm{sign}(x) = \ind_{x > 0} - \ind_{x \leq 0}$.
+\begin{enumerate}
+  \item Montrer que le coefficient de diffusion $\sigma(x) = \mathrm{sign}(x)$
+        ne satisfait pas la condition de Lipschitz en $x = 0$. Pourquoi
+        le th\'eor\`eme d'existence forte (It\^o--Lipschitz) ne s'applique-t-il pas~?
+  \item Montrer que si $X_t$ est une solution, alors $Y_t = \abs{X_t}$
+        satisfait l'\'equation $Y_t = \abs{B_t}$ en loi (on pourra
+        utiliser la formule de Tanaka). En d\'eduire qu'une solution
+        \emph{faible} existe.
+  \item Expliquer pourquoi il n'existe pas de solution \emph{forte}
+        (c'est-\`a-dire une solution mesurable par rapport \`a la filtration
+        engendr\'ee par $B$). \emph{Indication}~: montrer que
+        $\mathrm{sign}(X_t)$ ne peut pas \^etre d\'etermin\'e par le seul
+        brownien $B$.
+\end{enumerate}
+\end{exercice}

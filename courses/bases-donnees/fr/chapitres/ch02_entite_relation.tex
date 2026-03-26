@@ -1,0 +1,441 @@
+% ============================================================
+\chapter{Le Mod\`ele Entit\'e-Relation}
+\label{ch:entite_relation}
+% ============================================================
+
+Avant d'\'ecrire la premi\`ere ligne de SQL, il faut \emph{penser} la
+structure des donn\'ees. C'est l'\'etape de la \emph{mod\'elisation
+conceptuelle}, et l'outil le plus utilis\'e pour cela est le mod\`ele
+entit\'e-relation, propos\'e par Peter Chen en 1976. L'id\'ee est de
+repr\'esenter le monde r\'eel par des \emph{entit\'es} (les objets), des
+\emph{attributs} (leurs propri\'et\'es) et des \emph{relations} (les liens
+entre eux), dans un diagramme visuel qui sert de plan d'architecte pour la
+base de donn\'ees.
+
+% ------------------------------------------------------------
+\section{Introduction \`a la conception de bases de donn\'ees}
+% ------------------------------------------------------------
+
+La conception d'une base de donn\'ees suit trois \'etapes principales~:
+\begin{enumerate}
+    \item \textbf{Analyse des besoins} --- recueil des exigences aupr\`es des utilisateurs.
+    \item \textbf{Conception conceptuelle} --- mod\'elisation ind\'ependante de tout SGBD
+          (mod\`ele Entit\'e-Relation).
+    \item \textbf{Conception logique} --- traduction en sch\'ema relationnel (tables SQL).
+    \item \textbf{Conception physique} --- choix des index, du partitionnement, etc.
+\end{enumerate}
+
+Le mod\`ele Entit\'e-Relation (E/R), introduit par Peter Chen en 1976, est
+l'outil standard pour la conception conceptuelle.
+
+\section{Concepts fondamentaux}
+
+\begin{definition}[Entit\'e]
+Une \emph{entit\'e} est un objet du monde r\'eel, distinguable des autres objets,
+sur lequel on souhaite stocker des informations. Un \emph{type d'entit\'e}
+regroupe les entit\'es partageant les m\^emes attributs.
+\end{definition}
+
+\begin{definition}[Attribut]
+Un \emph{attribut} est une propri\'et\'e qui d\'ecrit une entit\'e ou une relation.
+Chaque attribut a un \emph{domaine} (ensemble des valeurs possibles).
+On distingue~:
+\begin{itemize}
+    \item \textbf{Attribut simple} vs.\ \textbf{compos\'e} (ex.\ adresse = rue + ville + code postal).
+    \item \textbf{Attribut mono-valu\'e} vs.\ \textbf{multi-valu\'e} (ex.\ t\'el\'ephones).
+    \item \textbf{Attribut stock\'e} vs.\ \textbf{d\'eriv\'e} (ex.\ \^age calcul\'e \`a partir de la date de naissance).
+\end{itemize}
+\end{definition}
+
+\begin{definition}[Cl\'e d'entit\'e]
+Un attribut (ou ensemble d'attributs) dont la valeur identifie de mani\`ere
+unique chaque instance d'un type d'entit\'e. On le souligne dans le diagramme E/R.
+\end{definition}
+
+\begin{definition}[Relation (association)]
+Une \emph{relation} (ou \emph{association}) repr\'esente un lien entre deux ou
+plusieurs types d'entit\'es. Elle peut poss\'eder des attributs propres.
+\end{definition}
+
+\section{Cardinalit\'es}
+
+\begin{definition}[Cardinalit\'e]
+La \emph{cardinalit\'e} d'une participation d'un type d'entit\'e \`a une relation
+exprime le nombre minimal et maximal d'instances de la relation auxquelles
+une instance de l'entit\'e peut participer. On note $(min, max)$.
+\end{definition}
+
+Les cardinalit\'es les plus courantes sont~:
+
+\begin{formules}[title=\textbf{Types de cardinalit\'es}]
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Notation} & \textbf{Signification} & \textbf{Exemple} \\
+\midrule
+$1:1$ (un-\`a-un) & Chaque entit\'e est li\'ee \`a au plus une & Personne --- Passeport \\
+$1:N$ (un-\`a-plusieurs) & Une entit\'e est li\'ee \`a plusieurs & Professeur --- Cours \\
+$N:M$ (plusieurs-\`a-plusieurs) & Plusieurs \`a plusieurs & \'Etudiant --- Cours \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{formules}
+
+\begin{exemple}
+Un professeur enseigne \emph{plusieurs} cours, mais chaque cours est enseign\'e
+par \emph{un seul} professeur~: c'est une relation $1:N$.
+
+Un \'etudiant peut s'inscrire \`a \emph{plusieurs} cours, et chaque cours accueille
+\emph{plusieurs} \'etudiants~: c'est une relation $N:M$.
+\end{exemple}
+
+\section{Diagrammes E/R avec TikZ}
+
+\begin{center}
+\begin{tikzpicture}[
+    entity/.style={rectangle, draw, fill=blue!10, minimum width=2.5cm, minimum height=1cm, font=\bfseries},
+    relationship/.style={diamond, draw, fill=orange!20, minimum width=2cm, minimum height=1cm, aspect=2, font=\small\bfseries},
+    attribute/.style={ellipse, draw, fill=green!10, font=\small},
+    keyattr/.style={ellipse, draw, fill=yellow!20, font=\small\bfseries},
+    every edge/.style={draw, -}
+]
+    % Entites
+    \node[entity] (etudiant) at (0, 0) {\'Etudiant};
+    \node[entity] (cours)    at (8, 0) {Cours};
+    \node[entity] (prof)     at (8, -4) {Professeur};
+
+    % Relations
+    \node[relationship] (inscrit) at (4, 0) {Inscrit};
+    \node[relationship] (enseigne) at (8, -2) {Enseigne};
+
+    % Liens entite-relation
+    \draw (etudiant) -- node[above] {$N$} (inscrit);
+    \draw (inscrit) -- node[above] {$M$} (cours);
+    \draw (prof) -- node[right] {$1$} (enseigne);
+    \draw (enseigne) -- node[right] {$N$} (cours);
+
+    % Attributs Etudiant
+    \node[keyattr] (eid) at (-2, 1.5) {id\_etud};
+    \node[attribute] (enom) at (0, 1.8) {nom};
+    \node[attribute] (epre) at (2, 1.5) {pr\'enom};
+
+    \draw (etudiant) -- (eid);
+    \draw (etudiant) -- (enom);
+    \draw (etudiant) -- (epre);
+
+    % Attributs Cours
+    \node[keyattr] (cid) at (6, 1.5) {id\_cours};
+    \node[attribute] (ctit) at (8, 1.8) {intitul\'e};
+    \node[attribute] (ccred) at (10, 1.5) {cr\'edits};
+
+    \draw (cours) -- (cid);
+    \draw (cours) -- (ctit);
+    \draw (cours) -- (ccred);
+
+    % Attribut de la relation Inscrit
+    \node[attribute] (note) at (4, 1.5) {note};
+    \draw (inscrit) -- (note);
+
+    % Attributs Professeur
+    \node[keyattr] (pid) at (6, -5) {id\_prof};
+    \node[attribute] (pnom) at (8, -5.5) {nom};
+    \node[attribute] (pdep) at (10, -5) {d\'ept};
+
+    \draw (prof) -- (pid);
+    \draw (prof) -- (pnom);
+    \draw (prof) -- (pdep);
+\end{tikzpicture}
+\end{center}
+
+\section{Entit\'es faibles}
+
+\begin{definition}[Entit\'e faible]
+Une \emph{entit\'e faible} est un type d'entit\'e qui ne poss\`ede pas de cl\'e propre
+suffisante pour l'identifier de mani\`ere unique. Son identification d\'epend
+d'un type d'entit\'e \emph{propri\'etaire} (entit\'e forte) via une
+\emph{relation identifiante}.
+\end{definition}
+
+\begin{exemple}
+Consid\'erons les salles de cours d'un b\^atiment. Une salle est identifi\'ee
+par son num\'ero \emph{dans} un b\^atiment donn\'e. Le type d'entit\'e \texttt{Salle}
+est faible, identifi\'e par la combinaison de \texttt{Batiment.id\_bat} et
+\texttt{Salle.numero}.
+\end{exemple}
+
+\begin{center}
+\begin{tikzpicture}[
+    entity/.style={rectangle, draw, fill=blue!10, minimum width=2.5cm, minimum height=1cm, font=\bfseries},
+    weakentity/.style={rectangle, draw, double, fill=blue!10, minimum width=2.5cm, minimum height=1cm, font=\bfseries},
+    relationship/.style={diamond, draw, fill=orange!20, minimum width=1.8cm, minimum height=0.9cm, aspect=2, font=\small\bfseries},
+    weakrel/.style={diamond, draw, double, fill=orange!20, minimum width=1.8cm, minimum height=0.9cm, aspect=2, font=\small\bfseries},
+]
+    \node[entity] (bat) at (0,0) {B\^atiment};
+    \node[weakrel] (contient) at (4,0) {Contient};
+    \node[weakentity] (salle) at (8,0) {Salle};
+
+    \draw (bat) -- node[above] {$1$} (contient);
+    \draw[double] (contient) -- node[above] {$N$} (salle);
+\end{tikzpicture}
+\end{center}
+
+\section{Sp\'ecialisation et g\'en\'eralisation}
+
+\begin{definition}[Sp\'ecialisation / G\'en\'eralisation]
+La \emph{sp\'ecialisation} consiste \`a d\'efinir des sous-types d'un type d'entit\'e
+g\'en\'eral (relation \og est-un \fg, \emph{is-a}). La \emph{g\'en\'eralisation}
+est le processus inverse~: regrouper des types d'entit\'es partageant des
+attributs communs en un super-type.
+\end{definition}
+
+\begin{exemple}
+Le type \texttt{Personne} peut \^etre sp\'ecialis\'e en \texttt{\'Etudiant} et
+\texttt{Professeur}. Les attributs communs (nom, pr\'enom) sont dans
+\texttt{Personne}, les attributs sp\'ecifiques (fili\`ere pour \'Etudiant,
+d\'epartement pour Professeur) sont dans les sous-types.
+\end{exemple}
+
+Contraintes de sp\'ecialisation~:
+\begin{itemize}
+    \item \textbf{Disjointe} (d) vs.\ \textbf{chevauchante} (o)~: une entit\'e
+          peut-elle appartenir \`a plusieurs sous-types ?
+    \item \textbf{Totale} (t) vs.\ \textbf{partielle} (p)~: toute entit\'e
+          du super-type doit-elle appartenir \`a au moins un sous-type ?
+\end{itemize}
+
+\section{Passage du mod\`ele E/R au mod\`ele relationnel}
+
+\begin{theoreme}[R\`egles de traduction E/R $\to$ Relationnel]
+Les r\`egles de passage sont les suivantes~:
+\begin{enumerate}
+    \item \textbf{Type d'entit\'e fort} $\to$ une table dont la cl\'e primaire est
+          la cl\'e de l'entit\'e.
+    \item \textbf{Type d'entit\'e faible} $\to$ une table dont la cl\'e primaire
+          combine la cl\'e partielle et la cl\'e de l'entit\'e propri\'etaire
+          (cl\'e \'etrang\`ere).
+    \item \textbf{Relation $1:N$} $\to$ ajout d'une cl\'e \'etrang\`ere dans la table
+          c\^ot\'e $N$.
+    \item \textbf{Relation $N:M$} $\to$ cr\'eation d'une table d'association dont la
+          cl\'e primaire est la paire des cl\'es \'etrang\`eres.
+    \item \textbf{Relation $1:1$} $\to$ cl\'e \'etrang\`ere dans l'une des deux tables
+          (de pr\'ef\'erence celle avec participation totale).
+    \item \textbf{Attribut multi-valu\'e} $\to$ table s\'epar\'ee avec cl\'e \'etrang\`ere.
+    \item \textbf{Sp\'ecialisation} $\to$ plusieurs strat\'egies possibles
+          (tables s\'epar\'ees, table unique avec discriminateur, etc.).
+\end{enumerate}
+\end{theoreme}
+
+\begin{exemple}
+Appliquons les r\`egles au diagramme pr\'ec\'edent~:
+
+\begin{codeblock}[title=\textbf{Traduction du diagramme E/R en SQL}]
+\begin{minted}{sql}
+-- Regle 1 : entite forte -> table
+CREATE TABLE Etudiants (
+    id_etudiant INTEGER PRIMARY KEY,
+    nom         TEXT NOT NULL,
+    prenom      TEXT NOT NULL
+);
+
+CREATE TABLE Cours (
+    id_cours    INTEGER PRIMARY KEY,
+    intitule    TEXT NOT NULL,
+    credits     INTEGER DEFAULT 3,
+    id_prof     INTEGER REFERENCES Professeurs(id_prof)  -- Regle 3 : 1:N
+);
+
+CREATE TABLE Professeurs (
+    id_prof     INTEGER PRIMARY KEY,
+    nom         TEXT NOT NULL,
+    departement TEXT
+);
+
+-- Regle 4 : relation N:M -> table d'association
+CREATE TABLE Inscriptions (
+    id_etudiant INTEGER REFERENCES Etudiants(id_etudiant),
+    id_cours    INTEGER REFERENCES Cours(id_cours),
+    note        REAL,       -- attribut de la relation
+    PRIMARY KEY (id_etudiant, id_cours)
+);
+\end{minted}
+\end{codeblock}
+\end{exemple}
+
+\section{Exemple complet~: syst\`eme de biblioth\`eque}
+
+\subsection{Analyse des besoins}
+Une biblioth\`eque souhaite g\'erer~:
+\begin{itemize}
+    \item Les \textbf{livres} (ISBN, titre, ann\'ee de publication).
+    \item Les \textbf{auteurs} (nom, nationalit\'e). Un livre peut avoir plusieurs auteurs.
+    \item Les \textbf{adh\'erents} (num\'ero, nom, adresse).
+    \item Les \textbf{emprunts} (date d'emprunt, date de retour pr\'evue, date de retour effective).
+\end{itemize}
+
+\subsection{Diagramme E/R}
+
+\begin{center}
+\begin{tikzpicture}[
+    entity/.style={rectangle, draw, fill=blue!10, minimum width=2.2cm, minimum height=0.9cm, font=\bfseries\small},
+    relationship/.style={diamond, draw, fill=orange!20, minimum width=1.5cm, minimum height=0.8cm, aspect=2, font=\scriptsize\bfseries},
+]
+    \node[entity] (livre) at (0,0) {Livre};
+    \node[entity] (auteur) at (0,-3) {Auteur};
+    \node[entity] (adherent) at (7,0) {Adh\'erent};
+
+    \node[relationship] (ecrit) at (0,-1.5) {\'Ecrit};
+    \node[relationship] (emprunt) at (3.5,0) {Emprunt};
+
+    \draw (livre) -- node[right] {$N$} (ecrit);
+    \draw (ecrit) -- node[right] {$M$} (auteur);
+    \draw (livre) -- node[above] {$N$} (emprunt);
+    \draw (emprunt) -- node[above] {$M$} (adherent);
+\end{tikzpicture}
+\end{center}
+
+\subsection{Traduction en SQL}
+
+\begin{codeblock}[title=\textbf{Sch\'ema relationnel de la biblioth\`eque}]
+\begin{minted}{sql}
+CREATE TABLE Auteurs (
+    id_auteur    INTEGER PRIMARY KEY,
+    nom          TEXT NOT NULL,
+    nationalite  TEXT
+);
+
+CREATE TABLE Livres (
+    isbn         TEXT PRIMARY KEY,
+    titre        TEXT NOT NULL,
+    annee_pub    INTEGER
+);
+
+CREATE TABLE Ecrit_par (
+    isbn         TEXT REFERENCES Livres(isbn),
+    id_auteur    INTEGER REFERENCES Auteurs(id_auteur),
+    PRIMARY KEY (isbn, id_auteur)
+);
+
+CREATE TABLE Adherents (
+    id_adherent  INTEGER PRIMARY KEY,
+    nom          TEXT NOT NULL,
+    adresse      TEXT
+);
+
+CREATE TABLE Emprunts (
+    id_emprunt   INTEGER PRIMARY KEY,
+    isbn         TEXT REFERENCES Livres(isbn),
+    id_adherent  INTEGER REFERENCES Adherents(id_adherent),
+    date_emprunt DATE NOT NULL,
+    date_retour_prevue DATE NOT NULL,
+    date_retour_effective DATE
+);
+\end{minted}
+\end{codeblock}
+
+\section{Bonnes pratiques de conception}
+
+\begin{bonnepratique}[title=\textbf{R\`egles d'or de la conception E/R}]
+\begin{enumerate}
+    \item Chaque type d'entit\'e doit avoir une cl\'e bien d\'efinie.
+    \item \'Eviter les attributs multi-valu\'es~: les transformer en entit\'es s\'epar\'ees.
+    \item Privil\'egier les relations binaires aux relations ternaires
+          (plus faciles \`a comprendre et \`a traduire).
+    \item Ne pas confondre entit\'e et attribut~: si un concept a ses propres
+          attributs ou participe \`a des relations, c'est une entit\'e.
+    \item Documenter chaque choix de conception (cardinalit\'es, contraintes).
+\end{enumerate}
+\end{bonnepratique}
+
+\begin{antipattern}[title=\textbf{Anti-pattern~: la table ``fourre-tout''}]
+Regrouper toutes les informations dans une seule table g\'eante
+(\'etudiants, cours, notes, professeurs dans une m\^eme table) entra\^ine~:
+\begin{itemize}
+    \item Redondance massive des donn\'ees.
+    \item Anomalies d'insertion, de mise \`a jour et de suppression.
+    \item Difficult\'e de maintenance et d'\'evolution.
+\end{itemize}
+La normalisation (chapitre~\ref{ch:normalisation}) formalisera ces probl\`emes.
+\end{antipattern}
+
+\section{Int\'egration Python~: g\'en\'eration de sch\'ema}
+
+\begin{codeblock}[title=\textbf{G\'en\'eration automatique du sch\'ema avec Python}]
+\begin{minted}{python}
+import sqlite3
+
+schema = {
+    'Auteurs': {
+        'id_auteur': 'INTEGER PRIMARY KEY',
+        'nom': 'TEXT NOT NULL',
+        'nationalite': 'TEXT'
+    },
+    'Livres': {
+        'isbn': 'TEXT PRIMARY KEY',
+        'titre': 'TEXT NOT NULL',
+        'annee_pub': 'INTEGER'
+    }
+}
+
+conn = sqlite3.connect('bibliotheque.db')
+cur = conn.cursor()
+
+for table, colonnes in schema.items():
+    cols = ', '.join(f'{col} {typ}' for col, typ in colonnes.items())
+    sql = f'CREATE TABLE IF NOT EXISTS {table} ({cols})'
+    print(f'Execution : {sql}')
+    cur.execute(sql)
+
+conn.commit()
+conn.close()
+\end{minted}
+\end{codeblock}
+
+\section*{Exercices}
+
+\begin{exercice}
+Concevez un diagramme E/R pour un syst\`eme de r\'eservation d'h\^otel
+comportant les entit\'es \texttt{Client}, \texttt{Chambre}, \texttt{Hotel}
+et la relation \texttt{Reservation}. Pr\'ecisez les cardinalit\'es et
+les attributs de chaque entit\'e et relation.
+\end{exercice}
+
+\begin{exercice}
+Traduisez le diagramme E/R de l'exercice pr\'ec\'edent en sch\'ema relationnel SQL.
+Identifiez les cl\'es primaires et \'etrang\`eres.
+\end{exercice}
+
+\begin{exercice}
+Un h\^opital g\`ere des \texttt{Patients}, des \texttt{M\'edecins}, des
+\texttt{Services} et des \texttt{Consultations}. Un patient peut consulter
+plusieurs m\'edecins, un m\'edecin appartient \`a un seul service.
+\begin{enumerate}
+    \item Dessinez le diagramme E/R.
+    \item Identifiez une entit\'e faible potentielle.
+    \item Traduisez en SQL.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}
+Quelle strat\'egie de traduction de sp\'ecialisation choisiriez-vous pour
+mod\'eliser un syst\`eme o\`u \texttt{V\'ehicule} est sp\'ecialis\'e en
+\texttt{Voiture} et \texttt{Camion}, avec sp\'ecialisation disjointe et totale ?
+Justifiez votre choix et donnez le code SQL correspondant.
+\end{exercice}
+
+\begin{exercice}
+Identifiez et corrigez les erreurs de conception dans le sch\'ema suivant~:
+\begin{minted}{sql}
+CREATE TABLE Commandes (
+    id_commande INTEGER PRIMARY KEY,
+    nom_client TEXT,
+    adresse_client TEXT,
+    telephone_client TEXT,
+    produit TEXT,
+    prix REAL,
+    quantite INTEGER,
+    nom_fournisseur TEXT,
+    adresse_fournisseur TEXT
+);
+\end{minted}
+Proposez un diagramme E/R correct et le sch\'ema SQL correspondant.
+\end{exercice}

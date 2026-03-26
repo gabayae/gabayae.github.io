@@ -1,0 +1,313 @@
+% ============================================================
+\chapter{Couverture Delta et Gestion des Risques}
+\label{ch:couverture}
+% ============================================================
+
+Le mod\`ele de Black-Scholes ne se contente pas de donner un prix~: il dit comment \emph{se couvrir}. L'id\'ee centrale est que le risque d'une option peut \^etre \'elimin\'e en d\'etenant en permanence la bonne quantit\'e du sous-jacent --- le \emph{delta}. En ajustant cette position \`a chaque instant, le portefeuille devient insensible aux fluctuations du march\'e. Mais la couverture parfaite est un id\'eal~: en pratique, on ne peut r\'eajuster qu'\`a intervalles discrets, les co\^uts de transaction s'accumulent, et la volatilit\'e n'est jamais constante. Comprendre ces limites est aussi important que comprendre la th\'eorie.
+
+\section{Introduction}
+
+La couverture (\textit{hedging}) est l'activit\'e consistant \`a r\'eduire
+ou \'eliminer le risque li\'e \`a une position sur produits d\'eriv\'es.
+Ce chapitre d\'eveloppe la th\'eorie et la pratique du delta-hedging,
+du gamma-hedging, et analyse les co\^uts et limites de la couverture
+dynamique.
+
+\section{Delta-hedging}
+
+\subsection{Principe}
+
+\begin{definition}[Delta-hedging]
+Le \textbf{delta-hedging} consiste \`a maintenir un portefeuille
+$\Pi_t = V_t - \Delta_t S_t$
+localement insensible aux variations de $S$, o\`u
+$\Delta_t = \frac{\partial V}{\partial S}(S_t, t)$.
+\end{definition}
+
+\begin{theoreme}[Portefeuille auto-finan\c{c}ant delta-couvert]
+Dans le cadre de Black--Scholes avec trading continu, le portefeuille
+delta-couvert est sans risque et r\'eplique parfaitement le d\'eriv\'e.
+Sa valeur satisfait~:
+\[
+    d\Pi_t = r\Pi_t\,dt.
+\]
+\end{theoreme}
+
+\begin{intuition}[title=\textbf{Couverture en temps discret}]
+En pratique, le rebalancement est discret (toutes les $\Delta t$ unit\'es
+de temps). L'erreur de couverture provient du fait que $\Delta$ change
+entre deux rebalancements. Plus la fr\'equence est \'elev\'ee, meilleure
+est la couverture, mais plus les co\^uts de transaction augmentent.
+\end{intuition}
+
+\subsection{Erreur de couverture en temps discret}
+
+\begin{proposition}[Erreur de couverture]
+Pour un call europ\'een couvert en delta avec rebalancement aux dates
+$t_0, t_1, \ldots, t_N$, l'erreur de couverture est~:
+\[
+    \epsilon = \sum_{i=0}^{N-1} \frac{1}{2}\Gamma(S_{t_i}, t_i)
+    S_{t_i}^2\bigl[(\Delta S_{t_i})^2 - \sigma^2 S_{t_i}^2 \Delta t\bigr]
+    \cdot e^{r(T-t_{i+1})},
+\]
+o\`u $\Delta S_{t_i} = S_{t_{i+1}} - S_{t_i}$.
+\end{proposition}
+
+L'erreur de couverture a une esp\'erance nulle sous $\mathbb{Q}$ mais
+une variance non nulle, proportionnelle \`a $\Delta t$.
+
+\begin{codeblock}[title=\textbf{Simulation du delta-hedging discret}]
+\begin{minted}{python}
+import numpy as np
+from scipy.stats import norm
+
+def bs_delta(S, K, T, r, sigma):
+    """Delta d'un call europeen."""
+    if T < 1e-10:
+        return 1.0 if S > K else 0.0
+    d1 = (np.log(S/K) + (r + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
+    return norm.cdf(d1)
+
+def bs_price(S, K, T, r, sigma):
+    """Prix Black-Scholes d'un call."""
+    if T < 1e-10:
+        return max(S - K, 0)
+    d1 = (np.log(S/K) + (r + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
+    d2 = d1 - sigma*np.sqrt(T)
+    return S*norm.cdf(d1) - K*np.exp(-r*T)*norm.cdf(d2)
+
+def simulate_delta_hedge(S0, K, T, r, sigma, N_rebal, M=10000):
+    """Simule le delta-hedging et calcule l'erreur de couverture."""
+    dt = T / N_rebal
+    errors = np.zeros(M)
+
+    for m in range(M):
+        S = S0
+        # Portefeuille initial: vente du call, achat de delta*S
+        V0 = bs_price(S, K, T, r, sigma)
+        delta = bs_delta(S, K, T, r, sigma)
+        cash = V0 - delta * S  # position cash
+
+        for i in range(N_rebal):
+            tau = T - (i+1)*dt
+            Z = np.random.standard_normal()
+            S_new = S * np.exp((r - 0.5*sigma**2)*dt
+                               + sigma*np.sqrt(dt)*Z)
+            # Cash croît au taux sans risque
+            cash *= np.exp(r * dt)
+            # Nouveau delta
+            if tau > 1e-10:
+                delta_new = bs_delta(S_new, K, tau, r, sigma)
+            else:
+                delta_new = 1.0 if S_new > K else 0.0
+            # Rebalancement
+            cash -= (delta_new - delta) * S_new
+            delta = delta_new
+            S = S_new
+
+        # Valeur finale du portefeuille
+        portfolio = cash + delta * S
+        payoff = max(S - K, 0)
+        errors[m] = portfolio - payoff
+
+    return errors
+
+np.random.seed(42)
+for N in [10, 50, 252, 1000]:
+    errs = simulate_delta_hedge(100, 100, 1.0, 0.05, 0.20, N)
+    print(f"N={N:4d}: mean={np.mean(errs):.4f}, "
+          f"std={np.std(errs):.4f}")
+\end{minted}
+\end{codeblock}
+
+\section{Gamma-hedging}
+
+\begin{definition}[Gamma-hedging]
+Le \textbf{gamma-hedging} consiste \`a rendre le portefeuille insensible
+non seulement aux petites variations de $S$ (delta-neutre) mais aussi
+aux variations plus importantes (gamma-neutre). On utilise un deuxi\`eme
+instrument (typiquement une autre option) pour annuler le gamma.
+\end{definition}
+
+\begin{proposition}[Construction d'un portefeuille gamma-neutre]
+Soit $V$ le d\'eriv\'e \`a couvrir et $O$ un instrument de couverture
+avec gamma $\Gamma_O$. La position dans $O$ n\'ecessaire pour annuler
+le gamma est~:
+\[
+    w_O = -\frac{\Gamma_V}{\Gamma_O}.
+\]
+Apr\`es cette couverture, on ajuste la position dans le sous-jacent pour
+restaurer la delta-neutralit\'e~:
+\[
+    \Delta_{\text{total}} = \Delta_V + w_O \Delta_O.
+\]
+\end{proposition}
+
+\begin{exemple}
+Un trader est short un call ($\Delta = 0.55$, $\Gamma = 0.03$). Il dispose
+d'un call de maturit\'e diff\'erente ($\Delta_O = 0.40$, $\Gamma_O = 0.05$).
+
+Position gamma-neutre~: $w_O = -(-0.03)/0.05 = 0.60$.
+
+Nouveau delta~: $-0.55 + 0.60 \times 0.40 = -0.31$.
+
+Il faut acheter $0.31$ unit\'es du sous-jacent pour \^etre delta-neutre.
+\end{exemple}
+
+\section{Vega-hedging}
+
+\begin{definition}[Vega-hedging]
+Le \textbf{vega-hedging} vise \`a neutraliser la sensibilit\'e du
+portefeuille \`a la volatilit\'e. Comme le vega du sous-jacent est nul,
+il faut utiliser des options.
+\end{definition}
+
+\begin{remarque}
+En pratique, le vega-hedging est plus important que le gamma-hedging
+car les mouvements de volatilit\'e implicite peuvent engendrer des
+profits et pertes (P\&L) consid\'erables.
+\end{remarque}
+
+\section{D\'ecomposition du P\&L}
+
+\begin{theoreme}[D\'ecomposition du P\&L d'un portefeuille delta-couvert]
+Le P\&L instantan\'e d'un portefeuille delta-couvert s'\'ecrit~:
+\[
+    d\text{P\&L} = \frac{1}{2}\Gamma S^2\bigl[(dS/S)^2 - \sigma^2\,dt\bigr]
+                 + \mathcal{V}\,d\sigma_{\text{impl}} + \cdots
+\]
+Le premier terme est le \textbf{P\&L gamma} (profit si la volatilit\'e
+r\'ealis\'ee d\'epasse la volatilit\'e implicite), le second le
+\textbf{P\&L vega}.
+\end{theoreme}
+
+\begin{formules}[title=\textbf{Approximation Taylor du P\&L}]
+Pour un portefeuille g\'en\'eral, l'approximation Taylor donne~:
+\[
+    \Delta\text{P\&L} \approx \Delta\cdot\delta S
+    + \frac{1}{2}\Gamma(\delta S)^2 + \Theta\,\delta t
+    + \mathcal{V}\,\delta\sigma + \rho\,\delta r.
+\]
+\end{formules}
+
+\section{Co\^uts de transaction et couverture optimale}
+
+\begin{theoreme}[Fr\'equence de rebalancement optimale (Leland)]
+En pr\'esence de co\^uts de transaction proportionnels $k\abs{\delta S}$,
+Leland (1985) montre que la couverture optimale utilise une volatilit\'e
+modifi\'ee~:
+\[
+    \hat{\sigma}^2 = \sigma^2\left(1 + \sqrt{\frac{2}{\pi}}
+    \frac{k}{\sigma\sqrt{\Delta t}}\right).
+\]
+\end{theoreme}
+
+\begin{proposition}[Mod\`ele de Whalley--Wilmott]
+Une approche alternative consiste \`a ne rebalancer que lorsque le delta
+s'\'ecarte suffisamment de sa cible. La bande de non-rebalancement
+optimale est~:
+\[
+    \Delta_{\text{cible}} \pm \left(\frac{3k\,e^{-r\tau}\Gamma^2 S^2}
+    {2\lambda}\right)^{1/3},
+\]
+o\`u $\lambda$ repr\'esente l'aversion au risque du trader.
+\end{proposition}
+
+\begin{codeblock}[title=\textbf{Couverture avec co\^uts de transaction}]
+\begin{minted}{python}
+def hedge_with_costs(S0, K, T, r, sigma, N_rebal, k=0.001, M=5000):
+    """Delta-hedging avec couts de transaction proportionnels."""
+    dt = T / N_rebal
+    total_costs = np.zeros(M)
+    hedge_errors = np.zeros(M)
+
+    for m in range(M):
+        S = S0
+        V0 = bs_price(S, K, T, r, sigma)
+        delta = bs_delta(S, K, T, r, sigma)
+        cash = V0 - delta * S
+        cost = k * abs(delta) * S  # cout initial
+
+        for i in range(N_rebal):
+            tau = T - (i+1)*dt
+            Z = np.random.standard_normal()
+            S_new = S * np.exp((r-0.5*sigma**2)*dt
+                               + sigma*np.sqrt(dt)*Z)
+            cash *= np.exp(r*dt)
+
+            delta_new = bs_delta(S_new, K, max(tau, 1e-10), r, sigma)
+            trade = delta_new - delta
+            cost += k * abs(trade) * S_new
+            cash -= trade * S_new
+            delta = delta_new
+            S = S_new
+
+        portfolio = cash + delta * S
+        payoff = max(S - K, 0)
+        hedge_errors[m] = portfolio - payoff
+        total_costs[m] = cost
+
+    print(f"Cout moyen: {np.mean(total_costs):.4f}")
+    print(f"Erreur std: {np.std(hedge_errors):.4f}")
+    return hedge_errors, total_costs
+
+np.random.seed(42)
+hedge_with_costs(100, 100, 1.0, 0.05, 0.20, 252, k=0.001)
+\end{minted}
+\end{codeblock}
+
+\section{Couverture en march\'e incomplet}
+
+\begin{remarque}
+Lorsque le march\'e est incomplet (volatilit\'e stochastique, sauts),
+la couverture parfaite est impossible. On recourt alors \`a~:
+\begin{itemize}
+    \item La \textbf{couverture en variance minimale}~: minimiser
+          $\Var(\Pi_T - H)$ sur les strat\'egies admissibles.
+    \item La \textbf{couverture par super-r\'eplication}~: trouver le
+          co\^ut minimal d'un portefeuille dominant le payoff.
+    \item La \textbf{couverture par quantile}~: contr\^oler la probabilit\'e
+          de perte.
+\end{itemize}
+\end{remarque}
+
+\section{Exercices}
+
+\begin{exercice}[Simulation du delta-hedging]
+\begin{enumerate}
+    \item Simuler la couverture delta d'un call europ\'een pour
+          $N = 10, 50, 252, 1000$ rebalancements.
+    \item Tracer l'histogramme de l'erreur de couverture pour chaque $N$.
+    \item V\'erifier que la variance de l'erreur d\'ecro\^it en $O(1/N)$.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Gamma-hedging]
+\begin{enumerate}
+    \item Construire un portefeuille delta-gamma neutre \`a partir d'un
+          call ATM court, d'un call OTM long et du sous-jacent.
+    \item Simuler le P\&L sur une semaine et comparer avec le portefeuille
+          uniquement delta-couvert.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Analyse du P\&L]
+\begin{enumerate}
+    \item D\'ecomposer le P\&L journalier d'un portefeuille delta-couvert
+          en composantes delta, gamma, theta et vega.
+    \item Montrer que pour un portefeuille delta-neutre,
+          $\text{P\&L} \approx \frac{1}{2}\Gamma S^2(\sigma_r^2 - \sigma_i^2)\,dt$
+          o\`u $\sigma_r$ est la volatilit\'e r\'ealis\'ee et $\sigma_i$
+          la volatilit\'e implicite.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Co\^uts de transaction]
+\begin{enumerate}
+    \item Impl\'ementer la couverture de Leland avec volatilit\'e modifi\'ee.
+    \item Comparer le co\^ut total et l'erreur de couverture avec la
+          m\'ethode standard pour diff\'erentes valeurs de $k$.
+    \item Impl\'ementer la bande de Whalley--Wilmott et analyser le
+          compromis co\^ut/risque.
+\end{enumerate}
+\end{exercice}

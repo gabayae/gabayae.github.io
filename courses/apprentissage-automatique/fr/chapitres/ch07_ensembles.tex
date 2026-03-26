@@ -1,0 +1,589 @@
+% ============================================================
+\chapter{M\'ethodes d'Ensemble --- Bagging, Boosting, Random Forests}
+\label{ch:ensembles}
+\index{m\'ethodes d'ensemble}
+% ============================================================
+
+\section{Pourquoi les m\'ethodes d'ensemble~?}
+\label{sec:ensembles-pourquoi}
+
+L'id\'ee fondamentale des m\'ethodes d'ensemble est de combiner plusieurs
+mod\`eles <<~faibles~>> pour obtenir un mod\`ele <<~fort~>>. Nous montrons
+ici formellement pourquoi cette strat\'egie r\'eduit l'erreur.
+
+\begin{theoreme}[R\'eduction de variance par moyennage]
+\label{thm:variance-reduction}
+Soient $f_1, \ldots, f_B$ des mod\`eles ind\'ependants et identiquement
+distribu\'es, chacun de variance $\sigma^2$ et de biais $\mu$. Le mod\`ele
+moyenn\'e $\bar{f} = \frac{1}{B}\sum_{b=1}^B f_b$ satisfait~:
+\begin{equation}
+  \Bias[\bar{f}] = \mu, \qquad \Var[\bar{f}] = \frac{\sigma^2}{B}
+\end{equation}
+Le biais est inchang\'e mais la variance est divis\'ee par $B$.
+\end{theoreme}
+
+\begin{proof}
+Par lin\'earit\'e de l'esp\'erance~:
+$\E[\bar{f}] = \frac{1}{B}\sum_b \E[f_b] = \mu$. Par ind\'ependance~:
+$\Var[\bar{f}] = \frac{1}{B^2}\sum_b \Var[f_b] = \frac{\sigma^2}{B}$.
+\end{proof}
+
+\begin{remarque}
+En pratique, les mod\`eles ne sont pas parfaitement ind\'ependants car ils
+sont entra\^in\'es sur des \'echantillons li\'es. Si la corr\'elation entre
+paires est $\rho$, alors~:
+\begin{equation}
+  \Var[\bar{f}] = \rho\sigma^2 + \frac{1 - \rho}{B}\sigma^2
+  \label{eq:var-correlated}
+\end{equation}
+R\'eduire $\rho$ est la cl\'e pour am\'eliorer les ensembles.
+\end{remarque}
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, rounded corners, minimum width=2cm,
+    minimum height=0.7cm, align=center, font=\small},
+  >=Stealth
+]
+  % Bagging
+  \node[box, fill=blue!10] (bag) at (0, 0) {\textbf{Bagging}};
+  \node[box, fill=blue!5, below left=0.8cm and 0.5cm of bag] (b1)
+    {Mod\`ele 1};
+  \node[box, fill=blue!5, below=0.8cm of bag] (b2) {Mod\`ele 2};
+  \node[box, fill=blue!5, below right=0.8cm and 0.5cm of bag] (b3)
+    {Mod\`ele $B$};
+  \node[box, fill=green!15, below=0.8cm of b2] (bavg) {Moyenne / Vote};
+  \draw[->] (bag) -- (b1);
+  \draw[->] (bag) -- (b2);
+  \draw[->] (bag) -- (b3);
+  \draw[->] (b1) -- (bavg);
+  \draw[->] (b2) -- (bavg);
+  \draw[->] (b3) -- (bavg);
+  \node[font=\scriptsize, right=0.1cm of b2] {$\cdots$};
+  \node[font=\scriptsize, above=0.1cm of bag] {Parall\`ele};
+
+  % Boosting
+  \node[box, fill=orange!10] (boost) at (8, 0) {\textbf{Boosting}};
+  \node[box, fill=orange!5, below=0.8cm of boost] (t1) {Mod\`ele 1};
+  \node[box, fill=orange!5, below=0.8cm of t1] (t2) {Mod\`ele 2};
+  \node[box, fill=orange!5, below=0.8cm of t2] (t3) {Mod\`ele $T$};
+  \node[box, fill=green!15, right=1.5cm of t2] (bsum) {Somme pond\'er\'ee};
+  \draw[->] (boost) -- (t1);
+  \draw[->] (t1) -- node[right, font=\scriptsize] {r\'esidus} (t2);
+  \draw[->] (t2) -- node[right, font=\scriptsize] {r\'esidus} (t3);
+  \node[font=\scriptsize, left=0.2cm of t2] {$\vdots$};
+  \draw[->] (t1.east) -- ++(0.5,0) |- (bsum);
+  \draw[->] (t2) -- (bsum);
+  \draw[->] (t3.east) -- ++(0.5,0) |- (bsum);
+  \node[font=\scriptsize, above=0.1cm of boost] {S\'equentiel};
+\end{tikzpicture}
+\end{center}
+
+\section{Bagging (Bootstrap Aggregating)}
+\label{sec:bagging}
+\index{bagging}
+
+\begin{definition}[Bagging]
+Le \textbf{bagging}~\cite{hastie2009} consiste \`a~:
+\begin{enumerate}
+  \item G\'en\'erer $B$ \'echantillons bootstrap $\mathcal{D}_1^*, \ldots,
+    \mathcal{D}_B^*$ par tirage avec remise de taille $n$.
+  \item Entra\^iner un mod\`ele $f_b$ sur chaque $\mathcal{D}_b^*$.
+  \item Agr\'eger les pr\'edictions~:
+    \begin{itemize}
+      \item R\'egression~:
+        $\hat{f}(\bm{x}) = \frac{1}{B}\sum_{b=1}^B f_b(\bm{x})$
+      \item Classification~:
+        $\hat{f}(\bm{x}) = \argmax_k \sum_{b=1}^B \ind[f_b(\bm{x}) = k]$
+        (vote majoritaire)
+    \end{itemize}
+\end{enumerate}
+\end{definition}
+
+\begin{proposition}[Proportion d'exemples hors-sac]
+\index{bootstrap}
+Un \'echantillon bootstrap de taille $n$ contient en moyenne environ
+$1 - (1 - 1/n)^n \approx 1 - e^{-1} \approx 63.2\,\%$ des exemples
+originaux. Les $\sim 36.8\,\%$ restants sont dits <<~hors-sac~>>
+(\emph{out-of-bag}).
+\end{proposition}
+
+\begin{proof}
+La probabilit\'e qu'un exemple $i$ ne soit pas s\'electionn\'e dans un tirage
+est $1 - 1/n$. Sur $n$ tirages ind\'ependants~:
+$\Pr(i \notin \mathcal{D}_b^*) = (1 - 1/n)^n \xrightarrow[n \to \infty]{}
+e^{-1}$.
+\end{proof}
+
+\subsection{D\'erivation formelle de la r\'eduction de variance}
+
+\begin{theoreme}[Variance du bagging]
+Si les mod\`eles $f_b$ ont une variance $\sigma^2$ et une corr\'elation par
+paires $\rho$, alors la pr\'ediction bag\'ee a pour variance~:
+\begin{equation}
+  \Var[\hat{f}_{\text{bag}}] = \rho\sigma^2
+  + \frac{(1-\rho)\sigma^2}{B}
+\end{equation}
+Pour $B \to \infty$, $\Var[\hat{f}_{\text{bag}}] \to \rho\sigma^2$.
+\end{theoreme}
+
+\begin{proof}
+On a $\hat{f}_{\text{bag}} = \frac{1}{B}\sum_b f_b$. Donc~:
+\begin{align}
+  \Var[\hat{f}_{\text{bag}}]
+  &= \frac{1}{B^2}\left[\sum_b \Var[f_b]
+    + \sum_{b \neq b'} \Cov(f_b, f_{b'})\right] \\
+  &= \frac{1}{B^2}\left[B\sigma^2 + B(B-1)\rho\sigma^2\right] \\
+  &= \frac{\sigma^2}{B} + \frac{(B-1)\rho\sigma^2}{B}
+  = \rho\sigma^2 + \frac{(1-\rho)\sigma^2}{B}
+\end{align}
+\end{proof}
+
+\section{For\^ets al\'eatoires}
+\label{sec:random-forests}
+\index{for\^ets al\'eatoires}
+
+\begin{definition}[For\^et al\'eatoire]
+Une \textbf{for\^et al\'eatoire}~\cite{hastie2009} est un bagging d'arbres de
+d\'ecision avec une randomisation suppl\'ementaire~: \`a chaque s\'eparation,
+seul un sous-ensemble al\'eatoire de $m$ variables (sur $d$) est
+consid\'er\'e.
+\end{definition}
+
+\begin{formules}[title=\textbf{Choix de $m$ (nombre de variables candidates)}]
+\begin{center}
+\begin{tabular}{lc}
+\toprule
+\textbf{T\^ache} & \textbf{Valeur recommand\'ee} \\
+\midrule
+Classification & $m = \lfloor\sqrt{d}\rfloor$ \\
+R\'egression & $m = \lfloor d/3 \rfloor$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+R\'eduire $m$ diminue la corr\'elation $\rho$ entre arbres, ce qui r\'eduit
+la variance de l'ensemble (cf. \'equation~\eqref{eq:var-correlated}).
+\end{formules}
+
+\begin{algorithme}[title=\textbf{Algorithme Random Forest}]
+\textbf{Entr\'ee}~: $\mathcal{D} = \{(\bm{x}_i, y_i)\}_{i=1}^n$, nombre
+d'arbres $B$, nombre de variables $m$.
+
+\textbf{Pour} $b = 1, \ldots, B$~:
+\begin{enumerate}
+  \item Tirer un \'echantillon bootstrap $\mathcal{D}_b^*$ de taille $n$.
+  \item Construire un arbre $T_b$ sur $\mathcal{D}_b^*$~:
+    \begin{itemize}
+      \item \`A chaque n\oe{}ud, s\'electionner al\'eatoirement $m$ variables.
+      \item Trouver la meilleure s\'eparation parmi ces $m$ variables.
+      \item D\'evelopper l'arbre compl\`etement (pas d'\'elagage).
+    \end{itemize}
+\end{enumerate}
+\textbf{Pr\'ediction}~: agr\'eger par vote (classification) ou moyenne
+(r\'egression).
+\end{algorithme}
+
+\subsection{Erreur out-of-bag (OOB)}
+\index{erreur OOB}
+
+\begin{definition}[Erreur OOB]
+Pour chaque observation $(\bm{x}_i, y_i)$, l'erreur \textbf{out-of-bag} est
+calcul\'ee en agr\'egeant uniquement les arbres pour lesquels $i$ n'\'etait
+pas dans l'\'echantillon bootstrap~:
+\begin{equation}
+  \hat{y}_i^{\text{OOB}} = \text{agr\'eger}\{T_b(\bm{x}_i) :
+    i \notin \mathcal{D}_b^*\}
+\end{equation}
+L'erreur OOB globale est une estimation non biais\'ee de l'erreur de
+g\'en\'eralisation, sans n\'ecessiter d'ensemble de validation.
+\end{definition}
+
+\begin{bonnepratique}[title=\textbf{Avantages des for\^ets al\'eatoires}]
+\begin{itemize}
+  \item Peu d'hyperparam\`etres \`a r\'egler (principalement $B$ et $m$).
+  \item Robustes au surapprentissage~: augmenter $B$ ne d\'egrade jamais
+    la performance (la variance diminue ou stagne).
+  \item Fournissent une estimation de l'erreur (OOB) gratuitement.
+  \item Calculent l'importance des variables.
+  \item Parall\'elisables efficacement.
+\end{itemize}
+\end{bonnepratique}
+
+\section{Boosting}
+\label{sec:boosting}
+\index{boosting}
+
+Contrairement au bagging (r\'eduction de variance), le boosting vise \`a
+r\'eduire le \textbf{biais} en combinant s\'equentiellement des mod\`eles
+faibles.
+
+\subsection{AdaBoost}
+\index{AdaBoost}
+
+\begin{algorithme}[title=\textbf{Algorithme AdaBoost}]
+\textbf{Entr\'ee}~: $\{(\bm{x}_i, y_i)\}_{i=1}^n$ avec $y_i \in \{-1, +1\}$,
+nombre d'it\'erations $T$.
+
+\textbf{Initialisation}~: $w_i^{(1)} = 1/n$ pour tout $i$.
+
+\textbf{Pour} $t = 1, \ldots, T$~:
+\begin{enumerate}
+  \item Entra\^iner un classifieur faible $h_t$ en minimisant l'erreur
+    pond\'er\'ee~:
+    \begin{equation}
+      \varepsilon_t = \sum_{i=1}^n w_i^{(t)} \ind[h_t(\bm{x}_i) \neq y_i]
+    \end{equation}
+  \item Calculer le poids du classifieur~:
+    \begin{equation}
+      \alpha_t = \frac{1}{2}\ln\!\left(\frac{1 - \varepsilon_t}{\varepsilon_t}
+      \right)
+      \label{eq:adaboost-alpha}
+    \end{equation}
+  \item Mettre \`a jour les poids des exemples~:
+    \begin{equation}
+      w_i^{(t+1)} = \frac{w_i^{(t)} \exp(-\alpha_t y_i h_t(\bm{x}_i))}{Z_t}
+      \label{eq:adaboost-weights}
+    \end{equation}
+    o\`u $Z_t$ est le facteur de normalisation.
+\end{enumerate}
+\textbf{Pr\'ediction}~:
+$H(\bm{x}) = \sign\!\left(\sum_{t=1}^T \alpha_t h_t(\bm{x})\right)$
+\end{algorithme}
+
+\begin{theoreme}[D\'erivation de la r\`egle de mise \`a jour]
+\index{AdaBoost!d\'erivation}
+AdaBoost minimise la perte exponentielle~:
+\begin{equation}
+  L = \sum_{i=1}^n \exp\!\left(-y_i \sum_{t=1}^T \alpha_t h_t(\bm{x}_i)\right)
+\end{equation}
+\`A l'\'etape $t$, en fixant les classifieurs pr\'ec\'edents et en optimisant
+$\alpha_t$~:
+\begin{align}
+  \frac{\partial L}{\partial \alpha_t}
+  &= -\sum_{i=1}^n y_i h_t(\bm{x}_i) w_i^{(t)} e^{-\alpha_t y_i h_t(\bm{x}_i)}
+  = 0
+\end{align}
+En s\'eparant les exemples correctement class\'es ($y_i h_t = +1$) et
+incorrectement class\'es ($y_i h_t = -1$)~:
+\begin{equation}
+  e^{-\alpha_t}(1 - \varepsilon_t) - e^{\alpha_t}\varepsilon_t = 0
+  \implies \alpha_t = \frac{1}{2}\ln\!\left(\frac{1 - \varepsilon_t}
+  {\varepsilon_t}\right)
+\end{equation}
+\end{theoreme}
+
+\begin{proposition}[Borne sur l'erreur d'entra\^inement]
+L'erreur d'entra\^inement d'AdaBoost est born\'ee par~:
+\begin{equation}
+  \frac{1}{n}\sum_{i=1}^n \ind[H(\bm{x}_i) \neq y_i]
+  \leq \prod_{t=1}^T 2\sqrt{\varepsilon_t(1 - \varepsilon_t)}
+  = \prod_{t=1}^T \sqrt{1 - 4\gamma_t^2}
+\end{equation}
+o\`u $\gamma_t = \frac{1}{2} - \varepsilon_t$ est l'<<~avantage~>> du
+classifieur faible. Si $\gamma_t \geq \gamma > 0$, l'erreur
+d\'ecro\^it exponentiellement en $T$.
+\end{proposition}
+
+\begin{attention}[title=\textbf{AdaBoost et le bruit}]
+AdaBoost augmente les poids des exemples mal class\'es. En pr\'esence de bruit
+(\'etiquettes erron\'ees), il sur-pond\`ere les outliers, ce qui peut
+d\'egrader la g\'en\'eralisation. Le Gradient Boosting avec r\'egularisation
+est g\'en\'eralement plus robuste.
+\end{attention}
+
+\subsection{Gradient Boosting}
+\index{gradient boosting}
+
+\begin{definition}[Gradient Boosting]
+Le \textbf{gradient boosting} g\'en\'eralise le boosting \`a toute fonction
+de perte diff\'erentiable $\ell$. Le mod\`ele est construit de fa\c{c}on
+additive~:
+\begin{equation}
+  F_t(\bm{x}) = F_{t-1}(\bm{x}) + \eta \cdot h_t(\bm{x})
+\end{equation}
+o\`u $h_t$ est ajust\'e sur les \textbf{pseudo-r\'esidus}
+(gradient n\'egatif)~:
+\begin{equation}
+  r_i^{(t)} = -\frac{\partial \ell(y_i, F_{t-1}(\bm{x}_i))}
+    {\partial F_{t-1}(\bm{x}_i)}
+  \label{eq:pseudo-residuals}
+\end{equation}
+et $\eta \in (0, 1]$ est le taux d'apprentissage (\emph{learning rate}).
+\end{definition}
+
+\begin{algorithme}[title=\textbf{Algorithme Gradient Boosting}]
+\textbf{Entr\'ee}~: $\{(\bm{x}_i, y_i)\}_{i=1}^n$, perte $\ell$, nombre
+d'it\'erations $T$, taux $\eta$.
+
+\begin{enumerate}
+  \item Initialiser $F_0(\bm{x}) = \argmin_c \sum_{i=1}^n \ell(y_i, c)$.
+  \item \textbf{Pour} $t = 1, \ldots, T$~:
+    \begin{enumerate}
+      \item Calculer les pseudo-r\'esidus $r_i^{(t)}$
+        (\'equation~\eqref{eq:pseudo-residuals}).
+      \item Ajuster un arbre de r\'egression $h_t$ sur
+        $\{(\bm{x}_i, r_i^{(t)})\}$.
+      \item Mettre \`a jour~: $F_t = F_{t-1} + \eta \cdot h_t$.
+    \end{enumerate}
+\end{enumerate}
+\textbf{Pr\'ediction}~: $\hat{y} = F_T(\bm{x})$.
+\end{algorithme}
+
+\begin{intuition}[title=\textbf{Descente de gradient dans l'espace fonctionnel}]
+Le gradient boosting effectue une descente de gradient, non pas dans l'espace
+des param\`etres, mais dans l'\textbf{espace des fonctions}. \`A chaque
+it\'eration, $h_t$ approxime la direction de plus forte descente de la perte.
+Le taux $\eta$ joue le r\^ole du pas de gradient et r\'egularise le mod\`ele~:
+un $\eta$ petit n\'ecessite plus d'arbres mais g\'en\'eralise mieux.
+\end{intuition}
+
+\subsection{XGBoost et LightGBM}
+\index{XGBoost}\index{LightGBM}
+
+Les impl\'ementations modernes ajoutent plusieurs am\'eliorations~:
+
+\begin{formules}[title=\textbf{Am\'eliorations de XGBoost/LightGBM}]
+\begin{center}
+\begin{tabular}{lp{8cm}}
+\toprule
+\textbf{Technique} & \textbf{Description} \\
+\midrule
+R\'egularisation L1/L2 & P\'enalisation des poids des feuilles~:
+  $\Omega(h) = \gamma|T| + \frac{\lambda}{2}\sum_j w_j^2$ \\
+Approximation de Newton & Utilisation du hessien (d\'eriv\'ee seconde) pour
+  des s\'eparations plus pr\'ecises \\
+Sous-\'echantillonnage & Colonnes et lignes \'echantillonn\'ees \`a chaque
+  arbre (r\'eduit $\rho$) \\
+Croissance par feuille & LightGBM fait cro\^itre l'arbre par feuille
+  (\emph{leaf-wise}) au lieu de par niveau (\emph{level-wise}) \\
+Histogrammes & Discr\'etisation des features pour acc\'el\'erer la recherche
+  de seuils \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{formules}
+
+\section{Comparaison des m\'ethodes}
+\label{sec:comparaison}
+
+\begin{formules}[title=\textbf{Tableau comparatif}]
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+& \textbf{Bagging/RF} & \textbf{AdaBoost} & \textbf{Gradient Boosting} \\
+\midrule
+R\'eduit & Variance & Biais & Biais \\
+Parall\`ele & Oui & Non & Non \\
+Robuste au bruit & Oui & Non & Mod\'er\'e \\
+Risque surapprentissage & Faible & Mod\'er\'e & \'Elev\'e \\
+Hyperparam\`etres & Peu & Peu & Beaucoup \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{formules}
+
+\section{Impl\'ementations avec scikit-learn}
+\label{sec:ensembles-sklearn}
+
+\begin{codeblock}[title=\textbf{Random Forest}]
+\begin{minted}{python}
+import numpy as np
+from sklearn.datasets import load_wine
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split, cross_val_score
+
+X, y = load_wine(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42, stratify=y
+)
+
+rf = RandomForestClassifier(
+    n_estimators=200, max_features="sqrt", oob_score=True,
+    random_state=42, n_jobs=-1
+)
+rf.fit(X_train, y_train)
+
+print("=== Random Forest ===")
+print(f"Accuracy train : {rf.score(X_train, y_train):.4f}")
+print(f"Accuracy test  : {rf.score(X_test, y_test):.4f}")
+print(f"Erreur OOB     : {1 - rf.oob_score_:.4f}")
+print(f"CV accuracy    : {cross_val_score(rf, X, y, cv=5).mean():.4f}")
+
+# Importance des variables
+importances = rf.feature_importances_
+feature_names = load_wine().feature_names
+indices = np.argsort(importances)[::-1]
+print("\nTop 5 variables :")
+for i in range(5):
+    print(f"  {feature_names[indices[i]]:25s} : {importances[indices[i]]:.4f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+=== Random Forest ===
+Accuracy train : 1.0000
+Accuracy test  : 0.9815
+Erreur OOB     : 0.0323
+CV accuracy    : 0.9775
+
+Top 5 variables :
+  color_intensity           : 0.1542
+  flavanoids                : 0.1487
+  proline                   : 0.1325
+  alcohol                   : 0.1198
+  od280/od315_of_diluted_wines : 0.0843
+\end{verbatim}
+\end{codeoutput}
+
+\begin{codeblock}[title=\textbf{Gradient Boosting et comparaison}]
+\begin{minted}{python}
+from sklearn.ensemble import (
+    GradientBoostingClassifier, AdaBoostClassifier
+)
+from sklearn.tree import DecisionTreeClassifier
+import matplotlib.pyplot as plt
+
+# AdaBoost
+ada = AdaBoostClassifier(
+    estimator=DecisionTreeClassifier(max_depth=1),
+    n_estimators=200, learning_rate=0.5, random_state=42
+)
+ada.fit(X_train, y_train)
+
+# Gradient Boosting
+gb = GradientBoostingClassifier(
+    n_estimators=200, max_depth=3, learning_rate=0.1,
+    subsample=0.8, random_state=42
+)
+gb.fit(X_train, y_train)
+
+print("=== Comparaison ===")
+models = {"Random Forest": rf, "AdaBoost": ada, "Gradient Boosting": gb}
+for name, model in models.items():
+    acc_train = model.score(X_train, y_train)
+    acc_test = model.score(X_test, y_test)
+    cv = cross_val_score(model, X, y, cv=5).mean()
+    print(f"{name:20s} | train={acc_train:.4f} | "
+          f"test={acc_test:.4f} | CV={cv:.4f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+=== Comparaison ===
+Random Forest        | train=1.0000 | test=0.9815 | CV=0.9775
+AdaBoost             | train=1.0000 | test=0.9444 | CV=0.9497
+Gradient Boosting    | train=1.0000 | test=0.9815 | CV=0.9719
+\end{verbatim}
+\end{codeoutput}
+
+\begin{codeblock}[title=\textbf{Courbes d'apprentissage et effet du nombre d'arbres}]
+\begin{minted}{python}
+# Erreur en fonction du nombre d'arbres (staged_predict)
+n_estimators_range = range(1, 201)
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+# AdaBoost
+ada_train = [1 - acc for acc in ada.staged_score(X_train, y_train)]
+ada_test = [1 - acc for acc in ada.staged_score(X_test, y_test)]
+axes[0].plot(n_estimators_range, ada_train, label="Train")
+axes[0].plot(n_estimators_range, ada_test, label="Test")
+axes[0].set_title("AdaBoost")
+axes[0].set_xlabel("Nombre d'arbres")
+axes[0].set_ylabel("Erreur")
+axes[0].legend()
+
+# Gradient Boosting
+gb_train = [1 - acc for acc in gb.staged_score(X_train, y_train)]
+gb_test = [1 - acc for acc in gb.staged_score(X_test, y_test)]
+axes[1].plot(n_estimators_range, gb_train, label="Train")
+axes[1].plot(n_estimators_range, gb_test, label="Test")
+axes[1].set_title("Gradient Boosting")
+axes[1].set_xlabel("Nombre d'arbres")
+axes[1].set_ylabel("Erreur")
+axes[1].legend()
+
+plt.tight_layout()
+plt.savefig("ensemble_learning_curves.pdf")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{XGBoost (si disponible)}]
+\begin{minted}{python}
+try:
+    from xgboost import XGBClassifier
+
+    xgb = XGBClassifier(
+        n_estimators=200, max_depth=4, learning_rate=0.1,
+        subsample=0.8, colsample_bytree=0.8,
+        reg_lambda=1.0, reg_alpha=0.1,
+        eval_metric="mlogloss", random_state=42
+    )
+    xgb.fit(X_train, y_train)
+    print(f"XGBoost test accuracy : {xgb.score(X_test, y_test):.4f}")
+    print(f"XGBoost CV accuracy   : "
+          f"{cross_val_score(xgb, X, y, cv=5).mean():.4f}")
+except ImportError:
+    print("xgboost non installe. Installer avec: pip install xgboost")
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{verbatim}
+XGBoost test accuracy : 0.9815
+XGBoost CV accuracy   : 0.9775
+\end{verbatim}
+\end{codeoutput}
+
+\section{Exercices}
+\label{sec:exercises-ch7}
+
+\begin{exercice}[Bootstrap et erreur OOB --- Niveau 1]
+\begin{enumerate}
+  \item Montrer que la probabilit\'e qu'un exemple donn\'e soit absent d'un
+    \'echantillon bootstrap de taille $n$ converge vers $e^{-1}$ quand
+    $n \to \infty$.
+  \item Pour $n = 100$, calculer la valeur exacte
+    $(1 - 1/100)^{100}$ et la comparer \`a $e^{-1}$.
+  \item Entra\^iner une for\^et al\'eatoire sur le dataset Iris avec
+    \texttt{oob\_score=True}. Comparer l'erreur OOB avec l'erreur de
+    validation crois\'ee 5-fold.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[AdaBoost analytique --- Niveau 2]
+Soit un jeu de donn\'ees de 6 points \'equir\'epartis entre les classes
+$+1$ et $-1$. \`A la premi\`ere it\'eration, le classifieur faible $h_1$
+classe correctement 4 points sur 6.
+\begin{enumerate}
+  \item Calculer $\varepsilon_1$, $\alpha_1$ et les nouveaux poids $w_i^{(2)}$.
+  \item Si le deuxi\`eme classifieur faible $h_2$ classe correctement les 2
+    points mal class\'es par $h_1$ mais en rate 1 autre, calculer
+    $\varepsilon_2$ et $\alpha_2$.
+  \item D\'emontrer compl\`etement que la formule~\eqref{eq:adaboost-alpha}
+    minimise la perte exponentielle \`a chaque \'etape.
+  \item V\'erifier que la borne sur l'erreur d'entra\^inement est
+    satisfaite apr\`es 2 it\'erations.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[Comparaison compl\`ete --- Niveau 3]
+\begin{enumerate}
+  \item Sur le dataset \texttt{breast\_cancer} de scikit-learn, comparer
+    syst\'ematiquement~: arbre seul, bagging (50 arbres), for\^et al\'eatoire
+    (50, 200, 500 arbres), AdaBoost (100 stumps), Gradient Boosting
+    (100 arbres, $\eta = 0.1$). Reporter accuracy, F1-score et temps
+    d'entra\^inement (validation crois\'ee 10-fold).
+  \item \'Etudier l'effet du nombre de variables candidates $m$ dans une
+    for\^et al\'eatoire. Tracer l'erreur OOB en fonction de $m$ pour
+    $m \in \{1, 2, \ldots, d\}$.
+  \item Impl\'ementer l'algorithme AdaBoost \`a partir de z\'ero (sans
+    scikit-learn) avec des \emph{decision stumps} comme classifieurs faibles.
+    Comparer avec \texttt{AdaBoostClassifier}.
+  \item D\'emontrer formellement que le bagging ne peut pas augmenter le biais
+    par rapport au mod\`ele de base (pour la perte quadratique), en utilisant
+    l'in\'egalit\'e de Jensen.
+\end{enumerate}
+\end{exercice}

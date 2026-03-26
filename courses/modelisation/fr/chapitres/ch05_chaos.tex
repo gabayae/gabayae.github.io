@@ -1,0 +1,388 @@
+% ============================================================
+\chapter{Syst\`emes Dynamiques Discrets et Chaos}
+\label{ch:chaos}
+% ============================================================
+
+En 1963, Edward Lorenz, m\'et\'eorologue au MIT, d\'ecouvre par accident que son mod\`ele atmosph\'erique simplifi\'e est extr\^emement sensible aux conditions initiales~: une diff\'erence infime dans les donn\'ees de d\'epart produit des trajectoires radicalement diff\'erentes. C'est l'\og effet papillon \fg, et la naissance de la th\'eorie du chaos. Mais le chaos n'est pas le d\'esordre~: il ob\'eit \`a des r\`egles pr\'ecises, engendre des structures fractales magnifiques (l'attracteur de Lorenz, l'ensemble de Mandelbrot), et poss\`ede une th\'eorie math\'ematique rigoureuse. Ce chapitre explore ce monde fascinant \`a travers les syst\`emes dynamiques discrets --- les it\'erations de fonctions --- o\`u le chaos appara\^it dans toute sa puret\'e.
+
+\section{Introduction}
+
+Les syst\`emes dynamiques discrets, d\'efinis par des it\'erations
+$x_{n+1}=f(x_n)$, constituent un cadre remarquablement simple dans
+lequel \'emergent des comportements complexes : bifurcations,
+doublement de p\'eriode et chaos d\'eterministe.  Ce chapitre
+\'etudie en profondeur l'application logistique, les exposants de
+Lyapunov et les diagrammes de bifurcation.
+
+% ------------------------------------------------------------
+\section{It\'erations et orbites}
+% ------------------------------------------------------------
+
+\begin{definition}[Syst\`eme dynamique discret]
+Un \textbf{syst\`eme dynamique discret} en dimension un est d\'efini
+par une application $f:\R\to\R$ et la r\'ecurrence :
+\[
+  x_{n+1} = f(x_n), \qquad x_0 \text{ donn\'e}.
+\]
+L'\textbf{orbite} de $x_0$ est la suite $(x_0, x_1, x_2, \ldots)$.
+\end{definition}
+
+\begin{definition}[Point fixe et cycle]
+\begin{itemize}
+  \item Un \textbf{point fixe} est un point $x^*$ tel que $f(x^*)=x^*$.
+  \item Un \textbf{cycle de p\'eriode $p$} est un ensemble
+    $\{x_1^*,\ldots,x_p^*\}$ tel que $f^p(x_i^*)=x_i^*$ et
+    $f^k(x_i^*)\neq x_i^*$ pour $0<k<p$.
+\end{itemize}
+\end{definition}
+
+\begin{theoreme}[Stabilit\'e d'un point fixe]
+Soit $x^*$ un point fixe de $f$ avec $f$ d\'erivable en $x^*$.
+\begin{itemize}
+  \item Si $\abs{f'(x^*)} < 1$, le point fixe est
+    \textbf{asymptotiquement stable} (attracteur).
+  \item Si $\abs{f'(x^*)} > 1$, le point fixe est \textbf{instable}
+    (r\'epulseur).
+  \item Si $\abs{f'(x^*)} = 1$, la stabilit\'e d\'epend des termes
+    d'ordre sup\'erieur.
+\end{itemize}
+\end{theoreme}
+
+\begin{exemple}[Diagramme en escalier]
+Pour $f(x) = \cos(x)$, le point fixe v\'erifie $x^*=\cos(x^*)
+\approx 0{,}7391$.  On a $f'(x^*)=-\sin(x^*)\approx -0{,}6736$,
+donc $\abs{f'(x^*)}<1$ : le point fixe est stable.
+\end{exemple}
+
+\begin{codeblock}[title=\textbf{Diagramme en escalier (toile d'araign\'ee)}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+def cobweb(f, x0, n_iter, ax, xmin=0, xmax=1):
+    x = np.linspace(xmin, xmax, 500)
+    ax.plot(x, f(x), 'b-', lw=2, label='$f(x)$')
+    ax.plot(x, x, 'k--', lw=1, label='$y=x$')
+    xn = x0
+    for _ in range(n_iter):
+        xn1 = f(xn)
+        ax.plot([xn, xn], [xn, xn1], 'r-', lw=0.8)
+        ax.plot([xn, xn1], [xn1, xn1], 'r-', lw=0.8)
+        xn = xn1
+    ax.set_xlabel('$x_n$'); ax.set_ylabel('$x_{n+1}$')
+
+fig, ax = plt.subplots(figsize=(6, 6))
+cobweb(np.cos, 0.1, 30, ax, xmin=-0.5, xmax=1.5)
+ax.set_title('Diagramme en escalier pour $f(x) = \\cos(x)$')
+plt.tight_layout(); plt.savefig('cobweb.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{L'application logistique}
+\label{sec:logistique_discrete}
+% ------------------------------------------------------------
+
+\begin{definition}[Application logistique]
+L'\textbf{application logistique} est d\'efinie par :
+\[
+  f_r(x) = rx(1-x), \qquad x\in[0,1], \quad r\in[0,4].
+\]
+Elle mod\'elise la croissance d'une population avec saturation
+en temps discret.
+\end{definition}
+
+\subsection{Points fixes}
+
+Les points fixes v\'erifient $x=rx(1-x)$, soit :
+\[
+  x^*_1 = 0, \qquad x^*_2 = 1 - \frac{1}{r} \quad (r>1).
+\]
+
+\begin{proposition}[Stabilit\'e des points fixes]
+On a $f_r'(x) = r(1-2x)$.
+\begin{itemize}
+  \item $x^*_1=0$ : $f_r'(0)=r$.  Stable si $r<1$, instable si $r>1$.
+  \item $x^*_2=1-1/r$ : $f_r'(x^*_2)=2-r$.  Stable si $1<r<3$.
+\end{itemize}
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Cascade de doublements de p\'eriode}
+\label{sec:doublement}
+% ------------------------------------------------------------
+
+\begin{theoreme}[Sc\'enario de Feigenbaum]
+Lorsque $r$ augmente au-del\`a de $3$, le point fixe $x^*_2$
+devient instable et donne naissance \`a un cycle de p\'eriode~$2$
+(bifurcation par doublement de p\'eriode).  Ce processus se
+r\'ep\`ete : $2\to 4\to 8\to\cdots$  Les valeurs de $r$ aux
+bifurcations convergent g\'eom\'etriquement vers $r_\infty\approx 3{,}5699$
+avec le rapport universel de Feigenbaum :
+\[
+  \delta = \lim_{n\to\infty}\frac{r_n - r_{n-1}}{r_{n+1}-r_n}
+  \approx 4{,}6692.
+\]
+\end{theoreme}
+
+\begin{remarque}
+La constante de Feigenbaum $\delta$ est \textbf{universelle} : elle
+ne d\'epend pas de la forme pr\'ecise de $f$, pourvu que $f$ ait
+un unique maximum quadratique.
+\end{remarque}
+
+\begin{codeblock}[title=\textbf{Diagramme de bifurcation de l'application logistique}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+r_vals = np.linspace(2.5, 4.0, 2000)
+n_skip = 300   # transitoire
+n_plot = 200   # points à tracer
+
+r_list, x_list = [], []
+
+for r in r_vals:
+    x = 0.5
+    for _ in range(n_skip):
+        x = r * x * (1 - x)
+    for _ in range(n_plot):
+        x = r * x * (1 - x)
+        r_list.append(r)
+        x_list.append(x)
+
+plt.figure(figsize=(12, 7))
+plt.scatter(r_list, x_list, s=0.01, c='black', alpha=0.5)
+plt.xlabel('$r$'); plt.ylabel('$x^*$')
+plt.title('Diagramme de bifurcation — Application logistique')
+plt.tight_layout(); plt.savefig('bifurcation.pdf', dpi=200)
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Chaos d\'eterministe}
+\label{sec:chaos_def}
+% ------------------------------------------------------------
+
+\begin{definition}[Chaos (Devaney)]
+Un syst\`eme dynamique discret $x_{n+1}=f(x_n)$ est dit
+\textbf{chaotique} au sens de Devaney s'il satisfait :
+\begin{enumerate}
+  \item \textbf{Sensibilit\'e aux conditions initiales :}
+    $\exists\,\varepsilon>0$ tel que pour tout $x_0$ et tout
+    voisinage $U$ de $x_0$, $\exists\,y_0\in U$ et $\exists\,n$
+    tel que $\abs{f^n(x_0)-f^n(y_0)}>\varepsilon$.
+  \item \textbf{Transitivit\'e topologique :} pour tout couple
+    d'ouverts non vides $U,V$, $\exists\,n$ tel que
+    $f^n(U)\cap V\neq\emptyset$.
+  \item \textbf{Densit\'e des orbites p\'eriodiques :} les points
+    p\'eriodiques sont denses.
+\end{enumerate}
+\end{definition}
+
+\begin{theoreme}
+L'application logistique $f_4(x)=4x(1-x)$ est chaotique sur $[0,1]$.
+\end{theoreme}
+
+\begin{intuition}[title=\textbf{Chaos et pr\'evisibilit\'e}]
+Un syst\`eme chaotique est \textbf{d\'eterministe} : il n'y a pas
+d'al\'eatoire.  Cependant, la sensibilit\'e aux conditions initiales
+rend les pr\'edictions \`a long terme impossibles en pratique, car
+toute erreur de mesure est amplifi\'ee exponentiellement.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Exposants de Lyapunov}
+\label{sec:lyapunov}
+% ------------------------------------------------------------
+
+\begin{definition}[Exposant de Lyapunov]
+L'\textbf{exposant de Lyapunov} d'une orbite $(x_0,x_1,\ldots)$
+sous $f$ est :
+\[
+  \lambda = \lim_{n\to\infty}\frac{1}{n}\sum_{k=0}^{n-1}
+  \ln\abs{f'(x_k)}.
+\]
+\begin{itemize}
+  \item $\lambda < 0$ : convergence vers un attracteur (point fixe
+    ou cycle stable).
+  \item $\lambda = 0$ : comportement marginalement stable.
+  \item $\lambda > 0$ : \textbf{chaos} (sensibilit\'e aux conditions
+    initiales).
+\end{itemize}
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Calcul de l'exposant de Lyapunov}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+def lyapunov_exponent(r, x0=0.5, n_skip=1000, n_calc=5000):
+    x = x0
+    for _ in range(n_skip):
+        x = r * x * (1 - x)
+    lyap = 0.0
+    for _ in range(n_calc):
+        deriv = abs(r * (1 - 2 * x))
+        if deriv == 0:
+            return -np.inf
+        lyap += np.log(deriv)
+        x = r * x * (1 - x)
+    return lyap / n_calc
+
+r_vals = np.linspace(2.5, 4.0, 2000)
+lyap_vals = [lyapunov_exponent(r) for r in r_vals]
+
+plt.figure(figsize=(12, 4))
+plt.plot(r_vals, lyap_vals, 'b-', lw=0.5)
+plt.axhline(0, color='red', ls='--')
+plt.xlabel('$r$'); plt.ylabel('$\\lambda$')
+plt.title('Exposant de Lyapunov de l\'application logistique')
+plt.tight_layout(); plt.savefig('lyapunov.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Fen\^etres de p\'eriodicit\'e}
+% ------------------------------------------------------------
+
+\begin{remarque}
+Au sein de la r\'egion chaotique ($r>r_\infty$), il existe des
+\textbf{fen\^etres de p\'eriodicit\'e} o\`u l'orbite redevient
+p\'eriodique.  La plus grande est la fen\^etre de p\'eriode~3
+autour de $r\approx 3{,}83$.
+\end{remarque}
+
+\begin{theoreme}[Li--Yorke, 1975]
+Si $f$ admet un point p\'eriodique de p\'eriode~3, alors $f$ admet
+des orbites p\'eriodiques de \textbf{toute} p\'eriode
+(<<\,period three implies chaos\,>>).
+\end{theoreme}
+
+% ------------------------------------------------------------
+\section{L'application de H\'enon}
+\label{sec:henon}
+% ------------------------------------------------------------
+
+\begin{definition}[Application de H\'enon]
+L'\textbf{application de H\'enon} est un syst\`eme dynamique discret
+en dimension~2 :
+\[
+  \begin{cases}
+    x_{n+1} = 1 - ax_n^2 + y_n, \\
+    y_{n+1} = bx_n.
+  \end{cases}
+\]
+Pour $a=1{,}4$ et $b=0{,}3$, elle poss\`ede un attracteur \'etrange
+de dimension fractale $\approx 1{,}26$.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Attracteur de H\'enon}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+a, b = 1.4, 0.3
+n_iter = 50000
+x, y = np.zeros(n_iter), np.zeros(n_iter)
+x[0], y[0] = 0.1, 0.1
+
+for n in range(n_iter - 1):
+    x[n+1] = 1 - a * x[n]**2 + y[n]
+    y[n+1] = b * x[n]
+
+plt.figure(figsize=(10, 6))
+plt.scatter(x[1000:], y[1000:], s=0.1, c='blue', alpha=0.5)
+plt.xlabel('$x$'); plt.ylabel('$y$')
+plt.title("Attracteur de Hénon ($a=1.4$, $b=0.3$)")
+plt.tight_layout(); plt.savefig('henon.pdf', dpi=200)
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Chaos en temps continu : aper\c{c}u du syst\`eme de Lorenz}
+% ------------------------------------------------------------
+
+\begin{definition}[Syst\`eme de Lorenz]
+Le syst\`eme de Lorenz mod\'elise la convection atmosph\'erique :
+\begin{align}
+  \dot{x} &= \sigma(y-x), \\
+  \dot{y} &= \rho x - y - xz, \\
+  \dot{z} &= xy - \beta z.
+\end{align}
+Pour $\sigma=10$, $\rho=28$, $\beta=8/3$, le syst\`eme pr\'esente un
+\textbf{attracteur \'etrange} en forme de papillon.
+\end{definition}
+
+\begin{codeblock}[title=\textbf{Attracteur de Lorenz}]
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+from mpl_toolkits.mplot3d import Axes3D
+
+sigma, rho, beta_l = 10, 28, 8/3
+
+def lorenz(t, state):
+    x, y, z = state
+    return [sigma*(y-x), rho*x - y - x*z, x*y - beta_l*z]
+
+sol = solve_ivp(lorenz, [0, 50], [1, 1, 1],
+                t_eval=np.linspace(0, 50, 20000),
+                method='RK45', rtol=1e-10)
+
+fig = plt.figure(figsize=(10, 8))
+ax = fig.add_subplot(111, projection='3d')
+ax.plot(sol.y[0], sol.y[1], sol.y[2], lw=0.3, color='blue')
+ax.set_xlabel('$x$'); ax.set_ylabel('$y$'); ax.set_zlabel('$z$')
+ax.set_title('Attracteur de Lorenz')
+plt.tight_layout(); plt.savefig('lorenz.pdf')
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}
+Pour l'application logistique avec $r=3{,}2$ :
+\begin{enumerate}
+  \item Trouver analytiquement les points du cycle de p\'eriode~2.
+  \item V\'erifier par simulation.
+  \item Montrer que le cycle est stable en calculant $(f_r^2)'$.
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}
+\'Ecrire un programme qui calcule num\'eriquement les premi\`eres
+valeurs de bifurcation $r_1, r_2, \ldots, r_6$ et v\'erifier la
+convergence vers le rapport de Feigenbaum $\delta\approx 4{,}6692$.
+\end{exercice}
+
+\begin{exercice}
+Tracer l'exposant de Lyapunov de l'application logistique en
+fonction de $r$ et v\'erifier que $\lambda>0$ dans les r\'egions
+chaotiques et $\lambda<0$ dans les fen\^etres de p\'eriodicit\'e.
+\end{exercice}
+
+\begin{exercice}
+Pour l'application de H\'enon avec diff\'erentes valeurs de $a$
+(en fixant $b=0{,}3$), tracer l'attracteur et calculer
+les deux exposants de Lyapunov.
+\end{exercice}
+
+\begin{exercice}
+\'Etudier la sensibilit\'e aux conditions initiales dans le
+syst\`eme de Lorenz : tracer deux trajectoires partant de
+$(1,1,1)$ et $(1{,}001,1,1)$ et mesurer la divergence exponentielle.
+\end{exercice}
+
+\begin{exercice}
+Consid\'erer l'application tente $f(x)=\min(2x, 2(1-x))$ sur $[0,1]$.
+\begin{enumerate}
+  \item Montrer que l'exposant de Lyapunov vaut $\lambda=\ln 2$.
+  \item Tracer le diagramme en escalier.
+  \item Pourquoi cette application est-elle exactement conjuguée
+    \`a l'application logistique $f_4$\,?
+\end{enumerate}
+\end{exercice}

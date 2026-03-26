@@ -1,0 +1,287 @@
+% ============================================================
+\chapter{RAG --- G\'en\'eration Augment\'ee par R\'ecup\'eration}
+\label{ch:rag}
+% ============================================================
+
+Les grands mod\`eles de langue sont remarquablement comp\'etents, mais ils ont deux faiblesses structurelles~: ils \og hallucinent \fg{} (g\'en\`erent des informations plausibles mais fausses) et leurs connaissances sont fig\'ees \`a la date d'entra\^inement. En 2020, Patrick Lewis et ses collaborateurs chez Facebook AI Research proposent une solution \'el\'egante~: la \emph{G\'en\'eration Augment\'ee par R\'ecup\'eration} (RAG). Le principe est de coupler le mod\`ele g\'en\'eratif \`a un syst\`eme de recherche documentaire~: avant de g\'en\'erer une r\'eponse, le mod\`ele r\'ecup\`ere des passages pertinents dans une base de connaissances externe et les utilise comme contexte. Cette architecture d\'ecouple la \emph{m\'emoire} (la base de documents, facilement mise \`a jour) du \emph{raisonnement} (le mod\`ele de langue). Le RAG est aujourd'hui au c\oe ur des syst\`emes de question-r\'eponse d'entreprise, des chatbots sp\'ecialis\'es et des assistants de recherche.
+
+\begin{intuition}[title=\textbf{Pourquoi augmenter par la r\'ecup\'eration~?}]
+Les mod\`eles de langue g\'en\'eratifs (LLM) souffrent d'hallucinations et
+de connaissances fig\'ees \`a la date d'entra\^inement. La G\'en\'eration
+Augment\'ee par R\'ecup\'eration (RAG) r\'esout ces probl\`emes en
+fournissant au mod\`ele des documents pertinents extraits d'une base de
+connaissances externe avant la g\'en\'eration.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Principe du RAG}
+\label{sec:rag:principe}
+% ------------------------------------------------------------
+
+\begin{definition}[G\'en\'eration Augment\'ee par R\'ecup\'eration]
+\index{RAG}
+Un syst\`eme \textbf{RAG} combine un module de \emph{r\'ecup\'eration}
+(retriever) et un module de \emph{g\'en\'eration} (generator). Soit $q$
+une requ\^ete et $\mathcal{C}$ un corpus de documents~:
+\begin{enumerate}
+    \item \textbf{R\'ecup\'eration}~: extraire les $k$ documents les plus
+    pertinents $\{d_1, \ldots, d_k\} = \text{Retrieve}(q, \mathcal{C})$
+    \item \textbf{G\'en\'eration}~: produire la r\'eponse
+    $y = \text{Generate}(q, d_1, \ldots, d_k)$
+\end{enumerate}
+\end{definition}
+
+\begin{formules}[title=\textbf{Formulation probabiliste du RAG}]
+\[
+    P(y | q) = \sum_{d \in \mathcal{C}} P(d | q) \, P(y | q, d)
+    \approx \sum_{i=1}^{k} P(d_i | q) \, P_{\text{LLM}}(y | q, d_i)
+\]
+o\`u $P(d | q)$ est le score de pertinence et $P_{\text{LLM}}(y | q, d)$
+est la probabilit\'e g\'en\'erative conditionn\'ee sur le document.
+\end{formules}
+
+\begin{proposition}[Avantages du RAG]
+\begin{enumerate}
+    \item \textbf{Connaissances \`a jour}~: la base de connaissances peut
+    \^etre mise \`a jour sans r\'e-entra\^iner le mod\`ele.
+    \item \textbf{Tra\c{c}abilit\'e}~: les sources sont identifiables
+    (citations).
+    \item \textbf{R\'eduction des hallucinations}~: le mod\`ele s'appuie
+    sur des faits v\'erifiables.
+    \item \textbf{Efficacit\'e param\'etrique}~: un mod\`ele plus petit
+    peut atteindre la qualit\'e d'un grand mod\`ele.
+\end{enumerate}
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{R\'ecup\'eration dense}
+\label{sec:rag:dense}
+% ------------------------------------------------------------
+
+\begin{definition}[R\'ecup\'eration dense (DPR)]
+\index{DPR}\index{r\'ecup\'eration dense}
+Dense Passage Retrieval (Karpukhin et al., 2020) encode les requ\^etes
+et les documents dans un espace vectoriel commun~:
+\[
+    \text{sim}(q, d) = \mathbf{e}_q^\top \mathbf{e}_d
+    = E_Q(q)^\top E_D(d)
+\]
+o\`u $E_Q$ et $E_D$ sont des encodeurs BERT fine-tun\'es pour maximiser
+la similarit\'e entre requ\^etes et passages pertinents.
+\end{definition}
+
+\begin{definition}[Fonction de perte contrastive pour DPR]
+L'entra\^inement utilise une perte contrastive sur des lots de positifs
+et n\'egatifs~:
+\[
+    \mathcal{L} = -\log \frac{\exp(\text{sim}(q, d^+))}
+    {\exp(\text{sim}(q, d^+)) + \sum_{j=1}^{n}
+    \exp(\text{sim}(q, d_j^-))}
+\]
+o\`u $d^+$ est le passage pertinent et $\{d_j^-\}$ sont les n\'egatifs.
+\end{definition}
+
+\begin{definition}[ColBERT]
+\index{ColBERT}
+ColBERT (Khattab et al., 2020) utilise une interaction \emph{late} entre
+les tokens de la requ\^ete et du document~:
+\[
+    \text{sim}(q, d) = \sum_{i=1}^{\abs{q}} \max_{j=1}^{\abs{d}}
+    \mathbf{q}_i^\top \mathbf{d}_j
+\]
+o\`u $\mathbf{q}_i$ et $\mathbf{d}_j$ sont les embeddings contextuels
+de chaque token. Cette interaction fine permet une meilleure pr\'ecision
+tout en restant efficace gr\^ace au pr\'e-calcul des embeddings de documents.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Bases de donn\'ees vectorielles}
+\label{sec:rag:vectordb}
+% ------------------------------------------------------------
+
+\begin{definition}[Base de donn\'ees vectorielle]
+\index{base de donn\'ees vectorielle}
+Une \textbf{base de donn\'ees vectorielle} stocke des vecteurs
+d'embeddings et permet la recherche de plus proches voisins (ANN ---
+Approximate Nearest Neighbors) en temps sous-lin\'eaire. Exemples~:
+FAISS, Pinecone, Weaviate, Qdrant, ChromaDB.
+\end{definition}
+
+\begin{proposition}[M\'ethodes d'indexation]
+Les principales m\'ethodes d'indexation pour la recherche ANN sont~:
+\begin{itemize}
+    \item \textbf{IVF} (Inverted File)~: partition de l'espace en
+    cellules de Vorono\"i.
+    \item \textbf{HNSW} (Hierarchical Navigable Small World)~: graphe
+    navigable hi\'erarchique, offrant un excellent compromis
+    vitesse/pr\'ecision.
+    \item \textbf{PQ} (Product Quantization)~: compression des vecteurs
+    par quantification pour r\'eduire l'empreinte m\'emoire.
+\end{itemize}
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Strat\'egies de d\'ecoupage (Chunking)}
+\label{sec:rag:chunking}
+% ------------------------------------------------------------
+
+\begin{definition}[D\'ecoupage de documents]
+\index{chunking}
+Le \textbf{chunking} consiste \`a d\'ecouper les documents en fragments
+de taille adapt\'ee au contexte du mod\`ele~:
+\begin{itemize}
+    \item \textbf{Taille fixe}~: $n$ tokens avec chevauchement de $m$ tokens.
+    \item \textbf{Par paragraphes}~: respecte la structure du document.
+    \item \textbf{S\'emantique}~: d\'ecoupe aux changements de sujet
+    (utilisant un mod\`ele de segmentation).
+    \item \textbf{R\'ecursif}~: hi\'erarchie de d\'ecoupages
+    (titre $\to$ section $\to$ paragraphe).
+\end{itemize}
+\end{definition}
+
+\begin{attention}[title=\textbf{Taille des chunks}]
+Des chunks trop petits perdent le contexte~; des chunks trop grands
+diluent l'information pertinente et g\^achent le budget de tokens du
+mod\`ele. En pratique, $256$--$512$ tokens avec $50$--$100$ de chevauchement
+offrent un bon compromis.
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Architectures RAG}
+\label{sec:rag:architectures}
+% ------------------------------------------------------------
+
+\begin{definition}[RAG-Sequence et RAG-Token]
+\index{RAG-Sequence}\index{RAG-Token}
+Lewis et al.\ (2020) proposent deux variantes~:
+\begin{itemize}
+    \item \textbf{RAG-Sequence}~: un seul document est utilis\'e pour
+    g\'en\'erer toute la r\'eponse~:
+    $P(y|q) \approx \sum_{d} P(d|q) \prod_t P(y_t | q, d, y_{<t})$
+    \item \textbf{RAG-Token}~: le document peut changer \`a chaque token~:
+    $P(y|q) \approx \prod_t \sum_{d} P(d|q) P(y_t | q, d, y_{<t})$
+\end{itemize}
+\end{definition}
+
+\begin{remarque}
+Les architectures RAG modernes utilisent souvent un pipeline plus
+complexe~: reranking des documents r\'ecup\'er\'es, fusion de contexte,
+et g\'en\'eration it\'erative (le mod\`ele peut d\'ecider de faire des
+requ\^etes suppl\'ementaires).
+\end{remarque}
+
+\subsection{RAG avanc\'e}
+
+\begin{definition}[Self-RAG]
+\index{Self-RAG}
+Self-RAG (Asai et al., 2023) apprend au mod\`ele \`a d\'ecider
+\emph{quand} r\'ecup\'erer (via des tokens sp\'eciaux de r\'eflexion)
+et \`a \'evaluer la pertinence des documents r\'ecup\'er\'es.
+\end{definition}
+
+\begin{definition}[RAPTOR]
+\index{RAPTOR}
+RAPTOR construit un arbre hi\'erarchique de r\'esum\'es~: les feuilles
+sont les chunks originaux, les noeuds internes sont des r\'esum\'es de
+clusters. La recherche parcourt l'arbre du g\'en\'eral au sp\'ecifique.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{\'Evaluation des syst\`emes RAG}
+\label{sec:rag:eval}
+% ------------------------------------------------------------
+
+\begin{definition}[M\'etriques RAG]
+\index{\'evaluation RAG}
+L'\'evaluation d'un syst\`eme RAG couvre trois dimensions~:
+\begin{enumerate}
+    \item \textbf{Qualit\'e de r\'ecup\'eration}~: recall@$k$,
+    precision@$k$, MRR (Mean Reciprocal Rank).
+    \item \textbf{Fid\'elit\'e (faithfulness)}~: la r\'eponse est-elle
+    coh\'erente avec les documents r\'ecup\'er\'es~?
+    \item \textbf{Pertinence de la r\'eponse}~: la r\'eponse
+    r\'epond-elle correctement \`a la question~?
+\end{enumerate}
+\end{definition}
+
+\begin{formules}[title=\textbf{Recall@$k$ et MRR}]
+\[
+    \text{Recall@}k = \frac{\abs{\{d \in \text{top-}k : d \in \mathcal{R}\}}}{\abs{\mathcal{R}}}
+    \qquad
+    \text{MRR} = \frac{1}{\abs{Q}} \sum_{q \in Q} \frac{1}{\text{rank}(d_q^+)}
+\]
+o\`u $\mathcal{R}$ est l'ensemble des documents pertinents et $d_q^+$
+est le premier document pertinent.
+\end{formules}
+
+\begin{exemple}[RAGAS]
+Le framework RAGAS \'evalue automatiquement les syst\`emes RAG selon
+quatre m\'etriques~: fid\'elit\'e, pertinence de la r\'eponse,
+pertinence du contexte, et rappel du contexte. Il utilise un LLM comme
+juge pour \'evaluer chaque dimension.
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Impl\'ementation Python}
+\label{sec:rag:code}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Pipeline RAG minimaliste}]
+\begin{minted}{python}
+from sentence_transformers import SentenceTransformer
+import numpy as np
+
+class SimpleRAG:
+    def __init__(self, docs, model_name="all-MiniLM-L6-v2"):
+        self.encoder = SentenceTransformer(model_name)
+        self.docs = docs
+        self.embeddings = self.encoder.encode(docs)
+
+    def retrieve(self, query, k=3):
+        q_emb = self.encoder.encode([query])
+        scores = (self.embeddings @ q_emb.T).squeeze()
+        top_k = np.argsort(scores)[-k:][::-1]
+        return [(self.docs[i], scores[i]) for i in top_k]
+
+    def generate_prompt(self, query, k=3):
+        results = self.retrieve(query, k)
+        context = "\n\n".join([doc for doc, _ in results])
+        return f"Context:\n{context}\n\nQuestion: {query}\nAnswer:"
+
+# Usage
+docs = ["Paris est la capitale de la France.",
+        "Berlin est la capitale de l'Allemagne.",
+        "La tour Eiffel mesure 330 metres."]
+rag = SimpleRAG(docs)
+prompt = rag.generate_prompt("Quelle est la capitale de la France?")
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercices}
+\label{sec:rag:exercices}
+% ------------------------------------------------------------
+
+\begin{exercice}[Pipeline RAG]
+Impl\'ementer un pipeline RAG complet avec ChromaDB comme base vectorielle
+et un mod\`ele HuggingFace pour la g\'en\'eration. Tester sur un corpus
+de pages Wikip\'edia en fran\c{c}ais.
+\end{exercice}
+
+\begin{exercice}[Strat\'egies de chunking]
+Comparer trois strat\'egies de d\'ecoupage (fixe, par paragraphe,
+s\'emantique) sur un corpus de 100 documents. Mesurer le recall@5 pour
+un ensemble de 50 questions.
+\end{exercice}
+
+\begin{exercice}[DPR vs BM25]
+Comparer DPR (r\'ecup\'eration dense) avec BM25 (r\'ecup\'eration
+creuse) sur le dataset Natural Questions. Dans quels cas la r\'ecup\'eration
+dense surpasse-t-elle BM25~? Et vice-versa~?
+\end{exercice}
+
+\begin{exercice}[\'Evaluation RAG]
+Concevoir un protocole d'\'evaluation pour un syst\`eme RAG de question-r\'eponse
+m\'edical. Quelles m\'etriques sont critiques~? Comment g\'erer les
+hallucinations dans un contexte m\'edical~?
+\end{exercice}

@@ -1,0 +1,423 @@
+% ============================================================
+\chapter{Group Theory for Deep Learning}
+\label{ch:groups}
+% ============================================================
+
+\section{Introduction to Group Theory}
+
+Symmetry is everywhere. A snowflake looks the same after a $60°$ rotation. The laws of physics do not change if you translate your laboratory ten metres to the left. A molecule's chemical properties depend on which rearrangements of its atoms leave its structure invariant. But what \emph{is} a symmetry, precisely? The answer was forged in the early nineteenth century by two brilliant and tragically short-lived mathematicians: \'Evariste Galois, who died in a duel at twenty, and Niels Henrik Abel, who succumbed to tuberculosis at twenty-six. Their legacy is \emph{group theory}---the mathematical language of symmetry.
+
+A group is nothing more than a set of transformations that can be composed, reversed, and that include ``doing nothing.'' Yet from this minimal definition springs an astonishingly rich theory. For geometric deep learning, groups are the key to building neural networks that \emph{respect} the symmetries of their input data: if rotating an image should not change its classification, the network's architecture should encode rotational symmetry from the start. This chapter builds the algebraic foundations that make such constructions possible.
+
+\begin{definition}[Group]
+A \textbf{group} is a set $G$ equipped with a binary operation
+$\cdot: G \times G \to G$ satisfying:
+\begin{enumerate}
+    \item \textbf{Associativity}: $(g \cdot h) \cdot k = g \cdot (h \cdot k)$
+          for all $g, h, k \in G$.
+    \item \textbf{Identity}: there exists $e \in G$ such that
+          $e \cdot g = g \cdot e = g$ for all $g \in G$.
+    \item \textbf{Inverse}: for every $g \in G$, there exists $g^{-1} \in G$ such
+          that $g \cdot g^{-1} = g^{-1} \cdot g = e$.
+\end{enumerate}
+\end{definition}
+
+\begin{example}[Fundamental groups in GDL]
+\begin{enumerate}
+    \item \textbf{Symmetric group} $S_n$: permutations of $n$ elements.
+          $\abs{S_n} = n!$.
+    \item \textbf{Cyclic group} $\Z_n = \Z/n\Z$: discrete rotations.
+    \item \textbf{Orthogonal group} $\mathrm{O}(n)$: matrices $\mathbf{Q} \in \R^{n \times n}$
+          with $\mathbf{Q}^\top\mathbf{Q} = \mathbf{I}$.
+    \item \textbf{Special orthogonal group} $\mathrm{SO}(n)$: rotations,
+          $\det(\mathbf{Q}) = +1$.
+    \item \textbf{Euclidean group} $\mathrm{E}(n) = \mathrm{O}(n) \ltimes \R^n$:
+          rotations, reflections, and translations.
+    \item \textbf{Special Euclidean group} $\mathrm{SE}(n) = \mathrm{SO}(n) \ltimes \R^n$:
+          rotations and translations (rigid motions).
+\end{enumerate}
+\end{example}
+
+\subsection{Subgroups and Homomorphisms}
+
+\begin{definition}[Subgroup]
+A subset $H \subseteq G$ is a \textbf{subgroup} of $G$ (denoted $H \leq G$) if
+$H$ is itself a group under the operation of $G$.
+\end{definition}
+
+\begin{definition}[Group homomorphism]
+A \textbf{homomorphism} of groups is a map $\varphi: G \to H$ such that
+$\varphi(g_1 \cdot g_2) = \varphi(g_1) \cdot \varphi(g_2)$ for all
+$g_1, g_2 \in G$. If $\varphi$ is bijective, it is an \textbf{isomorphism}.
+\end{definition}
+
+\begin{proposition}[Properties of homomorphisms]
+Let $\varphi: G \to H$ be a homomorphism. Then:
+\begin{enumerate}
+    \item $\varphi(e_G) = e_H$.
+    \item $\varphi(g^{-1}) = \varphi(g)^{-1}$ for all $g \in G$.
+    \item $\ker(\varphi) = \{g \in G : \varphi(g) = e_H\}$ is a normal subgroup of $G$.
+\end{enumerate}
+\end{proposition}
+
+\section{Group Actions}
+
+\begin{definition}[Group action]
+A (left) \textbf{action} of a group $G$ on a set $X$ is a map
+$\cdot: G \times X \to X$ such that:
+\begin{enumerate}
+    \item $e \cdot x = x$ for all $x \in X$.
+    \item $(g \cdot h) \cdot x = g \cdot (h \cdot x)$ for all $g, h \in G$ and $x \in X$.
+\end{enumerate}
+\end{definition}
+
+\begin{example}[Actions in deep learning]
+\begin{enumerate}
+    \item $S_n$ acts on $\R^n$ by permuting coordinates:
+          $\pi \cdot (x_1, \ldots, x_n) = (x_{\pi^{-1}(1)}, \ldots, x_{\pi^{-1}(n)})$.
+    \item $\mathrm{SO}(3)$ acts on $\R^3$ by rotation: $R \cdot \mathbf{x} = R\mathbf{x}$.
+    \item $\Z^2$ acts on images by translation: $\mathbf{t} \cdot f(\mathbf{x}) = f(\mathbf{x} - \mathbf{t})$.
+\end{enumerate}
+\end{example}
+
+\begin{definition}[Orbit and stabilizer]
+Let $G$ act on $X$. For $x \in X$:
+\begin{itemize}
+    \item The \textbf{orbit} of $x$ is $G \cdot x = \{g \cdot x : g \in G\}$.
+    \item The \textbf{stabilizer} of $x$ is $G_x = \{g \in G : g \cdot x = x\}$.
+\end{itemize}
+\end{definition}
+
+\begin{theorem}[Orbit--stabilizer theorem]
+For a finite group $G$ acting on $X$ and $x \in X$:
+\[
+    \abs{G} = \abs{G \cdot x} \cdot \abs{G_x}
+\]
+\end{theorem}
+
+\section{Group Representations}
+
+\begin{definition}[Representation]
+A \textbf{representation} of a group $G$ on a vector space $V$ is a
+homomorphism $\rho: G \to \mathrm{GL}(V)$, i.e., a map assigning to each
+$g \in G$ an invertible linear transformation $\rho(g): V \to V$ such that
+$\rho(g_1 g_2) = \rho(g_1)\rho(g_2)$.
+\end{definition}
+
+\begin{example}[Common representations]
+\begin{enumerate}
+    \item \textbf{Trivial representation}: $\rho(g) = \mathrm{Id}$ for all $g$.
+    \item \textbf{Permutation representation}: $\rho(\pi) = \mathbf{P}_\pi$
+          (permutation matrix).
+    \item \textbf{Standard representation of $\mathrm{SO}(3)$}: $\rho(R) = R$
+          (the rotation matrix itself).
+    \item \textbf{Regular representation}: $[\rho(g)f](h) = f(g^{-1}h)$.
+\end{enumerate}
+\end{example}
+
+\subsection{Irreducible Representations}
+
+\begin{definition}[Irreducible representation]
+A representation $\rho: G \to \mathrm{GL}(V)$ is \textbf{irreducible} if the
+only subspaces of $V$ invariant under the action of $G$ are $\{0\}$ and $V$.
+\end{definition}
+
+\begin{theorem}[Maschke's theorem]
+Every finite-dimensional representation of a finite group (over $\R$ or $\C$)
+can be decomposed as a direct sum of irreducible representations:
+\[
+    V = V_1 \oplus V_2 \oplus \cdots \oplus V_k
+\]
+where each $V_i$ is an irreducible subspace.
+\end{theorem}
+
+\begin{keyformulas}[title=\textbf{Irreducible representations of $\mathrm{SO}(3)$}]
+The irreducible representations of $\mathrm{SO}(3)$ are indexed by
+$\ell \in \{0, 1, 2, \ldots\}$ and have dimension $2\ell + 1$:
+\begin{itemize}
+    \item $\ell = 0$: scalars (dimension 1)---trivial representation.
+    \item $\ell = 1$: vectors (dimension 3)---standard representation.
+    \item $\ell = 2$: traceless symmetric tensors (dimension 5).
+\end{itemize}
+The representation matrices are the \textbf{Wigner D-matrices}
+$D^\ell_{mm'}(R)$, related to spherical harmonics:
+\[
+    Y_\ell^m(R^{-1}\hat{\mathbf{r}}) = \sum_{m'=-\ell}^{\ell}
+    D^\ell_{mm'}(R)\, Y_\ell^{m'}(\hat{\mathbf{r}})
+\]
+\end{keyformulas}
+
+\section{Equivariance and Invariance}
+
+\begin{definition}[Equivariant map]
+Let $\rho_1: G \to \mathrm{GL}(V_1)$ and $\rho_2: G \to \mathrm{GL}(V_2)$
+be two representations. A linear map $T: V_1 \to V_2$ is \textbf{equivariant}
+(or an \textbf{intertwiner}) if:
+\[
+    T \circ \rho_1(g) = \rho_2(g) \circ T, \quad \forall g \in G.
+\]
+When $\rho_2$ is the trivial representation, $T$ is \textbf{invariant}.
+\end{definition}
+
+\begin{theorem}[Schur's lemma]
+Let $\rho_1$ and $\rho_2$ be two irreducible representations of $G$ and
+$T: V_1 \to V_2$ an intertwiner:
+\begin{enumerate}
+    \item If $\rho_1 \not\cong \rho_2$, then $T = 0$.
+    \item If $\rho_1 \cong \rho_2$ (over $\C$), then $T = \lambda\, \mathrm{Id}$
+          for some $\lambda \in \C$.
+\end{enumerate}
+\end{theorem}
+
+\begin{intuition}[title=\textbf{Importance of Schur's lemma}]
+Schur's lemma is fundamental because it \textbf{strongly constrains} the form
+of equivariant layers in a neural network. If equivariance is imposed, the
+space of allowed linear maps is drastically reduced, which justifies weight
+sharing.
+\end{intuition}
+
+\section{Tensor Products of Representations}
+
+\begin{definition}[Tensor product]
+The \textbf{tensor product} of two representations $\rho_1: G \to \mathrm{GL}(V_1)$
+and $\rho_2: G \to \mathrm{GL}(V_2)$ is the representation
+$\rho_1 \otimes \rho_2: G \to \mathrm{GL}(V_1 \otimes V_2)$ defined by:
+\[
+    (\rho_1 \otimes \rho_2)(g)(v_1 \otimes v_2) = \rho_1(g)v_1 \otimes \rho_2(g)v_2.
+\]
+\end{definition}
+
+\begin{theorem}[Clebsch--Gordan decomposition for $\mathrm{SO}(3)$]
+The tensor product of two irreducible representations of $\mathrm{SO}(3)$
+decomposes as:
+\[
+    D^{\ell_1} \otimes D^{\ell_2} = \bigoplus_{\ell=\abs{\ell_1-\ell_2}}^{\ell_1+\ell_2} D^{\ell}
+\]
+The change-of-basis coefficients are the \textbf{Clebsch--Gordan coefficients}
+$C^{\ell m}_{\ell_1 m_1, \ell_2 m_2}$.
+\end{theorem}
+
+\begin{codeblock}[title=\textbf{Tensor product with e3nn}]
+\begin{minted}{python}
+import torch
+from e3nn import o3
+
+# Irreducible representations of SO(3)
+irreps_1 = o3.Irreps("1x0e + 1x1o")  # scalar + vector
+irreps_2 = o3.Irreps("1x1o")          # vector
+
+# Tensor product
+tp = o3.FullTensorProduct(irreps_1, irreps_2)
+print(f"Input 1: {irreps_1}")
+print(f"Input 2: {irreps_2}")
+print(f"Output: {tp.irreps_out}")
+# 0e x 1o -> 1o, 1o x 1o -> 0e + 1e + 2e
+
+x1 = irreps_1.randn(5, -1)  # batch of 5
+x2 = irreps_2.randn(5, -1)
+out = tp(x1, x2)
+print(f"Output shape: {out.shape}")
+\end{minted}
+\end{codeblock}
+
+\section{Lie Groups}
+
+\begin{definition}[Lie group]
+A \textbf{Lie group} is a group $G$ that is also a smooth manifold, such that
+the multiplication $(g, h) \mapsto gh$ and inversion $g \mapsto g^{-1}$
+operations are smooth.
+\end{definition}
+
+\begin{example}[Lie groups in GDL]
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+\textbf{Group} & \textbf{Dimension} & \textbf{Compact?} & \textbf{Usage} \\
+\midrule
+$\mathrm{SO}(2)$ & 1 & Yes & 2D rotations \\
+$\mathrm{SO}(3)$ & 3 & Yes & 3D rotations \\
+$\mathrm{SE}(3)$ & 6 & No & Rigid motions \\
+$\mathrm{O}(3)$ & 3 & Yes & Rotations + reflections \\
+$\mathrm{GL}(n, \R)$ & $n^2$ & No & Linear transformations \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{example}
+
+\subsection{Lie Algebra}
+
+\begin{definition}[Lie algebra]
+The \textbf{Lie algebra} $\mathfrak{g}$ of a Lie group $G$ is the tangent space
+to $G$ at the identity $e$, equipped with the \textbf{Lie bracket}
+$[\cdot, \cdot]: \mathfrak{g} \times \mathfrak{g} \to \mathfrak{g}$.
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{Exponential map}]
+The \textbf{exponential map} $\exp: \mathfrak{g} \to G$ connects the Lie
+algebra to the group:
+\[
+    \exp(X) = \sum_{k=0}^{\infty} \frac{X^k}{k!}
+\]
+For $\mathrm{SO}(3)$, the Lie algebra $\mathfrak{so}(3)$ is the space of
+$3 \times 3$ skew-symmetric matrices. Rodrigues' formula gives:
+\[
+    \exp(\theta\, [\hat{\mathbf{n}}]_\times) = \mathbf{I} + \sin\theta\,
+    [\hat{\mathbf{n}}]_\times + (1 - \cos\theta)\, [\hat{\mathbf{n}}]_\times^2
+\]
+where $[\hat{\mathbf{n}}]_\times$ is the skew-symmetric matrix of the unit
+vector $\hat{\mathbf{n}}$.
+\end{keyformulas}
+
+\section{Group Convolution}
+
+\begin{definition}[Group convolution]
+Let $G$ be a locally compact group with Haar measure $\mu$. The
+\textbf{group convolution} of two functions $f, g: G \to \R$ is:
+\[
+    (f * g)(x) = \int_G f(y)\, g(y^{-1}x)\, d\mu(y).
+\]
+\end{definition}
+
+\begin{proposition}[Equivariance of convolution]
+Group convolution is equivariant to left translation: if
+$L_a f(x) = f(a^{-1}x)$, then:
+\[
+    L_a(f * g) = (L_a f) * g.
+\]
+This property justifies the use of convolution as the fundamental layer in
+equivariant networks.
+\end{proposition}
+
+\begin{theorem}[CNN as convolution on $\Z^2$]
+A classical convolutional network performs a group convolution on
+$G = \Z^2$ (the discrete translation group). The first layer performs a
+cross-correlation:
+\[
+    [f \star \psi](x) = \sum_{y \in \Z^2} f(y)\, \psi(y - x)
+    = \sum_{y \in \Z^2} f(x + y)\, \psi(y)
+\]
+which is equivariant to translations of $f$.
+\end{theorem}
+
+\section{Group Equivariant CNNs (G-CNNs)}
+
+Cohen and Welling (2016) generalized CNNs by replacing the translation
+group $\Z^2$ with a larger group $G$.
+
+\begin{definition}[G-CNN]
+A \textbf{G-CNN} is a network whose layers perform convolutions on a
+group $G$. The first layer \textit{lifts} the signal from $\Z^2$ to $G$:
+\[
+    [\text{lift}(f)](g) = \sum_{x \in \Z^2} f(x)\, \psi(g^{-1} \cdot x)
+\]
+Subsequent layers operate entirely on $G$:
+\[
+    [f * \psi](g) = \sum_{h \in G} f(h)\, \psi(h^{-1}g)
+\]
+\end{definition}
+
+\begin{codeblock}[title=\textbf{G-CNN for group $p4$ (90\textdegree{} rotations)}]
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+
+class P4Conv(nn.Module):
+    """Equivariant convolution for group p4 (0/90/180/270 rotations)."""
+    def __init__(self, in_channels, out_channels, kernel_size=3):
+        super().__init__()
+        self.weight = nn.Parameter(
+            torch.randn(out_channels, in_channels, kernel_size, kernel_size)
+        )
+        nn.init.kaiming_normal_(self.weight)
+
+    def _rotate_kernel(self, w, k):
+        """Rotate kernel by k*90 degrees."""
+        return torch.rot90(w, k, dims=[-2, -1])
+
+    def forward(self, x):
+        # x: (batch, C_in, H, W) or (batch, C_in, 4, H, W)
+        outputs = []
+        for k in range(4):  # 4 rotations
+            w_rot = self._rotate_kernel(self.weight, k)
+            out = torch.nn.functional.conv2d(
+                x if x.dim() == 4 else x.sum(dim=2),
+                w_rot, padding=1
+            )
+            outputs.append(out)
+        # Stack on group dimension
+        return torch.stack(outputs, dim=2)  # (batch, C_out, 4, H, W)
+
+# Test
+conv = P4Conv(3, 16)
+x = torch.randn(2, 3, 32, 32)
+out = conv(x)
+print(f"Output: {out.shape}")  # (2, 16, 4, 32, 32)
+\end{minted}
+\end{codeblock}
+
+\section{Linear Invariants and Equivariants}
+
+\begin{theorem}[Characterization of equivariant linear maps]
+The space of linear maps $T: V_1 \to V_2$ that are equivariant with respect
+to representations $\rho_1$ and $\rho_2$ is:
+\[
+    \mathrm{Hom}_G(V_1, V_2) = \{T \in \mathrm{Hom}(V_1, V_2) :
+    T\rho_1(g) = \rho_2(g)T,\; \forall g \in G\}
+\]
+Its dimension is given by:
+\[
+    \dim \mathrm{Hom}_G(V_1, V_2) = \inner{\chi_1}{\chi_2}_G
+    = \frac{1}{\abs{G}} \sum_{g \in G} \overline{\chi_1(g)}\, \chi_2(g)
+\]
+where $\chi_i(g) = \tr(\rho_i(g))$ is the \textbf{character} of $\rho_i$.
+\end{theorem}
+
+\begin{corollary}[Number of free parameters]
+For an equivariant layer between two representations decomposed into
+irreducibles $V_1 = \bigoplus_i n_i V_i^{\text{irr}}$ and
+$V_2 = \bigoplus_j m_j V_j^{\text{irr}}$, the number of free parameters is:
+\[
+    \sum_k n_k \cdot m_k
+\]
+where the sum is over common irreducible types.
+\end{corollary}
+
+\section*{Exercises}
+
+\begin{exercise}[Symmetry groups of molecules]
+\begin{enumerate}
+    \item Determine the symmetry group of the water molecule $\mathrm{H_2O}$
+          (group $C_{2v}$).
+    \item Enumerate all irreducible representations of $C_{2v}$.
+    \item Explain how these symmetries constrain a molecular energy prediction model.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Representations of $S_3$]
+\begin{enumerate}
+    \item Enumerate the six elements of the symmetric group $S_3$.
+    \item Find all irreducible representations of $S_3$ (there are three).
+    \item Verify the relation $\sum_i (\dim V_i)^2 = \abs{G}$.
+    \item Decompose the standard permutation representation $\R^3$ into irreducibles.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Rodrigues' formula]
+\begin{enumerate}
+    \item Verify Rodrigues' formula for $\theta = \pi/2$ and
+          $\hat{\mathbf{n}} = (0, 0, 1)$.
+    \item Show that $\exp(\theta [\hat{\mathbf{n}}]_\times) \in \mathrm{SO}(3)$.
+    \item Implement the exponential map $\mathfrak{so}(3) \to \mathrm{SO}(3)$ in
+          PyTorch and verify orthogonality of the result.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Discrete group convolution]
+Implement a group convolution on the dihedral group $D_4$ (symmetries of
+the square).
+\begin{enumerate}
+    \item Enumerate the 8 elements of $D_4$.
+    \item Implement the multiplication table of $D_4$.
+    \item Implement the group convolution and verify its equivariance.
+\end{enumerate}
+\end{exercise}

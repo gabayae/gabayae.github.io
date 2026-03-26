@@ -1,0 +1,325 @@
+% ============================================================
+\chapter{The Black--Scholes Model}
+\label{ch:black_scholes}
+% ============================================================
+
+\section{Introduction}
+
+On an ordinary spring day in 1973, two papers appeared that would reshape the financial world. Fischer Black and Myron Scholes published their option pricing formula in the \emph{Journal of Political Economy}, while Robert Merton, in a companion paper in the \emph{Bell Journal of Economics}, provided a rigorous derivation using It\^o calculus and the principle of no-arbitrage. The result was electrifying: for the first time, there existed an explicit, closed-form formula for the price of a European option---a formula that depended not on investors' risk preferences, but only on observable quantities and one crucial parameter, the volatility.
+
+The impact was immediate. The Chicago Board Options Exchange had opened just weeks earlier, and traders quickly adopted the formula. Scholes and Merton received the 1997 Nobel Prize in Economics for this work (Black having passed away in 1995). But the Black--Scholes model is more than a formula: it is a way of thinking. It introduces the paradigm of \emph{dynamic hedging}---the idea that risk can be eliminated by continuously adjusting a portfolio---and connects option pricing to the theory of stochastic differential equations. Understanding this model is understanding the mathematical engine that drives modern finance.
+
+\section{Geometric Brownian Motion}
+
+\begin{definition}[Geometric Brownian Motion (GBM)]
+A process $(S_t)_{t \geq 0}$ follows a \textbf{geometric Brownian motion}
+if it satisfies the stochastic differential equation:
+\[
+    dS_t = \mu S_t \, dt + \sigma S_t \, dW_t,
+\]
+where $\mu \in \R$ is the expected return (drift), $\sigma > 0$ the
+volatility, and $(W_t)_{t \geq 0}$ a standard Brownian motion.
+\end{definition}
+
+\begin{theorem}[GBM Solution]
+\label{thm:gbm_solution}
+The solution to the above SDE is:
+\[
+    S_t = S_0 \exp\!\left[\left(\mu - \frac{\sigma^2}{2}\right)t
+          + \sigma W_t\right].
+\]
+In particular, $\ln(S_t/S_0) \sim \mathcal{N}\!\left((\mu - \sigma^2/2)t,\;
+\sigma^2 t\right)$.
+\end{theorem}
+
+\begin{proof}
+Set $X_t = \ln S_t$. By It\^o's formula (cf.\ Chapter 5):
+\[
+    dX_t = \frac{1}{S_t}dS_t - \frac{1}{2}\frac{1}{S_t^2}(dS_t)^2
+         = \left(\mu - \frac{\sigma^2}{2}\right)dt + \sigma\, dW_t.
+\]
+Integrating from $0$ to $t$:
+$X_t = X_0 + (\mu - \sigma^2/2)t + \sigma W_t$,
+yielding the result.
+\end{proof}
+
+\section{Black--Scholes Model Assumptions}
+
+\begin{warning}[title=\textbf{Fundamental Assumptions}]
+\begin{enumerate}
+    \item The underlying follows a GBM with constant volatility $\sigma$.
+    \item The risk-free rate $r$ is constant.
+    \item No dividends (generalisation possible).
+    \item Frictionless market (no transaction costs).
+    \item Continuous trading is possible.
+    \item Short selling is allowed.
+\end{enumerate}
+\end{warning}
+
+\section{The Black--Scholes Equation}
+
+\begin{theorem}[Black--Scholes PDE]
+\label{thm:bs_pde}
+Under the model assumptions, the price $V(S,t)$ of a European derivative
+satisfies the partial differential equation:
+\[
+    \frac{\partial V}{\partial t} + rS\frac{\partial V}{\partial S}
+    + \frac{1}{2}\sigma^2 S^2 \frac{\partial^2 V}{\partial S^2} - rV = 0,
+\]
+with terminal condition $V(S,T) = h(S)$ where $h$ is the payoff function.
+\end{theorem}
+
+\begin{proof}[Proof sketch via replication]
+Consider a portfolio $\Pi = V - \Delta S$ where $\Delta = \partial V/\partial S$.
+By It\^o's formula:
+\begin{align*}
+    d\Pi &= dV - \Delta \, dS \\
+         &= \left(\frac{\partial V}{\partial t}
+            + \frac{1}{2}\sigma^2 S^2 \frac{\partial^2 V}{\partial S^2}\right)dt.
+\end{align*}
+This portfolio is riskless (no $dW_t$ term), so by no-arbitrage:
+$d\Pi = r\Pi\,dt = r(V - \Delta S)\,dt$.
+Equating yields the PDE.
+\end{proof}
+
+\section{Black--Scholes Formulae}
+
+\begin{theorem}[Black--Scholes Closed-Form Formulae]
+\label{thm:bs_formulae}
+The European call price is:
+\[
+    C(S,t) = S\,\Phi(d_1) - Ke^{-r(T-t)}\Phi(d_2),
+\]
+and the European put price:
+\[
+    P(S,t) = Ke^{-r(T-t)}\Phi(-d_2) - S\,\Phi(-d_1),
+\]
+where $\Phi$ denotes the standard normal CDF and:
+\[
+    d_1 = \frac{\ln(S/K) + (r + \sigma^2/2)(T-t)}{\sigma\sqrt{T-t}}, \quad
+    d_2 = d_1 - \sigma\sqrt{T-t}.
+\]
+\end{theorem}
+
+\begin{keyformulas}[title=\textbf{Black--Scholes Formulae --- Summary}]
+\begin{align*}
+    C &= S\Phi(d_1) - Ke^{-r\tau}\Phi(d_2), \\
+    P &= Ke^{-r\tau}\Phi(-d_2) - S\Phi(-d_1), \\
+    d_1 &= \frac{\ln(S/K) + (r + \sigma^2/2)\tau}{\sigma\sqrt{\tau}}, \quad
+    d_2 = d_1 - \sigma\sqrt{\tau}, \quad \tau = T - t.
+\end{align*}
+\end{keyformulas}
+
+\begin{proof}[Proof via risk-neutral pricing]
+Under the risk-neutral measure $\mathbb{Q}$:
+\[
+    C = e^{-r\tau}\E^\mathbb{Q}[(S_T - K)^+].
+\]
+Now $S_T = S\exp\!\left[(r - \sigma^2/2)\tau + \sigma\sqrt{\tau}\,Z\right]$
+with $Z \sim \mathcal{N}(0,1)$ under $\mathbb{Q}$. The payoff is positive
+when $Z > -d_2$. Computing:
+\begin{align*}
+    C &= e^{-r\tau}\int_{-d_2}^{+\infty}
+         \left(Se^{(r-\sigma^2/2)\tau + \sigma\sqrt{\tau}\,z} - K\right)
+         \frac{e^{-z^2/2}}{\sqrt{2\pi}}\,dz \\
+      &= S\Phi(d_1) - Ke^{-r\tau}\Phi(d_2).
+\end{align*}
+The shift from $d_2$ to $d_1$ in the first term results from completing
+the square in the exponential.
+\end{proof}
+
+\section{The Greeks}
+
+The \textbf{Greeks} measure the sensitivity of the option price to the
+various model parameters.
+
+\begin{definition}[Main Greeks]
+For a European call:
+\begin{align*}
+    \Delta &= \frac{\partial C}{\partial S} = \Phi(d_1), \\
+    \Gamma &= \frac{\partial^2 C}{\partial S^2}
+            = \frac{\phi(d_1)}{S\sigma\sqrt{\tau}}, \\
+    \Theta &= \frac{\partial C}{\partial t}
+            = -\frac{S\sigma\phi(d_1)}{2\sqrt{\tau}} - rKe^{-r\tau}\Phi(d_2), \\
+    \mathcal{V} &= \frac{\partial C}{\partial \sigma}
+                  = S\sqrt{\tau}\,\phi(d_1), \\
+    \rho &= \frac{\partial C}{\partial r} = K\tau e^{-r\tau}\Phi(d_2),
+\end{align*}
+where $\phi(x) = \frac{1}{\sqrt{2\pi}}e^{-x^2/2}$ is the standard normal
+density.
+\end{definition}
+
+\begin{intuition}[title=\textbf{Interpreting the Greeks}]
+\begin{itemize}
+    \item $\Delta$: number of underlying units to hedge the option.
+    \item $\Gamma$: convexity; measures delta stability.
+    \item $\Theta$: time decay of the option value.
+    \item $\mathcal{V}$ (vega): sensitivity to volatility.
+    \item $\rho$: sensitivity to the interest rate.
+\end{itemize}
+\end{intuition}
+
+\begin{proposition}[Fundamental Greeks Relation]
+The delta, gamma, and theta of a derivative satisfy the Black--Scholes PDE
+in the form:
+\[
+    \Theta + rS\Delta + \frac{1}{2}\sigma^2 S^2 \Gamma = rV.
+\]
+\end{proposition}
+
+\section{Implied Volatility}
+
+\begin{definition}[Implied Volatility]
+The \textbf{implied volatility} $\sigma_{\text{impl}}$ is the value of
+$\sigma$ that, when inserted into the Black--Scholes formula, reproduces
+the observed market price $C_{\text{mkt}}$:
+\[
+    C_{\text{BS}}(S, K, T, r, \sigma_{\text{impl}}) = C_{\text{mkt}}.
+\]
+\end{definition}
+
+\begin{remark}
+The existence and uniqueness of $\sigma_{\text{impl}}$ follow from the fact
+that $\mathcal{V} = \partial C/\partial\sigma > 0$ (the call price is
+strictly increasing in volatility).
+\end{remark}
+
+\section{Python Implementation}
+
+\begin{codeblock}[title=\textbf{Black--Scholes Formulae and Greeks}]
+\begin{minted}{python}
+import numpy as np
+from scipy.stats import norm
+
+def bs_price(S, K, T, r, sigma, option='call'):
+    """Black-Scholes price for a European option."""
+    d1 = (np.log(S/K) + (r + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
+    d2 = d1 - sigma*np.sqrt(T)
+    if option == 'call':
+        return S*norm.cdf(d1) - K*np.exp(-r*T)*norm.cdf(d2)
+    else:
+        return K*np.exp(-r*T)*norm.cdf(-d2) - S*norm.cdf(-d1)
+
+def bs_greeks(S, K, T, r, sigma):
+    """Compute Greeks for a European call."""
+    d1 = (np.log(S/K) + (r + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
+    d2 = d1 - sigma*np.sqrt(T)
+    delta = norm.cdf(d1)
+    gamma = norm.pdf(d1) / (S * sigma * np.sqrt(T))
+    theta = (-S*sigma*norm.pdf(d1)/(2*np.sqrt(T))
+             - r*K*np.exp(-r*T)*norm.cdf(d2))
+    vega  = S * np.sqrt(T) * norm.pdf(d1)
+    rho   = K * T * np.exp(-r*T) * norm.cdf(d2)
+    return {'delta': delta, 'gamma': gamma, 'theta': theta,
+            'vega': vega, 'rho': rho}
+
+# Example
+S, K, T, r, sigma = 100, 100, 1.0, 0.05, 0.20
+print(f"Call = {bs_price(S,K,T,r,sigma,'call'):.4f}")
+print(f"Put  = {bs_price(S,K,T,r,sigma,'put'):.4f}")
+greeks = bs_greeks(S, K, T, r, sigma)
+for name, val in greeks.items():
+    print(f"{name:>6s} = {val:.6f}")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Implied Volatility (Newton-Raphson)}]
+\begin{minted}{python}
+def implied_vol(market_price, S, K, T, r, option='call',
+                tol=1e-8, max_iter=100):
+    """Implied volatility via Newton-Raphson."""
+    sigma = 0.20  # initial guess
+    for _ in range(max_iter):
+        price = bs_price(S, K, T, r, sigma, option)
+        d1 = (np.log(S/K) + (r + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
+        vega = S * np.sqrt(T) * norm.pdf(d1)
+        if vega < 1e-12:
+            break
+        sigma -= (price - market_price) / vega
+        if abs(price - market_price) < tol:
+            return sigma
+    return sigma
+
+# Example: recover sigma from a price
+C_mkt = bs_price(100, 100, 1.0, 0.05, 0.25, 'call')
+iv = implied_vol(C_mkt, 100, 100, 1.0, 0.05)
+print(f"Recovered implied vol: {iv:.6f}")
+\end{minted}
+\end{codeblock}
+
+\section{Model Extensions}
+
+\subsection{Continuous Dividends}
+
+For an underlying paying a continuous dividend yield $q$, the Black--Scholes
+formula modifies to:
+\[
+    C = Se^{-q\tau}\Phi(d_1) - Ke^{-r\tau}\Phi(d_2),
+\]
+with $d_1 = \frac{\ln(S/K) + (r - q + \sigma^2/2)\tau}{\sigma\sqrt{\tau}}$.
+
+\subsection{Options on Futures (Black's Formula)}
+
+\begin{theorem}[Black's Formula (1976)]
+For a European option on a futures contract with price $F$:
+\[
+    C = e^{-r\tau}\bigl[F\Phi(d_1) - K\Phi(d_2)\bigr],
+\]
+with $d_1 = \frac{\ln(F/K) + \sigma^2\tau/2}{\sigma\sqrt{\tau}}$,
+$d_2 = d_1 - \sigma\sqrt{\tau}$.
+\end{theorem}
+
+\section{Model Limitations}
+
+\begin{warning}[title=\textbf{Known Limitations of Black--Scholes}]
+\begin{enumerate}
+    \item Volatility is not constant in practice
+          (volatility smile, cf.\ Chapter 6).
+    \item Returns are not Gaussian (heavy tails).
+    \item Continuous trading is an idealisation.
+    \item Transaction costs are not zero.
+    \item The model underestimates crash risk.
+\end{enumerate}
+\end{warning}
+
+\section{Exercises}
+
+\begin{exercise}[Verification of the Black--Scholes Formula]
+\begin{enumerate}
+    \item Verify by direct substitution that the call formula satisfies
+          the Black--Scholes PDE.
+    \item Verify the terminal condition $C(S,T) = (S-K)^+$.
+    \item Derive put-call parity from the formulae.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Limiting Behaviour]
+Study the following limits:
+\begin{enumerate}
+    \item $C(S,t)$ as $\sigma \to 0^+$.
+    \item $C(S,t)$ as $\sigma \to +\infty$.
+    \item $C(S,t)$ as $T - t \to 0^+$ for $S > K$, $S = K$, $S < K$.
+    \item $\Delta$ as $T - t \to 0^+$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Numerical Greeks]
+\begin{enumerate}
+    \item Compute delta and gamma by finite differences and compare with
+          analytical formulae.
+    \item Plot $\Delta$, $\Gamma$, $\Theta$, $\mathcal{V}$ as functions
+          of $S$ for different values of $\tau$.
+    \item Verify numerically that $\Theta + rS\Delta +
+          \frac{1}{2}\sigma^2 S^2\Gamma = rC$.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Implied Volatility Surface]
+\begin{enumerate}
+    \item Generate option prices from a Heston model (Chapter 6) for
+          different strikes and maturities.
+    \item Compute Black--Scholes implied volatility for each price.
+    \item Plot the implied volatility surface $(K, T) \mapsto
+          \sigma_{\text{impl}}(K,T)$.
+\end{enumerate}
+\end{exercise}

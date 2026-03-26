@@ -1,0 +1,296 @@
+% ============================================================
+\chapter{Mod\`eles Stochastiques}
+\label{ch:stochastiques}
+% ============================================================
+
+\begin{center}
+\textit{<<\,Le hasard n'est que la mesure de notre ignorance.\,>>}\\[4pt]
+--- Henri Poincar\'e
+\end{center}
+
+\bigskip
+
+Jusqu'ici, nos mod\`eles \'etaient d\'eterministes~: connaissant l'\'etat initial et les lois d'\'evolution, on pouvait pr\'edire le futur avec certitude. Mais le monde r\'eel est bruit\'e. Les march\'es financiers fluctuent, les g\`enes mutent al\'eatoirement, les mol\'ecules s'agitent sous l'effet thermique, et m\^eme les \'epid\'emies ne se propagent pas de mani\`ere d\'eterministe. Mod\'eliser ces ph\'enom\`enes exige d'int\'egrer l'al\'ea dans les \'equations. Ce chapitre introduit les mod\`eles stochastiques --- des marches al\'eatoires aux \'equations diff\'erentielles stochastiques d'It\^o --- et montre comment le hasard, loin d'\^etre un obstacle \`a la compr\'ehension, devient un ingr\'edient essentiel de la mod\'elisation. Les mod\`eles stochastiques d\'ecrivent l'\'evolution de syst\`emes soumis
+\`a des fluctuations al\'eatoires, ce qui est essentiel en biologie,
+en th\'eorie des files d'attente et en physique.
+
+% ------------------------------------------------------------
+\section{Processus de naissance et de mort}
+\label{sec:naissance_mort}
+% ------------------------------------------------------------
+
+\begin{definition}[Processus de naissance et de mort]
+\index{processus de naissance et de mort}
+Un \textbf{processus de naissance et de mort}\index{naissance et mort} est un processus
+de Markov \`a temps continu $\{X(t)\}_{t \geq 0}$ \`a valeurs dans $\N$
+dont les seules transitions possibles depuis l'\'etat $n$ sont~:
+\begin{itemize}
+  \item $n \to n+1$ (naissance) avec taux $\lambda_n \geq 0$,
+  \item $n \to n-1$ (mort) avec taux $\mu_n \geq 0$, o\`u $\mu_0 = 0$.
+\end{itemize}
+\end{definition}
+
+\begin{intuition}
+Imaginez une population de bact\'eries dans une bo\^ite de P\'etri.
+Chaque bact\'erie se divise (naissance) ou meurt ind\'ependamment des
+autres. Le nombre total de bact\'eries fluctue al\'eatoirement autour
+d'une tendance g\'en\'erale. Le processus de naissance et de mort
+capture exactement cette dynamique.
+\end{intuition}
+
+\begin{proposition}[\'Equations de Kolmogorov]
+\label{prop:kolmogorov_nm}
+Soit $p_n(t) = \PP(X(t) = n)$. Les probabilit\'es d'\'etat satisfont le
+syst\`eme d'\'equations diff\'erentielles~:
+\[
+  \frac{dp_n}{dt} = \lambda_{n-1}\, p_{n-1}(t) + \mu_{n+1}\, p_{n+1}(t)
+    - (\lambda_n + \mu_n)\, p_n(t), \quad n \geq 1,
+\]
+avec $\dfrac{dp_0}{dt} = \mu_1\, p_1(t) - \lambda_0\, p_0(t)$.
+\end{proposition}
+
+\begin{proof}
+On conditionne sur l'\'etat \`a l'instant $t$ et on utilise les propri\'et\'es
+markoviennes. En un intervalle $[t, t+h]$, avec $h$ petit~:
+\begin{align*}
+  p_n(t+h) &= p_n(t)\bigl(1 - (\lambda_n + \mu_n)h\bigr)
+    + p_{n-1}(t)\,\lambda_{n-1}\,h + p_{n+1}(t)\,\mu_{n+1}\,h + o(h).
+\end{align*}
+En soustrayant $p_n(t)$, divisant par $h$ et passant \`a la limite $h \to 0$,
+on obtient l'\'equation annonc\'ee.
+\end{proof}
+
+\begin{theoreme}[Distribution stationnaire]
+\label{thm:stat_nm}
+Si les taux v\'erifient $\sum_{n=1}^{\infty} \prod_{k=0}^{n-1}
+\frac{\lambda_k}{\mu_{k+1}} < \infty$, alors il existe une distribution
+stationnaire $\pi = (\pi_n)_{n \geq 0}$ donn\'ee par~:
+\[
+  \pi_n = \pi_0 \prod_{k=0}^{n-1} \frac{\lambda_k}{\mu_{k+1}},
+  \qquad \pi_0 = \left(1 + \sum_{n=1}^{\infty} \prod_{k=0}^{n-1}
+  \frac{\lambda_k}{\mu_{k+1}}\right)^{-1}.
+\]
+\end{theoreme}
+
+\begin{exemple}
+Consid\'erons un processus de naissance pure avec $\lambda_n = \lambda\, n$
+et $\mu_n = 0$ (mod\`ele de Yule\index{mod\`ele de Yule}).
+Partant de $X(0)=1$, la population cro\^it exponentiellement~:
+$\E[X(t)] = e^{\lambda t}$.
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Th\'eorie des files d'attente}
+\label{sec:files_attente}
+% ------------------------------------------------------------
+
+\begin{definition}[File M/M/1]
+\index{file M/M/1}
+Une file \textbf{M/M/1} est un processus de naissance et de mort avec
+taux d'arriv\'ee constant $\lambda_n = \lambda$ et taux de service
+constant $\mu_n = \mu$ pour $n \geq 1$. <<\,M\,>> d\'esigne
+<<\,markovien\,>> (arriv\'ees et services exponentiels).
+\end{definition}
+
+\begin{theoreme}[\'Equilibre de la file M/M/1]
+\label{thm:mm1}
+Soit $\rho = \lambda / \mu$ l'intensit\'e du trafic\index{intensit\'e du trafic}.
+Si $\rho < 1$, la file M/M/1 admet une distribution stationnaire
+g\'eom\'etrique~:
+\[
+  \pi_n = (1-\rho)\,\rho^n, \quad n \geq 0.
+\]
+Le nombre moyen de clients dans le syst\`eme est
+$L = \dfrac{\rho}{1-\rho}$
+et le temps moyen de s\'ejour est
+$W = \dfrac{1}{\mu - \lambda}$.
+\end{theoreme}
+
+\begin{proof}
+Par le th\'eor\`eme~\ref{thm:stat_nm}, $\pi_n = \pi_0 \rho^n$.
+La condition de normalisation $\sum_{n=0}^{\infty} \pi_n = 1$ donne
+$\pi_0 = 1 - \rho$ lorsque $\rho < 1$. Le nombre moyen suit de
+$L = \sum_{n=0}^{\infty} n\,\pi_n = (1-\rho) \sum_{n=1}^{\infty} n\,\rho^n
+= \rho/(1-\rho)$. La formule de Little\index{formule de Little}
+$L = \lambda W$ donne $W$.
+\end{proof}
+
+\begin{formules}
+\textbf{R\'esum\'e des files d'attente}
+\begin{align*}
+  \text{M/M/1 :}\quad & L = \frac{\rho}{1-\rho}, \quad
+    W = \frac{1}{\mu - \lambda}, \quad
+    L_q = \frac{\rho^2}{1-\rho} \\[6pt]
+  \text{M/M/c :}\quad & \pi_0 = \left[\sum_{k=0}^{c-1}
+    \frac{(c\rho)^k}{k!} + \frac{(c\rho)^c}{c!\,(1-\rho)}\right]^{-1},
+    \quad \rho = \frac{\lambda}{c\mu} < 1
+\end{align*}
+\end{formules}
+
+\begin{definition}[File M/M/c]
+\index{file M/M/c}
+Une file \textbf{M/M/c} poss\`ede $c$ serveurs identiques en parall\`ele.
+Les taux de service effectifs sont $\mu_n = \min(n, c)\,\mu$.
+\end{definition}
+
+\begin{remarque}
+La formule d'Erlang~C\index{formule d'Erlang~C} donne la probabilit\'e
+d'attente dans une file M/M/c~:
+\[
+  C(c, \lambda/\mu) = \frac{(c\rho)^c}{c!\,(1-\rho)} \cdot \pi_0.
+\]
+Elle est largement utilis\'ee dans le dimensionnement des centres d'appels.
+\end{remarque}
+
+% ------------------------------------------------------------
+\section{Marches al\'eatoires}
+\label{sec:marches}
+% ------------------------------------------------------------
+
+\begin{definition}[Marche al\'eatoire simple]
+\index{marche al\'eatoire}
+Une \textbf{marche al\'eatoire simple} sur $\Z$ est une suite
+$(S_n)_{n \geq 0}$ d\'efinie par $S_0 = 0$ et $S_n = \sum_{k=1}^n X_k$,
+o\`u les $(X_k)$ sont i.i.d. avec $\PP(X_k = +1) = p$ et $\PP(X_k = -1) = 1-p$.
+\end{definition}
+
+\begin{theoreme}[R\'ecurrence de la marche al\'eatoire]
+\label{thm:recurrence_marche}
+La marche al\'eatoire simple sur $\Z$ est r\'ecurrente si et seulement si $p = 1/2$.
+Plus g\'en\'eralement, la marche al\'eatoire simple sur $\Z^d$ est r\'ecurrente
+si et seulement si $d \leq 2$ (th\'eor\`eme de P\'olya\index{th\'eor\`eme de P\'olya}).
+\end{theoreme}
+
+\begin{proof}[Id\'ee de la preuve pour $d=1$]
+Si $p = 1/2$, la probabilit\'e de retour \`a l'origine est
+$\sum_{n=1}^{\infty} \PP(S_{2n} = 0) = \sum_{n=1}^{\infty}
+\binom{2n}{n} 2^{-2n}$. Par la formule de Stirling,
+$\binom{2n}{n} \sim \frac{4^n}{\sqrt{\pi n}}$, donc la s\'erie
+diverge, ce qui assure la r\'ecurrence. Si $p \neq 1/2$,
+$\E[X_k] = 2p-1 \neq 0$ et la loi des grands nombres montre
+que $S_n \to \pm\infty$.
+\end{proof}
+
+\begin{exemple}
+La marche al\'eatoire mod\'elise la position d'une particule
+en suspension dans un fluide (mouvement brownien discret\index{mouvement brownien}).
+Elle mod\'elise \'egalement la fortune d'un joueur dans un jeu \'equitable.
+\end{exemple}
+
+% ------------------------------------------------------------
+\section{Algorithme de Gillespie}
+\label{sec:gillespie}
+% ------------------------------------------------------------
+
+\begin{definition}[Algorithme de Gillespie (SSA)]
+\index{algorithme de Gillespie}
+L'\textbf{algorithme de simulation stochastique} (SSA) de Gillespie
+est une m\'ethode exacte pour simuler la trajectoire d'un syst\`eme
+chimique stochastique. \`A chaque \'etape, on d\'etermine~:
+\begin{enumerate}
+  \item le temps $\tau$ avant la prochaine r\'eaction (exponentiel
+    de param\`etre $a_0 = \sum_j a_j$),
+  \item la r\'eaction $j$ qui se produit (avec probabilit\'e $a_j / a_0$),
+\end{enumerate}
+o\`u $a_j$ est la \emph{propensit\'e} de la r\'eaction $j$.
+\end{definition}
+
+\begin{attention}
+L'algorithme de Gillespie simule \emph{chaque} r\'eaction individuellement.
+Pour des syst\`emes avec un grand nombre de mol\'ecules, il devient
+tr\`es co\^uteux. On pr\'ef\`ere alors des m\'ethodes approch\'ees comme
+le $\tau$-leaping\index{tau-leaping@$\tau$-leaping}.
+\end{attention}
+
+\begin{exemple}
+Consid\'erons la r\'eaction de production-d\'egradation d'un ARN messager~:
+$\emptyset \xrightarrow{k_1} \text{ARN} \xrightarrow{k_2} \emptyset$,
+avec propensit\'es $a_1 = k_1$ et $a_2 = k_2\, n$ o\`u $n$ est le
+nombre de mol\'ecules d'ARN. \`A l'\'equilibre stochastique, $n$ suit
+une loi de Poisson de param\`etre $k_1/k_2$.
+\end{exemple}
+
+\begin{minted}{python}
+import numpy as np
+
+def gillespie_production_degradation(k1, k2, n0, t_max):
+    """Simulation de Gillespie pour production-degradation."""
+    t, n = 0.0, n0
+    times, states = [t], [n]
+    while t < t_max:
+        a1 = k1           # propension production
+        a2 = k2 * n       # propension degradation
+        a0 = a1 + a2
+        if a0 == 0:
+            break
+        tau = np.random.exponential(1.0 / a0)
+        t += tau
+        if np.random.uniform() < a1 / a0:
+            n += 1         # production
+        else:
+            n -= 1         # degradation
+        times.append(t)
+        states.append(n)
+    return np.array(times), np.array(states)
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Simulation de Monte Carlo}
+\label{sec:monte_carlo}
+% ------------------------------------------------------------
+
+\begin{definition}[M\'ethode de Monte Carlo]
+\index{Monte Carlo}
+Une \textbf{m\'ethode de Monte Carlo} est une technique de calcul qui
+utilise des \'echantillons al\'eatoires pour estimer une quantit\'e
+d\'eterministe. Pour estimer $\theta = \E[g(X)]$, on g\'en\`ere
+$X_1, \ldots, X_N$ i.i.d. selon la loi de $X$ et on calcule~:
+\[
+  \hat{\theta}_N = \frac{1}{N} \sum_{i=1}^N g(X_i).
+\]
+\end{definition}
+
+\begin{theoreme}[Convergence de Monte Carlo]
+Par la loi forte des grands nombres, $\hat{\theta}_N \to \theta$ p.s.
+De plus, par le TCL, l'erreur d'estimation est d'ordre $O(1/\sqrt{N})$~:
+\[
+  \sqrt{N}\,(\hat{\theta}_N - \theta) \xrightarrow{\mathcal{L}}
+  \mathcal{N}(0, \Var(g(X))).
+\]
+\end{theoreme}
+
+\begin{intuition}
+La convergence en $O(1/\sqrt{N})$ est \emph{ind\'ependante de la dimension}
+du probl\`eme. C'est l'avantage majeur de Monte Carlo par rapport
+aux m\'ethodes d\'eterministes (quadrature), dont la convergence se
+d\'egrade avec la dimension (<<\,fl\'eau de la dimension\,>>).
+\end{intuition}
+
+\begin{proposition}[R\'eduction de variance par variables antith\'etiques]
+\index{variables antith\'etiques}
+Si $g$ est monotone et $X \sim \mathcal{U}(0,1)$, l'estimateur
+\[
+  \hat{\theta}_N^{\text{anti}} = \frac{1}{N}\sum_{i=1}^{N/2}
+  \frac{g(U_i) + g(1-U_i)}{2}
+\]
+a une variance inf\'erieure ou \'egale \`a celle de l'estimateur brut.
+\end{proposition}
+
+\begin{exercice}
+Estimer $\int_0^1 e^x\,dx$ par Monte Carlo avec $N = 10\,000$ \'echantillons.
+Comparer la pr\'ecision obtenue avec et sans variables antith\'etiques.
+\end{exercice}
+
+\begin{exercice}
+Simuler une file M/M/1 avec $\lambda = 3$ et $\mu = 5$ sur un horizon
+de temps $T = 1000$. Estimer le nombre moyen de clients dans le
+syst\`eme et comparer avec la valeur th\'eorique $L = 3/2$.
+\end{exercice}
+
+\begin{exercice}
+Impl\'ementer l'algorithme de Gillespie pour le mod\`ele de
+Lotka--Volterra stochastique~:
+$X \xrightarrow{\alpha} 2X$, \quad $X + Y \xrightarrow{\beta} 2Y$,
+\quad $Y \xrightarrow{\gamma} \emptyset$.
+Comparer les trajectoires stochastiques au mod\`ele d\'eterministe.
+\end{exercice}

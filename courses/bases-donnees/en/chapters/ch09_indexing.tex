@@ -1,0 +1,253 @@
+% ============================================================
+\chapter{Indexing and Data Structures}
+\label{ch:indexing}
+% ============================================================
+
+Imagine a library of ten million books without a catalogue. To find a volume, one would need to walk through every shelf, one book at a time. This is exactly what a DBMS does during a \emph{full table scan}: it examines every row of the table. An \emph{index} is the database's catalogue: an auxiliary structure that locates relevant rows in $O(\log n)$ instead of $O(n)$. The B+ tree, invented by Rudolf Bayer and Edward McCreight in 1972, is the dominant indexing structure: balanced, efficient for equality and range searches, and optimized for disk access. Hash indexes, bitmap indexes, and spatial indexes (R-tree) complete the arsenal. This chapter develops these structures and the indexing strategies that make the difference between a query in milliseconds and one in minutes.
+
+\begin{intuition}[title=\textbf{Central idea}]
+An index is an auxiliary data structure that accelerates lookups in a table
+by avoiding a full table scan. Choosing the right index type and the right
+columns to index is essential for performance.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{Motivation}
+% ------------------------------------------------------------
+
+Without an index, any lookup in a table of $n$ rows requires a sequential
+scan in $O(n)$. A well-chosen index reduces the complexity to
+$O(\log n)$ or even $O(1)$.
+
+\begin{remark}
+An index speeds up reads but slows down writes (inserts, updates, deletes)
+because the structure must be maintained. The read/write trade-off guides
+index selection.
+\end{remark}
+
+% ------------------------------------------------------------
+\section{B-trees and B$^+$-trees}
+% ------------------------------------------------------------
+
+\begin{definition}[B-tree of order $m$]
+\index{B-tree}
+A \textbf{B-tree} of order $m$ is a balanced search tree where each
+internal node has at most $m$ children and at least $\lceil m/2 \rceil$
+children (except the root). Keys are sorted within each node and data
+is stored in all nodes.
+\end{definition}
+
+\begin{definition}[B$^+$-tree]
+\index{B+-tree}
+A \textbf{B$^+$-tree} is a variant where:
+\begin{itemize}
+  \item data is stored only in the \textbf{leaves},
+  \item internal nodes contain only routing keys,
+  \item leaves are linked in a doubly linked list for sequential scans.
+\end{itemize}
+\end{definition}
+
+\begin{proposition}[B$^+$-tree complexity]
+For a B$^+$-tree of order $m$ containing $n$ keys:
+\begin{itemize}
+  \item Height: $h = O(\log_m n)$.
+  \item Search, insertion, deletion: $O(\log_m n)$ disk accesses.
+  \item Range scan of $k$ keys: $O(\log_m n + k/B)$ where $B$ is the
+        number of keys per leaf.
+\end{itemize}
+\end{proposition}
+
+\begin{attention}
+The B$^+$-tree is the default indexing structure in most relational DBMS
+(PostgreSQL, MySQL/InnoDB, Oracle, SQL Server). Do not confuse it with a
+binary search tree (BST), which is not suited for disk-based access.
+\end{attention}
+
+\begin{minted}{python}
+-- Creating a B+ index (implicit) in SQL
+CREATE INDEX idx_name ON students (last_name);
+
+-- Composite index
+CREATE INDEX idx_name_first ON students (last_name, first_name);
+
+-- Verify index usage
+EXPLAIN ANALYZE SELECT * FROM students WHERE last_name = 'Smith';
+\end{minted}
+
+% ------------------------------------------------------------
+\section{Hash indexes}
+% ------------------------------------------------------------
+
+\begin{definition}[Hash index]
+\index{hash index}
+A \textbf{hash index} uses a function $h : \text{key} \to \{0, 1, \ldots,
+B-1\}$ to map a key directly to a bucket. Equality lookups run in $O(1)$
+on average.
+\end{definition}
+
+\begin{remark}
+Hash indexes do \textbf{not} support range queries
+(\texttt{WHERE x BETWEEN a AND b}) or ordering. They are suitable only
+for exact equality lookups.
+\end{remark}
+
+\begin{definition}[Extendible hashing]
+\index{extendible hashing}
+\textbf{Extendible hashing} uses a directory of pointers indexed by the
+first $d$ bits of the hash. When a bucket overflows, the directory is
+doubled (or the bucket is split) without reorganizing the entire table.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{Bitmap indexes}
+% ------------------------------------------------------------
+
+\begin{definition}[Bitmap index]
+\index{bitmap index}
+A \textbf{bitmap index} associates each distinct value $v$ of a column
+with a bit vector $B_v$ of length $n$ (number of rows):
+$B_v[i] = 1$ if row $i$ has value $v$, 0 otherwise.
+\end{definition}
+
+\begin{proposition}[Efficiency of logical operations]
+Queries combining multiple predicates translate into fast bitwise
+operations:
+\begin{itemize}
+  \item \texttt{WHERE color = 'red' AND size = 'L'} $\to$ $B_{\text{red}} \wedge B_{\text{L}}$.
+  \item \texttt{WHERE color = 'red' OR size = 'L'} $\to$ $B_{\text{red}} \vee B_{\text{L}}$.
+\end{itemize}
+Counting is done via \texttt{POPCOUNT} in $O(n/w)$ where $w$ is the
+machine word size.
+\end{proposition}
+
+\begin{remark}
+Bitmap indexes are particularly effective for \textbf{low-cardinality}
+columns (gender, status, category). They are used extensively in data
+warehouses (Oracle, Vertica).
+\end{remark}
+
+% ------------------------------------------------------------
+\section{Spatial indexes: R-trees}
+% ------------------------------------------------------------
+
+\begin{definition}[R-tree]
+\index{R-tree}
+An \textbf{R-tree} is a balanced tree for indexing multidimensional spatial
+data. Each node contains a \textbf{minimum bounding rectangle} (MBR) that
+encloses all objects in its subtree.
+\end{definition}
+
+\begin{example}
+Spatial search: ``Find all restaurants within 500m'':
+\begin{minted}{python}
+-- PostGIS (spatial extension for PostgreSQL)
+CREATE INDEX idx_geom ON restaurants USING GIST (geom);
+
+SELECT name, ST_Distance(geom, ST_MakePoint(-73.99, 40.75)::geography) AS dist
+FROM restaurants
+WHERE ST_DWithin(geom, ST_MakePoint(-73.99, 40.75)::geography, 500)
+ORDER BY dist;
+\end{minted}
+\end{example}
+
+% ------------------------------------------------------------
+\section{Full-text indexes}
+% ------------------------------------------------------------
+
+\begin{definition}[Inverted index]
+\index{inverted index}
+An \textbf{inverted index} maps each term (word) to the list of documents
+(rows) that contain it, optionally with position and frequency information.
+\end{definition}
+
+\begin{example}
+\begin{minted}{python}
+-- PostgreSQL: GIN index for full-text search
+CREATE INDEX idx_fts ON articles USING GIN (to_tsvector('english', content));
+
+SELECT title
+FROM articles
+WHERE to_tsvector('english', content) @@ to_tsquery('english', 'bayesian & statistics');
+\end{minted}
+\end{example}
+
+% ------------------------------------------------------------
+\section{Index selection strategies}
+% ------------------------------------------------------------
+
+\begin{definition}[Index selection problem]
+\index{index selection}
+Given a workload (set of queries with their frequencies) and a disk space
+budget, choose the set of indexes that minimizes total execution cost.
+\end{definition}
+
+Heuristic rules:
+\begin{enumerate}
+  \item Index columns appearing in \texttt{WHERE}, \texttt{JOIN}, and
+        \texttt{ORDER BY} clauses.
+  \item Prefer covering composite indexes to avoid table access.
+  \item Avoid indexing frequently modified high-cardinality columns.
+  \item Use \texttt{EXPLAIN ANALYZE} to verify actual index usage.
+\end{enumerate}
+
+\begin{example}
+\begin{minted}{python}
+-- Covering index: all columns in the query are in the index
+CREATE INDEX idx_covering ON orders (customer_id, order_date)
+    INCLUDE (amount);
+
+-- The following query can be satisfied without accessing the table
+SELECT order_date, amount
+FROM orders
+WHERE customer_id = 42
+ORDER BY order_date DESC;
+\end{minted}
+\end{example}
+
+% ------------------------------------------------------------
+\section{Key formulas}
+% ------------------------------------------------------------
+
+\begin{keyformulas}
+\begin{itemize}
+  \item \textbf{B$^+$-tree}: search in $O(\log_m n)$ disk accesses, range scan in $O(\log_m n + k/B)$
+  \item \textbf{Hash}: equality lookup in $O(1)$, no range queries
+  \item \textbf{Bitmap}: logical operations in $O(n/w)$, ideal for low cardinality
+  \item \textbf{R-tree}: spatial search in $O(\log n)$ on average
+  \item \textbf{Trade-off}: read acceleration vs.\ write overhead
+\end{itemize}
+\end{keyformulas}
+
+% ------------------------------------------------------------
+\section{Exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}
+Draw the B$^+$-tree of order 4 obtained after sequentially inserting keys
+$3, 7, 1, 14, 8, 5, 11, 17, 13, 6, 23, 12, 20, 26, 4, 16$. Show the
+state after deleting key 14.
+\end{exercise}
+
+\begin{exercise}
+A table \texttt{employees} has 10 million rows. The column
+\texttt{department} has 50 distinct values; the column \texttt{salary}
+is continuous. What type of index do you recommend for each? Justify.
+\end{exercise}
+
+\begin{exercise}
+Write a SQL query that \emph{cannot} use a hash index but \emph{can} use a
+B$^+$-tree index. Explain why.
+\end{exercise}
+
+\begin{exercise}
+We have a bitmap index on the column \texttt{status} (3 values: active,
+inactive, suspended) and a bitmap index on \texttt{region} (10 values).
+How many bitwise AND operations are needed to answer
+\texttt{WHERE status = 'active' AND region IN ('NY', 'CA')}?
+\end{exercise}
+
+\begin{exercise}
+Use \texttt{EXPLAIN ANALYZE} in PostgreSQL to compare the performance of a
+query with and without an index. Measure the number of pages read (buffers)
+and execution time.
+\end{exercise}

@@ -1,0 +1,186 @@
+% ============================================================
+\chapter{Iterative Methods for Linear Systems}
+\label{ch:iterative}
+% ============================================================
+
+\section{Motivating example}
+In finite element methods, the matrix $A$ is sparse ($\BigO(n)$ nonzero entries out of $n^2$). LU costs $\BigO(n^3)$, which is unacceptable for $n=10^6$. Iterative methods exploit the sparse structure: each iteration costs $\BigO(n)$.
+
+\section{General principle}
+
+\begin{definition}[Splitting method]
+We write $A=M-N$ with $M$ easily invertible. The iteration is:
+\[
+Mx^{(k+1)} = Nx^{(k)}+b, \quad\text{i.e.}\quad x^{(k+1)}=Gx^{(k)}+c,
+\]
+where $G=M^{-1}N$ is the \textbf{iteration matrix} and $c=M^{-1}b$.
+\end{definition}
+
+\begin{theorem}[Convergence]\label{thm:iter-conv}
+The method converges for every $x^{(0)}$ if and only if $\rho(G)<1$ (spectral radius).
+\end{theorem}
+
+\begin{proof}
+$e^{(k)}=x^{(k)}-x^*=G^k e^{(0)}$. Now $\|G^k\|\to 0 \iff \rho(G)<1$.
+\end{proof}
+
+\section{Jacobi method}\index{Jacobi}
+
+\begin{definition}
+$A=D-E-F$ (diagonal, lower triangular, upper triangular). $M=D$:
+\[
+x_i^{(k+1)} = \frac{1}{a_{ii}}\left(b_i-\sum_{j\neq i}a_{ij}x_j^{(k)}\right).
+\]
+Iteration matrix: $G_J=D^{-1}(E+F)$.
+\end{definition}
+
+\section{Gauss--Seidel method}\index{Gauss--Seidel}
+
+\begin{definition}
+$M=D-E$:
+\[
+x_i^{(k+1)} = \frac{1}{a_{ii}}\left(b_i-\sum_{j<i}a_{ij}x_j^{(k+1)}-\sum_{j>i}a_{ij}x_j^{(k)}\right).
+\]
+Iteration matrix: $G_{GS}=(D-E)^{-1}F$.
+\end{definition}
+
+\begin{theorem}[Convergence for SPD matrices]
+If $A$ is SPD, Gauss--Seidel converges.
+\end{theorem}
+
+\begin{theorem}[Convergence for diagonally dominant matrices]
+If $A$ is strictly diagonally dominant ($|a_{ii}|>\sum_{j\neq i}|a_{ij}|$), then both Jacobi and Gauss--Seidel converge.
+\end{theorem}
+
+\section{Successive over-relaxation (SOR)}\index{SOR}
+
+\begin{definition}
+We introduce a parameter $\omega\in(0,2)$:
+\[
+x_i^{(k+1)} = (1-\omega)x_i^{(k)} + \frac{\omega}{a_{ii}}\left(b_i-\sum_{j<i}a_{ij}x_j^{(k+1)}-\sum_{j>i}a_{ij}x_j^{(k)}\right).
+\]
+$\omega=1$: Gauss--Seidel. $\omega>1$: over-relaxation. $\omega<1$: under-relaxation.
+\end{definition}
+
+\begin{theorem}
+SOR converges if and only if $0<\omega<2$. The optimal $\omega$ depends on $\rho(G_J)$.
+\end{theorem}
+
+\section{Conjugate gradient method}\index{conjugate gradient}
+
+\begin{definition}
+For $A$ SPD, solving $Ax=b$ is equivalent to minimising $\phi(x)=\frac{1}{2}x^\top Ax-b^\top x$.
+\end{definition}
+
+\begin{algorithm}[H]
+\caption{Conjugate gradient}\label{alg:cg}
+\KwInput{$A$ SPD, $b$, $x_0$, tolerance $\eps$}
+\KwOutput{$x\approx A^{-1}b$}
+$r_0\gets b-Ax_0$, $p_0\gets r_0$\;
+\For{$k=0,1,2,\ldots$}{
+  $\alpha_k\gets\frac{r_k^\top r_k}{p_k^\top Ap_k}$\;
+  $x_{k+1}\gets x_k+\alpha_k p_k$\;
+  $r_{k+1}\gets r_k-\alpha_k Ap_k$\;
+  \If{$\|r_{k+1}\|<\eps$}{\Return{$x_{k+1}$}}
+  $\beta_k\gets\frac{r_{k+1}^\top r_{k+1}}{r_k^\top r_k}$\;
+  $p_{k+1}\gets r_{k+1}+\beta_k p_k$\;
+}
+\end{algorithm}
+
+\begin{theorem}[Convergence of the conjugate gradient method]
+In exact arithmetic, CG converges in at most $n$ iterations. The error satisfies:
+\[
+\|e_k\|_A \leq 2\left(\frac{\sqrt{\kappa}-1}{\sqrt{\kappa}+1}\right)^k\|e_0\|_A, \quad \kappa=\cond_2(A).
+\]
+\end{theorem}
+
+\section{Implementation}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+
+def jacobi(A, b, x0, tol=1e-10, maxiter=1000):
+    D = np.diag(np.diag(A))
+    R = A - D
+    x = x0.copy()
+    for k in range(maxiter):
+        x_new = np.linalg.solve(D, b - R @ x)
+        if np.linalg.norm(x_new - x) < tol:
+            return x_new, k+1
+        x = x_new
+    return x, maxiter
+
+def conjugate_gradient(A, b, x0, tol=1e-10, maxiter=1000):
+    x = x0.copy()
+    r = b - A @ x
+    p = r.copy()
+    rs_old = r @ r
+    for k in range(maxiter):
+        Ap = A @ p
+        alpha = rs_old / (p @ Ap)
+        x += alpha * p
+        r -= alpha * Ap
+        rs_new = r @ r
+        if np.sqrt(rs_new) < tol:
+            return x, k+1
+        p = r + (rs_new / rs_old) * p
+        rs_old = rs_new
+    return x, maxiter
+
+# Test : matrice tridiagonale
+n = 100
+A = np.diag(2*np.ones(n)) - np.diag(np.ones(n-1), 1) - np.diag(np.ones(n-1), -1)
+b = np.ones(n)
+x0 = np.zeros(n)
+
+x_j, nj = jacobi(A, b, x0)
+x_cg, ncg = conjugate_gradient(A, b, x0)
+print(f"Jacobi: {nj} iterations")
+print(f"CG:     {ncg} iterations")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Julia}]
+\begin{minted}{julia}
+function cg(A, b, x0; tol=1e-10, maxiter=1000)
+    x = copy(x0)
+    r = b - A * x
+    p = copy(r)
+    rs = dot(r, r)
+    for k in 1:maxiter
+        Ap = A * p
+        alpha = rs / dot(p, Ap)
+        x .+= alpha .* p
+        r .-= alpha .* Ap
+        rs_new = dot(r, r)
+        sqrt(rs_new) < tol && return x, k
+        p .= r .+ (rs_new / rs) .* p
+        rs = rs_new
+    end
+    return x, maxiter
+end
+\end{minted}
+\end{codeblock}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+Apply 3 iterations of Jacobi and Gauss--Seidel to the system $\begin{pmatrix}4&1\\1&3\end{pmatrix}x=\begin{pmatrix}1\\2\end{pmatrix}$, $x^{(0)}=(0,0)^\top$.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Show that for a tridiagonal matrix $T_n$ of size $n$, $\rho(G_J)=\cos(\pi/(n+1))$. Deduce the number of Jacobi iterations needed for a precision $\eps$.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Project]
+Compare Jacobi, Gauss--Seidel, SOR and CG for the 2D discretisation of the Laplacian $-\Delta u=f$ on $[0,1]^2$. Plot the number of iterations as a function of $n$.
+\end{exercise}
+
+\begin{keyformulas}
+\begin{align*}
+\text{Jacobi} &: x^{(k+1)}=D^{-1}(b-(A-D)x^{(k)}) \\
+\text{Gauss--Seidel} &: G=(D-E)^{-1}F \\
+\text{CG} &: \|e_k\|_A\leq 2\left(\frac{\sqrt{\kappa}-1}{\sqrt{\kappa}+1}\right)^k\|e_0\|_A
+\end{align*}
+\end{keyformulas}

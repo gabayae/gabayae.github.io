@@ -1,0 +1,371 @@
+% ============================================================
+\chapter{Q-Learning and Temporal Difference Methods}
+\label{ch:q_learning}
+% ============================================================
+
+In 1989, Christopher Watkins, in his doctoral thesis at Cambridge, proposed a deceptively simple algorithm: at each transition, update the value of a state-action pair using the maximum over the next actions. This is \emph{Q-learning}, the first reinforcement learning algorithm proven to converge to the optimal policy \emph{without} knowing the environment model. Almost simultaneously, Rummery and Niranjan proposed \emph{SARSA}, an on-policy variant. The distinction between these two approaches---\emph{off-policy} and \emph{on-policy}---is one of the fundamental dividing lines in reinforcement learning.
+
+\begin{intuition}
+Q-Learning and SARSA are the foundational model-free control algorithms.
+They learn the action-value function $Q(s,a)$ directly from experience.
+SARSA is \emph{on-policy}: it evaluates the policy it follows.
+Q-Learning is \emph{off-policy}: it learns the optimal policy regardless
+of the exploration strategy. This chapter covers their derivation,
+convergence guarantees, and exploration mechanisms.
+\end{intuition}
+
+% ------------------------------------------------------------
+\section{TD Control Framework}
+\label{sec:td_control}
+% ------------------------------------------------------------
+
+The \textbf{control} problem\index{control problem} is to find an optimal
+policy $\pi^*$ without access to the transition model. The idea is to
+combine TD estimation of $Q^\pi$ with $\epsilon$-greedy policy improvement,
+in the spirit of Generalized Policy Iteration (GPI).
+
+\begin{definition}[TD Target for Action-Values]
+The one-step TD target for $Q(S_t, A_t)$ using a bootstrap estimate is:
+\[
+    y_t = R_{t+1} + \gamma Q(S_{t+1}, A_{t+1})
+\]
+where $A_{t+1}$ is the action taken in the next state. The TD error is
+$\delta_t = y_t - Q(S_t, A_t)$.
+\end{definition}
+
+% ------------------------------------------------------------
+\section{SARSA --- On-Policy Control}
+\label{sec:sarsa}
+% ------------------------------------------------------------
+
+\begin{definition}[SARSA]
+\index{SARSA}
+The SARSA algorithm updates $Q(S_t, A_t)$ using the quintuplet
+$(S_t, A_t, R_{t+1}, S_{t+1}, A_{t+1})$:
+\[
+    Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha \big[
+    R_{t+1} + \gamma Q(S_{t+1}, A_{t+1}) - Q(S_t, A_t) \big].
+\]
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{SARSA Update}]
+\[
+    Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha \big[
+    R_{t+1} + \gamma Q(S_{t+1}, A_{t+1}) - Q(S_t, A_t) \big]
+\]
+where $A_{t+1} \sim \pi_\epsilon(\cdot | S_{t+1})$ is the action actually
+chosen by the $\epsilon$-greedy policy.
+\end{keyformulas}
+
+\begin{algorithme}[title=\textbf{SARSA}]
+\begin{enumerate}
+    \item Initialize $Q(s,a)$ arbitrarily, $Q(\text{terminal}, \cdot) = 0$
+    \item For each episode:
+    \begin{enumerate}
+        \item Initialize $S_0$; choose $A_0$ from $\pi_\epsilon$ derived from $Q$
+        \item For each step $t = 0, 1, \ldots$ until termination:
+        \begin{enumerate}
+            \item Execute $A_t$, observe $R_{t+1}, S_{t+1}$
+            \item Choose $A_{t+1}$ from $\pi_\epsilon$ derived from $Q$
+            \item $Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha[R_{t+1} + \gamma Q(S_{t+1}, A_{t+1}) - Q(S_t, A_t)]$
+        \end{enumerate}
+    \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+\begin{theorem}[SARSA Convergence]
+Under the Robbins-Monro conditions and if every state-action pair $(s,a)$
+is visited infinitely often (GLIE condition: Greedy in the Limit with
+Infinite Exploration), SARSA converges to $Q^*$ almost surely.
+\end{theorem}
+
+% ------------------------------------------------------------
+\section{Q-Learning --- Off-Policy Control}
+\label{sec:q_learning}
+% ------------------------------------------------------------
+
+\begin{definition}[Q-Learning]
+\index{Q-Learning}
+The Q-Learning algorithm (Watkins, 1989) updates:
+\[
+    Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha \big[
+    R_{t+1} + \gamma \max_{a'} Q(S_{t+1}, a') - Q(S_t, A_t) \big].
+\]
+\end{definition}
+
+\begin{keyformulas}[title=\textbf{Q-Learning Update}]
+\[
+    Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha \Big[
+    R_{t+1} + \gamma \max_{a' \in \mathcal{A}} Q(S_{t+1}, a') - Q(S_t, A_t) \Big]
+\]
+\end{keyformulas}
+
+The key difference with SARSA is the use of $\max$ instead of
+$Q(S_{t+1}, A_{t+1})$. Q-Learning learns $Q^*$ directly, regardless of
+the behavior policy (as long as all pairs $(s,a)$ are visited).
+
+\begin{algorithme}[title=\textbf{Q-Learning}]
+\begin{enumerate}
+    \item Initialize $Q(s,a)$ arbitrarily, $Q(\text{terminal}, \cdot) = 0$
+    \item For each episode:
+    \begin{enumerate}
+        \item Initialize $S_0$
+        \item For each step $t = 0, 1, \ldots$ until termination:
+        \begin{enumerate}
+            \item Choose $A_t$ from $\pi_\epsilon$ derived from $Q$
+            \item Execute $A_t$, observe $R_{t+1}, S_{t+1}$
+            \item $Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha[R_{t+1} + \gamma \max_{a'} Q(S_{t+1}, a') - Q(S_t, A_t)]$
+        \end{enumerate}
+    \end{enumerate}
+\end{enumerate}
+\end{algorithme}
+
+\begin{theorem}[Q-Learning Convergence]
+\label{thm:q_learning_conv}
+If every pair $(s,a)$ is visited infinitely often and the learning rates
+$\alpha_t(s,a)$ satisfy the Robbins-Monro conditions:
+\[
+    \sum_t \alpha_t(s,a) = \infty, \qquad \sum_t \alpha_t^2(s,a) < \infty,
+\]
+then $Q(s,a) \to Q^*(s,a)$ almost surely for all $(s,a)$.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+The update is a stochastic approximation of the Bellman optimality
+operator $\mathcal{T}^*$. The contraction property of $\mathcal{T}^*$
+in the $\ell_\infty$ norm, combined with the Robbins-Monro conditions,
+guarantees convergence (Jaakkola et al., 1994).
+\end{proof}
+
+% ------------------------------------------------------------
+\section{SARSA vs Q-Learning: The Cliff Walking Example}
+\label{sec:cliff}
+% ------------------------------------------------------------
+
+\begin{example}[Cliff Walking]
+\index{cliff walking}
+The \texttt{CliffWalking-v0} environment illustrates the difference:
+\begin{itemize}
+    \item \textbf{Q-Learning} learns the optimal policy (along the cliff edge),
+    but the $\epsilon$-greedy exploration may cause the agent to fall.
+    \item \textbf{SARSA} learns a safer policy (away from the cliff) because
+    it accounts for the $\epsilon$-greedy behavior in its updates.
+\end{itemize}
+Q-Learning optimizes the return of the \emph{target} (greedy) policy, while
+SARSA optimizes the return of the \emph{actual} ($\epsilon$-greedy) policy.
+\end{example}
+
+% ------------------------------------------------------------
+\section{Expected SARSA}
+\label{sec:expected_sarsa}
+% ------------------------------------------------------------
+
+\begin{definition}[Expected SARSA]
+\index{Expected SARSA}
+\textbf{Expected SARSA} uses the expectation over next actions instead
+of a sampled action:
+\[
+    Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha \Big[
+    R_{t+1} + \gamma \sum_{a'} \pi(a' | S_{t+1}) Q(S_{t+1}, a') - Q(S_t, A_t) \Big].
+\]
+\end{definition}
+
+\begin{remark}
+Expected SARSA generalizes both SARSA and Q-Learning:
+\begin{itemize}
+    \item If $\pi$ is the current $\epsilon$-greedy policy, it is an improved
+    version of SARSA with lower variance.
+    \item If $\pi$ is the greedy policy, it reduces to Q-Learning.
+\end{itemize}
+\end{remark}
+
+% ------------------------------------------------------------
+\section{$n$-Step Methods}
+\label{sec:nstep}
+% ------------------------------------------------------------
+
+\begin{definition}[$n$-Step Return]
+The $n$-step return combines $n$ immediate rewards with a bootstrap estimate:
+\[
+    G_t^{(n)} = \sum_{k=0}^{n-1} \gamma^k R_{t+k+1} + \gamma^n Q(S_{t+n}, A_{t+n}).
+\]
+\end{definition}
+
+\begin{proposition}[Bias-Variance of $n$-Step Returns]
+\begin{itemize}
+    \item $n=1$: TD(0) --- low variance, high bias.
+    \item $n=\infty$: Monte Carlo --- zero bias, high variance.
+    \item Intermediate $n$: trade-off between bias and variance.
+\end{itemize}
+In practice, $n \in \{4, 8, 16\}$ often works well.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Exploration Strategies}
+\label{sec:exploration}
+% ------------------------------------------------------------
+
+\begin{definition}[$\epsilon$-Greedy Exploration]
+\index{epsilon-greedy}
+The $\epsilon$-greedy policy derived from $Q$ is:
+\[
+    \pi_\epsilon(a \mid s) = \begin{cases}
+        1 - \epsilon + \frac{\epsilon}{\abs{\mathcal{A}}} & \text{if } a = \argmax_{a'} Q(s,a') \\
+        \frac{\epsilon}{\abs{\mathcal{A}}} & \text{otherwise}
+    \end{cases}
+\]
+Typically $\epsilon$ is decayed over time: $\epsilon_t = \max(\epsilon_{\min}, \epsilon_0 \cdot \beta^t)$.
+\end{definition}
+
+\begin{definition}[Boltzmann (Softmax) Exploration]
+\index{Boltzmann exploration}
+Boltzmann exploration selects actions with probability proportional to
+exponentiated Q-values:
+\[
+    \pi_\tau(a \mid s) = \frac{\exp(Q(s,a) / \tau)}{\sum_{a'} \exp(Q(s,a') / \tau)}
+\]
+where $\tau > 0$ is the temperature. As $\tau \to 0$, this becomes greedy;
+as $\tau \to \infty$, it becomes uniform.
+\end{definition}
+
+\begin{definition}[Upper Confidence Bound (UCB)]
+\index{UCB}
+UCB-based exploration selects:
+\[
+    A_t = \argmax_a \left[ Q(s,a) + c \sqrt{\frac{\ln N(s)}{N(s,a)}} \right]
+\]
+where $N(s)$ and $N(s,a)$ are visit counts and $c > 0$ controls the
+exploration bonus.
+\end{definition}
+
+\begin{attention}[title=\textbf{Exploration-Exploitation Dilemma}]
+Insufficient exploration leads to sub-optimal convergence (the agent may
+miss high-reward regions). Excessive exploration wastes samples on
+uninformative actions. The optimal balance depends on the environment
+structure and the learning horizon.
+\end{attention}
+
+% ------------------------------------------------------------
+\section{Maximization Bias and Double Q-Learning}
+\label{sec:double_q}
+% ------------------------------------------------------------
+
+\begin{definition}[Maximization Bias]
+\index{maximization bias}
+Q-Learning uses $\max_{a'} Q(S_{t+1}, a')$ as the target. Because $Q$
+is a noisy estimate, the $\max$ introduces a positive bias:
+$\E[\max_a Q(s,a)] \geq \max_a \E[Q(s,a)]$.
+\end{definition}
+
+\begin{definition}[Double Q-Learning]
+\index{Double Q-Learning}
+Double Q-Learning (Hasselt, 2010) maintains two independent estimators
+$Q_1, Q_2$. At each step, one is randomly chosen for the update:
+\[
+    Q_1(S_t, A_t) \leftarrow Q_1(S_t, A_t) + \alpha \Big[
+    R_{t+1} + \gamma Q_2\big(S_{t+1}, \argmax_{a'} Q_1(S_{t+1}, a')\big) - Q_1(S_t, A_t)
+    \Big].
+\]
+The roles of $Q_1$ and $Q_2$ are swapped with probability $0.5$.
+\end{definition}
+
+\begin{proposition}[Double Q-Learning removes maximization bias]
+By decoupling action selection ($\argmax$ on $Q_1$) from evaluation
+(using $Q_2$), Double Q-Learning produces unbiased estimates in the limit,
+eliminating the systematic overestimation of standard Q-Learning.
+\end{proposition}
+
+% ------------------------------------------------------------
+\section{Python Implementation}
+\label{sec:q_impl}
+% ------------------------------------------------------------
+
+\begin{codeblock}[title=\textbf{Q-Learning Implementation}]
+\begin{minted}{python}
+import numpy as np
+import gymnasium as gym
+
+def q_learning(env, n_episodes=10000, alpha=0.1,
+               gamma=0.99, epsilon=1.0, eps_decay=0.999,
+               eps_min=0.01):
+    """Tabular Q-learning with epsilon-greedy exploration."""
+    nS = env.observation_space.n
+    nA = env.action_space.n
+    Q = np.zeros((nS, nA))
+
+    for ep in range(n_episodes):
+        s, _ = env.reset()
+        done = False
+        while not done:
+            # epsilon-greedy action selection
+            if np.random.random() < epsilon:
+                a = env.action_space.sample()
+            else:
+                a = np.argmax(Q[s])
+            s_next, r, terminated, truncated, _ = env.step(a)
+            done = terminated or truncated
+            Q_next = 0.0 if terminated else np.max(Q[s_next])
+            Q[s, a] += alpha * (r + gamma * Q_next - Q[s, a])
+            s = s_next
+        epsilon = max(eps_min, epsilon * eps_decay)
+    return Q
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{SARSA Implementation}]
+\begin{minted}{python}
+def sarsa(env, n_episodes=10000, alpha=0.1,
+          gamma=0.99, epsilon=0.1):
+    """Tabular SARSA with epsilon-greedy policy."""
+    nS = env.observation_space.n
+    nA = env.action_space.n
+    Q = np.zeros((nS, nA))
+
+    def eps_greedy(s):
+        if np.random.random() < epsilon:
+            return env.action_space.sample()
+        return np.argmax(Q[s])
+
+    for ep in range(n_episodes):
+        s, _ = env.reset()
+        a = eps_greedy(s)
+        done = False
+        while not done:
+            s_next, r, terminated, truncated, _ = env.step(a)
+            done = terminated or truncated
+            a_next = eps_greedy(s_next) if not done else 0
+            Q_next = 0.0 if terminated else Q[s_next, a_next]
+            Q[s, a] += alpha * (r + gamma * Q_next - Q[s, a])
+            s, a = s_next, a_next
+    return Q
+\end{minted}
+\end{codeblock}
+
+% ------------------------------------------------------------
+\section{Exercises}
+\label{sec:q_exercises}
+% ------------------------------------------------------------
+
+\begin{exercise}[Cliff Walking Comparison]
+Implement Q-Learning and SARSA on \texttt{CliffWalking-v0}. Plot the
+per-episode reward for both algorithms. Explain the difference in learned
+policies.
+\end{exercise}
+
+\begin{exercise}[Exploration Strategies]
+Compare $\epsilon$-greedy, Boltzmann, and UCB exploration on
+\texttt{FrozenLake-v1}. Measure convergence speed (episodes to reach
+$>0.7$ average reward) for each strategy.
+\end{exercise}
+
+\begin{exercise}[Double Q-Learning]
+Implement Double Q-Learning and compare with standard Q-Learning on an
+MDP where maximization bias is harmful (e.g., the ``Maximization Bias
+Example'' from Sutton \& Barto, Chapter 6). Plot the percentage of times
+the correct action is chosen at the start state.
+\end{exercise}
+
+\begin{exercise}[Expected SARSA Derivation]
+Show that Expected SARSA with a greedy target policy is equivalent to
+Q-Learning. What happens when $\epsilon = 0$ in the $\epsilon$-greedy case?
+\end{exercise}

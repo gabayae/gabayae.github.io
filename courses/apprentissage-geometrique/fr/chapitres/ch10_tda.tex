@@ -1,0 +1,236 @@
+% ============================================================
+\chapter{Liens avec la TDA}
+\label{ch:tda}
+% ============================================================
+
+L'apprentissage g\'eom\'etrique et l'analyse topologique des donn\'ees (TDA) sont deux r\'eponses compl\'ementaires \`a la m\^eme question~: comment exploiter la \emph{structure} des donn\'ees~? Les GNN capturent les relations locales et les sym\'etries~; la TDA extrait des invariants topologiques globaux (nombres de Betti, homologie persistante) qui sont robustes au bruit et invariants par d\'eformation continue. Combiner les deux --- par exemple en ajoutant des features topologiques aux repr\'esentations d'un GNN, ou en utilisant des couches de persistance diff\'erentiables --- am\'eliore l'expressivit\'e et la performance. Ce chapitre explore ces connexions, de la th\'eorie (limites d'expressivit\'e des GNN r\'ev\'el\'ees par la topologie) aux applications (filtration apprise, couches de persistance).
+
+\begin{intuition}
+L'analyse topologique des donn\'ees (TDA)\index{TDA} et
+l'apprentissage g\'eom\'etrique partagent une pr\'eoccupation
+commune~: exploiter la \textbf{structure} des donn\'ees. La TDA
+apporte des invariants topologiques (nombres de Betti, homologie
+persistante) qui compl\`etent les features apprises par les GNN
+et am\'eliorent leur \textbf{expressivit\'e}.
+\end{intuition}
+
+% ============================================================
+\section{Rappels d'homologie persistante}
+\label{sec:rappels_persistance}
+% ============================================================
+
+\begin{definition}[Homologie persistante]
+\index{homologie persistante}
+\'Etant donn\'ee une filtration de complexes simpliciaux
+$K_0 \subseteq K_1 \subseteq \cdots \subseteq K_m$, l'\textbf{homologie
+persistante} suit l'\'evolution des classes d'homologie \`a travers
+la filtration. Chaque classe na\^\i t \`a un indice $b$ et meurt
+\`a un indice $d > b$, donnant un point $(b, d)$ dans le
+\textbf{diagramme de persistance}.
+\end{definition}
+
+\begin{remarque}
+Pour un graphe $G = (V, E)$, on peut construire diff\'erentes
+filtrations~:
+\begin{itemize}
+  \item \textbf{Par degr\'e}~: $f(v) = \mathrm{deg}(v)$ et
+        $f(e) = \max(f(u), f(v))$.
+  \item \textbf{Par centralit\'e}~: $f(v) = \mathrm{betweenness}(v)$.
+  \item \textbf{Par features apprises}~: $f(v) = g_\theta(h_v)$
+        o\`u $g_\theta$ est un r\'eseau de neurones.
+\end{itemize}
+\end{remarque}
+
+% ============================================================
+\section{Features topologiques dans les GNN}
+\label{sec:features_topo}
+% ============================================================
+
+\begin{definition}[Features topologiques pour les graphes]
+\index{features topologiques}
+Les \textbf{features topologiques} d'un graphe sont extraites
+de ses diagrammes de persistance~:
+\begin{itemize}
+  \item $H_0$~: les composantes connexes et leur stabilit\'e.
+  \item $H_1$~: les cycles et leur persistance.
+\end{itemize}
+Ces features sont vectoris\'ees (paysages, images de persistance)
+et concat\'en\'ees aux features du GNN.
+\end{definition}
+
+\begin{proposition}[Compl\'ementarit\'e]
+Les features topologiques capturent des propri\'et\'es globales
+du graphe (cycles, cavit\'es) que le message passing local
+ne peut pas d\'etecter en un nombre born\'e d'it\'erations~:
+d\'etecter un cycle de longueur $k$ n\'ecessite au moins $k/2$
+couches de message passing.
+\end{proposition}
+
+\begin{minted}{python}
+import torch
+import numpy as np
+from gudhi import RipsComplex
+from gudhi.representations import PersistenceImage
+
+def topo_features(pos, max_edge=5.0, resolution=10):
+    """Calcule les features topologiques d'un nuage de points."""
+    rips = RipsComplex(points=pos, max_edge_length=max_edge)
+    st = rips.create_simplex_tree(max_dimension=2)
+    st.persistence()
+
+    # Diagrammes par dimension
+    dgm_h0 = st.persistence_intervals_in_dimension(0)
+    dgm_h1 = st.persistence_intervals_in_dimension(1)
+
+    # Vectorisation par images de persistance
+    pi = PersistenceImage(
+        bandwidth=0.1, resolution=[resolution, resolution]
+    )
+    feats = []
+    for dgm in [dgm_h0, dgm_h1]:
+        if len(dgm) > 0:
+            dgm = dgm[np.isfinite(dgm[:, 1])]
+        if len(dgm) > 0:
+            feats.append(pi.fit_transform([dgm])[0])
+        else:
+            feats.append(np.zeros(resolution ** 2))
+    return np.concatenate(feats)
+\end{minted}
+
+% ============================================================
+\section{Message passing topologique}
+\label{sec:message_passing_topo}
+% ============================================================
+
+\begin{definition}[Message passing sur complexes simpliciaux]
+\index{message passing simplicial}
+Le \textbf{message passing simplicial} (Bodnar et al.\ 2021)
+g\'en\'eralise le message passing des graphes aux complexes
+simpliciaux de dimension sup\'erieure~:
+\[
+  h_\sigma^{(t+1)} = \phi\!\left(h_\sigma^{(t)},\;
+  \bigoplus_{\tau \in \mathcal{B}(\sigma)} \psi_{\mathcal{B}}(h_\tau^{(t)}),\;
+  \bigoplus_{\tau \in \mathcal{C}(\sigma)} \psi_{\mathcal{C}}(h_\tau^{(t)})
+  \right)
+\]
+o\`u $\mathcal{B}(\sigma)$ sont les faces (boundary) et
+$\mathcal{C}(\sigma)$ les co-faces (coboundary) du simplexe $\sigma$.
+\end{definition}
+
+\begin{intuition}
+Dans un graphe, les messages circulent le long des ar\^etes
+(1-simplexes). Dans un complexe simplicial, on ajoute des messages
+le long des triangles (2-simplexes) et des structures de dimension
+sup\'erieure. Cela permet de capturer des relations
+\textbf{d'ordre sup\'erieur} entre les n\oe uds.
+\end{intuition}
+
+\begin{definition}[Message passing sur complexes cellulaires]
+\index{CW Network}
+Les \textbf{CW Networks} (Bodnar et al.\ 2021) \'etendent le
+message passing aux complexes cellulaires, qui g\'en\'eralisent
+les complexes simpliciaux en autorisant des cellules de forme
+arbitraire (pas seulement des simplexes).
+\end{definition}
+
+% ============================================================
+\section{Hi\'erarchie de Weisfeiler-Leman et topologie}
+\label{sec:wl_topo}
+% ============================================================
+
+\begin{definition}[Test de Weisfeiler-Leman]
+\index{Weisfeiler-Leman}
+Le \textbf{test de Weisfeiler-Leman} (WL) de niveau $k$ est un
+algorithme de raffinement de couleurs qui caract\'erise les graphes~:
+deux graphes non distingu\'es par $k$-WL sont dits
+\textbf{$k$-WL \'equivalents}.
+\end{definition}
+
+\begin{theoreme}[Expressivit\'e des GNN --- Xu et al.\ 2019, Morris et al.\ 2019]
+\index{expressivit\'e WL}
+Un GNN de type message passing est \textbf{au plus aussi puissant}
+que le test $1$-WL pour distinguer des graphes non isomorphes.
+\end{theoreme}
+
+\begin{theoreme}[Au-del\`a de WL par la topologie --- Bodnar et al.\ 2021]
+\index{complexe simplicial}
+Le message passing sur des complexes simpliciaux avec des features
+topologiques (homologie persistante) peut distinguer des graphes
+que $k$-WL ne distingue pas, pour tout $k$ fix\'e.
+\end{theoreme}
+
+\begin{exemple}[Graphes de Rook]
+Les graphes de Rook $R_{3 \times 3}$ et $R_{4 \times 4}$ ne sont
+pas distingu\'es par $3$-WL. Cependant, leurs diagrammes de
+persistance $H_1$ (avec filtration par degr\'e) diff\`erent~:
+$R_{4 \times 4}$ a davantage de cycles persistants.
+\end{exemple}
+
+% ============================================================
+\section{Expressivit\'e et topologie}
+\label{sec:expressivite}
+% ============================================================
+
+\begin{proposition}[Enrichissement topologique]
+En ajoutant des features d'homologie persistante aux features de
+n\oe uds d'un GNN, l'expressivit\'e r\'esultante est
+\textbf{strictement sup\'erieure} \`a celle du GNN seul pour
+le probl\`eme de classification de graphes.
+\end{proposition}
+
+\begin{definition}[Filtration apprise jointe]
+\index{filtration apprise}
+Dans une \textbf{filtration apprise jointe}, les valeurs de
+filtration sont d\'efinies par le GNN lui-m\^eme~:
+\[
+  f_\theta(v) = \mathrm{MLP}_\theta(h_v^{(L)})
+\]
+o\`u $h_v^{(L)}$ est l'embedding final du n\oe ud $v$ apr\`es $L$
+couches de message passing. La persistance est calcul\'ee sur cette
+filtration, et le gradient r\'etropropag\'e \`a travers le calcul
+de persistance (cf.\ persistance diff\'erentiable).
+\end{definition}
+
+\begin{formules}[title=\textbf{Pipeline GNN + TDA}]
+\[
+  X \xrightarrow{\text{GNN}} H^{(L)}
+  \xrightarrow{f_\theta} \text{Filtration}
+  \xrightarrow{\text{PH}} \mathrm{Dgm}
+  \xrightarrow{\text{PersLay}} z_{\mathrm{topo}}
+  \xrightarrow{\oplus} \text{Pr\'ediction}
+\]
+\end{formules}
+
+% ============================================================
+\section{Exercices}
+% ============================================================
+
+\begin{exercice}
+Pour le graphe de Petersen, calculer le diagramme de persistance
+$H_0$ et $H_1$ avec la filtration par degr\'e. Tous les n\oe uds
+ont le m\^eme degr\'e~: que peut-on en d\'eduire~?
+\end{exercice}
+
+\begin{exercice}
+Montrer que deux graphes isomorphes ont les m\^emes diagrammes de
+persistance pour toute filtration d\'efinie \`a partir de
+propri\'et\'es structurelles du graphe.
+\end{exercice}
+
+\begin{exercice}[Message passing simplicial]
+\'Ecrire les \'equations de message passing pour un triangle
+$(v_1, v_2, v_3)$ dans un complexe simplicial. Quels messages
+re\c{c}oit l'ar\^ete $(v_1, v_2)$~?
+\end{exercice}
+
+\begin{exercice}
+Donner un exemple de deux graphes non isomorphes ayant les m\^emes
+diagrammes de persistance pour la filtration par degr\'e. Proposer
+une filtration qui les distingue.
+\end{exercice}
+
+\begin{exercice}[Projet]
+Impl\'ementer un GNN enrichi de features topologiques sur le
+benchmark ZINC et comparer avec un GCN de base. Mesurer
+l'am\'elioration en MAE.
+\end{exercice}

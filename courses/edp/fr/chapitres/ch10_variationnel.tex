@@ -1,0 +1,266 @@
+% ============================================================
+\chapter{M\'ethodes Variationnelles}
+\label{ch:variationnel}
+% ============================================================
+
+Plut\^ot que de chercher une solution classique d'une EDP --- c'est-\`a-dire une fonction suffisamment r\'eguli\`ere satisfaisant l'\'equation point par point --- pourquoi ne pas reformuler le probl\`eme comme la minimisation d'une \'energie~? Cette id\'ee, remontant \`a Dirichlet et Riemann au XIX\ieme{} si\`ecle, est le fondement des \emph{m\'ethodes variationnelles}. La formulation faible, o\`u l'on multiplie l'\'equation par une fonction test et on int\`egre par parties, transforme l'EDP en un probl\`eme dans un espace de Sobolev. Le th\'eor\`eme de Lax--Milgram (1954) garantit alors l'existence et l'unicit\'e de la solution faible. Cette approche est aussi la base th\'eorique de la m\'ethode des \'el\'ements finis, l'outil num\'erique dominant pour les EDP en ing\'enierie.
+
+\section{Formulation faible des probl\`emes elliptiques}
+
+\begin{definition}[Forme bilin\'eaire associ\'ee]
+\index{forme bilin\'eaire}
+Consid\'erons le probl\`eme de Dirichlet pour une EDP elliptique du second ordre~:
+\begin{equation}\label{eq:dirichlet}
+    -\sum_{i,j=1}^n \partial_j(a_{ij}(x) \partial_i u) + c(x) u = f(x)
+    \quad \text{dans } \Omega, \qquad u = 0 \quad \text{sur } \partial\Omega.
+\end{equation}
+La \emph{formulation faible} consiste \`a chercher $u \in H_0^1(\Omega)$ tel que~:
+\[
+    a(u, v) = \ell(v) \quad \forall\, v \in H_0^1(\Omega),
+\]
+o\`u la forme bilin\'eaire $a$ et la forme lin\'eaire $\ell$ sont d\'efinies par~:
+\begin{align*}
+    a(u, v) &= \int_\Omega \left( \sum_{i,j} a_{ij} \partial_i u \, \partial_j v
+    + c\, u\, v \right) dx, \\
+    \ell(v) &= \int_\Omega f\, v\, dx.
+\end{align*}
+\end{definition}
+
+\begin{intuition}
+La formulation faible s'obtient en multipliant l'EDP par une fonction test
+$v \in H_0^1(\Omega)$ et en int\'egrant par parties. L'avantage est double~:
+on r\'eduit l'ordre de d\'erivation requis sur $u$ (de $2$ \`a $1$), et on obtient
+un cadre fonctionnel o\`u les th\'eor\`emes d'analyse fonctionnelle s'appliquent
+directement.
+\end{intuition}
+
+\begin{definition}[Coercivit\'e et continuit\'e]
+\index{coercivit\'e}
+Soit $V$ un espace de Hilbert. Une forme bilin\'eaire $a : V \times V \to \R$ est~:
+\begin{itemize}
+    \item \textbf{continue} s'il existe $M > 0$ tel que $\abs{a(u,v)} \leq M\norm{u}_V \norm{v}_V$~;
+    \item \textbf{coercive} s'il existe $\alpha > 0$ tel que $a(u,u) \geq \alpha \norm{u}_V^2$.
+\end{itemize}
+\end{definition}
+
+\section{Th\'eor\`eme de Lax-Milgram}
+
+\begin{theoreme}[Lax-Milgram]
+\label{thm:lax_milgram}
+\index{th\'eor\`eme de Lax-Milgram}
+Soit $V$ un espace de Hilbert, $a : V \times V \to \R$ une forme bilin\'eaire
+continue et coercive, et $\ell : V \to \R$ une forme lin\'eaire continue.
+Alors il existe un unique $u \in V$ tel que~:
+\[
+    a(u, v) = \ell(v) \quad \forall\, v \in V.
+\]
+De plus, $\norm{u}_V \leq \frac{1}{\alpha}\norm{\ell}_{V'}$.
+\end{theoreme}
+
+\begin{proof}
+\textbf{\'Etape 1~: Repr\'esentation de Riesz.}
+Par le th\'eor\`eme de Riesz, pour chaque $u \in V$ fix\'e, il existe un unique
+$Au \in V$ tel que $a(u, v) = \inner{Au}{v}_V$ pour tout $v$. L'application
+$A : V \to V$ est lin\'eaire continue avec $\norm{A} \leq M$.
+
+De m\^eme, il existe $F \in V$ tel que $\ell(v) = \inner{F}{v}_V$.
+
+Le probl\`eme se ram\`ene \`a~: trouver $u$ tel que $Au = F$.
+
+\textbf{\'Etape 2~: $A$ est inversible.}
+La coercivit\'e donne $\inner{Au}{u} = a(u,u) \geq \alpha\norm{u}^2$, donc $A$
+est injectif et $\norm{Au} \geq \alpha\norm{u}$. L'image $\operatorname{Im}(A)$
+est ferm\'ee (car $A$ est born\'e inf\'erieurement). Si $w \perp \operatorname{Im}(A)$,
+alors $\inner{Aw}{w} = 0$, donc $w = 0$ par coercivit\'e. Ainsi
+$\operatorname{Im}(A) = V$ et $A$ est bijectif. L'unique solution est
+$u = A^{-1}F$ avec $\norm{u} \leq \frac{1}{\alpha}\norm{F} = \frac{1}{\alpha}\norm{\ell}_{V'}$.
+\end{proof}
+
+\begin{attention}[title=\textbf{Sym\'etrie non requise}]
+Le th\'eor\`eme de Lax-Milgram ne suppose pas que $a$ soit sym\'etrique. C'est un
+avantage sur le th\'eor\`eme de Riesz, qui n\'ecessiterait la sym\'etrie.
+\end{attention}
+
+\section{Application au probl\`eme de Dirichlet}
+
+\begin{theoreme}[Existence et unicit\'e pour le probl\`eme de Dirichlet]
+\label{thm:dirichlet}
+Soit $\Omega \subset \R^n$ un ouvert born\'e, $f \in L^2(\Omega)$, et supposons
+que les coefficients $a_{ij} \in L^\infty(\Omega)$ satisfont la condition
+d'ellipticit\'e uniforme~:
+\[
+    \sum_{i,j} a_{ij}(x) \xi_i \xi_j \geq \lambda \abs{\xi}^2
+    \quad \forall\, \xi \in \R^n,\; \text{p.p. } x \in \Omega,
+\]
+et que $c(x) \geq 0$ p.p. Alors le probl\`eme \eqref{eq:dirichlet} admet une unique
+solution faible $u \in H_0^1(\Omega)$.
+\end{theoreme}
+
+\begin{proof}
+On v\'erifie les hypoth\`eses de Lax-Milgram avec $V = H_0^1(\Omega)$.
+
+\textbf{Continuit\'e de $a$~:}
+$\abs{a(u,v)} \leq \norm{a_{ij}}_{L^\infty} \norm{\nabla u}_{L^2} \norm{\nabla v}_{L^2}
++ \norm{c}_{L^\infty} \norm{u}_{L^2} \norm{v}_{L^2} \leq M \norm{u}_{H^1} \norm{v}_{H^1}$.
+
+\textbf{Coercivit\'e~:}
+$a(u,u) \geq \lambda \norm{\nabla u}_{L^2}^2 \geq \frac{\lambda}{1 + C_P^2} \norm{u}_{H^1}^2$
+par l'in\'egalit\'e de Poincar\'e (o\`u $C_P$ est la constante de Poincar\'e).
+
+\textbf{Continuit\'e de $\ell$~:}
+$\abs{\ell(v)} = \abs{\int f v} \leq \norm{f}_{L^2}\norm{v}_{L^2}
+\leq \norm{f}_{L^2}\norm{v}_{H^1}$.
+
+Par Lax-Milgram, il existe une unique solution $u \in H_0^1(\Omega)$.
+\end{proof}
+
+\begin{exemple}[Laplacien avec source]
+Pour $-\Delta u = f$ dans $\Omega$, $u = 0$ sur $\partial\Omega$~:
+$a(u,v) = \int_\Omega \nabla u \cdot \nabla v\, dx$ et $\ell(v) = \int_\Omega fv\, dx$.
+Les hypoth\`eses sont satisfaites avec $\lambda = 1$ et $c = 0$.
+\end{exemple}
+
+\section{M\'ethode de Ritz-Galerkin}
+
+\begin{definition}[Approximation de Galerkin]
+\index{m\'ethode de Galerkin}
+Soit $V_h \subset V$ un sous-espace de dimension finie. L'\emph{approximation
+de Galerkin} de $u$ est l'unique $u_h \in V_h$ tel que~:
+\[
+    a(u_h, v_h) = \ell(v_h) \quad \forall\, v_h \in V_h.
+\]
+\end{definition}
+
+\begin{theoreme}[Lemme de C\'ea]
+\label{thm:cea}
+\index{lemme de C\'ea}
+Si $a$ est continue (constante $M$) et coercive (constante $\alpha$), alors~:
+\[
+    \norm{u - u_h}_V \leq \frac{M}{\alpha} \inf_{v_h \in V_h} \norm{u - v_h}_V.
+\]
+\end{theoreme}
+
+\begin{proof}
+Par coercivit\'e et l'\'equation de Galerkin (orthogonalit\'e de l'erreur)~:
+\begin{align*}
+    \alpha\norm{u - u_h}^2 &\leq a(u - u_h, u - u_h) \\
+    &= a(u - u_h, u - v_h) + a(u - u_h, v_h - u_h) \\
+    &= a(u - u_h, u - v_h) \quad \text{(car $a(u - u_h, w_h) = 0$ pour $w_h \in V_h$)} \\
+    &\leq M\norm{u - u_h}\norm{u - v_h}.
+\end{align*}
+On divise par $\norm{u - u_h}$ et on prend l'infimum sur $v_h$.
+\end{proof}
+
+\begin{remarque}
+Le lemme de C\'ea montre que l'approximation de Galerkin est quasi-optimale~:
+l'erreur est au plus $M/\alpha$ fois la meilleure approximation possible dans $V_h$.
+\end{remarque}
+
+\section{Principe variationnel (cas sym\'etrique)}
+
+\begin{theoreme}[\'Equivalence variationnelle]
+\label{thm:equivalence_var}
+Si $a$ est sym\'etrique, continue et coercive, alors $u$ est solution de
+$a(u,v) = \ell(v)$ pour tout $v \in V$ si et seulement si $u$ minimise la
+fonctionnelle d'\'energie~:
+\[
+    J(v) = \frac{1}{2} a(v, v) - \ell(v).
+\]
+\end{theoreme}
+
+\begin{proof}
+Pour tout $v \in V$~:
+$J(v) = J(u) + \frac{1}{2}a(v - u, v - u) + a(u, v - u) - \ell(v - u)$.
+Si $u$ est solution, les deux derniers termes s'annulent, donc
+$J(v) = J(u) + \frac{1}{2}a(v-u, v-u) \geq J(u)$ par coercivit\'e.
+R\'eciproquement, si $u$ minimise $J$, alors $\frac{d}{dt}J(u + tv)|_{t=0} = 0$
+donne $a(u,v) = \ell(v)$.
+\end{proof}
+
+\begin{exemple}[Principe de Dirichlet]
+\index{principe de Dirichlet}
+Pour le probl\`eme $-\Delta u = f$ avec $u \in H_0^1(\Omega)$, la fonctionnelle
+d'\'energie est~:
+\[
+    J(v) = \frac{1}{2}\int_\Omega \abs{\nabla v}^2\, dx - \int_\Omega f v\, dx.
+\]
+Minimiser $J$ \'equivaut \`a r\'esoudre $-\Delta u = f$.
+\end{exemple}
+
+\section{R\'egularit\'e des solutions faibles}
+
+\begin{theoreme}[R\'egularit\'e $H^2$]
+\label{thm:regularite_H2}
+\index{r\'egularit\'e elliptique}
+Soit $\Omega$ un ouvert born\'e \`a bord $C^2$ et $u \in H_0^1(\Omega)$ la solution
+faible de $-\Delta u = f$ avec $f \in L^2(\Omega)$. Alors $u \in H^2(\Omega)$
+et~:
+\[
+    \norm{u}_{H^2(\Omega)} \leq C\norm{f}_{L^2(\Omega)}.
+\]
+\end{theoreme}
+
+\begin{theoreme}[R\'egularit\'e $C^\infty$]
+Si $f \in C^\infty(\overline{\Omega})$ et $\partial\Omega$ est $C^\infty$, alors
+la solution faible $u \in H_0^1(\Omega)$ de $-\Delta u = f$ satisfait
+$u \in C^\infty(\overline{\Omega})$.
+\end{theoreme}
+
+\begin{remarque}
+La r\'egularit\'e d\'epend de la r\'egularit\'e du bord et du second membre. Si
+$\partial\Omega$ n'est pas assez r\'egulier (par exemple, domaine avec coins),
+la r\'egularit\'e $H^2$ peut faire d\'efaut.
+\end{remarque}
+
+\begin{formules}[title=\textbf{R\'esum\'e de la m\'ethode variationnelle}]
+\begin{enumerate}
+    \item \'Ecrire la formulation faible~: $a(u,v) = \ell(v)$, $\forall v \in V$.
+    \item V\'erifier la continuit\'e de $a$ et $\ell$.
+    \item V\'erifier la coercivit\'e de $a$ (souvent via Poincar\'e).
+    \item Appliquer Lax-Milgram $\Rightarrow$ existence et unicit\'e.
+    \item \'Etudier la r\'egularit\'e~: $u \in H^2$~? $u \in C^\infty$~?
+\end{enumerate}
+\end{formules}
+
+\section{Exercices}
+
+\begin{exercice}
+\'Ecrire la formulation faible du probl\`eme~:
+$-\operatorname{div}(A(x)\nabla u) + u = f$ dans $\Omega$, $u = 0$ sur $\partial\Omega$,
+o\`u $A(x)$ est une matrice sym\'etrique d\'efinie positive uniform\'ement.
+V\'erifier les hypoth\`eses de Lax-Milgram.
+\end{exercice}
+
+\begin{exercice}
+Montrer que pour le probl\`eme de Neumann~:
+$-\Delta u = f$ dans $\Omega$, $\frac{\partial u}{\partial \nu} = 0$ sur
+$\partial\Omega$, la condition de compatibilit\'e $\int_\Omega f\, dx = 0$ est
+n\'ecessaire. Formuler le probl\`eme faible dans $H^1(\Omega)$ et appliquer
+Lax-Milgram dans le quotient $H^1/\R$.
+\end{exercice}
+
+\begin{exercice}
+Consid\'erer le probl\`eme de Robin~: $-\Delta u + u = f$ dans $\Omega$,
+$\frac{\partial u}{\partial \nu} + \alpha u = 0$ sur $\partial\Omega$ avec
+$\alpha > 0$. \'Ecrire la formulation faible dans $H^1(\Omega)$ et montrer
+l'existence et l'unicit\'e.
+\end{exercice}
+
+\begin{exercice}[Lemme de C\'ea en pratique]
+Soit $\Omega = (0,1)$, $-u'' = f$ avec $u(0) = u(1) = 0$. Prendre $V_h$ comme
+l'espace des fonctions affines par morceaux sur une subdivision r\'eguli\`ere de pas $h$.
+Montrer que $\norm{u - u_h}_{H^1} \leq C h \norm{u}_{H^2}$.
+\end{exercice}
+
+\begin{exercice}
+Montrer que si $a$ est sym\'etrique, l'approximation de Galerkin $u_h$ minimise
+$J(v) = \frac{1}{2}a(v,v) - \ell(v)$ sur $V_h$. En d\'eduire que l'erreur en
+\'energie satisfait $a(u - u_h, u - u_h) \leq a(u - v_h, u - v_h)$ pour tout
+$v_h \in V_h$.
+\end{exercice}
+
+\begin{exercice}
+Soit $\Omega$ un carr\'e de $\R^2$ avec un coin rentrant. Donner un exemple de
+donn\'ee $f \in L^2(\Omega)$ pour laquelle la solution de $-\Delta u = f$ n'est
+pas dans $H^2(\Omega)$. Expliquer le r\^ole de la singularit\'e de coin.
+\end{exercice}

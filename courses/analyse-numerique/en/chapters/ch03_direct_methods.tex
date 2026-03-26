@@ -1,0 +1,158 @@
+% ============================================================
+\chapter{Direct Methods for Linear Systems}
+\label{ch:direct}
+% ============================================================
+
+\section{Motivating example}
+An electrical circuit with $n$ nodes produces a system $Ax=b$ of $n$ equations. For $n=1000$, a systematic and efficient method is needed.
+
+\section{Gaussian elimination and LU factorisation}
+
+\begin{definition}[LU factorisation]\index{LU factorisation}\index{LU}
+Find $L$ lower triangular (with $\ell_{ii}=1$) and $U$ upper triangular such that $A=LU$. Then $Ax=b$ is solved by $Ly=b$ (forward substitution) followed by $Ux=y$ (back substitution).
+\end{definition}
+
+\begin{algorithm}[H]
+\caption{LU factorisation (without pivoting)}\label{alg:lu}
+\KwInput{Matrix $A\in\R^{n\times n}$}
+\KwOutput{$L$, $U$ such that $A=LU$}
+\For{$k=1,\ldots,n-1$}{
+  \For{$i=k+1,\ldots,n$}{
+    $\ell_{ik} \gets a_{ik}/a_{kk}$\;
+    \For{$j=k+1,\ldots,n$}{
+      $a_{ij} \gets a_{ij}-\ell_{ik}\cdot a_{kj}$\;
+    }
+  }
+}
+$U \gets$ upper triangular part of $A$\;
+\end{algorithm}
+
+\begin{theorem}[Existence of LU]
+If all leading principal submatrices of $A$ are invertible, then the LU factorisation exists and is unique.
+\end{theorem}
+
+\begin{theorem}[Cost]
+The LU factorisation costs $\frac{2n^3}{3}+\BigO(n^2)$ floating-point operations.
+\end{theorem}
+
+\begin{proof}
+Step $k$ performs $(n-k)^2$ multiplications and subtractions. Total: $\sum_{k=1}^{n-1}2(n-k)^2=2\sum_{j=1}^{n-1}j^2=\frac{2n^3}{3}+\BigO(n^2)$.
+\end{proof}
+
+\section{Partial pivoting}\index{partial pivoting}
+
+\begin{warning}
+Without pivoting, the algorithm can be unstable (division by a small pivot). \textbf{Partial pivoting} permutes rows to maximise $|a_{kk}|$.
+\end{warning}
+
+One obtains $PA=LU$ where $P$ is a permutation matrix.
+
+\begin{theorem}[Stability]
+With partial pivoting, Gaussian elimination is \textbf{backward stable}:
+\[
+(A+\Delta A)\hat{x}=b, \quad \|\Delta A\|\leq g(n)\,\eps_{\mathrm{mach}}\,\|A\|,
+\]
+where $g(n)$ is the growth factor (bounded by $2^{n-1}$ in theory, rarely exceeded in practice).
+\end{theorem}
+
+\section{Cholesky factorisation}\index{Cholesky}
+
+\begin{theorem}[Cholesky factorisation]
+If $A$ is \textbf{symmetric positive definite} (SPD), then there exists a unique lower triangular matrix $L$ with positive diagonal entries such that $A=LL^\top$.
+\end{theorem}
+
+\begin{proof}
+By induction on $n$. Write $A=\begin{pmatrix}a_{11}&\mathbf{v}^\top\\\mathbf{v}&A'\end{pmatrix}$. Since $A$ is SPD, $a_{11}>0$. Set $\ell_{11}=\sqrt{a_{11}}$, $\mathbf{l}=\mathbf{v}/\ell_{11}$. Then $A'- \mathbf{l}\mathbf{l}^\top$ is SPD of size $(n-1)\times(n-1)$ and we apply the induction hypothesis.
+\end{proof}
+
+\begin{algorithm}[H]
+\caption{Cholesky factorisation}\label{alg:cholesky}
+\KwInput{$A$ SPD, $n\times n$}
+\KwOutput{$L$ such that $A=LL^\top$}
+\For{$j=1,\ldots,n$}{
+  $\ell_{jj}\gets\sqrt{a_{jj}-\sum_{k=1}^{j-1}\ell_{jk}^2}$\;
+  \For{$i=j+1,\ldots,n$}{
+    $\ell_{ij}\gets\frac{1}{\ell_{jj}}\left(a_{ij}-\sum_{k=1}^{j-1}\ell_{ik}\ell_{jk}\right)$\;
+  }
+}
+\end{algorithm}
+
+\begin{theorem}[Cost of Cholesky]
+$\frac{n^3}{3}+\BigO(n^2)$: half the cost of LU.
+\end{theorem}
+
+\section{Numerical example}
+
+$A=\begin{pmatrix}4&2\\2&5\end{pmatrix}$, $b=\begin{pmatrix}8\\9\end{pmatrix}$. Cholesky: $L=\begin{pmatrix}2&0\\1&2\end{pmatrix}$.
+
+Forward substitution $Ly=b$: $y_1=4$, $y_2=(9-1\cdot4)/2=2.5$. Back substitution $L^\top x=y$: $x_2=2.5/2=1.25$, $x_1=(4-1\cdot 1.25)/2=1.375$.
+
+\section{Implementation}
+
+\begin{codeblock}[title=\textbf{Python}]
+\begin{minted}{python}
+import numpy as np
+from scipy.linalg import lu, cholesky, solve_triangular
+
+# LU
+A = np.array([[2., 1, 1], [4, 3, 3], [8, 7, 9]])
+b = np.array([4., 10, 24])
+P, L, U = lu(A)
+y = solve_triangular(L, P @ b, lower=True)
+x = solve_triangular(U, y)
+print(f"LU: x = {x}")
+
+# Cholesky
+A_spd = np.array([[4., 2], [2, 5]])
+b_spd = np.array([8., 9])
+L_chol = cholesky(A_spd, lower=True)
+y = solve_triangular(L_chol, b_spd, lower=True)
+x = solve_triangular(L_chol.T, y)
+print(f"Cholesky: x = {x}")
+print(f"Cout LU (n=100): ~{2*100**3//3:.0f} flops")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Julia}]
+\begin{minted}{julia}
+using LinearAlgebra
+A = [2.0 1 1; 4 3 3; 8 7 9]
+b = [4.0, 10, 24]
+F = lu(A)
+x = F \ b
+println("LU: x = $x")
+
+A_spd = [4.0 2; 2 5]
+b_spd = [8.0, 9]
+C = cholesky(A_spd)
+x = C \ b_spd
+println("Cholesky: x = $x")
+\end{minted}
+\end{codeblock}
+
+\section{Exercises}
+
+\begin{exercise}[$\star$]
+Factorise $A=\begin{pmatrix}1&2&3\\2&8&14\\3&14&34\end{pmatrix}$ into $LU$ by hand. Verify.
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Show that if $A$ is SPD, all pivots in Gaussian elimination are positive (no pivoting needed).
+\end{exercise}
+
+\begin{exercise}[$\star\star$]
+Compare the computation times of LU vs.\ Cholesky for $n=100,500,1000,2000$ on random SPD matrices. Verify the ratio $\sim 2$.
+\end{exercise}
+
+\begin{exercise}[$\star\star\star$ -- Project]
+Implement the banded LU factorisation for tridiagonal matrices (Thomas algorithm). Apply to the discretisation of $-u''=f$.
+\end{exercise}
+
+\begin{keyformulas}
+\begin{align*}
+A &= LU \quad (\text{cost } \tfrac{2n^3}{3}) \\
+A &= LL^\top \quad (\text{Cholesky, cost } \tfrac{n^3}{3}) \\
+PA &= LU \quad (\text{partial pivoting}) \\
+\cond(A) &= \|A\|\cdot\|A^{-1}\|, \quad \frac{\|\delta x\|}{\|x\|}\leq\cond(A)\frac{\|\delta b\|}{\|b\|}
+\end{align*}
+\end{keyformulas}

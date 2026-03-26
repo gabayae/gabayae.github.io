@@ -1,0 +1,622 @@
+% ============================================================
+\chapter{D\'eploiement de Mod\`eles --- REST APIs, FastAPI, Streamlit}
+\label{ch:deploiement}
+\index{d\'eploiement}
+% ============================================================
+
+\section{Patterns de d\'eploiement}
+\label{sec:deployment-patterns}
+\index{d\'eploiement!patterns}
+
+Un mod\`ele entra\^in\'e n'a de valeur que s'il est accessible aux
+utilisateurs ou aux syst\`emes aval. Trois grands patterns de d\'eploiement
+existent~:
+
+\begin{definition}[Inf\'erence batch]
+L'\textbf{inf\'erence batch}\index{inf\'erence batch} consiste \`a ex\'ecuter
+les pr\'edictions sur un lot de donn\'ees \`a intervalles r\'eguliers
+(par exemple, chaque nuit). Les r\'esultats sont stock\'es dans une base
+de donn\'ees ou un fichier.
+\end{definition}
+
+\begin{definition}[Inf\'erence en ligne]
+L'\textbf{inf\'erence en ligne}\index{inf\'erence en ligne} (ou temps r\'eel)
+r\'epond \`a des requ\^etes individuelles via une API REST ou gRPC, avec
+une latence typique de quelques millisecondes \`a quelques secondes.
+\end{definition}
+
+\begin{definition}[Inf\'erence en streaming]
+L'\textbf{inf\'erence en streaming}\index{inf\'erence streaming} traite un
+flux continu de donn\'ees (Kafka, Flink) et produit des pr\'edictions en
+continu, adapt\'ee aux cas o\`u les donn\'ees arrivent en temps r\'eel.
+\end{definition}
+
+\begin{center}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Crit\`ere} & \textbf{Batch} & \textbf{En ligne} & \textbf{Streaming} \\
+\midrule
+Latence & Minutes--heures & Millisecondes & Secondes \\
+D\'ebit & Tr\`es \'elev\'e & Moyen & \'Elev\'e \\
+Complexit\'e & Faible & Moyenne & \'Elev\'ee \\
+Cas d'usage & Scoring nocturne & API web/mobile & D\'etection fraude \\
+Infra typique & Cron + Spark & FastAPI + K8s & Kafka + Flink \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{remarque}
+La majorit\'e des projets ML en entreprise commencent par du batch, puis
+\'evoluent vers du temps r\'eel quand le besoin m\'etier le justifie. Ne
+sur-ing\'eniez pas d\`es le d\'epart.
+\end{remarque}
+
+\section{Concepts REST API pour le ML}
+\label{sec:rest-api}
+\index{REST API}
+
+Une API REST expose le mod\`ele via des endpoints HTTP. Les conventions~:
+
+\begin{formules}[title=\textbf{Endpoints typ\-iques d'une API ML}]
+\begin{tabular}{@{}llp{6.5cm}@{}}
+\toprule
+\textbf{M\'ethode} & \textbf{Endpoint} & \textbf{Description} \\
+\midrule
+\cli{GET} & \cli{/health} & V\'erification que le service est actif \\
+\cli{GET} & \cli{/model/info} & M\'etadonn\'ees du mod\`ele (version,
+  m\'etriques) \\
+\cli{POST} & \cli{/predict} & Pr\'ediction sur une ou plusieurs
+  instances \\
+\cli{POST} & \cli{/predict/batch} & Pr\'ediction batch (fichier CSV) \\
+\bottomrule
+\end{tabular}
+\end{formules}
+
+\section{FastAPI~: servir un mod\`ele ML}
+\label{sec:fastapi}
+\index{FastAPI}
+
+\textbf{FastAPI}\index{FastAPI} est un framework Python moderne, rapide
+(bas\'e sur Starlette et Pydantic), avec documentation automatique OpenAPI
+et validation des donn\'ees int\'egr\'ee.
+
+\subsection{Sch\'emas Pydantic}
+\index{Pydantic}
+
+\begin{codeblock}[title=\textbf{schemas.py --- Sch\'emas de requ\^ete et r\'eponse}]
+\begin{minted}{python}
+"""Pydantic schemas for request/response validation."""
+from pydantic import BaseModel, Field
+
+
+class PredictionRequest(BaseModel):
+    """Schema for a single prediction request."""
+    sepal_length: float = Field(..., gt=0, description="Sepal length in cm")
+    sepal_width: float = Field(..., gt=0, description="Sepal width in cm")
+    petal_length: float = Field(..., gt=0, description="Petal length in cm")
+    petal_width: float = Field(..., gt=0, description="Petal width in cm")
+
+    model_config = {"json_schema_extra": {
+        "examples": [
+            {
+                "sepal_length": 5.1,
+                "sepal_width": 3.5,
+                "petal_length": 1.4,
+                "petal_width": 0.2,
+            }
+        ]
+    }}
+
+
+class PredictionResponse(BaseModel):
+    """Schema for prediction response."""
+    prediction: int = Field(..., description="Predicted class (0, 1, or 2)")
+    class_name: str = Field(..., description="Human-readable class name")
+    probabilities: list[float] = Field(
+        ..., description="Probability for each class"
+    )
+
+
+class HealthResponse(BaseModel):
+    """Schema for health check response."""
+    status: str
+    model_loaded: bool
+    model_version: str
+\end{minted}
+\end{codeblock}
+
+\subsection{Application FastAPI compl\`ete}
+
+\begin{codeblock}[title=\textbf{app.py --- API de serving ML compl\`ete}]
+\begin{minted}{python}
+"""FastAPI ML serving application."""
+import joblib
+import numpy as np
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException
+from schemas import PredictionRequest, PredictionResponse, HealthResponse
+
+# Variable globale pour le modele
+model = None
+MODEL_PATH = "models/rf_model.joblib"
+MODEL_VERSION = "1.0.0"
+CLASS_NAMES = ["setosa", "versicolor", "virginica"]
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Load model on startup, cleanup on shutdown."""
+    global model
+    try:
+        model = joblib.load(MODEL_PATH)
+        print(f"Model loaded from {MODEL_PATH}")
+    except FileNotFoundError:
+        print(f"WARNING: Model not found at {MODEL_PATH}")
+    yield
+    model = None
+    print("Model unloaded")
+
+
+app = FastAPI(
+    title="ML Prediction API",
+    description="API de prediction pour le modele Iris",
+    version=MODEL_VERSION,
+    lifespan=lifespan,
+)
+
+
+@app.get("/health", response_model=HealthResponse)
+async def health_check():
+    """Health check endpoint."""
+    return HealthResponse(
+        status="healthy" if model is not None else "degraded",
+        model_loaded=model is not None,
+        model_version=MODEL_VERSION,
+    )
+
+
+@app.post("/predict", response_model=PredictionResponse)
+async def predict(request: PredictionRequest):
+    """Generate prediction for a single instance."""
+    if model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+
+    features = np.array([[
+        request.sepal_length,
+        request.sepal_width,
+        request.petal_length,
+        request.petal_width,
+    ]])
+
+    prediction = int(model.predict(features)[0])
+    probabilities = model.predict_proba(features)[0].tolist()
+
+    return PredictionResponse(
+        prediction=prediction,
+        class_name=CLASS_NAMES[prediction],
+        probabilities=[round(p, 4) for p in probabilities],
+    )
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Lancer et tester l'API}]
+\begin{minted}{bash}
+# Installer FastAPI et uvicorn
+pip install fastapi uvicorn
+
+# Lancer le serveur
+uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+
+# Tester avec curl
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"sepal_length": 5.1, "sepal_width": 3.5,
+       "petal_length": 1.4, "petal_width": 0.2}'
+
+# Documentation automatique
+# Swagger UI : http://localhost:8000/docs
+# ReDoc :      http://localhost:8000/redoc
+\end{minted}
+\end{codeblock}
+
+\begin{codeoutput}
+\begin{minted}{json}
+{
+  "prediction": 0,
+  "class_name": "setosa",
+  "probabilities": [0.97, 0.02, 0.01]
+}
+\end{minted}
+\end{codeoutput}
+
+\section{Architecture de d\'eploiement}
+\label{sec:deployment-architecture}
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, rounded corners, minimum width=2.5cm,
+    minimum height=1.2cm, align=center, font=\small},
+  arr/.style={-{Stealth[length=2.5mm]}, thick},
+  dashed-arr/.style={-{Stealth[length=2.5mm]}, thick, dashed, gray}
+]
+  % Client
+  \node[box, fill=blue!10] (client) {Client\\(Web/Mobile)};
+
+  % Load balancer
+  \node[box, fill=yellow!10, right=2cm of client] (lb) {Load\\Balancer};
+
+  % API instances
+  \node[box, fill=green!10, right=2cm of lb, yshift=1cm] (api1) {FastAPI\\Instance 1};
+  \node[box, fill=green!10, right=2cm of lb, yshift=-1cm] (api2) {FastAPI\\Instance 2};
+
+  % Model store
+  \node[box, fill=orange!10, right=2cm of api1, yshift=-1cm] (store) {Model\\Store};
+
+  % Monitoring
+  \node[box, fill=red!10, below=1.5cm of lb] (mon) {Monitoring\\(Prometheus)};
+
+  % Arrows
+  \draw[arr] (client) -- (lb);
+  \draw[arr] (lb) -- (api1);
+  \draw[arr] (lb) -- (api2);
+  \draw[dashed-arr] (store) -- (api1);
+  \draw[dashed-arr] (store) -- (api2);
+  \draw[dashed-arr] (api1) -- (mon);
+  \draw[dashed-arr] (api2) -- (mon);
+\end{tikzpicture}
+\end{center}
+
+\section{Streamlit~: construire un d\'emo UI}
+\label{sec:streamlit}
+\index{Streamlit}
+
+\textbf{Streamlit}\index{Streamlit} permet de cr\'eer rapidement une
+interface web interactive pour d\'emontrer un mod\`ele ML, sans conna\^itre
+le d\'eveloppement frontend.
+
+\begin{codeblock}[title=\textbf{streamlit\_app.py --- D\'emo interactive}]
+\begin{minted}{python}
+"""Streamlit demo for the Iris classification model."""
+import streamlit as st
+import requests
+import json
+
+API_URL = "http://localhost:8000"
+
+st.set_page_config(page_title="Iris Classifier", page_icon="🌸")
+st.title("Classification Iris")
+st.markdown("Entrez les mesures de la fleur pour obtenir une prediction.")
+
+# Sidebar pour les parametres
+st.sidebar.header("Parametres de la fleur")
+sepal_length = st.sidebar.slider("Longueur sepale (cm)", 4.0, 8.0, 5.1)
+sepal_width = st.sidebar.slider("Largeur sepale (cm)", 2.0, 4.5, 3.5)
+petal_length = st.sidebar.slider("Longueur petale (cm)", 1.0, 7.0, 1.4)
+petal_width = st.sidebar.slider("Largeur petale (cm)", 0.1, 2.5, 0.2)
+
+# Bouton de prediction
+if st.button("Predire"):
+    payload = {
+        "sepal_length": sepal_length,
+        "sepal_width": sepal_width,
+        "petal_length": petal_length,
+        "petal_width": petal_width,
+    }
+
+    try:
+        response = requests.post(f"{API_URL}/predict", json=payload)
+        response.raise_for_status()
+        result = response.json()
+
+        st.success(f"Prediction : **{result['class_name']}**")
+
+        # Afficher les probabilites
+        st.subheader("Probabilites par classe")
+        class_names = ["setosa", "versicolor", "virginica"]
+        for name, prob in zip(class_names, result["probabilities"]):
+            st.progress(prob, text=f"{name}: {prob:.1%}")
+
+    except requests.exceptions.ConnectionError:
+        st.error("Impossible de se connecter a l'API. "
+                 "Verifiez que le serveur tourne.")
+
+# Health check
+st.sidebar.markdown("---")
+if st.sidebar.button("Verifier l'API"):
+    try:
+        health = requests.get(f"{API_URL}/health").json()
+        st.sidebar.json(health)
+    except requests.exceptions.ConnectionError:
+        st.sidebar.error("API indisponible")
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{Lancer le dashboard Streamlit}]
+\begin{minted}{bash}
+# Installer Streamlit
+pip install streamlit requests
+
+# Lancer l'application
+streamlit run streamlit_app.py --server.port 8501
+
+# Accessible sur http://localhost:8501
+\end{minted}
+\end{codeblock}
+
+\section{S\'erialisation de mod\`eles}
+\label{sec:serialization}
+\index{s\'erialisation}
+
+Le choix du format de s\'erialisation affecte la portabilit\'e, la vitesse
+d'inf\'erence et la compatibilit\'e inter-frameworks.
+
+\begin{formules}[title=\textbf{Formats de s\'erialisation}]
+\begin{tabular}{@{}lp{3.5cm}p{3.5cm}p{3cm}@{}}
+\toprule
+\textbf{Format} & \textbf{Avantages} & \textbf{Inconv\'enients} & \textbf{Usage} \\
+\midrule
+\textbf{joblib/pickle} & Simple, natif Python & Python uniquement,
+  vuln\'erable & Prototypage, scikit-learn \\
+\textbf{ONNX} & Multi-framework, optimis\'e & Pas tous les op\'erateurs &
+  Production cross-platform \\
+\textbf{TorchScript} & Optimis\'e PyTorch, C++ & PyTorch uniquement &
+  Production PyTorch \\
+\textbf{SavedModel} & \'Ecosyst\`eme TF complet & TensorFlow uniquement &
+  TF Serving, TFLite \\
+\bottomrule
+\end{tabular}
+\end{formules}
+
+\begin{codeblock}[title=\textbf{Export de mod\`eles dans diff\'erents formats}]
+\begin{minted}{python}
+"""Model serialization examples."""
+import joblib
+import torch
+import onnx
+from skl2onnx import convert_sklearn
+from skl2onnx.common.data_types import FloatTensorType
+
+# --- joblib (scikit-learn) ---
+joblib.dump(model, "model.joblib")
+model = joblib.load("model.joblib")
+
+# --- ONNX (scikit-learn) ---
+initial_type = [("features", FloatTensorType([None, 4]))]
+onnx_model = convert_sklearn(model, initial_types=initial_type)
+onnx.save(onnx_model, "model.onnx")
+
+# Inference ONNX
+import onnxruntime as ort
+session = ort.InferenceSession("model.onnx")
+input_name = session.get_inputs()[0].name
+result = session.run(None, {input_name: features.astype("float32")})
+
+# --- TorchScript (PyTorch) ---
+scripted_model = torch.jit.script(pytorch_model)
+scripted_model.save("model.pt")
+loaded = torch.jit.load("model.pt")
+output = loaded(torch.tensor(features))
+\end{minted}
+\end{codeblock}
+
+\begin{attention}[title=\textbf{S\'ecurit\'e de pickle/joblib}]
+Les fichiers \file{.pkl} et \file{.joblib} peuvent ex\'ecuter du code
+arbitraire au chargement. Ne chargez \textbf{jamais} un mod\`ele
+s\'erialis\'e provenant d'une source non fiable. En production, pr\'ef\'erez
+ONNX ou TorchScript.
+\end{attention}
+
+\section{Comparaison des frameworks de serving}
+\label{sec:serving-comparison}
+\index{serving}
+
+\begin{center}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Crit\`ere} & \textbf{FastAPI} & \textbf{Flask} & \textbf{TorchServe} & \textbf{Triton} \\
+\midrule
+Async natif & Oui & Non & Oui & Oui \\
+Validation auto & Pydantic & Manuelle & Manuelle & Manuelle \\
+Doc OpenAPI & Automatique & Manuelle & Non & Non \\
+Multi-framework & Oui & Oui & PyTorch & Tous \\
+GPU optimis\'e & Manuel & Manuel & Oui & Oui \\
+Batching & Manuel & Manuel & Automatique & Automatique \\
+Monitoring & Manuel & Manuel & Int\'egr\'e & Int\'egr\'e \\
+Complexit\'e & Faible & Faible & Moyenne & \'Elev\'ee \\
+Cas d'usage & API g\'en\'erale & Legacy & PyTorch prod & Haute perf \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{remarque}
+Pour d\'ebuter, FastAPI est le meilleur compromis entre simplicit\'e et
+performance. TorchServe et Triton sont indiqu\'es pour les d\'eploiements
+\`a haute performance n\'ecessitant du batching dynamique et une
+optimisation GPU avanc\'ee.
+\end{remarque}
+
+\section{Dockerfile pour le d\'eploiement}
+\label{sec:deploy-dockerfile}
+
+\begin{codeblock}[title=\textbf{Dockerfile pour l'API + Streamlit}]
+\begin{minted}{dockerfile}
+# === API FastAPI ===
+FROM python:3.11-slim AS api
+
+WORKDIR /app
+COPY requirements-api.txt .
+RUN pip install --no-cache-dir -r requirements-api.txt
+
+COPY src/ ./src/
+COPY models/ ./models/
+COPY schemas.py app.py ./
+
+RUN useradd --create-home mluser && chown -R mluser:mluser /app
+USER mluser
+
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD curl -f http://localhost:8000/health || exit 1
+
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+\end{minted}
+\end{codeblock}
+
+\begin{codeblock}[title=\textbf{docker-compose.yml pour API + Streamlit}]
+\begin{minted}{yaml}
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+\end{minted}
+\end{codeblock}
+
+\section{Bonnes pratiques de d\'eploiement}
+\label{sec:deploy-best-practices}
+
+\begin{bonnepratique}[title=\textbf{R\`egles d'or du d\'eploiement ML}]
+\begin{enumerate}
+  \item \textbf{Healthcheck obligatoire}~: le endpoint \cli{/health} doit
+    v\'erifier que le mod\`ele est charg\'e et fonctionnel.
+  \item \textbf{Versionner les mod\`eles}~: inclure la version dans
+    l'endpoint \cli{/model/info} et dans les r\'eponses.
+  \item \textbf{Valider les entr\'ees}~: utiliser Pydantic pour rejeter
+    les requ\^etes malform\'ees avant l'inf\'erence.
+  \item \textbf{Logging structur\'e}~: chaque pr\'ediction doit \^etre
+    logg\'ee avec les features d'entr\'ee, la pr\'ediction et la latence.
+  \item \textbf{Timeout et retry}~: configurer des timeouts c\^ot\'e
+    client et serveur.
+  \item \textbf{S\'eparer API et UI}~: FastAPI et Streamlit dans des
+    conteneurs s\'epar\'es.
+  \item \textbf{Load testing}~: utiliser \pkg{locust} ou \pkg{wrk} pour
+    mesurer la capacit\'e avant la mise en production.
+\end{enumerate}
+\end{bonnepratique}
+
+\begin{antipattern}[title=\textbf{Anti-patterns de d\'eploiement}]
+\begin{itemize}
+  \item Charger le mod\`ele \`a chaque requ\^ete (utiliser le lifespan).
+  \item Pas de validation des entr\'ees (crash sur donn\'ees inattendues).
+  \item Retourner des erreurs g\'en\'eriques (toujours <<~500 Internal Server
+    Error~>>) sans d\'etails utiles.
+  \item Pas de healthcheck (le load balancer envoie du trafic \`a un service
+    mort).
+  \item D\'eployer sans tests d'int\'egration de l'API.
+  \item Ignorer la latence~: ne pas mesurer le temps d'inf\'erence.
+\end{itemize}
+\end{antipattern}
+
+\section{Mini-projet~: d\'eployer le mod\`ele du cours}
+\label{sec:mini-project-ch8}
+
+\begin{miniprojet}[title=\textbf{Mini-projet 8~: API + D\'emo Streamlit}]
+En reprenant le mod\`ele entra\^in\'e dans les chapitres pr\'ec\'edents~:
+\begin{enumerate}
+  \item \textbf{S\'erialisation}~: sauvegardez le mod\`ele en \file{.joblib}
+    et en ONNX. Comparez les tailles.
+  \item \textbf{API FastAPI}~:
+    \begin{itemize}
+      \item Cr\'eez les sch\'emas Pydantic adapt\'es \`a votre mod\`ele
+      \item Impl\'ementez \cli{/health}, \cli{/model/info} et \cli{/predict}
+      \item Ajoutez un logging de chaque pr\'ediction (features, r\'esultat,
+        latence)
+    \end{itemize}
+  \item \textbf{D\'emo Streamlit}~: cr\'eez un dashboard interactif qui~:
+    \begin{itemize}
+      \item Permet de saisir les features via des sliders
+      \item Affiche la pr\'ediction et les probabilit\'es
+      \item Affiche un historique des derni\`eres pr\'edictions
+    \end{itemize}
+  \item \textbf{Conteneurisation}~: cr\'eez un \file{docker-compose.yml}
+    avec les services \cli{api} et \cli{streamlit}.
+  \item \textbf{Tests}~: \'ecrivez des tests d'int\'egration avec
+    \pkg{httpx} ou \cli{TestClient} de FastAPI.
+  \item \textbf{Load testing}~: mesurez la latence et le d\'ebit avec
+    \pkg{locust} (objectif~: $<$100~ms p95 pour une instance).
+\end{enumerate}
+\end{miniprojet}
+
+\section{Exercices}
+\label{sec:exercises-ch8}
+
+\begin{exercice}[$\bigstar$ --- Premi\`ere API FastAPI]
+Cr\'eez une API FastAPI minimaliste qui charge un mod\`ele scikit-learn
+entra\^in\'e et expose un endpoint \cli{/predict}. Testez-la avec
+\cli{curl} et la documentation Swagger automatique
+(\cli{http://localhost:8000/docs}).
+\end{exercice}
+
+\begin{exercice}[$\bigstar\bigstar$ --- Validation et gestion d'erreurs]
+Am\'eliorez l'API de l'exercice pr\'ec\'edent~:
+\begin{enumerate}
+  \item Ajoutez des sch\'emas Pydantic avec des contraintes de validation
+    (bornes min/max, types stricts)
+  \item Impl\'ementez un endpoint \cli{/predict/batch} qui accepte une
+    liste d'instances
+  \item Ajoutez une gestion d'erreurs compl\`ete~: mod\`ele non charg\'e
+    (503), donn\'ees invalides (422), erreur interne (500) avec messages
+    clairs
+  \item Ajoutez un middleware de logging qui enregistre chaque requ\^ete
+    (m\'ethode, endpoint, latence, code de retour)
+  \item \'Ecrivez des tests unitaires avec \cli{TestClient} de FastAPI
+\end{enumerate}
+\end{exercice}
+
+\begin{exercice}[$\bigstar\bigstar\bigstar$ --- D\'eploiement complet avec ONNX]
+R\'ealisez un d\'eploiement production-ready~:
+\begin{enumerate}
+  \item Exportez le mod\`ele en ONNX. Comparez la latence d'inf\'erence
+    entre joblib et ONNX Runtime
+  \item Cr\'eez une API FastAPI avec support ONNX (\pkg{onnxruntime})
+  \item Ajoutez un dashboard Streamlit connect\'e \`a l'API
+  \item Conteneurisez le tout avec Docker Compose (API + Streamlit)
+  \item R\'edigez un load test avec \pkg{locust}~: mesurez la latence
+    p50, p95, p99 et le d\'ebit maximal
+  \item Configurez un reverse proxy Nginx devant l'API
+  \item Documentez l'architecture dans un sch\'ema (TikZ ou draw.io)
+\end{enumerate}
+\end{exercice}
+
+\section{Aide-m\'emoire}
+
+\begin{cheatsheet}[title=\textbf{R\'esum\'e du chapitre 8}]
+\begin{tabular}{@{}p{4cm}p{8.5cm}@{}}
+\toprule
+\textbf{Concept} & \textbf{Point cl\'e} \\
+\midrule
+Patterns & Batch (cron) vs En ligne (API) vs Streaming (Kafka) \\
+FastAPI & \cli{uvicorn app:app --port 8000}, Pydantic, async \\
+Streamlit & \cli{streamlit run app.py}, sliders, \cli{st.button} \\
+S\'erialisation & joblib (proto), ONNX (prod), TorchScript (PyTorch) \\
+Healthcheck & \cli{GET /health} avec statut mod\`ele \\
+Validation & Pydantic \cli{BaseModel} avec \cli{Field} contraintes \\
+Serving avanc\'e & TorchServe (PyTorch), Triton (multi-framework) \\
+Anti-pattern & Charger le mod\`ele par requ\^ete, pas de healthcheck \\
+\bottomrule
+\end{tabular}
+\end{cheatsheet}
