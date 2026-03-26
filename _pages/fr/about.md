@@ -107,7 +107,8 @@ J'enseigne des cours de master, des formations courtes et des ateliers qui rende
 Organisateur du <span class="kw">Workshop on Computational Topology & Quantum Computing (WoComToQC)</span>. Formateur régulier pour <a href="https://www.datascienceafrica.org/" target="_blank">Data Science Africa</a> et <a href="https://github.com/AI-Technipreneurs" target="_blank">Data Science Makers</a>. Engagé dans le mentorat de la prochaine génération de scientifiques africains.
 
 <div class="profile-links">
-<a href="{{ '/fr/teaching/' | relative_url }}"><i class="fa-solid fa-book-open"></i> Catalogue complet des cours</a>
+<a href="{{ '/teaching/' | relative_url }}"><i class="fa-solid fa-book-open"></i> Catalogue complet des cours</a>
+<a href="{{ '/courses/' | relative_url }}"><i class="fa-solid fa-file-pdf"></i> Notes de cours &amp; supports (38 cours)</a>
 </div>
 </div>
 

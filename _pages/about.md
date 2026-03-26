@@ -107,7 +107,8 @@ I teach graduate courses, short courses, and workshops that make rigorous mathem
 Organizer of the <span class="kw">Workshop on Computational Topology & Quantum Computing (WoComToQC)</span>. Regular instructor for <a href="https://www.datascienceafrica.org/" target="_blank">Data Science Africa</a> and <a href="https://github.com/AI-Technipreneurs" target="_blank">Data Science Makers</a>. Committed to mentoring the next generation of African scientists.
 
 <div class="profile-links">
-<a href="{{ '/en/teaching/' | relative_url }}"><i class="fa-solid fa-book-open"></i> Full course catalogue</a>
+<a href="{{ '/teaching/' | relative_url }}"><i class="fa-solid fa-book-open"></i> Full course catalogue</a>
+<a href="{{ '/courses/' | relative_url }}"><i class="fa-solid fa-file-pdf"></i> Lecture notes &amp; materials (38 courses)</a>
 </div>
 </div>
 

@@ -11,8 +11,13 @@ lang: en
 <div class="teaching-page">
 
 <p class="teaching-intro">
-I teach courses spanning <strong>pure mathematics</strong>, <strong>applied mathematics</strong>, <strong>statistics</strong>, and <strong>data science / machine learning</strong>, at both undergraduate and graduate levels. Below is a comprehensive overview of courses I have taught or am prepared to teach.
+I teach courses spanning <strong>pure mathematics</strong>, <strong>applied mathematics</strong>, <strong>statistics</strong>, and <strong>data science / machine learning</strong>, at both undergraduate and graduate levels. Below is an overview of courses I have taught or am prepared to teach.
 </p>
+
+<div class="alert alert-info" style="background:rgba(59,111,212,0.1); border:1px solid rgba(59,111,212,0.3); border-radius:8px; padding:16px; margin-bottom:24px;">
+<i class="fa-solid fa-file-pdf" style="margin-right:8px;"></i>
+<strong>Lecture notes available:</strong> Full bilingual (FR+EN) lecture notes with exercises and code for all 38 courses are available in the <a href="{{ '/courses/' | relative_url }}"><strong>course materials catalogue</strong></a>.
+</div>
 
 <h2 class="teaching-section-header"><i class="fa-solid fa-lightbulb"></i> Teaching philosophy</h2>
 
