@@ -11,8 +11,19 @@ lang: fr
 <div class="teaching-page">
 
 <p class="teaching-intro">
-J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <strong>mathématiques appliquées</strong>, les <strong>statistiques</strong> et la <strong>science des données / apprentissage automatique</strong>, aux niveaux licence et master/doctorat. Voici un aperçu complet des cours que j'ai dispensés ou que je suis en mesure de dispenser.
+J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <strong>mathématiques appliquées</strong>, les <strong>statistiques</strong> et la <strong>science des données / apprentissage automatique</strong>, aux niveaux licence et master/doctorat. Voici un aperçu des 38 cours avec notes de cours complètes.
 </p>
+
+<div style="background: linear-gradient(135deg, rgba(59,111,212,0.12), rgba(59,111,212,0.04)); border: 2px solid rgba(59,111,212,0.4); border-radius: 12px; padding: 24px; margin-bottom: 28px; text-align: center;">
+<p style="font-size: 1.15rem; margin-bottom: 12px;">
+<i class="fa-solid fa-book-open" style="margin-right: 8px; color: var(--global-theme-color);"></i>
+<strong>Vous cherchez les notes de cours, exercices et code ?</strong>
+</p>
+<p style="margin-bottom: 16px;">Les supports bilingues (FR+EN) des 38 cours sont disponibles dans le catalogue.</p>
+<a href="{{ '/courses/' | relative_url }}" class="btn btn-primary btn-lg" style="font-weight: 600; padding: 10px 28px; border-radius: 8px;">
+<i class="fa-solid fa-file-pdf" style="margin-right: 8px;"></i> Parcourir tous les supports de cours
+</a>
+</div>
 
 <h2 class="teaching-section-header"><i class="fa-solid fa-lightbulb"></i> Philosophie d'enseignement</h2>
 

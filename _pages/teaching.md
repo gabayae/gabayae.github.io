@@ -14,9 +14,15 @@ lang: en
 I teach courses spanning <strong>pure mathematics</strong>, <strong>applied mathematics</strong>, <strong>statistics</strong>, and <strong>data science / machine learning</strong>, at both undergraduate and graduate levels. Below is an overview of the 38 courses with full lecture notes.
 </p>
 
-<div class="alert alert-info" style="background:rgba(59,111,212,0.1); border:1px solid rgba(59,111,212,0.3); border-radius:8px; padding:16px; margin-bottom:24px;">
-<i class="fa-solid fa-file-pdf" style="margin-right:8px;"></i>
-<strong>Lecture notes available:</strong> Full bilingual (FR+EN) lecture notes with exercises and code for all 38 courses are available in the <a href="{{ '/courses/' | relative_url }}"><strong>course materials catalogue</strong></a>.
+<div style="background: linear-gradient(135deg, rgba(59,111,212,0.12), rgba(59,111,212,0.04)); border: 2px solid rgba(59,111,212,0.4); border-radius: 12px; padding: 24px; margin-bottom: 28px; text-align: center;">
+<p style="font-size: 1.15rem; margin-bottom: 12px;">
+<i class="fa-solid fa-book-open" style="margin-right: 8px; color: var(--global-theme-color);"></i>
+<strong>Looking for lecture notes, exercises, and code?</strong>
+</p>
+<p style="margin-bottom: 16px;">Full bilingual (FR+EN) materials for all 38 courses are available in the course catalogue.</p>
+<a href="{{ '/courses/' | relative_url }}" class="btn btn-primary btn-lg" style="font-weight: 600; padding: 10px 28px; border-radius: 8px;">
+<i class="fa-solid fa-file-pdf" style="margin-right: 8px;"></i> Browse all course materials
+</a>
 </div>
 
 <h2 class="teaching-section-header"><i class="fa-solid fa-lightbulb"></i> Teaching philosophy</h2>
@@ -33,7 +39,7 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 <div class="card hoverable mb-4">
 <div class="card-body">
 <ul class="course-list">
-<li><strong>IMSP — Institut de Mathématiques et de Sciences Physiques</strong>, Dangbo, Bénin</li>
+<li><strong>IMSP — Institut de Mathematiques et de Sciences Physiques</strong>, Dangbo, Benin</li>
 <li><strong>AIMS South Africa</strong> — African Institute for Mathematical Sciences, Cape Town</li>
 <li><strong>AIMS Senegal</strong> — African Institute for Mathematical Sciences, Mbour</li>
 <li><strong>AIMS Rwanda</strong> — African Institute for Mathematical Sciences, Kigali</li>
@@ -74,13 +80,13 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 <br><a href="{{ '/courses/topologie-algebrique/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
 <li><a href="{{ '/courses/topologie-differentielle/index.html' | relative_url }}"><strong>Differential Topology</strong></a> — Smooth manifolds, tangent bundles, transversality, Morse theory
 <br><a href="{{ '/courses/topologie-differentielle/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/topologie-ponctuelle-avancee/index.html' | relative_url }}"><strong>Point-Set Topology (Advanced)</strong></a> — Quasi-metric spaces, asymmetric topology, T₀-spaces, bitopological spaces
+<li><a href="{{ '/courses/topologie-ponctuelle-avancee/index.html' | relative_url }}"><strong>Point-Set Topology (Advanced)</strong></a> — Quasi-metric spaces, asymmetric topology, T0-spaces, bitopological spaces
 <br><a href="{{ '/courses/topologie-ponctuelle-avancee/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
 <li><a href="{{ '/courses/points-fixes/index.html' | relative_url }}"><strong>Fixed Point Theory</strong></a> — Banach contraction principle, Brouwer & Schauder theorems, generalized metric spaces
 <br><a href="{{ '/courses/points-fixes/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
 <li><a href="{{ '/courses/analyse-fonctionnelle/index.html' | relative_url }}"><strong>Functional Analysis</strong></a> — Banach & Hilbert spaces, bounded operators, spectral theory, Hahn-Banach theorem
 <br><a href="{{ '/courses/analyse-fonctionnelle/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
-<li><a href="{{ '/courses/mesure-integration/index.html' | relative_url }}"><strong>Measure Theory & Integration</strong></a> — σ-algebras, Lebesgue measure, Lp spaces, Radon-Nikodym theorem
+<li><a href="{{ '/courses/mesure-integration/index.html' | relative_url }}"><strong>Measure Theory & Integration</strong></a> — sigma-algebras, Lebesgue measure, Lp spaces, Radon-Nikodym theorem
 <br><a href="{{ '/courses/mesure-integration/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
 <li><a href="{{ '/courses/geometrie-riemannienne/index.html' | relative_url }}"><strong>Riemannian Geometry</strong></a> — Connections, curvature, geodesics, comparison theorems
 <br><a href="{{ '/courses/geometrie-riemannienne/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
@@ -171,7 +177,7 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 
 </div>
 
-<h2 class="teaching-section-header"><i class="fa-solid fa-users"></i> Workshops & short courses (3–5 days)</h2>
+<h2 class="teaching-section-header"><i class="fa-solid fa-users"></i> Workshops & short courses (3-5 days)</h2>
 
 <h4 style="margin-top: 1.5rem; margin-bottom: 0.75rem;"><i class="fa-solid fa-circle-nodes" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Existing Workshops</h4>
 
