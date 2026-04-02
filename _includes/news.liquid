@@ -14,10 +14,26 @@
         {% else %}
           {% assign news_limit = news_size %}
         {% endif %}
+        {% assign lang = page.lang | default: "en" %}
         {% for item in news limit: news_limit %}
-          {% if item.lang and item.lang != page.lang %}{% continue %}{% endif %}
+          {% if item.lang and item.lang != lang %}{% continue %}{% endif %}
+          {% assign month_en = item.date | date: '%b' %}
+          {% assign day = item.date | date: '%d' %}
+          {% assign year = item.date | date: '%Y' %}
+          {% assign month_key = "months." | append: month_en %}
+          {% assign t = site.data.translations[lang] %}
+          {% if t and t.months and t.months[month_en] %}
+            {% assign month_display = t.months[month_en] %}
+          {% else %}
+            {% assign month_display = month_en %}
+          {% endif %}
+          {% if lang == "fr" %}
+            {% assign date_display = day | append: " " | append: month_display | append: " " | append: year %}
+          {% else %}
+            {% assign date_display = month_display | append: " " | append: day | append: ", " | append: year %}
+          {% endif %}
           <tr>
-            <th scope="row" style="width: 20%">{{ item.date | date: '%b %d, %Y' }}</th>
+            <th scope="row" style="width: 20%">{{ date_display }}</th>
             <td>
               {% if item.inline %}
                 {{ item.content | remove: '<p>' | remove: '</p>' | emojify }}
@@ -30,6 +46,12 @@
       </table>
     </div>
   {% else %}
-    <p>No news so far...</p>
+    {% assign lang = page.lang | default: "en" %}
+    {% assign t = site.data.translations[lang] %}
+    {% if t and t.no_news %}
+      <p>{{ t.no_news }}</p>
+    {% else %}
+      <p>No news so far...</p>
+    {% endif %}
   {% endif %}
 </div>
