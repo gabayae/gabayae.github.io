@@ -40,7 +40,7 @@ I believe that **topological and geometric methods** have a unique role to play 
 - **Interpretable:** Topological features provide geometric insight into model behavior, which matters for trust and accountability in high-stakes applications like healthcare and finance.
 - **Hardware-light:** Many TDA computations can run on modest hardware, reducing the barrier to entry for researchers without GPU cluster access.
 
-Through workshops like the [Workshop on Computational Topology and Quantum Computing (WoComToQC)](/projects/), teaching materials for [AI.Technipreneurs](https://github.com/AI-Technipreneurs), and ongoing research at AIRINA Labs and ACAS, I am working to build bridges between mathematical theory and practical AI applications on the continent.
+Through workshops like the [Workshop on Computational Topology and Quantum Computing (WoComToQC)](https://wocomtoqc.github.io/), teaching materials for [AI.Technipreneurs](https://github.com/AI-Technipreneurs), and ongoing research at AIRINA Labs and ACAS, I am working to build bridges between mathematical theory and practical AI applications on the continent.
 
 ## The Path Forward
 
