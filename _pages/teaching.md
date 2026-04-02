@@ -154,6 +154,10 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 <br><a href="{{ '/courses/programmation-scientifiques/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
 <li><a href="{{ '/courses/bases-donnees/index.html' | relative_url }}"><strong><i class="fa-solid fa-server" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Database Systems & SQL</strong></a> — Relational databases, queries, normalization, data pipelines
 <br><a href="{{ '/courses/bases-donnees/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
+<li><a href="{{ '/courses/pretraitement-donnees/index.html' | relative_url }}"><strong><i class="fa-solid fa-broom" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Data pre-processing</strong></a> — Missing data, outliers, encoding, feature engineering, text preprocessing, pipelines
+<br><a href="{{ '/courses/pretraitement-donnees/en/notes.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF EN</a></li>
+<li><a href="{{ '/courses/programmation-julia/index.html' | relative_url }}"><strong><i class="fa-solid fa-bolt" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Julia programming</strong></a> — Types, multiple dispatch, DataFrames, visualization, performance, scientific computing, ML
+<br><a href="{{ '/courses/programmation-julia/en/notes.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF EN</a></li>
 </ul>
 </div></div></div>
 
@@ -172,6 +176,10 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 <br><a href="{{ '/courses/tal-nlp/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
 <li><a href="{{ '/courses/mlops/index.html' | relative_url }}"><strong><i class="fa-solid fa-gears" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> MLOps & Reproducible Research</strong></a> — Experiment tracking, model deployment, Docker, CI/CD for ML
 <br><a href="{{ '/courses/mlops/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
+<li><a href="{{ '/courses/ia-generative/index.html' | relative_url }}"><strong><i class="fa-solid fa-wand-magic-sparkles" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Generative AI</strong></a> — Transformers, GPT, prompt engineering, fine-tuning (LoRA), RAG, diffusion models, agents
+<br><a href="{{ '/courses/ia-generative/en/notes.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF EN</a></li>
+<li><a href="{{ '/courses/analyse-donnees-sante/index.html' | relative_url }}"><strong><i class="fa-solid fa-heart-pulse" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Data analysis for health specialists</strong></a> — Pandas, epidemiological measures, hypothesis testing, regression, ML for clinical prediction, geospatial health data
+<br><a href="{{ '/courses/analyse-donnees-sante/en/notes.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF EN</a> <a href="{{ '/courses/analyse-donnees-sante/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
 </ul>
 </div></div></div>
 

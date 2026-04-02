@@ -122,6 +122,8 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 <li><strong><i class="fa-solid fa-brain" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Fondements de l'Apprentissage Automatique</strong> — Apprentissage supervisé & non supervisé, évaluation de modèles, biais-variance</li>
 <li><strong><i class="fa-solid fa-code" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Programmation pour Scientifiques</strong> — Python, R, NumPy, Pandas, Matplotlib, calcul scientifique</li>
 <li><strong><i class="fa-solid fa-server" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Bases de Données & SQL</strong> — Bases relationnelles, requêtes, normalisation, pipelines de données</li>
+<li><a href="{{ '/courses/pretraitement-donnees/index.html' | relative_url }}"><strong><i class="fa-solid fa-broom" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Prétraitement des données</strong></a> — Données manquantes, valeurs aberrantes, encodage, ingénierie de variables, prétraitement de texte, pipelines</li>
+<li><a href="{{ '/courses/programmation-julia/index.html' | relative_url }}"><strong><i class="fa-solid fa-bolt" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Programmation Julia</strong></a> — Types, dispatch multiple, DataFrames, visualisation, performance, calcul scientifique, ML</li>
 </ul>
 </div></div></div>
 
@@ -134,6 +136,9 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 <li><strong><i class="fa-solid fa-network-wired" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Apprentissage Profond</strong> — CNN, RNN, transformers, attention, modèles génératifs (GAN, VAE, diffusion)</li>
 <li><strong><i class="fa-solid fa-language" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Traitement Automatique du Langage</strong> — Embeddings, modèles séquentiels, LLM, fine-tuning, RAG</li>
 <li><strong><i class="fa-solid fa-gears" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> MLOps & Recherche Reproductible</strong> — Suivi d'expériences, déploiement de modèles, Docker, CI/CD pour ML</li>
+<li><a href="{{ '/courses/ia-generative/index.html' | relative_url }}"><strong><i class="fa-solid fa-wand-magic-sparkles" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> IA générative</strong></a> — Transformers, GPT, prompt engineering, fine-tuning (LoRA), RAG, modèles de diffusion, agents</li>
+<li><a href="{{ '/courses/analyse-donnees-sante/index.html' | relative_url }}"><strong><i class="fa-solid fa-heart-pulse" style="margin-right: 5px; color: var(--global-theme-color); opacity: 0.7;"></i> Analyse de données pour la santé</strong></a> — Pandas, mesures épidémiologiques, tests d'hypothèses, régression, ML clinique, données géospatiales
+<br><a href="{{ '/courses/analyse-donnees-sante/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary mt-1"><i class="fa-solid fa-file-pdf"></i> PDF FR</a></li>
 </ul>
 </div></div></div>
 
