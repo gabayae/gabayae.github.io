@@ -1,0 +1,261 @@
+\chapter{Performance and optimization}
+\label{ch:performance}
+
+\begin{quote}
+\emph{``Premature optimization is the root of all evil --- but so is premature pessimization.''}
+--- after Donald Knuth
+\end{quote}
+
+% ============================================================
+\section{Why Julia is fast}
+
+Julia achieves C-like speed through three pillars:
+
+\begin{enumerate}
+  \item \textbf{JIT compilation.} Julia compiles functions to native machine code via LLVM the first time they are called with specific argument types.
+  \item \textbf{Type specialization.} \texttt{f(1, 2)} and \texttt{f(1.0, 2.0)} compile to different, optimized machine code.
+  \item \textbf{Type inference.} The compiler traces types through function bodies, eliminating runtime type checks when all types are known.
+\end{enumerate}
+
+\begin{minted}{julia}
+function mysum(v)
+    s = zero(eltype(v))
+    for x in v; s += x; end
+    return s
+end
+mysum([1, 2, 3])        # compiles mysum(::Vector{Int64})
+mysum([1.0, 2.0, 3.0])  # compiles mysum(::Vector{Float64})
+\end{minted}
+
+\begin{juliatip}
+The first call to a function is slow (compilation latency). Julia 1.9+ uses package precompilation to reduce this. Use \texttt{PrecompileTools.jl} in your own packages.
+\end{juliatip}
+
+% ============================================================
+\section{Measuring performance}
+
+\begin{minted}{julia}
+# @time — run twice! First call includes compilation time.
+@time sum(rand(10^7))   # compilation
+@time sum(rand(10^7))   # true timing
+
+# BenchmarkTools.jl — accurate benchmarks for fast functions
+using BenchmarkTools
+v = rand(10_000)
+
+@btime sum($v)          # runs many times, reports minimum
+#   1.256 μs (0 allocations: 0 bytes)
+
+@benchmark sum($v)      # full statistical report
+
+# IMPORTANT: interpolate variables with $ to avoid global access cost
+A = rand(100, 100)
+@btime $A * $A          # correct
+@btime A * A            # wrong — includes global lookup overhead
+\end{minted}
+
+\begin{warningbox}
+Always interpolate input variables with \texttt{\$} in \texttt{@btime} and \texttt{@benchmark}. Without interpolation, the benchmark measures global variable access overhead, which skews results.
+\end{warningbox}
+
+% ============================================================
+\section{Type stability}
+
+A function is \emph{type-stable} if the return type depends only on argument types, not values:
+
+\begin{minted}{julia}
+# Type-UNSTABLE: return type depends on the VALUE of x
+function unstable_sqrt(x)
+    x >= 0 ? sqrt(x) : "negative"  # returns Float64 OR String!
+end
+
+# Type-STABLE: return type always matches input type
+stable_sqrt(x) = x >= 0 ? sqrt(x) : NaN
+
+# Common instability: changing variable type in a loop
+function bad_sum(n)
+    s = 0            # Int, becomes Float64 after s += i/2
+    for i in 1:n; s += i / 2; end
+    return s
+end
+
+function good_sum(n)
+    s = 0.0          # Float64 from the start
+    for i in 1:n; s += i / 2; end
+    return s
+end
+\end{minted}
+
+\begin{performancetip}
+Type stability is the single most important factor for Julia performance. When a function is type-stable, the compiler generates code with no boxing, no dynamic dispatch, and no heap allocations for local variables.
+\end{performancetip}
+
+% ============================================================
+\section{Inspecting compiled code}
+
+\begin{minted}{julia}
+f(x, y) = x^2 + y^2
+
+@code_warntype f(1.0, 2.0)   # MOST USEFUL: red=instability, blue=stable
+@code_typed f(1.0, 2.0)      # typed intermediate representation
+@code_llvm f(1.0, 2.0)       # LLVM IR
+@code_native f(1.0, 2.0)     # machine assembly
+\end{minted}
+
+\begin{minted}{julia}
+# Detecting and fixing instability
+unstable(x) = x > 0 ? x : 0        # returns Union{Float64, Int64}
+stable(x)   = x > 0 ? x : zero(x)  # always returns typeof(x)
+
+@code_warntype unstable(1.0)  # Body::Union{Float64, Int64} — RED
+@code_warntype stable(1.0)    # Body::Float64 — BLUE
+\end{minted}
+
+% ============================================================
+\section{Common performance pitfalls}
+
+\subsection{Pitfall 1: Global variables}
+
+\begin{minted}{julia}
+x_global = 1.0   # BAD: type could change at any time
+
+function bad_global()
+    s = 0.0
+    for i in 1:1000; s += x_global * i; end
+    return s
+end
+
+good_local(x) = (s = 0.0; for i in 1:1000; s += x * i; end; s)
+
+const X_CONST = 1.0   # GOOD: const lets the compiler optimize
+good_const() = (s = 0.0; for i in 1:1000; s += X_CONST * i; end; s)
+
+using BenchmarkTools
+@btime bad_global()     # ~10 μs (slow, allocations)
+@btime good_local(1.0)  # ~0.5 μs (20x faster)
+\end{minted}
+
+\subsection{Pitfall 2: Abstract containers and untyped structs}
+
+\begin{minted}{julia}
+v_any   = Any[1.0, 2.0, 3.0]       # BAD: boxed elements
+v_typed = Float64[1.0, 2.0, 3.0]   # GOOD: contiguous memory
+
+struct BadPoint; x; y; end                    # BAD: fields are ::Any
+struct GoodPoint; x::Float64; y::Float64; end # GOOD: concrete types
+struct FlexPoint{T<:Real}; x::T; y::T; end   # BEST: generic AND fast
+\end{minted}
+
+\subsection{Pitfall 3: Growing arrays in a loop}
+
+\begin{minted}{julia}
+# BAD: push! causes repeated reallocations
+bad_build(n) = (v = Float64[]; for i in 1:n; push!(v, sin(i)); end; v)
+
+# GOOD: preallocate
+function good_build(n)
+    v = Vector{Float64}(undef, n)
+    for i in 1:n; v[i] = sin(i); end
+    return v
+end
+
+# ALSO GOOD: comprehension (Julia preallocates internally)
+good_build2(n) = [sin(i) for i in 1:n]
+\end{minted}
+
+% ============================================================
+\section{Memory allocation and profiling}
+
+\begin{minted}{julia}
+# @allocated — returns bytes allocated
+bytes = @allocated rand(1000, 1000)
+println("Allocated $(bytes / 1024^2) MiB")
+
+# In-place operations to reduce allocations
+A = rand(1000, 1000)
+A .= rand.(Float64)   # reuse memory, near-zero new allocations
+\end{minted}
+
+\begin{minted}{julia}
+# Statistical profiler
+using Profile
+
+function heavy_work()
+    A = rand(1000, 1000); B = A * A'; return sum(eigen(B).values)
+end
+
+heavy_work()               # warm up
+@profile heavy_work()
+Profile.print(format=:flat)
+Profile.clear()
+
+# Visual flame graph
+using ProfileView
+@profview heavy_work()     # wide bars = bottlenecks
+\end{minted}
+
+% ============================================================
+\section{Practical: optimize a slow function step by step}
+
+\begin{minted}{julia}
+using BenchmarkTools, LinearAlgebra
+
+# v1: naive — Vector{Any}, type instability
+data = Any[rand() for _ in 1:100_000]
+function slow_norm(v)
+    s = 0  # Int!
+    for i in 1:length(v); s = s + v[i]^2; end
+    return sqrt(s)
+end
+@btime slow_norm($data)   # ~2.5 ms
+
+# v2: fix container type
+data_typed = rand(100_000)
+@btime slow_norm($data_typed)   # ~1.2 ms (2x)
+
+# v3: fix type instability
+function better_norm(v)
+    s = 0.0
+    for i in eachindex(v); s += v[i]^2; end
+    return sqrt(s)
+end
+@btime better_norm($data_typed)  # ~50 μs (50x)
+
+# v4: @simd + @inbounds
+function fast_norm(v)
+    s = 0.0
+    @inbounds @simd for i in eachindex(v); s += v[i]^2; end
+    return sqrt(s)
+end
+@btime fast_norm($data_typed)    # ~15 μs (170x)
+
+# v5: built-in BLAS
+@btime norm($data_typed)         # ~12 μs (200x vs v1)
+\end{minted}
+
+\begin{performancetip}
+The optimization checklist: (1) avoid globals, (2) concrete container types, (3) type stability, (4) preallocate, (5) \texttt{@views}, (6) \texttt{@inbounds @simd}, (7) \texttt{@threads} for parallelism.
+\end{performancetip}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Write \texttt{my\_dot(a, b)} computing the dot product. Benchmark against \texttt{LinearAlgebra.dot} and optimize until within 2x.
+  \item Use \texttt{@code\_warntype} to find and fix the instability in: \texttt{mystery(x) = (x > 0 ? x : 0) * 2.0}.
+  \item Benchmark matrix-vector multiplication with \texttt{Vector\{Any\}} vs.\ \texttt{Vector\{Float64\}} for $n=1000$.
+  \item Profile \texttt{heavy\_work()} and identify which sub-operation takes the most time.
+  \item Compute $\sum_{k=1}^{n} \sin(k)/k$ via (a) loop, (b) generator, (c) broadcasting. Benchmark all three.
+  \item Take a slow function from a previous exercise and apply the optimization checklist. Document each step.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Julia achieves C-like speed through JIT compilation, type specialization, and type inference via LLVM.
+  \item Use \texttt{@btime} from BenchmarkTools.jl for accurate benchmarks; always interpolate inputs with \texttt{\$}.
+  \item Type stability is the most important performance factor: use \texttt{@code\_warntype} to detect instabilities.
+  \item Avoid global variables, abstract containers (\texttt{Vector\{Any\}}), and untyped struct fields.
+  \item Preallocate arrays and use \texttt{@views} to reduce memory allocations.
+  \item Profile with \texttt{@profile} and visualize with ProfileView.jl to find bottlenecks.
+\end{itemize}

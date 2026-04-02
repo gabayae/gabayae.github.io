@@ -1,0 +1,251 @@
+\chapter{Machine learning with Julia}
+\label{ch:ml-julia}
+
+\begin{quote}
+\emph{``Machine learning is the science of getting computers to learn from data without being explicitly programmed.''}
+--- Arthur Samuel
+\end{quote}
+
+% ============================================================
+\section{The MLJ.jl framework}
+
+MLJ provides a unified interface to dozens of ML models:
+
+\begin{minted}{julia}
+using MLJ
+
+# The MLJ workflow:
+# 1. Load data → 2. Load model → 3. Wrap in machine → 4. Fit → 5. Predict → 6. Evaluate
+models()                 # list all registered models
+models("RandomForest")   # search by name
+\end{minted}
+
+\begin{juliatip}
+MLJ separates the \emph{model} (hyperparameters) from the \emph{machine} (model + data). You can change hyperparameters without reloading data, and swap models without changing pipeline code.
+\end{juliatip}
+
+% ============================================================
+\section{Classification: decision trees and random forests}
+
+\begin{minted}{julia}
+using MLJ, DataFrames
+iris = load_iris()
+X, y = iris[1], iris[2]   # features and target
+train, test = partition(eachindex(y), 0.7, shuffle=true, rng=42)
+
+# Decision tree
+DecisionTreeClassifier = @load DecisionTreeClassifier pkg=DecisionTree
+dtc = DecisionTreeClassifier(max_depth=5)
+mach = machine(dtc, X, y)
+fit!(mach, rows=train)
+
+y_pred = predict_mode(mach, rows=test)
+acc = sum(y_pred .== y[test]) / length(test)
+println("Decision tree accuracy: $(round(acc, digits=3))")
+\end{minted}
+
+\begin{minted}{julia}
+# Random forest
+RandomForestClassifier = @load RandomForestClassifier pkg=DecisionTree
+rf = RandomForestClassifier(n_trees=100, max_depth=10)
+mach_rf = machine(rf, X, y)
+fit!(mach_rf, rows=train)
+y_pred_rf = predict_mode(mach_rf, rows=test)
+acc_rf = sum(y_pred_rf .== y[test]) / length(test)
+println("Random forest accuracy: $(round(acc_rf, digits=3))")
+\end{minted}
+
+% ============================================================
+\section{Regression}
+
+\begin{minted}{julia}
+using MLJ
+X, y = make_regression(200, 5; noise=0.5, rng=42)
+train, test = partition(eachindex(y), 0.7, shuffle=true, rng=42)
+
+# Linear regression
+LinearRegressor = @load LinearRegressor pkg=MLJLinearModels
+mach_lr = machine(LinearRegressor(), X, y)
+fit!(mach_lr, rows=train)
+rmse_lr = rms(predict(mach_lr, rows=test), y[test])
+
+# Ridge regression (L2 regularization)
+RidgeRegressor = @load RidgeRegressor pkg=MLJLinearModels
+mach_ridge = machine(RidgeRegressor(lambda=1.0), X, y)
+fit!(mach_ridge, rows=train)
+rmse_ridge = rms(predict(mach_ridge, rows=test), y[test])
+println("Linear RMSE: $(round(rmse_lr,digits=3)), Ridge: $(round(rmse_ridge,digits=3))")
+\end{minted}
+
+% ============================================================
+\section{Cross-validation and hyperparameter tuning}
+
+\begin{minted}{julia}
+using MLJ
+
+# 5-fold cross-validation
+evaluate(rf, X, y;
+    resampling = CV(nfolds=5, shuffle=true, rng=42),
+    measures   = [accuracy, log_loss, kappa])
+
+# Stratified CV (preserves class proportions)
+evaluate(rf, X, y;
+    resampling = StratifiedCV(nfolds=5, shuffle=true, rng=42),
+    measures   = [accuracy, balanced_accuracy])
+\end{minted}
+
+\begin{minted}{julia}
+# Grid search
+r_ntrees = range(rf, :n_trees, lower=10, upper=200)
+r_depth  = range(rf, :max_depth, lower=2, upper=20)
+
+tuned_rf = TunedModel(model=rf, ranges=[r_ntrees, r_depth],
+    tuning=Grid(resolution=10), resampling=CV(nfolds=5), measure=accuracy)
+mach_tuned = machine(tuned_rf, X, y)
+fit!(mach_tuned)
+
+best = fitted_params(mach_tuned).best_model
+println("Best: n_trees=$(best.n_trees), max_depth=$(best.max_depth)")
+
+# Random search (faster for large search spaces)
+tuned_rand = TunedModel(model=rf, ranges=[r_ntrees, r_depth],
+    tuning=RandomSearch(rng=42), n=50, resampling=CV(nfolds=5), measure=accuracy)
+\end{minted}
+
+% ============================================================
+\section{MLJ pipelines}
+
+\begin{minted}{julia}
+Standardizer = @load Standardizer pkg=MLJModels
+PCA = @load PCA pkg=MultivariateStats
+KNN = @load KNNClassifier pkg=NearestNeighborModels
+
+pipe = Standardizer() |> PCA(maxoutdim=3) |> KNN(K=5)
+
+evaluate(pipe, X, y; resampling=CV(nfolds=5), measures=[accuracy])
+
+# Tune within a pipeline
+r_K = range(pipe, :(knn_classifier.K), lower=1, upper=30)
+tuned_pipe = TunedModel(model=pipe, ranges=[r_K],
+    tuning=Grid(resolution=15), resampling=CV(nfolds=5), measure=accuracy)
+\end{minted}
+
+\begin{juliatip}
+Random search often finds good hyperparameters faster than grid search. With $n$ evaluations, random search explores each dimension in $n$ unique values, while grid search uses only $\sqrt{n}$.
+\end{juliatip}
+
+% ============================================================
+\section{Flux.jl: deep learning}
+
+\begin{minted}{julia}
+using Flux
+
+model = Chain(
+    Dense(4 => 32, relu),     # 4 inputs → 32 hidden units
+    Dense(32 => 16, relu),
+    Dense(16 => 3),           # 3 outputs
+    softmax
+)
+
+sum(length, Flux.params(model))   # 723 parameters
+model(rand(Float32, 4))           # forward pass → 3 probabilities
+\end{minted}
+
+% ============================================================
+\section{MNIST digit classifier with Flux}
+
+\begin{minted}{julia}
+using Flux, MLDatasets, Statistics
+
+# Load and preprocess
+train_x, train_y = MLDatasets.MNIST(split=:train)[:]
+test_x, test_y   = MLDatasets.MNIST(split=:test)[:]
+
+x_train = Float32.(reshape(train_x, 784, :))
+x_test  = Float32.(reshape(test_x, 784, :))
+y_train = Flux.onehotbatch(train_y, 0:9)
+y_test  = Flux.onehotbatch(test_y, 0:9)
+
+train_loader = Flux.DataLoader((x_train, y_train); batchsize=128, shuffle=true)
+\end{minted}
+
+\begin{minted}{julia}
+# Model, loss, optimizer
+model = Chain(Dense(784=>256,relu), Dropout(0.3),
+              Dense(256=>128,relu), Dropout(0.3), Dense(128=>10))
+loss(m, x, y) = Flux.logitcrossentropy(m(x), y)
+opt = Flux.setup(Adam(0.001), model)
+
+# Training loop
+for epoch in 1:10
+    for (xb, yb) in train_loader
+        grads = Flux.gradient(m -> loss(m, xb, yb), model)
+        Flux.update!(opt, model, grads[1])
+    end
+    y_pred = Flux.onecold(model(x_test), 0:9)
+    acc = mean(y_pred .== test_y)
+    println("Epoch $epoch: test_acc=$(round(acc, digits=4))")
+end
+\end{minted}
+
+\begin{performancetip}
+For GPU acceleration: \texttt{model = model |> gpu} and \texttt{x\_train = x\_train |> gpu}. Requires \texttt{CUDA.jl} and an NVIDIA GPU. The training loop stays unchanged.
+\end{performancetip}
+
+% ============================================================
+\section{Practical: MLJ classical models vs Flux neural net}
+
+\begin{minted}{julia}
+using MLJ, Flux, MLDatasets, Statistics
+
+# Prepare MNIST for MLJ (5000 samples for speed)
+train_x, train_y = MLDatasets.MNIST(split=:train)[:]
+x_flat = Float64.(reshape(train_x, 784, :))'
+X_mlj = MLJ.table(x_flat)
+y_mlj = coerce(categorical(train_y), Multiclass)
+idx = shuffle(1:60000)[1:5000]
+X_sub, y_sub = selectrows(X_mlj, idx), y_mlj[idx]
+
+# Random forest
+RandomForestClassifier = @load RandomForestClassifier pkg=DecisionTree
+e_rf = evaluate(RandomForestClassifier(n_trees=100), X_sub, y_sub;
+    resampling=CV(nfolds=5), measures=[accuracy], verbosity=0)
+println("RF accuracy: $(round(e_rf.measurement[1], digits=4))")
+
+# KNN
+KNN = @load KNNClassifier pkg=NearestNeighborModels
+e_knn = evaluate(KNN(K=5), X_sub, y_sub;
+    resampling=CV(nfolds=5), measures=[accuracy], verbosity=0)
+println("KNN accuracy: $(round(e_knn.measurement[1], digits=4))")
+
+# Neural net test accuracy from training above
+# Typical results: RF ~0.95, KNN ~0.96, NN ~0.97
+\end{minted}
+
+\begin{warningbox}
+Classical models (random forest, KNN, SVM) are often competitive with neural networks on tabular and small-scale data. Use neural networks for large datasets or image/text/sequence data. Start simple and increase complexity only when needed.
+\end{warningbox}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Train a decision tree, random forest, and KNN on iris. Compare 5-fold CV accuracies.
+  \item Build a pipeline: standardize, PCA to 2D, random forest. Evaluate with cross-validation.
+  \item Tune KNN's $K$ from 1 to 30 on iris. Plot accuracy vs.\ $K$.
+  \item Build a Flux regression network to predict house prices. Report test RMSE.
+  \item Modify the MNIST classifier to use \texttt{Conv} layers. Compare accuracy and training time.
+  \item Implement early stopping: stop when validation loss has not improved for 3 epochs.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item MLJ.jl provides a unified interface: load model, create machine, fit, predict, evaluate.
+  \item Use \texttt{evaluate()} with \texttt{CV} or \texttt{StratifiedCV} for robust performance estimation.
+  \item \texttt{TunedModel} supports grid search and random search for hyperparameter tuning.
+  \item Pipelines chain preprocessing and modeling into a single object.
+  \item Flux.jl is Julia's deep learning library: \texttt{Chain}, \texttt{Dense}, \texttt{Conv}, and custom training loops.
+  \item For MNIST, a simple dense network achieves $\sim$97\% accuracy in under a minute.
+  \item Start with classical models; use neural networks when data scale or structure demands it.
+\end{itemize}

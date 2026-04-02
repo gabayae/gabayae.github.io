@@ -1,0 +1,244 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+% --- Theme ---
+\usetheme{metropolis}
+\usepackage{appendixnumberbeamer}
+
+% --- Packages ---
+\usepackage{fontspec}
+\usepackage{minted}
+\setminted{fontsize=\small,breaklines=true}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{fontawesome5}
+
+% --- Colors ---
+\definecolor{healthgreen}{RGB}{34,139,34}
+\definecolor{alertred}{RGB}{220,53,69}
+\setbeamercolor{alerted text}{fg=alertred}
+
+% --- Metadata ---
+\title{Module 5: Visualization for health data}
+\subtitle{Data analysis with Python for health specialists}
+\author{Ya\'{e} Ulrich Gaba}
+\institute{AIRINA Labs}
+\date{2026}
+
+\begin{document}
+
+% ============================================================
+\maketitle
+
+% ============================================================
+\begin{frame}{Principles of health data visualization}
+Before writing any plotting code, ask:
+\begin{enumerate}
+  \item \textbf{What is the message?} ``Malaria incidence is declining'' --- not ``here is data.''
+  \item \textbf{Who is the audience?} Clinicians need different plots than policymakers.
+  \item \textbf{What comparison matters?} Between groups? Over time? Against a threshold?
+\end{enumerate}
+
+\vspace{6pt}
+Rules for \alert{every} health figure:
+\begin{itemize}
+  \item Label axes with units (``Systolic BP (mmHg)'', not ``BP'')
+  \item Use colorblind-friendly palettes
+  \item No 3D charts, no pie charts, no dual y-axes
+  \item Include sample sizes in titles or annotations
+\end{itemize}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Setup: matplotlib and seaborn}
+\begin{minted}{python}
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Clean style for all plots
+sns.set_theme(style="whitegrid", font_scale=1.1)
+plt.rcParams["figure.figsize"] = (8, 5)
+plt.rcParams["figure.dpi"] = 100
+
+# Colorblind-friendly palette (Bang Wong, 2011)
+cb_palette = ["#0072B2", "#D55E00", "#009E73",
+              "#CC79A7", "#F0E442", "#56B4E9"]
+sns.set_palette(cb_palette)
+\end{minted}
+
+These six colors are distinguishable by people with the most common forms of color vision deficiency.
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Histograms: distribution of a variable}
+\begin{minted}{python}
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.hist(all_glucose, bins=40, edgecolor="white", alpha=0.7)
+ax.axvline(100, color="orange", linestyle="--",
+           label="Normal threshold (100 mg/dL)")
+ax.axvline(126, color="red", linestyle="--",
+           label="Diabetic threshold (126 mg/dL)")
+ax.set_xlabel("Fasting glucose (mg/dL)")
+ax.set_ylabel("Number of patients")
+ax.set_title("Distribution of fasting glucose (n=1,000)")
+ax.legend()
+\end{minted}
+
+\vspace{4pt}
+Add \alert{clinical threshold lines} to give immediate context.
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Box plots: group comparisons}
+\begin{minted}{python}
+fig, ax = plt.subplots(figsize=(10, 6))
+sns.boxplot(data=clinical, x="age_group", y="bmi",
+            hue="sex", order=["18-39", "40-59", "60+"])
+ax.axhline(25, color="orange", linestyle="--",
+           label="Overweight")
+ax.axhline(30, color="red", linestyle="--",
+           label="Obese")
+ax.set_ylabel("BMI (kg/m\u00b2)")
+ax.set_title(f"BMI by sex and age group (n={n})")
+ax.legend()
+\end{minted}
+
+\begin{alertblock}{Limitation}
+Box plots hide bimodal distributions. Consider \texttt{sns.violinplot()} or overlay \texttt{sns.stripplot()} for small samples.
+\end{alertblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Bar charts: counts and rates}
+\begin{minted}{python}
+# Horizontal bar chart: 15 lowest life expectancy countries
+bottom15 = recent.nsmallest(15, "lifeExp")
+
+fig, ax = plt.subplots(figsize=(10, 7))
+ax.barh(bottom15["country"], bottom15["lifeExp"],
+        color="#D55E00")
+ax.set_xlabel("Life expectancy (years)")
+ax.set_title("15 countries with lowest life expectancy, 2007")
+ax.invert_yaxis()
+for i, v in enumerate(bottom15["lifeExp"]):
+    ax.text(v + 0.5, i, f"{v:.1f}", va="center")
+\end{minted}
+
+Use \textbf{horizontal bars} when you have many categories to avoid rotated labels.
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Line plots: epidemic curves}
+\begin{minted}{python}
+fig, ax = plt.subplots(figsize=(12, 5))
+ax.bar(epi["date"], epi["new_cases"], alpha=0.4,
+       label="Daily cases")
+ax.plot(epi["date"], epi["rolling_7d"], color="#D55E00",
+        linewidth=2, label="7-day average")
+ax.set_ylabel("New cases per day")
+ax.set_title("Epidemic curve: daily new cases")
+ax.legend()
+\end{minted}
+
+\begin{exampleblock}{Clinical context}
+The epi curve is the \alert{single most important visualization} during an outbreak. Its shape reveals the transmission pattern: point-source (sharp peak), continuous (plateau), or person-to-person (waves).
+\end{exampleblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Scatter plots: relationships}
+\begin{minted}{python}
+# The classic Gapminder bubble chart
+fig, ax = plt.subplots(figsize=(10, 7))
+for continent in recent["continent"].unique():
+    sub = recent[recent["continent"] == continent]
+    ax.scatter(sub["gdpPercap"], sub["lifeExp"],
+               s=sub["pop"] / 1e6, alpha=0.6,
+               label=continent)
+ax.set_xscale("log")
+ax.set_xlabel("GDP per capita (log scale, USD)")
+ax.set_ylabel("Life expectancy (years)")
+ax.set_title("Wealth vs Health, 2007")
+ax.legend()
+\end{minted}
+
+Add regression lines with \texttt{sns.regplot()} and report the Pearson $r$ in the title.
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Kaplan-Meier survival curves}
+\begin{minted}{python}
+from lifelines import KaplanMeierFitter
+
+kmf = KaplanMeierFitter()
+kmf.fit(treatment_time, event_observed=treatment_event,
+        label="Treatment (n=100)")
+kmf.plot_survival_function(ax=ax, ci_show=True)
+\end{minted}
+
+\vspace{4pt}
+Survival analysis tracks \textbf{time until an event} (death, relapse). KM curves handle \alert{censored} observations --- patients still alive at study end.
+
+\vspace{4pt}
+\textbf{Install:} \texttt{pip install lifelines}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Heatmaps: correlations and co-occurrence}
+\begin{minted}{python}
+corr = health.corr()
+mask = np.triu(np.ones_like(corr, dtype=bool))
+
+fig, ax = plt.subplots(figsize=(9, 8))
+sns.heatmap(corr, mask=mask, annot=True, fmt=".2f",
+            cmap="RdBu_r", center=0, vmin=-1, vmax=1,
+            square=True, ax=ax)
+ax.set_title("Correlation matrix of health indicators")
+\end{minted}
+
+\vspace{4pt}
+Use \texttt{"RdBu\_r"} (diverging) for correlations. Use \texttt{"YlOrRd"} (sequential) for disease burden.
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Multi-panel figures: the health dashboard}
+\begin{minted}{python}
+fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+# Panel A: Box plot by continent
+# Panel B: GDP vs Life Expectancy scatter
+# Panel C: Life expectancy trends over time
+# Panel D: Bottom 10 countries bar chart
+plt.tight_layout()
+plt.savefig("dashboard.png", dpi=150, bbox_inches="tight")
+\end{minted}
+
+\vspace{4pt}
+Combine related plots into a single figure for reports and publications. Save with \texttt{dpi=300} for print quality.
+\end{frame}
+
+% ============================================================
+\begin{frame}{What you can do after this module}
+\begin{enumerate}
+  \item Create histograms with clinical threshold lines
+  \item Build box plots and bar charts for group comparisons
+  \item Plot epidemic curves with 7-day rolling averages
+  \item Generate scatter plots with regression lines and $r$ values
+  \item Produce Kaplan-Meier survival curves
+  \item Combine everything into multi-panel dashboards
+\end{enumerate}
+
+\vspace{12pt}
+\centering
+\Large \alert{Next: Module 6 --- Hypothesis testing}
+\end{frame}
+
+% ============================================================
+\begin{frame}{Exercises (Hour 3)}
+\begin{enumerate}
+  \item \textbf{Modify dashboard:} Rebuild the Gapminder dashboard for 2002 data
+  \item \textbf{Clinical dashboard:} 4 panels --- BMI histogram, BP box plot by sex, HbA1c vs.\ age scatter, diagnosis frequency bar chart
+  \item \textbf{Survival:} Kaplan-Meier plot for 3 treatment groups with median survival annotations
+  \item \textbf{Mini-project:} Build a 4-panel health dashboard using Gapminder 2007 data
+\end{enumerate}
+\end{frame}
+
+\end{document}

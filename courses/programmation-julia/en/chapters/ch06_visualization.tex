@@ -1,0 +1,252 @@
+\chapter{Visualization}
+\label{ch:visualization}
+
+\begin{quote}
+\emph{``The purpose of visualization is insight, not pictures.''}
+--- Ben Shneiderman
+\end{quote}
+
+% ============================================================
+\section{Plots.jl basics}
+
+Plots.jl provides a unified API across multiple rendering backends:
+
+\begin{minted}{julia}
+using Plots
+
+x = range(0, 2π, length=100)
+plot(x, sin.(x), label="sin(x)", linewidth=2)
+plot!(x, cos.(x), label="cos(x)", linewidth=2)  # add to existing plot
+xlabel!("x"); ylabel!("y"); title!("Trigonometric functions")
+\end{minted}
+
+\begin{minted}{julia}
+# Scatter plot
+scatter(randn(50), 2 .* randn(50), label="Data",
+    xlabel="x", ylabel="y", markersize=5, alpha=0.7)
+
+# Histogram
+histogram(randn(10_000), bins=50, label="N(0,1)", alpha=0.7)
+
+# Heatmap
+Z = [sin(x)*cos(y) for x in range(-π,π,length=50),
+                        y in range(-π,π,length=50)]
+heatmap(Z, color=:viridis, title="sin(x)cos(y)")
+\end{minted}
+
+\begin{juliatip}
+The \texttt{!} versions (\texttt{plot!}, \texttt{scatter!}, \texttt{xlabel!}) mutate the current plot instead of creating a new one. This is the standard Julian convention for in-place modification.
+\end{juliatip}
+
+% ============================================================
+\section{More plot types}
+
+Plots.jl supports many plot types beyond the basics:
+
+\begin{minted}{julia}
+# Bar plot
+bar(["A","B","C","D"], [23,45,12,38], label="Counts", color=:steelblue)
+
+# Box plot
+data = [randn(100) .+ i for i in 1:4]
+boxplot(["G1" "G2" "G3" "G4"], hcat(data...), label=false, ylabel="Value")
+
+# Contour and surface plots
+f(x, y) = x^2 + y^2 - x*y
+x = y = range(-3, 3, length=100)
+contour(x, y, f, levels=15, fill=true, color=:turbo)
+surface(x, y, f, color=:viridis, camera=(30, 60))
+\end{minted}
+
+% ============================================================
+\section{Backends}
+
+Plots.jl renders through interchangeable backends. Each has different strengths:
+
+\begin{minted}{julia}
+gr()           # GR (default) — fast, good for interactive use
+plot(rand(10)) # renders immediately
+
+plotly()       # Plotly — interactive HTML plots (hover, zoom)
+plot(rand(10)) # hoverable, zoomable in browser
+
+using PGFPlotsX
+pgfplotsx()    # PGFPlotsX — generates TikZ/PGFPlots code for LaTeX
+plot(rand(10)) # publication-quality vector output
+
+gr()           # switch back to default
+\end{minted}
+
+\begin{juliatip}
+Use \texttt{gr()} for everyday work. Use \texttt{pgfplotsx()} for publication figures that integrate with \LaTeX. Use \texttt{plotly()} for interactive presentations and dashboards.
+\end{juliatip}
+
+% ============================================================
+\section{Customization and layouts}
+
+\begin{minted}{julia}
+x = range(0, 4π, length=200)
+plot(x, [sin.(x) sin.(x).*exp.(-x/8)],
+    label=["sin(x)" "damped"], linewidth=[1 2],
+    linestyle=[:dash :solid], color=[:blue :red],
+    title="Damped oscillation", xlabel="Time (s)", ylabel="Amplitude",
+    legend=:topright, size=(800,400), dpi=300)
+
+# Themes change the overall look
+theme(:ggplot2)    # ggplot2 style (gray background, white grid)
+theme(:dark)       # dark background
+theme(:default)    # reset to default
+
+# Annotations and reference lines
+annotate!(5.0, 0.6, text("Peak", 10, :red))
+vline!([π, 2π], linestyle=:dot, color=:gray, label=false)
+hline!([0], color=:black, linewidth=0.5, label=false)
+\end{minted}
+
+\begin{minted}{julia}
+# Subplots
+p1 = plot(x, sin.(x), title="sin", legend=false)
+p2 = plot(x, cos.(x), title="cos", legend=false)
+p3 = plot(x, tan.(x), title="tan", ylims=(-5,5), legend=false)
+p4 = plot(x, sin.(x).*cos.(x), title="sin*cos", legend=false)
+plot(p1, p2, p3, p4, layout=(2,2), size=(800,600))
+\end{minted}
+
+% ============================================================
+\section{CairoMakie for publication-quality figures}
+
+\begin{minted}{julia}
+using CairoMakie
+
+fig = Figure(size=(800, 500), fontsize=14)
+ax = Axis(fig[1,1], title="Damped oscillation",
+    xlabel="Time (s)", ylabel="Amplitude")
+x = range(0, 4π, length=300)
+lines!(ax, x, sin.(x), label="sin(x)", linewidth=2)
+lines!(ax, x, sin.(x).*exp.(-x/8), label="Damped",
+    linewidth=2, linestyle=:dash)
+axislegend(ax, position=:rt)
+fig
+\end{minted}
+
+\begin{minted}{julia}
+# Multi-panel figure
+fig = Figure(size=(1000, 400), fontsize=12)
+ax1 = Axis(fig[1,1], title="(a) Scatter")
+scatter!(ax1, randn(100), randn(100), markersize=8)
+ax2 = Axis(fig[1,2], title="(b) Histogram")
+hist!(ax2, randn(5000), bins=40, color=:orange)
+ax3 = Axis(fig[1,3], title="(c) Heatmap")
+heatmap!(ax3, randn(30,30), colormap=:inferno)
+fig
+\end{minted}
+
+\begin{performancetip}
+Use CairoMakie for static publication figures (PDF, SVG, PNG). Use GLMakie for interactive 3D visualization. Both share the same API --- just change the import.
+\end{performancetip}
+
+% ============================================================
+\section{AlgebraOfGraphics.jl}
+
+AlgebraOfGraphics brings a grammar-of-graphics approach (like R's ggplot2):
+
+\begin{minted}{julia}
+using AlgebraOfGraphics, CairoMakie, RDatasets
+iris = dataset("datasets", "iris")
+
+# Scatter with color mapping + linear fit per group
+plt = data(iris) *
+    mapping(:SepalLength, :PetalLength, color=:Species) *
+    (visual(Scatter) + linear())
+draw(plt, axis=(; title="Iris dataset"))
+
+# Faceted plot
+plt = data(iris) *
+    mapping(:SepalLength, :PetalLength, layout=:Species) *
+    visual(Scatter)
+draw(plt)
+\end{minted}
+
+\begin{juliatip}
+AlgebraOfGraphics uses \texttt{*} to combine data, mappings, and visuals, and \texttt{+} to layer multiple visuals. Think of \texttt{*} as ``apply to'' and \texttt{+} as ``overlay with.''
+\end{juliatip}
+
+% ============================================================
+\section{Saving figures}
+
+\begin{minted}{julia}
+# Plots.jl
+savefig(p, "figure.pdf")   # PDF (vector, best for LaTeX)
+savefig(p, "figure.svg")   # SVG (vector)
+savefig(p, "figure.png")   # PNG (raster)
+
+# CairoMakie
+save("figure.pdf", fig)                  # PDF for papers
+save("figure.png", fig, px_per_unit=3)   # high-resolution PNG
+\end{minted}
+
+\begin{warningbox}
+For \LaTeX{} documents, always save figures as PDF or SVG. PNG images look blurry when scaled. Set \texttt{dpi=300} or \texttt{px\_per\_unit=3} if you must use PNG.
+\end{warningbox}
+
+% ============================================================
+\section{Practical: Gapminder-style animated scatter plot}
+
+\begin{minted}{julia}
+using Plots, CSV, DataFrames, Downloads
+
+url = "https://raw.githubusercontent.com/plotly/datasets/" *
+      "master/gapminderDataFiveYear.csv"
+Downloads.download(url, "gapminder.csv")
+gm = CSV.read("gapminder.csv", DataFrame)
+
+anim = @animate for yr in sort(unique(gm.year))
+    df_yr = filter(:year => ==(yr), gm)
+    scatter(df_yr.gdpPercap, df_yr.lifeExp,
+        markersize = sqrt.(df_yr.pop) ./ 5000,
+        group=df_yr.continent, xlabel="GDP per capita (USD)",
+        ylabel="Life expectancy (years)", title="Year: $yr",
+        xlims=(0,50_000), ylims=(20,90), xscale=:log10,
+        legend=:bottomright, alpha=0.7, size=(900,550))
+end
+gif(anim, "gapminder.gif", fps=2)
+\end{minted}
+
+\begin{minted}{julia}
+# Static CairoMakie version for a single year
+using CairoMakie
+df2007 = filter(:year => ==(2007), gm)
+fig = Figure(size=(900,550), fontsize=13)
+ax = Axis(fig[1,1], xlabel="GDP per capita (log)", ylabel="Life exp.",
+    title="Gapminder 2007", xscale=log10)
+for cont in unique(df2007.continent)
+    sub = filter(:continent => ==(cont), df2007)
+    scatter!(ax, sub.gdpPercap, sub.lifeExp,
+        markersize=sqrt.(sub.pop)./4000, label=cont, alpha=0.7)
+end
+axislegend(ax, position=:rb)
+save("gapminder_2007.pdf", fig)
+\end{minted}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Create a plot of $\sin(x)$, $\sin(2x)$, $\sin(3x)$ on $[0, 2\pi]$ with proper labels and legend.
+  \item Generate 1000 bivariate normal points and create a scatter plot with marginal histograms using subplots.
+  \item Reproduce a scatter matrix of the iris dataset colored by species using AlgebraOfGraphics.jl.
+  \item Create a $2 \times 2$ CairoMakie subplot grid: line, scatter, histogram, heatmap.
+  \item Save the same figure as PNG (300 DPI), SVG, and PDF. Compare file sizes and quality.
+  \item Extend the Gapminder animation to highlight a specific country with a larger marker and label.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Plots.jl provides a unified API with backends: GR (fast), Plotly (interactive), PGFPlotsX (\LaTeX).
+  \item Common types: \texttt{plot}, \texttt{scatter}, \texttt{histogram}, \texttt{heatmap}, \texttt{bar}, \texttt{contour}, \texttt{surface}.
+  \item CairoMakie offers fine-grained control for publication-quality static figures.
+  \item AlgebraOfGraphics.jl uses a composable grammar of graphics with \texttt{*} and \texttt{+}.
+  \item Save figures as PDF or SVG for \LaTeX{}; use PNG only with high DPI.
+  \item Animations are built with \texttt{@animate} and saved with \texttt{gif()}.
+\end{itemize}

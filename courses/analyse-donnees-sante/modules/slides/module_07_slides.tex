@@ -1,0 +1,239 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+% --- Theme ---
+\usetheme{metropolis}
+\usepackage{appendixnumberbeamer}
+
+% --- Packages ---
+\usepackage{fontspec}
+\usepackage{minted}
+\setminted{fontsize=\small,breaklines=true}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{fontawesome5}
+
+% --- Colors ---
+\definecolor{healthgreen}{RGB}{34,139,34}
+\definecolor{alertred}{RGB}{220,53,69}
+\setbeamercolor{alerted text}{fg=alertred}
+
+% --- Metadata ---
+\title{Module 7: Regression for health outcomes}
+\subtitle{Data analysis with Python for health specialists}
+\author{Ya\'{e} Ulrich Gaba}
+\institute{AIRINA Labs}
+\date{2026}
+
+\begin{document}
+
+% ============================================================
+\maketitle
+
+% ============================================================
+\begin{frame}{From correlation to prediction}
+\begin{itemize}
+  \item Chapter 6: ``Is there a \emph{difference}?'' (hypothesis testing)
+  \item Chapter 7: ``Can we \emph{predict} one variable from another?''
+\end{itemize}
+
+\vspace{6pt}
+Regression is the \alert{workhorse of clinical research}:
+\begin{itemize}
+  \item Every epidemiological study
+  \item Every clinical trial analysis
+  \item Every risk prediction model
+\end{itemize}
+
+\vspace{6pt}
+\textbf{Key phrase:} ``after adjusting for'' = multiple regression.
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Simple linear regression}
+\textbf{Q:} How does systolic BP change with age?
+
+\begin{minted}{python}
+from scipy import stats
+
+slope, intercept, r, p, se = stats.linregress(
+    df["age"], df["systolic_bp"])
+print(f"SBP = {intercept:.1f} + {slope:.2f} x Age")
+print(f"R-squared: {r**2:.3f}")
+\end{minted}
+
+\vspace{4pt}
+Slope = 0.7 means: on average, SBP increases by \textbf{0.7~mmHg per year of age}.
+
+\begin{exampleblock}{Caution}
+This does \emph{not} mean aging \emph{causes} higher BP. It means the two are linearly associated in this sample.
+\end{exampleblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Multiple linear regression}
+\textbf{Q:} Predict SBP from age, BMI, and smoking \emph{simultaneously}.
+
+\begin{minted}{python}
+import statsmodels.api as sm
+
+X = sm.add_constant(df[["age", "bmi", "smoking"]])
+model = sm.OLS(df["systolic_bp"], X).fit()
+print(model.summary())
+\end{minted}
+
+\vspace{4pt}
+\textbf{Interpreting coefficients:}
+\begin{itemize}
+  \item Age coef $\approx 0.6$: +0.6 mmHg per year, \emph{after adjusting for BMI and smoking}
+  \item BMI coef $\approx 0.8$: +0.8 mmHg per BMI unit, \emph{after adjusting for age and smoking}
+  \item Smoking coef $\approx 5$: smokers have 5 mmHg higher SBP, \emph{after adjusting for age and BMI}
+\end{itemize}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Confounders: the coffee trap}
+\begin{minted}{python}
+# Unadjusted: coffee appears to predict heart disease
+r, p = stats.pearsonr(coffee, heart_disease_risk)
+# r = 0.35, p < 0.001 -- significant!
+
+# Adjusted: coffee effect disappears when controlling for smoking
+X = sm.add_constant(df[["coffee", "smoking"]])
+model = sm.OLS(df["hd_risk"], X).fit()
+# Coffee p = 0.72 (not significant)
+# Smoking p < 0.001 (the real cause)
+\end{minted}
+
+\begin{alertblock}{Lesson}
+Without adjusting for smoking, you would wrongly conclude coffee increases heart disease risk. \alert{Always think about confounders} in observational studies.
+\end{alertblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Checking regression assumptions}
+\begin{minted}{python}
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+
+# 1. Residuals vs fitted (linearity + homoscedasticity)
+axes[0].scatter(model.fittedvalues, model.resid, alpha=0.4)
+axes[0].axhline(0, color="red", linestyle="--")
+
+# 2. Histogram of residuals (normality)
+axes[1].hist(model.resid, bins=25, edgecolor="black")
+
+# 3. Q-Q plot (normality)
+stats.probplot(model.resid, dist="norm", plot=axes[2])
+\end{minted}
+
+\textbf{4 assumptions:} linearity, independence, homoscedasticity, normality of residuals.
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Logistic regression: binary outcomes}
+\textbf{Q:} Predict diabetes (yes/no) from age, BMI, and glucose.
+
+\begin{minted}{python}
+# statsmodels (for odds ratios and p-values)
+X = sm.add_constant(pima[["age", "bmi", "glucose"]])
+logit = sm.Logit(pima["outcome"], X).fit()
+print(logit.summary())
+
+# Odds ratios with 95% CI
+import numpy as np
+or_df = pd.DataFrame({
+    "OR": np.exp(logit.params),
+    "CI_low": np.exp(logit.conf_int()[0]),
+    "CI_high": np.exp(logit.conf_int()[1]),
+    "p": logit.pvalues
+}).round(4)
+\end{minted}
+\end{frame}
+
+% ============================================================
+\begin{frame}{Interpreting odds ratios}
+\begin{table}
+\begin{tabular}{lcl}
+\toprule
+\textbf{Variable} & \textbf{OR} & \textbf{Interpretation} \\
+\midrule
+Glucose & 1.04 & +1 mg/dL $\to$ 4\% higher odds of diabetes \\
+BMI & 1.08 & +1 kg/m$^2$ $\to$ 8\% higher odds \\
+Age & 1.02 & +1 year $\to$ 2\% higher odds \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{6pt}
+\begin{itemize}
+  \item OR $> 1$: higher risk
+  \item OR $< 1$: lower risk (protective)
+  \item OR $= 1$: no association
+\end{itemize}
+
+All \alert{holding other variables constant}.
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Confusion matrix: evaluating the model}
+\begin{minted}{python}
+from sklearn.metrics import confusion_matrix
+cm = confusion_matrix(y_test, y_pred)
+tn, fp, fn, tp = cm.ravel()
+
+sensitivity = tp / (tp + fn)  # recall
+specificity = tn / (tn + fp)
+ppv = tp / (tp + fp)          # precision
+npv = tn / (tn + fn)
+\end{minted}
+
+\begin{alertblock}{Clinical priority}
+\textbf{Screening} test: prioritize \alert{high sensitivity} (don't miss cases).\\
+\textbf{Confirmatory} test: prioritize \alert{high specificity} (don't give false alarms).
+\end{alertblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Survival analysis: Cox model}
+\begin{minted}{python}
+from lifelines import CoxPHFitter
+
+cph = CoxPHFitter()
+cph.fit(surv_df, duration_col="time",
+        event_col="event", formula="treatment")
+cph.print_summary()
+
+hr = np.exp(cph.params_["treatment"])
+print(f"Hazard ratio: {hr:.3f}")
+# HR = 0.65 -> treatment reduces hazard by 35%
+\end{minted}
+
+\vspace{4pt}
+Hazard ratios are the standard in oncology trials, cardiovascular studies, and any time-to-event endpoint.
+\end{frame}
+
+% ============================================================
+\begin{frame}{What you can do after this module}
+\begin{enumerate}
+  \item Fit simple and multiple linear regression with clinical interpretation
+  \item Identify and control for confounders
+  \item Fit logistic regression and interpret odds ratios
+  \item Evaluate classification with sensitivity, specificity, PPV, NPV
+  \item Run survival analysis with Kaplan-Meier and Cox models
+\end{enumerate}
+
+\vspace{12pt}
+\centering
+\Large \alert{Next: Module 8 --- Machine learning for clinical prediction}
+\end{frame}
+
+% ============================================================
+\begin{frame}{Exercises (Hour 3)}
+\begin{enumerate}
+  \item \textbf{Simple logistic:} Predict diabetes from glucose only; report OR
+  \item \textbf{Multiple logistic:} Add age, BMI, BP, pedigree; report all ORs with 95\% CIs
+  \item \textbf{Thresholds:} Try classification thresholds of 0.3, 0.5, 0.7; compare sensitivity/specificity
+  \item \textbf{Mini-project:} Build a complete diabetes risk prediction notebook with confusion matrix and clinical interpretation
+\end{enumerate}
+\end{frame}
+
+\end{document}
