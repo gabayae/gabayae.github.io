@@ -116,7 +116,7 @@ ninja.data = [{
           },
         },{id: "post-persistence-landscapes-as-ml-features-a-complete-pipeline",
         
-          title: "Persistence Landscapes as ML Features: A Complete Pipeline",
+          title: "Persistence landscapes as ML features: a complete pipeline",
         
         description: "A step-by-step guide to computing persistence landscapes and using them as features in machine learning pipelines.",
         section: "Posts",
@@ -127,7 +127,7 @@ ninja.data = [{
         },
       },{id: "post-building-ai-research-labs-in-africa-lessons-from-airina-labs",
         
-          title: "Building AI Research Labs in Africa: Lessons from AIRINA Labs",
+          title: "Building AI research labs in Africa: lessons from AIRINA Labs",
         
         description: "Reflections on founding and growing an AI research lab on the continent — what works, what&#39;s hard, and why it matters.",
         section: "Posts",
@@ -138,7 +138,7 @@ ninja.data = [{
         },
       },{id: "post-llms-meet-topology-can-tda-improve-language-model-interpretability",
         
-          title: "LLMs Meet Topology: Can TDA Improve Language Model Interpretability?",
+          title: "LLMs meet topology: can TDA improve language model interpretability?",
         
         description: "Exploring how topological data analysis can shed light on the inner workings of large language models — from attention geometry to representation topology.",
         section: "Posts",
@@ -160,7 +160,7 @@ ninja.data = [{
         },
       },{id: "post-the-african-ai-landscape-opportunities-and-challenges",
         
-          title: "The African AI Landscape: Opportunities and Challenges",
+          title: "The African AI landscape: opportunities and challenges",
         
         description: "Reflections on building AI research capacity across Africa — from AIMS to Data Science Africa and beyond.",
         section: "Posts",
@@ -171,7 +171,7 @@ ninja.data = [{
         },
       },{id: "post-getting-started-with-tda-in-python",
         
-          title: "Getting Started with TDA in Python",
+          title: "Getting started with TDA in Python",
         
         description: "A practical introduction to Topological Data Analysis using Python — from point clouds to persistence diagrams.",
         section: "Posts",
@@ -182,7 +182,7 @@ ninja.data = [{
         },
       },{id: "post-fixed-points-and-convergence-in-reinforcement-learning",
         
-          title: "Fixed Points and Convergence in Reinforcement Learning",
+          title: "Fixed points and convergence in reinforcement learning",
         
         description: "How the Banach fixed point theorem explains why RL algorithms converge — bridging topology and decision-making.",
         section: "Posts",
@@ -193,7 +193,7 @@ ninja.data = [{
         },
       },{id: "post-why-topology-matters-for-machine-learning",
         
-          title: "Why Topology Matters for Machine Learning",
+          title: "Why topology matters for machine learning",
         
         description: "An introduction to how topological ideas are reshaping modern machine learning — from persistent homology to geometric deep learning.",
         section: "Posts",
@@ -223,7 +223,7 @@ ninja.data = [{
           title: 'New blog post: LLMs Meet Topology — exploring how topological data analysis can...',
           description: "",
           section: "News",},{id: "projects-topological-foundations-of-reinforcement-learning",
-          title: 'Topological Foundations of Reinforcement Learning',
+          title: 'Topological foundations of reinforcement learning',
           description: "Applying algebraic topology to understand the structure of RL state, action, and policy spaces.",
           section: "Projects",handler: () => {
               window.location.href = "/projects/1_topological_rl/";
@@ -238,17 +238,17 @@ ninja.data = [{
           section: "Projects",handler: () => {
               window.location.href = "/projects/3_wocomtoqc/";
             },},{id: "projects-intelligent-resource-allocation-via-deep-rl",
-          title: 'Intelligent Resource Allocation via Deep RL',
+          title: 'Intelligent resource allocation via deep RL',
           description: "Deep Q-Networks for wireless network resource allocation and optimization.",
           section: "Projects",handler: () => {
               window.location.href = "/projects/4_dqn_wireless/";
             },},{id: "projects-ml-teaching-materials",
-          title: 'ML Teaching Materials',
+          title: 'ML teaching materials',
           description: "Open-source machine learning teaching materials and Jupyter notebooks for beginners.",
           section: "Projects",handler: () => {
               window.location.href = "/projects/5_ml_teaching/";
             },},{id: "projects-geometric-ml-toolkit",
-          title: 'Geometric ML Toolkit',
+          title: 'Geometric ML toolkit',
           description: "Tools and notebooks for geometric and topological machine learning in R and Python.",
           section: "Projects",handler: () => {
               window.location.href = "/projects/6_geometric_ml/";
@@ -258,7 +258,7 @@ ninja.data = [{
           section: "Teachings",handler: () => {
               window.location.href = "/teachings/data-science-fundamentals/";
             },},{id: "teachings-machine-learning-for-beginners",
-          title: 'Machine Learning for Beginners',
+          title: 'Machine learning for beginners',
           description: "An accessible introduction to machine learning concepts and Python tools, designed for African graduate students and early-career researchers.",
           section: "Teachings",handler: () => {
               window.location.href = "/teachings/introduction-to-machine-learning/";
