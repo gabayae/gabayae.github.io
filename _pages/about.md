@@ -26,7 +26,7 @@ profile:
   image_circular: false
   more_info: >
     <p>Research · Teaching · Consulting</p>
-    <p>Kigali, Rwanda</p>
+    <p>Cotonou, Benin</p>
 
 selected_papers: true
 social: true
@@ -101,8 +101,8 @@ Co-author of <a href="https://nostarch.com/shapeofdata" target="_blank"><em>The 
 I teach graduate courses, short courses, and workshops that make rigorous mathematical ideas accessible to scientists, engineers, and ML practitioners — from abstract topology to hands-on deep learning.
 
 - <span class="kw">Pure Mathematics</span> — Topology, Real Analysis, Abstract Algebra, Functional Analysis, Fixed Point Theory
-- <span class="kw">Applied Mathematics</span> — Probability, Stochastic Processes, Quantitative Finance, Optimization
-- <span class="kw">Data Science & ML</span> — TDA, Geometric Deep Learning, Deep RL, NLP, MLOps
+- <span class="kw">Applied Mathematics</span> — Probability, Stochastic Modeling, Quantitative Finance, Mathematical Programming, Simulation
+- <span class="kw">Data Science & ML</span> — TDA, Geometric Deep Learning, Deep RL, NLP, MLOps, Cloud Analytics (Azure)
 
 Organizer of the <span class="kw">Workshop on Computational Topology & Quantum Computing (WoComToQC)</span>. Regular instructor for <a href="https://www.datascienceafrica.org/" target="_blank">Data Science Africa</a> and <a href="https://github.com/AI-Technipreneurs" target="_blank">Data Science Makers</a>. Committed to mentoring the next generation of African scientists.
 
@@ -120,8 +120,9 @@ Organizer of the <span class="kw">Workshop on Computational Topology & Quantum C
 
 I advise research teams, startups, and organizations on how to apply topological and geometric methods to real problems — and serve as a fractional R&D partner for teams building at the frontier.
 
-- <span class="kw">AI strategy & architecture</span> — roadmaps, ML pipelines, platform evaluation
-- <span class="kw">TDA-powered analytics</span> — shape analysis, anomaly detection, persistent homology
+- <span class="kw">AI strategy & architecture</span> — roadmaps, ML pipelines, cloud deployment (Azure, AWS), reproducible model evaluation and monitoring
+- <span class="kw">TDA-powered analytics</span> — shape analysis, anomaly detection, persistent homology, data mining
+- <span class="kw">Advanced analytics & modeling</span> — stochastic modeling, NLP, discrete event simulation, optimization, predictive models with Power BI dashboards
 - <span class="kw">Deep reinforcement learning</span> — resource allocation, optimization, decision systems
 - <span class="kw">ML workshops & training</span> — custom programmes for universities, research centres, and companies
 
