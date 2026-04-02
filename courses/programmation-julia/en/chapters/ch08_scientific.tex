@@ -1,0 +1,256 @@
+\chapter{Scientific computing}
+\label{ch:scientific}
+
+\begin{quote}
+\emph{``The purpose of computing is insight, not numbers.''}
+--- Richard Hamming
+\end{quote}
+
+% ============================================================
+\section{The SciML ecosystem}
+
+Julia's Scientific Machine Learning ecosystem provides state-of-the-art solvers:
+
+\begin{itemize}
+  \item \textbf{DifferentialEquations.jl} --- ODE, SDE, PDE solvers
+  \item \textbf{Optimization.jl} --- unified optimization interface
+  \item \textbf{ModelingToolkit.jl} --- symbolic modeling and simplification
+\end{itemize}
+
+% ============================================================
+\section{Ordinary differential equations}
+
+\subsection{The Lorenz attractor}
+
+\[
+\dot{x} = \sigma(y - x), \quad
+\dot{y} = x(\rho - z) - y, \quad
+\dot{z} = xy - \beta z
+\]
+
+\begin{minted}{julia}
+using DifferentialEquations, Plots
+
+function lorenz!(du, u, p, t)
+    σ, ρ, β = p
+    du[1] = σ * (u[2] - u[1])
+    du[2] = u[1] * (ρ - u[3]) - u[2]
+    du[3] = u[1] * u[2] - β * u[3]
+end
+
+prob = ODEProblem(lorenz!, [1.0, 0.0, 0.0], (0.0, 50.0), (10.0, 28.0, 8/3))
+sol  = solve(prob, Tsit5(); saveat=0.01)
+
+plot(sol, idxs=(1,2,3), title="Lorenz attractor",
+    legend=false, linewidth=0.5, color=:viridis, linez=sol.t)
+\end{minted}
+
+\subsection{The SIR epidemic model}
+
+\[
+\dot{S} = -\beta S I / N, \quad
+\dot{I} = \beta S I / N - \gamma I, \quad
+\dot{R} = \gamma I
+\]
+
+\begin{minted}{julia}
+function sir!(du, u, p, t)
+    S, I, R = u; β, γ = p; N = S + I + R
+    du[1] = -β * S * I / N
+    du[2] =  β * S * I / N - γ * I
+    du[3] =  γ * I
+end
+
+prob = ODEProblem(sir!, [0.99, 0.01, 0.0], (0.0, 200.0), (0.3, 0.1))
+sol  = solve(prob, Tsit5())
+
+plot(sol, label=["S" "I" "R"], xlabel="Time (days)",
+    ylabel="Fraction", title="SIR model (R₀ = 3.0)", linewidth=2)
+\end{minted}
+
+\begin{juliatip}
+The \texttt{!} in \texttt{lorenz!} means the function modifies \texttt{du} in place. In-place ODE functions avoid memory allocation at every time step, which is critical for performance.
+\end{juliatip}
+
+% ============================================================
+\section{Problem types and solvers}
+
+\begin{minted}{julia}
+# SDE: du = f(u,p,t)dt + g(u,p,t)dW
+function noise!(du, u, p, t)
+    du[1] = 0.1 * u[1]
+end
+prob_sde = SDEProblem(sir!, noise!, u0, tspan, p)
+
+# Solver selection:
+sol = solve(prob, Tsit5())    # explicit RK 5(4), non-stiff (default)
+sol = solve(prob, Vern7())    # 7th order, high accuracy
+sol = solve(prob, Rodas5())   # implicit, for stiff problems
+sol = solve(prob, TRBDF2())   # L-stable, stiff-aware
+
+# Controlling accuracy
+sol = solve(prob, Tsit5(); abstol=1e-10, reltol=1e-10, saveat=0.1)
+\end{minted}
+
+\begin{performancetip}
+For stiff ODEs (chemical kinetics, circuits, reaction-diffusion), implicit solvers like \texttt{Rodas5()} can be thousands of times faster than explicit ones. If \texttt{Tsit5()} is very slow, switch to an implicit solver.
+\end{performancetip}
+
+% ============================================================
+\section{Working with solutions}
+
+\begin{minted}{julia}
+sol.t              # time points
+sol.u              # solution vectors at each time point
+sol(10.5)          # interpolate at any time (continuous output)
+sol[2, :]          # second component over all time steps
+Array(sol)         # convert to matrix (n_vars × n_times)
+\end{minted}
+
+% ============================================================
+\section{Optimization}
+
+\subsection{Minimizing the Rosenbrock function}
+
+$f(x, y) = (a - x)^2 + b(y - x^2)^2$, minimum at $(a, a^2)$.
+
+\begin{minted}{julia}
+using Optimization, OptimizationOptimJL
+
+rosenbrock(u, p) = (p[1] - u[1])^2 + p[2] * (u[2] - u[1]^2)^2
+
+# Derivative-free
+prob = OptimizationProblem(rosenbrock, [-1.0, 1.0], (1.0, 100.0))
+sol  = solve(prob, NelderMead())
+println("Minimum at: $(sol.u)")    # ≈ [1.0, 1.0]
+\end{minted}
+
+\begin{minted}{julia}
+# Gradient-based with automatic differentiation
+optf = OptimizationFunction(rosenbrock, Optimization.AutoForwardDiff())
+prob = OptimizationProblem(optf, [-1.0, 1.0], (1.0, 100.0);
+    lb=[-2.0,-2.0], ub=[2.0,2.0])
+sol  = solve(prob, LBFGS())
+println("LBFGS result: $(sol.u)")  # ≈ [1.0, 1.0]
+\end{minted}
+
+% ============================================================
+\section{ModelingToolkit.jl}
+
+\begin{minted}{julia}
+using ModelingToolkit, DifferentialEquations
+using ModelingToolkit: t_nounits as t, D_nounits as D
+
+@variables S(t) I(t) R(t)
+@parameters β γ
+
+N = S + I + R
+eqs = [D(S) ~ -β*S*I/N, D(I) ~ β*S*I/N - γ*I, D(R) ~ γ*I]
+@named sir_sys = ODESystem(eqs, t)
+sir_simple = structural_simplify(sir_sys)
+
+prob = ODEProblem(sir_simple,
+    [S=>0.99, I=>0.01, R=>0.0], (0.0, 200.0), [β=>0.3, γ=>0.1])
+sol = solve(prob, Tsit5())
+\end{minted}
+
+\begin{juliatip}
+ModelingToolkit automatically detects conserved quantities ($S+I+R=1$), eliminates redundant equations, and generates optimized code. For large systems this significantly reduces problem size.
+\end{juliatip}
+
+% ============================================================
+\section{Linear algebra deep dive}
+
+\begin{minted}{julia}
+using LinearAlgebra, SparseArrays, BenchmarkTools
+
+# Factorize once, solve many times
+n = 2000; A = rand(n,n); A = A + A' + n*I
+F = cholesky(A)
+x1 = F \ rand(n)   # reuses factorization
+x2 = F \ rand(n)
+
+# Sparse systems (e.g., 1D Laplacian)
+function laplacian_1d(n)
+    e = ones(n-1)
+    return spdiagm(-1 => -e, 0 => 2ones(n), 1 => -e)
+end
+
+A_sp = laplacian_1d(10_000); b = rand(10_000)
+@btime $A_sp \ $b    # ~1 ms (sparse)
+@btime Matrix($A_sp) \ $b  # ~500 ms (dense, 500x slower)
+\end{minted}
+
+\begin{minted}{julia}
+# Iterative solvers for very large systems
+using IterativeSolvers
+A = laplacian_1d(100_000); b = rand(100_000)
+x, info = cg(A, b; log=true, tol=1e-10)
+println("Converged in $(info.iters) iterations")
+\end{minted}
+
+% ============================================================
+\section{Practical: SIR model with parameter fitting}
+
+\begin{minted}{julia}
+using DifferentialEquations, Optimization, OptimizationOptimJL, Plots
+
+# Generate synthetic "observed" data with noise
+true_p = (0.35, 0.1)
+prob_true = ODEProblem(sir!, [0.99,0.01,0.0], (0.0,100.0), true_p)
+sol_true  = solve(prob_true, Tsit5(); saveat=1.0)
+I_obs = max.(sol_true[2,:] .+ 0.005 .* randn(length(sol_true.t)), 0.0)
+
+# Loss function: sum of squared errors on infected curve
+function loss(params, data)
+    t_obs, I_obs, u0 = data
+    prob = ODEProblem(sir!, u0, (t_obs[1], t_obs[end]), params)
+    sol  = solve(prob, Tsit5(); saveat=t_obs)
+    sol.retcode != :Success && return Inf
+    return sum((sol[2,:] .- I_obs).^2)
+end
+
+# Optimize from a wrong initial guess
+data = (sol_true.t, I_obs, [0.99, 0.01, 0.0])
+optf = OptimizationFunction(loss, Optimization.AutoForwardDiff())
+prob = OptimizationProblem(optf, [0.5, 0.2], data; lb=[0.01,0.01], ub=[1.0,1.0])
+result = solve(prob, LBFGS())
+println("True: β=0.35, γ=0.1")
+println("Fitted: β=$(round(result.u[1],digits=3)), γ=$(round(result.u[2],digits=3))")
+\end{minted}
+
+\begin{minted}{julia}
+# Plot the fit vs observed data
+sol_fit = solve(ODEProblem(sir!, [0.99,0.01,0.0], (0.0,100.0), result.u), Tsit5())
+plot(sol_fit, idxs=2, label="Fitted I(t)", linewidth=2)
+scatter!(sol_true.t, I_obs, label="Observed", markersize=2, alpha=0.5)
+xlabel!("Time (days)"); ylabel!("Fraction infected")
+title!("SIR parameter fitting")
+\end{minted}
+
+\begin{warningbox}
+Parameter fitting for ODE models can have multiple local minima. Try several initial guesses and verify that $R_0 = \beta/\gamma$ is reasonable for the disease being modeled.
+\end{warningbox}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Solve the Lotka--Volterra system $\dot{x}=\alpha x - \beta xy$, $\dot{y}=\delta xy - \gamma y$. Plot populations over time and a phase portrait.
+  \item Add stochastic noise to the SIR model using \texttt{SDEProblem}. Compare 10 stochastic trajectories with the deterministic solution.
+  \item Minimize the Rastrigin function $f(\mathbf{x}) = 10n + \sum_i [x_i^2 - 10\cos(2\pi x_i)]$ for $n=5$.
+  \item Build a 2D Laplacian as a sparse matrix. Solve the Poisson equation with direct and iterative solvers. Compare timings for $n=50,100,200$.
+  \item Rewrite the SIR model with ModelingToolkit.jl and verify it gives the same solution.
+  \item Extend the parameter fitting to fit both infected and recovered curves simultaneously.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item DifferentialEquations.jl solves ODEs, SDEs, and more with automatic algorithm selection.
+  \item Define ODE functions in-place (\texttt{f!}) for performance; use \texttt{Tsit5()} for non-stiff and \texttt{Rodas5()} for stiff problems.
+  \item Optimization.jl provides a unified interface; use \texttt{AutoForwardDiff()} for gradient-based methods.
+  \item ModelingToolkit.jl enables symbolic problem definition with automatic simplification.
+  \item Sparse matrices and iterative solvers are essential for large-scale linear systems.
+  \item Parameter fitting combines ODE solving with optimization to match models to data.
+\end{itemize}

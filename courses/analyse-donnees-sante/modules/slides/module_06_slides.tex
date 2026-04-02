@@ -1,0 +1,238 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+% --- Theme ---
+\usetheme{metropolis}
+\usepackage{appendixnumberbeamer}
+
+% --- Packages ---
+\usepackage{fontspec}
+\usepackage{minted}
+\setminted{fontsize=\small,breaklines=true}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{fontawesome5}
+
+% --- Colors ---
+\definecolor{healthgreen}{RGB}{34,139,34}
+\definecolor{alertred}{RGB}{220,53,69}
+\setbeamercolor{alerted text}{fg=alertred}
+
+% --- Metadata ---
+\title{Module 6: Hypothesis testing for health data}
+\subtitle{Data analysis with Python for health specialists}
+\author{Ya\'{e} Ulrich Gaba}
+\institute{AIRINA Labs}
+\date{2026}
+
+\begin{document}
+
+% ============================================================
+\maketitle
+
+% ============================================================
+\begin{frame}{The logic of hypothesis testing}
+Every clinical question $\to$ two competing statements:
+\begin{itemize}
+  \item $H_0$ (null): There is \alert{no} effect / no difference / no association.
+  \item $H_1$ (alternative): There \alert{is} an effect / a difference / an association.
+\end{itemize}
+
+\vspace{6pt}
+\textbf{The 5 steps:}
+\begin{enumerate}
+  \item State hypotheses ($H_0$ and $H_1$)
+  \item Choose significance level $\alpha$ (usually 0.05)
+  \item Collect data, compute test statistic
+  \item Compute p-value
+  \item Decide: if $p < \alpha$, reject $H_0$
+\end{enumerate}
+
+\begin{exampleblock}{Clinical framing}
+A statistician writes $H_0: \mu_1 = \mu_2$. A clinician writes ``no difference in SBP between statin and placebo groups.'' Both say the same thing.
+\end{exampleblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}{p-values: what they mean and what they don't}
+\textbf{A p-value IS:} the probability of seeing data this extreme if $H_0$ is true.
+
+\vspace{6pt}
+\textbf{A p-value is NOT:}
+\begin{itemize}
+  \item The probability that $H_0$ is true
+  \item The probability the result is ``due to chance''
+  \item A measure of effect size
+  \item Meaningfully different at 0.049 vs.\ 0.051
+\end{itemize}
+
+\vspace{6pt}
+\begin{alertblock}{The big mistake}
+A study with 100\,000 patients can find $p < 0.001$ for a BP difference of 0.5~mmHg --- \alert{statistically significant but clinically meaningless}. Always report \textbf{effect size} alongside p-values.
+\end{alertblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{One-sample t-test}
+\textbf{Q:} Is mean cholesterol in our clinic different from the national average of 200~mg/dL?
+
+\begin{minted}{python}
+from scipy import stats
+import numpy as np
+
+np.random.seed(42)
+cholesterol = np.random.normal(loc=212, scale=35, size=80)
+
+t_stat, p_value = stats.ttest_1samp(cholesterol, popmean=200)
+print(f"Sample mean: {cholesterol.mean():.1f} mg/dL")
+print(f"t = {t_stat:.3f}, p = {p_value:.4f}")
+\end{minted}
+
+Compares a \textbf{sample mean} to a \textbf{known reference value} (guideline threshold, national average).
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Two-sample t-test}
+\textbf{Q:} Is systolic BP different between treatment and control groups?
+
+\begin{minted}{python}
+np.random.seed(42)
+treatment = np.random.normal(loc=128, scale=15, size=60)
+control = np.random.normal(loc=138, scale=16, size=55)
+
+# Welch's t-test (safer default: no equal variance assumption)
+t_stat, p_value = stats.ttest_ind(treatment, control,
+                                   equal_var=False)
+print(f"Difference: {control.mean()-treatment.mean():.1f} mmHg")
+print(f"p = {p_value:.4f}")
+\end{minted}
+
+\begin{exampleblock}{Check assumptions}
+Normality: \texttt{stats.shapiro()}. Equal variances: \texttt{stats.levene()}. If variances differ, use Welch's t-test (\texttt{equal\_var=False}).
+\end{exampleblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Paired t-test}
+\textbf{Q:} Does a 12-week exercise program reduce blood pressure?
+
+\begin{minted}{python}
+np.random.seed(42)
+bp_before = np.random.normal(loc=142, scale=12, size=45)
+bp_after = bp_before - np.random.normal(loc=8, scale=6, size=45)
+
+t_stat, p_value = stats.ttest_rel(bp_before, bp_after)
+diffs = bp_before - bp_after
+print(f"Mean reduction: {diffs.mean():.1f} mmHg")
+print(f"p = {p_value:.6f}")
+\end{minted}
+
+\begin{alertblock}{Common mistake}
+Using an \textbf{independent} t-test on before/after data ignores the pairing and loses statistical power. Same patients measured twice $\to$ always use a \textbf{paired} t-test.
+\end{alertblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Chi-square test of independence}
+\textbf{Q:} Is diabetes prevalence associated with obesity category?
+
+\begin{minted}{python}
+# Build contingency table
+contingency = pd.crosstab(df["bmi_category"],
+                          df["diabetes_label"])
+
+# Chi-square test
+chi2, p_value, dof, expected = stats.chi2_contingency(
+    contingency)
+print(f"Chi2 = {chi2:.2f}, dof = {dof}, p = {p_value:.4f}")
+\end{minted}
+
+Works with \textbf{categorical} variables. Requires expected cell counts $\geq 5$. For small cells, use Fisher's exact test: \texttt{stats.fisher\_exact(table)}.
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Mann-Whitney U test}
+When data is \alert{not normally distributed} (length of stay, costs, small samples):
+
+\begin{minted}{python}
+np.random.seed(42)
+los_surgical = np.random.exponential(scale=7, size=40)
+los_medical = np.random.exponential(scale=4.5, size=45)
+
+u_stat, p_value = stats.mannwhitneyu(
+    los_surgical, los_medical, alternative="two-sided")
+print(f"Median surgical: {np.median(los_surgical):.1f} days")
+print(f"Median medical:  {np.median(los_medical):.1f} days")
+print(f"p = {p_value:.4f}")
+\end{minted}
+
+\textbf{Rule of thumb:} Normal $\to$ t-test. Non-normal $\to$ Mann-Whitney. Categorical $\to$ chi-square. Paired non-normal $\to$ Wilcoxon signed-rank.
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Multiple testing correction}
+Testing 20 hypotheses at $\alpha = 0.05$ $\to$ expect 1 false positive even if nothing is going on.
+
+\begin{minted}{python}
+from statsmodels.stats.multitest import multipletests
+
+# Bonferroni: divide alpha by number of tests
+rejected_bonf, _, _, _ = multipletests(
+    p_values, alpha=0.05, method="bonferroni")
+
+# FDR (Benjamini-Hochberg): less conservative
+rejected_fdr, _, _, _ = multipletests(
+    p_values, alpha=0.05, method="fdr_bh")
+\end{minted}
+
+\textbf{Bonferroni:} strict, minimizes false positives (confirmatory trials).\\
+\textbf{FDR:} less strict, controls false discovery rate (exploratory/genomics).
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Effect size: Cohen's d}
+$$d = \frac{\bar{x}_1 - \bar{x}_2}{s_{\text{pooled}}}$$
+
+\begin{itemize}
+  \item $|d| < 0.2$: negligible
+  \item $0.2 \leq |d| < 0.5$: small
+  \item $0.5 \leq |d| < 0.8$: medium
+  \item $|d| \geq 0.8$: large
+\end{itemize}
+
+\begin{minted}{python}
+def cohens_d(g1, g2):
+    n1, n2 = len(g1), len(g2)
+    pooled = np.sqrt(((n1-1)*g1.var(ddof=1) +
+                      (n2-1)*g2.var(ddof=1)) / (n1+n2-2))
+    return (g1.mean() - g2.mean()) / pooled
+\end{minted}
+
+\alert{Always report effect size alongside p-values.} Statistical significance $\neq$ clinical significance.
+\end{frame}
+
+% ============================================================
+\begin{frame}{What you can do after this module}
+\begin{enumerate}
+  \item Formulate $H_0$/$H_1$ for clinical research questions
+  \item Apply the right test: t-test (1-sample, 2-sample, paired), chi-square, Mann-Whitney
+  \item Interpret p-values correctly and avoid common misconceptions
+  \item Correct for multiple comparisons (Bonferroni, FDR)
+  \item Compute Cohen's $d$ to assess clinical meaningfulness
+\end{enumerate}
+
+\vspace{12pt}
+\centering
+\Large \alert{Next: Module 7 --- Regression for health outcomes}
+\end{frame}
+
+% ============================================================
+\begin{frame}{Exercises (Hour 3)}
+\begin{enumerate}
+  \item \textbf{One-sample t-test:} Framingham cholesterol vs.\ 200 mg/dL
+  \item \textbf{Two-sample t-test:} Systolic BP in CHD vs.\ non-CHD groups with Cohen's $d$
+  \item \textbf{Chi-square:} Smoking vs.\ 10-year CHD risk
+  \item \textbf{Mini-project:} Run all tests on the Framingham dataset with multiple testing correction; identify the variable with the largest effect size
+\end{enumerate}
+\end{frame}
+
+\end{document}

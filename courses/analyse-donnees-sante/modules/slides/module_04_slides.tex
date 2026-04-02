@@ -1,0 +1,208 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+% --- Theme ---
+\usetheme{metropolis}
+\usepackage{appendixnumberbeamer}
+
+% --- Packages ---
+\usepackage{fontspec}
+\usepackage{minted}
+\setminted{fontsize=\small,breaklines=true}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{fontawesome5}
+
+% --- Colors ---
+\definecolor{healthgreen}{RGB}{34,139,34}
+\definecolor{alertred}{RGB}{220,53,69}
+\setbeamercolor{alerted text}{fg=alertred}
+
+% --- Metadata ---
+\title{Module 4: Descriptive statistics and epidemiological measures}
+\subtitle{Data analysis with Python for health specialists}
+\author{Ya\'{e} Ulrich Gaba}
+\institute{AIRINA Labs}
+\date{2026}
+
+\begin{document}
+
+% ============================================================
+\maketitle
+
+% ============================================================
+\begin{frame}[fragile]{Mean vs.\ median: why it matters}
+\begin{minted}{python}
+import pandas as pd
+glucose = pd.Series([92, 98, 104, 95, 88, 110, 97, 340, 101, 93])
+
+print(f"Mean:   {glucose.mean():.1f} mg/dL")   # 121.8
+print(f"Median: {glucose.median():.1f} mg/dL")  # 97.5
+\end{minted}
+
+\vspace{6pt}
+One patient with DKA (glucose = 340) pulls the mean up by 25~mg/dL. The median is unaffected.
+
+\vspace{6pt}
+\begin{alertblock}{Rule of thumb}
+Use \textbf{median} for skewed data (lab values, costs, length of stay). Use \textbf{mean} for symmetric data (height, diastolic BP in healthy adults).
+\end{alertblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Spread: SD, IQR, and coefficient of variation}
+\begin{minted}{python}
+# Two clinics with similar means but different variability
+clinic_a = pd.Series([120, 122, 118, 125, 121, 119, 123, 120])
+clinic_b = pd.Series([98, 145, 110, 155, 102, 160, 115, 135])
+
+print(f"Clinic A: mean={clinic_a.mean():.1f}, "
+      f"SD={clinic_a.std():.1f}")
+print(f"Clinic B: mean={clinic_b.mean():.1f}, "
+      f"SD={clinic_b.std():.1f}")
+\end{minted}
+
+\vspace{4pt}
+Both means $\approx$121, but Clinic~B has patients with \alert{dangerously high and unusually low} blood pressure.
+
+\vspace{4pt}
+\textbf{IQR} = Q75 -- Q25. Robust to outliers, like the median.\\
+\textbf{CV} = SD/mean $\times$ 100\%. Compares variability across different scales.
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Frequency tables and cross-tabulations}
+\begin{minted}{python}
+# One-way frequency table
+freq = recent["le_cat"].value_counts().sort_index()
+
+# Two-way cross-tabulation (the "Table 1" of papers)
+ct = pd.crosstab(recent["continent"], recent["le_cat"],
+                 margins=True)
+
+# With row percentages
+ct_pct = pd.crosstab(recent["continent"], recent["le_cat"],
+                     normalize="index").round(3) * 100
+\end{minted}
+
+\vspace{4pt}
+\begin{exampleblock}{Clinical context}
+Every ``Table~1'' in a clinical paper is essentially a cross-tabulation. In pandas, \texttt{pd.crosstab()} builds them in one line.
+\end{exampleblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Prevalence and incidence}
+\begin{columns}
+\column{0.48\textwidth}
+\textbf{Prevalence} (burden):
+$$\frac{\text{Existing cases}}{\text{Total population}} \times 100$$
+
+\begin{minted}{python}
+prev = 625 / 5000 * 100
+# 12.5%
+\end{minted}
+
+\column{0.48\textwidth}
+\textbf{Incidence rate} (risk):
+$$\frac{\text{New cases}}{\text{Person-time at risk}}$$
+
+\begin{minted}{python}
+ir = 18 / 850  # per person-year
+# = 21.2 per 1,000 PY
+\end{minted}
+\end{columns}
+
+\vspace{8pt}
+\begin{alertblock}{Key difference}
+Low incidence + high prevalence = patients survive a long time (diabetes). High incidence + low prevalence = disease kills quickly (Ebola).
+\end{alertblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Risk ratio (relative risk)}
+Compares probability of disease between exposed and unexposed:
+$$\text{RR} = \frac{a/(a+b)}{c/(c+d)}$$
+
+\begin{minted}{python}
+# Smoking and lung cancer
+a, b, c, d = 80, 920, 10, 990
+risk_exposed = a / (a + b)     # 8.0%
+risk_unexposed = c / (c + d)   # 1.0%
+rr = risk_exposed / risk_unexposed  # 7.92
+
+# 95% CI via log(RR)
+import math
+se = math.sqrt(1/a - 1/(a+b) + 1/c - 1/(c+d))
+ci = (math.exp(math.log(rr) - 1.96*se),
+      math.exp(math.log(rr) + 1.96*se))
+\end{minted}
+
+Smokers have \alert{8$\times$ the risk} of lung cancer compared to non-smokers.
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Odds ratio}
+Used in \textbf{case-control} studies where you cannot compute risk directly:
+$$\text{OR} = \frac{a \times d}{b \times c}$$
+
+\begin{minted}{python}
+# Obesity and knee osteoarthritis
+a, b, c, d = 120, 60, 80, 140
+odds_ratio = (a * d) / (b * c)  # 3.50
+
+se = math.sqrt(1/a + 1/b + 1/c + 1/d)
+ci = (math.exp(math.log(odds_ratio) - 1.96*se),
+      math.exp(math.log(odds_ratio) + 1.96*se))
+\end{minted}
+
+\vspace{4pt}
+\begin{exampleblock}{When OR $\approx$ RR}
+The OR approximates the RR when the disease is \textbf{rare} ($<$10\% prevalence). For common outcomes, OR exaggerates the association.
+\end{exampleblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Age-standardized rates}
+Crude rates mislead when populations have different age structures.
+
+\begin{minted}{python}
+# Direct standardization
+std_weight = [0.26, 0.42, 0.22, 0.10]  # WHO World Std
+
+# Age-specific rates x standard weights
+asr_a = (data_a["rate"] * std_weight).sum()
+asr_b = (data_b["rate"] * std_weight).sum()
+\end{minted}
+
+\vspace{4pt}
+\begin{alertblock}{Always report your standard}
+Different standards (WHO, European, US 2000) give different results. You must use the \textbf{same} standard to compare with published rates.
+\end{alertblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}{What you can do after this module}
+\begin{enumerate}
+  \item Choose the right measure of center (mean vs.\ median) for health data
+  \item Compute prevalence and incidence with confidence intervals
+  \item Build 2$\times$2 tables and calculate risk ratios and odds ratios
+  \item Construct cross-tabulations for ``Table 1'' style reporting
+  \item Perform age standardization to fairly compare populations
+\end{enumerate}
+
+\vspace{12pt}
+\centering
+\Large \alert{Next: Module 5 --- Visualization for health data}
+\end{frame}
+
+% ============================================================
+\begin{frame}{Exercises (Hour 3)}
+\begin{enumerate}
+  \item \textbf{Summary stats:} Compute mean, median, SD, IQR for life expectancy by continent (2007)
+  \item \textbf{Odds ratio:} From a 2$\times$2 table (200 cases, 200 controls), compute OR with 95\% CI
+  \item \textbf{Age standardization:} Compare crude vs.\ standardized mortality for two populations
+  \item \textbf{Mini-project:} Build an epidemiological profile using Gapminder + WHO data
+\end{enumerate}
+\end{frame}
+
+\end{document}

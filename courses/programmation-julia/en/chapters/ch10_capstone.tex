@@ -1,0 +1,251 @@
+\chapter{Capstone projects}
+\label{ch:capstone}
+
+\begin{quote}
+\emph{``The best way to learn programming is to build something you care about.''}
+\end{quote}
+
+% ============================================================
+\section{Overview}
+
+This chapter presents five capstone projects that integrate concepts from the entire course. Each project requires data handling, computation, visualization, and a written report. Choose one (or more) and work through it over 2--3 weeks.
+
+The projects are ordered roughly by domain:
+\begin{itemize}
+  \item \textbf{Projects 1 and 4:} Dynamical systems and differential equations
+  \item \textbf{Project 2:} Deep learning and computer vision
+  \item \textbf{Project 3:} Data science and public health
+  \item \textbf{Project 5:} Optimization and finance
+\end{itemize}
+
+\begin{warningbox}
+These are open-ended projects, not step-by-step tutorials. You are expected to consult documentation, experiment, debug, and make design decisions. The instructions provide a roadmap, not a complete solution.
+\end{warningbox}
+
+% ============================================================
+\section{Project 1: Lotka--Volterra predator-prey simulation}
+
+The Lotka--Volterra equations model predator-prey dynamics:
+\[
+\frac{dx}{dt} = \alpha x - \beta xy, \qquad \frac{dy}{dt} = \delta xy - \gamma y
+\]
+where $x$ is prey population, $y$ is predator population, and $\alpha,\beta,\delta,\gamma > 0$.
+
+\begin{enumerate}
+  \item Implement using DifferentialEquations.jl with parameters $\alpha=1.1$, $\beta=0.4$, $\delta=0.1$, $\gamma=0.4$.
+  \item Create three plots: population vs.\ time, phase portrait ($x$ vs.\ $y$), direction field.
+  \item Vary $\alpha$ from 0.5 to 2.0 and overlay phase portraits.
+  \item Add stochastic noise via \texttt{SDEProblem}. Plot 20 trajectories alongside the deterministic solution.
+  \item Write a function that computes the oscillation period numerically.
+\end{enumerate}
+
+\begin{minted}{julia}
+using DifferentialEquations, Plots
+
+function lotka_volterra!(du, u, p, t)
+    x, y = u; α, β, δ, γ = p
+    du[1] = α*x - β*x*y
+    du[2] = δ*x*y - γ*y
+end
+
+prob = ODEProblem(lotka_volterra!, [10.0,10.0], (0.0,100.0), (1.1,0.4,0.1,0.4))
+sol  = solve(prob, Tsit5())
+# Your work: create plots, add noise, analyze sensitivity
+\end{minted}
+
+% ============================================================
+\section{Project 2: Image classifier with Flux.jl}
+
+FashionMNIST contains 70,000 grayscale $28\times28$ images of clothing items in 10 categories: T-shirt, trouser, pullover, dress, coat, sandal, shirt, sneaker, bag, ankle boot.
+
+\begin{enumerate}
+  \item Load with MLDatasets.jl. Visualize 16 random samples with labels.
+  \item Build a dense network (2+ hidden layers, dropout). Train 15 epochs.
+  \item Build a CNN (\texttt{Conv}, \texttt{MaxPool}, \texttt{Dense}). Train 15 epochs.
+  \item Plot training loss and test accuracy vs.\ epoch for both architectures.
+  \item Compute and display the confusion matrix on the test set.
+  \item Identify the 10 most-misclassified images with predicted and true labels.
+\end{enumerate}
+
+\begin{minted}{julia}
+using Flux, MLDatasets
+train_x, train_y = MLDatasets.FashionMNIST(split=:train)[:]
+
+cnn = Chain(
+    Conv((3,3), 1=>16, relu, pad=1), MaxPool((2,2)),
+    Conv((3,3), 16=>32, relu, pad=1), MaxPool((2,2)),
+    Flux.flatten, Dense(32*7*7=>128, relu), Dropout(0.3), Dense(128=>10))
+# Your work: train both models, compare, build confusion matrix
+\end{minted}
+
+% ============================================================
+\section{Project 3: African health data pipeline}
+
+Build a complete data analysis pipeline from public health data sources.
+
+\begin{enumerate}
+  \item Download real data from at least two sources: WHO (\url{https://www.who.int/data/gho}), World Bank (\url{https://data.worldbank.org}), Our World in Data (\url{https://ourworldindata.org}).
+  \item Clean: handle missing values, inconsistent country names, duplicates.
+  \item Join datasets on country and year. Filter for African Union member states.
+  \item Compute summary statistics by region (West, East, Central, Southern, North Africa).
+  \item Create four publication-quality CairoMakie figures: (a) life expectancy by country, (b) time series for 5 countries, (c) GDP vs.\ health indicator, (d) faceted regional comparison.
+  \item Save all figures as PDF.
+\end{enumerate}
+
+\begin{minted}{julia}
+using CSV, DataFrames, Downloads, CairoMakie, Statistics
+
+url = "https://raw.githubusercontent.com/owid/owid-datasets/" *
+      "master/datasets/Life%20expectancy%20-%20OWID/" *
+      "Life%20expectancy%20-%20OWID.csv"
+Downloads.download(url, "life_exp.csv")
+df = CSV.read("life_exp.csv", DataFrame)
+
+african = ["Nigeria","Ethiopia","Egypt","South Africa","Kenya",
+    "Tanzania","Ghana","Senegal","Cameroon","Rwanda",
+    "Morocco","Tunisia","Algeria","Benin","Togo"]
+df_africa = filter(:Entity => in(african), df)
+# Your work: clean, join additional sources, analyze, visualize
+\end{minted}
+
+\begin{juliatip}
+Always use real public data before resorting to synthetic data, especially for African countries. The World Bank, WHO, and Our World in Data provide excellent open datasets with good coverage.
+\end{juliatip}
+
+% ============================================================
+\section{Project 4: Stochastic SIR epidemic model}
+
+\begin{enumerate}
+  \item Implement the deterministic SIR as an \texttt{ODEProblem}.
+  \item Add multiplicative noise: $dS = -\beta SI\,dt - \sigma SI\,dW$.
+  \item Solve with \texttt{SDEProblem} and \texttt{EM()} (Euler--Maruyama).
+  \item Generate 100 trajectories using \texttt{EnsembleProblem}.
+  \item Plot the mean with a 95\% confidence band (2.5th and 97.5th percentiles).
+  \item Compute the distribution of peak infection time and fraction.
+  \item Fit deterministic parameters to the ensemble mean using Optimization.jl.
+  \item Investigate the effect of noise intensity $\sigma$ on epidemic outcome.
+\end{enumerate}
+
+\begin{minted}{julia}
+using DifferentialEquations, Plots, Statistics
+
+function sir_drift!(du, u, p, t)
+    S,I,R = u; β,γ,σ = p; N = S+I+R
+    du[1] = -β*S*I/N; du[2] = β*S*I/N - γ*I; du[3] = γ*I
+end
+function sir_noise!(du, u, p, t)
+    S,I,R = u; β,γ,σ = p; N = S+I+R
+    du[1] = -σ*S*I/N; du[2] = σ*S*I/N; du[3] = 0.0
+end
+
+prob = SDEProblem(sir_drift!, sir_noise!, [0.99,0.01,0.0], (0.0,200.0), (0.3,0.1,0.05))
+ensemble_sol = solve(EnsembleProblem(prob), EM(); dt=0.1, trajectories=100)
+# Your work: plot confidence bands, analyze peak distribution
+\end{minted}
+
+% ============================================================
+\section{Project 5: Portfolio optimization}
+
+Markowitz optimization: $\min_{\mathbf{w}} \mathbf{w}^\top\Sigma\mathbf{w}$ subject to $\mathbf{w}^\top\boldsymbol{\mu} \geq r_{\min}$, $\mathbf{w}^\top\mathbf{1}=1$, $w_i \geq 0$.
+
+\begin{enumerate}
+  \item Generate (or download) daily returns for 10 assets over 5 years.
+  \item Compute expected return $\boldsymbol{\mu}$ and covariance $\Sigma$.
+  \item Solve the minimum-variance portfolio with Optimization.jl.
+  \item Trace the efficient frontier (50 target returns).
+  \item Plot the frontier, individual assets, and minimum-variance portfolio.
+  \item Add a risk-free asset and compute the tangency portfolio (max Sharpe ratio).
+  \item Backtest: compare optimized, equal-weight, and market-cap-weighted portfolios.
+\end{enumerate}
+
+\begin{minted}{julia}
+using Optimization, OptimizationOptimJL, LinearAlgebra, Plots
+using Random; Random.seed!(42)
+
+n_assets = 10
+μ = 0.05 .+ 0.15 .* rand(n_assets)
+A = randn(n_assets, n_assets)
+Σ = (A * A') / 1260 .+ 0.01 * I
+
+portfolio_var(w, p) = w' * p[1] * w   # objective
+# Your work: add constraints, trace frontier, backtest
+\end{minted}
+
+% ============================================================
+\section{Report template}
+
+Your project report should follow this structure:
+
+\begin{enumerate}
+  \item \textbf{Title and abstract} (200 words). State the problem, approach, and main result.
+  \item \textbf{Introduction} (1 page). Context, motivation, and objectives.
+  \item \textbf{Methods} (2--3 pages). Mathematical formulation, algorithms, Julia packages, implementation details.
+  \item \textbf{Results} (2--3 pages). Figures, tables, quantitative analysis. Every figure must have a caption.
+  \item \textbf{Discussion} (1 page). Interpretation, limitations, possible extensions.
+  \item \textbf{Code appendix}. Complete runnable code or a link to a Git repository.
+\end{enumerate}
+
+% ============================================================
+\section{Grading rubric}
+
+\begin{longtable}{p{4.5cm}p{1.5cm}p{7.5cm}}
+\toprule
+\textbf{Criterion} & \textbf{Points} & \textbf{Description} \\
+\midrule
+\endhead
+Correctness & 30 & Code runs without errors, results are correct, edge cases handled. \\
+\addlinespace
+Code quality & 20 & Clean Julia code. Type-stable functions, no globals in hot paths, proper dispatch. \\
+\addlinespace
+Visualization & 20 & Publication-quality figures with labels, legends, captions. At least 3 plot types. \\
+\addlinespace
+Report & 15 & Clear writing, logical structure, proper math notation, honest limitations. \\
+\addlinespace
+Creativity & 15 & Going beyond the minimum: extra analyses, real data, interactive elements. \\
+\bottomrule
+\end{longtable}
+
+\begin{performancetip}
+Use a Git repository from day one. Commit early and often. Include a \texttt{Project.toml} so anyone can reproduce your environment with \texttt{Pkg.activate(".")} and \texttt{Pkg.instantiate()}.
+\end{performancetip}
+
+% ============================================================
+\section{Presentation guidelines}
+
+Each project will be presented in a 15-minute talk (12 minutes presentation + 3 minutes questions):
+
+\begin{enumerate}
+  \item \textbf{Slide 1:} Title, your name, project number.
+  \item \textbf{Slides 2--3:} Problem statement and motivation. Why does this problem matter?
+  \item \textbf{Slides 4--5:} Methods. What packages did you use? What algorithms? Show key equations.
+  \item \textbf{Slides 6--8:} Results. Show your best figures. Explain what each figure reveals.
+  \item \textbf{Slide 9:} Discussion. What worked well? What was difficult? What would you do differently?
+  \item \textbf{Slide 10:} Conclusion and key takeaways.
+\end{enumerate}
+
+\begin{warningbox}
+Do not put code on slides unless it illustrates a specific design decision or a clever use of Julia. Slides should show results, figures, and high-level ideas --- not line-by-line code. Keep the code in your report appendix.
+\end{warningbox}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Choose a project. Create a Git repository with \texttt{Project.toml} and an initial script.
+  \item Write a one-page project plan: data sources, methods, planned figures, weekly timeline.
+  \item Implement a minimal working version that produces at least one correct plot. Commit as ``v0.1.''
+  \item Iterate: improve the model, add analyses, refine figures. Commit each improvement.
+  \item Write your report and prepare your presentation. Submit the repository, PDF report, and slides.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Five capstone projects integrate all course topics: data wrangling, visualization, performance, scientific computing, and machine learning.
+  \item Project 1 (Lotka--Volterra) focuses on ODEs, phase portraits, and stochastic simulation.
+  \item Project 2 (FashionMNIST) compares dense and convolutional neural networks.
+  \item Project 3 (African health data) builds a pipeline from public sources to publication figures.
+  \item Project 4 (stochastic SIR) explores ensemble simulation and uncertainty quantification.
+  \item Project 5 (portfolio optimization) applies constrained optimization to finance.
+  \item Good scientific computing requires clean code, reproducible environments, honest reporting, and clear visualization.
+\end{itemize}

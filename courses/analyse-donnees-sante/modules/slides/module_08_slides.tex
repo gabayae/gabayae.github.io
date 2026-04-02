@@ -1,0 +1,259 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+% --- Theme ---
+\usetheme{metropolis}
+\usepackage{appendixnumberbeamer}
+
+% --- Packages ---
+\usepackage{fontspec}
+\usepackage{minted}
+\setminted{fontsize=\small,breaklines=true}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{fontawesome5}
+
+% --- Colors ---
+\definecolor{healthgreen}{RGB}{34,139,34}
+\definecolor{alertred}{RGB}{220,53,69}
+\setbeamercolor{alerted text}{fg=alertred}
+
+% --- Metadata ---
+\title{Module 8: Machine learning for clinical prediction}
+\subtitle{Data analysis with Python for health specialists}
+\author{Ya\'{e} Ulrich Gaba}
+\institute{AIRINA Labs}
+\date{2026}
+
+\begin{document}
+
+% ============================================================
+\maketitle
+
+% ============================================================
+\begin{frame}{ML vs.\ traditional statistics}
+\begin{columns}
+\column{0.48\textwidth}
+\textbf{Traditional statistics:}\\
+``Which risk factors are associated with heart disease, and by how much?''
+
+\vspace{4pt}
+Goal = \alert{inference}\\
+Tool = logistic regression\\
+Output = odds ratios, p-values
+
+\column{0.48\textwidth}
+\textbf{Machine learning:}\\
+``Given this patient's data, what is their probability of heart disease?''
+
+\vspace{4pt}
+Goal = \alert{prediction}\\
+Tool = random forest, etc.\\
+Output = predicted probability
+\end{columns}
+
+\vspace{8pt}
+\begin{exampleblock}{In practice}
+Many clinical studies use \textbf{both}: regression to understand the biology, ML to build the screening tool.
+\end{exampleblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}{When NOT to use ML}
+\begin{itemize}
+  \item \textbf{Small datasets} ($< 200$ patients): ML overfits easily. Stick with logistic regression.
+  \item \textbf{Regulatory approval:} FDA requires interpretable models for most clinical decision support.
+  \item \textbf{Simple rules work:} If ``glucose $> 126$'' classifies 90\% of diabetics, you do not need a random forest.
+\end{itemize}
+
+\vspace{8pt}
+\centering
+\Large
+\faIcon{balance-scale}\\[4pt]
+{\normalsize Complexity must be \alert{justified by performance gain}.}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Train/test split and cross-validation}
+\begin{minted}{python}
+from sklearn.model_selection import (train_test_split,
+                                     cross_val_score)
+
+# 70/30 split (stratified for class balance)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42, stratify=y)
+
+# 5-fold cross-validation (more robust)
+scores = cross_val_score(model, X, y, cv=5,
+                         scoring="accuracy")
+print(f"CV accuracy: {scores.mean():.3f} +/- {scores.std():.3f}")
+\end{minted}
+
+\begin{alertblock}{Golden rule}
+\alert{Never} use test set results to choose your model. The test set is used \textbf{once}, at the very end.
+\end{alertblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Decision trees: clinical flowcharts}
+\begin{minted}{python}
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+
+dt = DecisionTreeClassifier(max_depth=4, random_state=42)
+dt.fit(X_train, y_train)
+
+# Visualize the tree
+fig, ax = plt.subplots(figsize=(20, 10))
+plot_tree(dt, feature_names=feature_cols,
+          class_names=["No Disease", "Disease"],
+          filled=True, rounded=True, ax=ax)
+\end{minted}
+
+\begin{exampleblock}{Clinical relevance}
+Decision trees produce \textbf{clinical decision rules} --- flowcharts a physician can follow at the bedside. The HEART score, Wells criteria, and Ottawa ankle rules are conceptually similar.
+\end{exampleblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Random forests: ensemble power}
+\begin{minted}{python}
+from sklearn.ensemble import RandomForestClassifier
+
+rf = RandomForestClassifier(n_estimators=200, max_depth=6,
+                            random_state=42)
+rf.fit(X_train, y_train)
+y_pred = rf.predict(X_test)
+
+print(classification_report(y_test, y_pred,
+      target_names=["No Disease", "Disease"]))
+\end{minted}
+
+\vspace{4pt}
+A random forest = \textbf{200 decision trees}, each on a random subset. Final prediction = majority vote. More accurate, less interpretable.
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{ROC curves and AUC}
+\begin{minted}{python}
+from sklearn.metrics import roc_curve, roc_auc_score
+
+y_prob = rf.predict_proba(X_test)[:, 1]
+fpr, tpr, _ = roc_curve(y_test, y_prob)
+auc = roc_auc_score(y_test, y_prob)
+
+ax.plot(fpr, tpr, label=f"RF (AUC = {auc:.3f})")
+ax.plot([0, 1], [0, 1], "k--", label="Random (0.500)")
+\end{minted}
+
+\begin{table}
+\begin{tabular}{ll}
+\toprule
+\textbf{AUC} & \textbf{Discrimination} \\
+\midrule
+0.5 & No better than a coin flip \\
+0.7--0.8 & Acceptable \\
+0.8--0.9 & Excellent \\
+$>$0.9 & Outstanding (rare in practice) \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Feature importance}
+\textbf{Q:} Which risk factors matter most for prediction?
+
+\begin{minted}{python}
+importances = rf.feature_importances_
+imp_df = pd.DataFrame({
+    "Feature": feature_cols,
+    "Importance": importances
+}).sort_values("Importance", ascending=True)
+
+ax.barh(imp_df["Feature"], imp_df["Importance"])
+ax.set_xlabel("Feature importance (Gini)")
+\end{minted}
+
+\begin{alertblock}{Correlation $\neq$ Causation}
+Feature importance tells you what is useful for \alert{prediction}, not what \alert{causes} the outcome. A proxy variable can rank highly.
+\end{alertblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Calibration: do probabilities match reality?}
+\begin{minted}{python}
+from sklearn.calibration import calibration_curve
+from sklearn.metrics import brier_score_loss
+
+prob_true, prob_pred = calibration_curve(y_test, y_prob,
+                                         n_bins=8)
+ax.plot(prob_pred, prob_true, "o-", label="Random Forest")
+ax.plot([0, 1], [0, 1], "k--", label="Perfect")
+
+brier = brier_score_loss(y_test, y_prob)
+print(f"Brier score: {brier:.4f}")  # lower = better
+\end{minted}
+
+\vspace{4pt}
+If a model says ``70\% risk,'' do 70\% of those patients actually have the disease? \alert{Calibration is critical for clinical deployment.}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Overfitting: the central danger}
+\begin{minted}{python}
+# Unlimited depth -> memorizes training data
+dt_overfit = DecisionTreeClassifier()  # no max_depth
+dt_overfit.fit(X_train, y_train)
+
+print(f"Train acc (overfit): {dt_overfit.score(X_train, y_train):.3f}")
+print(f"Test acc (overfit):  {dt_overfit.score(X_test, y_test):.3f}")
+# 1.000 vs 0.72 -> overfitting!
+\end{minted}
+
+\vspace{4pt}
+\textbf{Signs:} training $\gg$ test accuracy, wild CV fold variation, more features hurt.\\
+\textbf{Cure:} more data, simpler models, regularization, cross-validation.
+\end{frame}
+
+% ============================================================
+\begin{frame}{Ethics: fairness in clinical ML}
+Before deploying any clinical ML model, ask:
+
+\begin{itemize}
+  \item \textbf{Who is in the training data?} 90\% white males $\to$ may fail for women and minorities.
+  \item \textbf{Does performance differ across subgroups?} Check AUC by sex, race, age.
+  \item \textbf{What are the consequences of errors?} A missed cardiac event in a young woman is dangerous.
+  \item \textbf{Is the model transparent?} Clinicians and patients deserve explanations.
+\end{itemize}
+
+\begin{alertblock}{Real-world example}
+In 2019, a widely-used algorithm was found to be biased against Black patients --- it used healthcare \emph{costs} as a proxy for \emph{needs}, systematically underestimating care requirements.
+\end{alertblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}{What you can do after this module}
+\begin{enumerate}
+  \item Split data properly and use cross-validation
+  \item Train decision trees, random forests, and logistic regression
+  \item Compare models using ROC curves and AUC
+  \item Identify top predictive features from a random forest
+  \item Assess calibration and detect overfitting
+  \item Audit models for fairness across demographic subgroups
+\end{enumerate}
+
+\vspace{12pt}
+\centering
+\Large \alert{Next: Module 9 --- Geospatial and temporal health data}
+\end{frame}
+
+% ============================================================
+\begin{frame}{Exercises (Hour 3)}
+\begin{enumerate}
+  \item \textbf{Model comparison:} Train logistic regression, decision tree, and random forest; compare CV AUC
+  \item \textbf{Decision tree:} Visualize a depth-3 tree; can a clinician follow it?
+  \item \textbf{Top features:} Train RF with only top 5 features; compare AUC to full model
+  \item \textbf{Mini-project:} Build a complete heart disease prediction pipeline with ROC curves, feature importance, calibration plot, and fairness audit
+\end{enumerate}
+\end{frame}
+
+\end{document}

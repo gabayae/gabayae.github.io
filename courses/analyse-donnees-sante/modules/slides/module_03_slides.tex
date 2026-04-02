@@ -1,0 +1,258 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+% --- Theme ---
+\usetheme{metropolis}
+\usepackage{appendixnumberbeamer}
+
+% --- Packages ---
+\usepackage{fontspec}
+\usepackage{minted}
+\setminted{fontsize=\small,breaklines=true}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{fontawesome5}
+
+% --- Colors ---
+\definecolor{healthgreen}{RGB}{34,139,34}
+\definecolor{alertred}{RGB}{220,53,69}
+\setbeamercolor{alerted text}{fg=alertred}
+
+% --- Metadata ---
+\title{Module 3: Data cleaning in health contexts}
+\subtitle{Data analysis with Python for health specialists}
+\author{Ya\'{e} Ulrich Gaba}
+\institute{AIRINA Labs}
+\date{2026}
+
+\begin{document}
+
+% ============================================================
+\maketitle
+
+% ============================================================
+\begin{frame}{Why data cleaning matters in health}
+Every health dataset has problems:
+\begin{itemize}
+  \item Lab values entered with wrong units
+  \item Patients appearing twice under different IDs
+  \item Dates recorded as \texttt{03/04/2023} --- March 4 or April 3?
+  \item Blood glucose of 5000~mg/dL (error) vs.\ 500~mg/dL (real emergency)
+\end{itemize}
+
+\vspace{6pt}
+Data cleaning is \alert{not optional pre-processing}. It is a \textbf{clinical reasoning task}.
+
+\vspace{6pt}
+\begin{alertblock}{Real impact}
+In a 2019 EHR study, 18\% of lab values had quality issues. Cleaning decisions changed CKD prevalence estimates by over 3 percentage points.
+\end{alertblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}{Missing data: the three mechanisms}
+\begin{table}
+\begin{tabular}{lp{4.5cm}p{4.5cm}}
+\toprule
+\textbf{Type} & \textbf{Example} & \textbf{If you drop} \\
+\midrule
+\textbf{MCAR} & Lab sample hemolyzed in transport & No bias, less power \\
+\textbf{MAR} & HbA1c not ordered for non-diabetics & Bias if you ignore indication \\
+\textbf{MNAR} & Sick patients skip follow-up & \alert{Underestimate severity} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{6pt}
+The mechanism determines your strategy. \alert{MNAR has no statistical fix} --- only domain knowledge.
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Detecting missing values}
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+
+# Count missing per column
+print(df.isnull().sum())
+
+# Percentage missing
+print((df.isnull().sum() / len(df) * 100).round(1))
+
+# Rows with any missing value
+print(f"Rows with missing data: "
+      f"{df.isnull().any(axis=1).sum()} / {len(df)}")
+\end{minted}
+
+\vspace{4pt}
+\begin{exampleblock}{Visual patterns}
+Use \texttt{missingno} for instant visual summaries: \texttt{msno.matrix(df)}, \texttt{msno.bar(df)}, \texttt{msno.heatmap(df)}.
+\end{exampleblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Imputation strategies}
+\begin{columns}
+\column{0.48\textwidth}
+\textbf{Continuous variables:}
+\begin{minted}{python}
+# Median (robust to outliers)
+df["systolic_bp"] = df["systolic_bp"]\
+    .fillna(df["systolic_bp"].median())
+
+# Group-specific median
+df["systolic_bp"] = df.groupby(
+    "age_group")["systolic_bp"]\
+    .transform(
+    lambda x: x.fillna(x.median()))
+\end{minted}
+
+\column{0.48\textwidth}
+\textbf{Categorical variables:}
+\begin{minted}{python}
+# Mode imputation
+df["sex"] = df["sex"].fillna(
+    df["sex"].mode()[0])
+
+# KNN imputation (multivariate)
+from sklearn.impute import KNNImputer
+imputer = KNNImputer(n_neighbors=5)
+df[num_cols] = imputer.fit_transform(
+    df[num_cols])
+\end{minted}
+\end{columns}
+
+\vspace{6pt}
+\textbf{Rule:} use \alert{median} for skewed lab values, \textbf{mean} for symmetric data, \textbf{mode} for categories.
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Handling duplicates}
+\begin{minted}{python}
+# Exact duplicates (all columns identical)
+print(f"Exact duplicates: {patients.duplicated().sum()}")
+
+# Remove exact duplicates
+patients_clean = patients.drop_duplicates()
+
+# Keep only first visit per patient
+first_visits = patients.drop_duplicates(
+    subset="patient_id", keep="first")
+\end{minted}
+
+\begin{alertblock}{Clinical context matters}
+Same patient, same visit, identical values $\to$ true duplicate. Same patient, different dates $\to$ longitudinal data --- keep all visits!
+\end{alertblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Standardizing ICD codes and dates}
+\begin{minted}{python}
+# ICD codes: uppercase, strip, add dot
+cleaned = (diagnoses.str.strip().str.upper()
+           .str.replace(r"^([A-Z]\d{2})(\d+)$",
+                        r"\1.\2", regex=True))
+
+# Dates: parse mixed formats to ISO
+parsed = pd.to_datetime(dates, format="mixed",
+                        dayfirst=False)
+print(parsed.dt.strftime("%Y-%m-%d"))
+\end{minted}
+
+\begin{alertblock}{Date ambiguity}
+\texttt{03/04/2023} = March 4 (US) or April 3 (Europe). Always check the source. Use \texttt{dayfirst=True} for European dates.
+\end{alertblock}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Unit conversions}
+\begin{table}
+\begin{tabular}{llll}
+\toprule
+\textbf{Analyte} & \textbf{US} & \textbf{SI} & \textbf{Convert} \\
+\midrule
+Glucose & mg/dL & mmol/L & $\div$ 18.018 \\
+Cholesterol & mg/dL & mmol/L & $\div$ 38.67 \\
+Creatinine & mg/dL & \textmu mol/L & $\times$ 88.42 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{minted}{python}
+# Values > 30 are likely in mg/dL
+def standardize_glucose(value):
+    if value > 30:
+        return value / 18.018  # mg/dL -> mmol/L
+    return value  # already mmol/L
+\end{minted}
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Data validation}
+\begin{minted}{python}
+# Range checks
+ranges = {"age": (0, 120), "systolic_bp": (60, 300),
+          "hba1c": (2.0, 20.0), "bmi": (8, 80)}
+
+for col, (low, high) in ranges.items():
+    out = df[(df[col] < low) | (df[col] > high)]
+    if len(out) > 0:
+        print(f"WARNING: {len(out)} values in "
+              f"'{col}' outside [{low}, {high}]")
+
+# Cross-field: diastolic < systolic
+bp_errors = df[df["diastolic_bp"] >= df["systolic_bp"]]
+\end{minted}
+
+\vspace{4pt}
+Not every ``impossible'' value is an error. HR of 250~bpm = rare but real (SVT). Glucose of 800~mg/dL = DKA.
+\end{frame}
+
+% ============================================================
+\begin{frame}[fragile]{Automated quality report}
+\begin{minted}{python}
+def data_quality_report(df):
+    report = []
+    for col in df.columns:
+        n_miss = df[col].isnull().sum()
+        row = {"column": col,
+               "dtype": str(df[col].dtype),
+               "n_missing": n_miss,
+               "pct_missing": round(n_miss/len(df)*100,1),
+               "n_unique": df[col].nunique()}
+        if df[col].dtype in ["float64", "int64"]:
+            row["min"] = df[col].min()
+            row["max"] = df[col].max()
+        report.append(row)
+    return pd.DataFrame(report)
+\end{minted}
+
+Run this \alert{before and after} cleaning. Document every decision.
+\end{frame}
+
+% ============================================================
+\begin{frame}{What you can do after this module}
+\begin{enumerate}
+  \item Detect missing values and choose the right imputation strategy
+  \item Distinguish MCAR, MAR, and MNAR and explain why it matters
+  \item Remove true duplicates without losing longitudinal data
+  \item Standardize ICD codes, dates, units, and text fields
+  \item Validate data against clinically plausible ranges
+  \item Generate before/after quality reports to document your pipeline
+\end{enumerate}
+
+\vspace{12pt}
+\centering
+\Large \alert{Next: Module 4 --- Descriptive statistics and epidemiological measures}
+\end{frame}
+
+% ============================================================
+\begin{frame}{Exercises (Hour 3)}
+\begin{enumerate}
+  \item \textbf{Quality report:} Generate a data quality report for the provided messy dataset
+  \item \textbf{Fix sex and ranges:} Standardize the sex column; set impossible ages and BPs to NaN
+  \item \textbf{Unit conversion:} Convert mixed glucose (mg/dL vs.\ mmol/L) and HbA1c (IFCC to NGSP)
+  \item \textbf{Mini-project:} Apply the complete cleaning pipeline, compare before/after reports, save cleaned CSV
+\end{enumerate}
+\end{frame}
+
+\end{document}
