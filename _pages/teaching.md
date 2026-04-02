@@ -39,7 +39,7 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 <div class="card hoverable mb-4">
 <div class="card-body">
 <ul class="course-list">
-<li><strong>IMSP — Institut de Mathematiques et de Sciences Physiques</strong>, Dangbo, Benin</li>
+<li><strong>IMSP — Institut de Mathématiques et de Sciences Physiques</strong>, Dangbo, Benin</li>
 <li><strong>AIMS South Africa</strong> — African Institute for Mathematical Sciences, Cape Town</li>
 <li><strong>AIMS Senegal</strong> — African Institute for Mathematical Sciences, Mbour</li>
 <li><strong>AIMS Rwanda</strong> — African Institute for Mathematical Sciences, Kigali</li>
