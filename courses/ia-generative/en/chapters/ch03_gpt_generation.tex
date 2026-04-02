@@ -1,0 +1,226 @@
+\chapter{GPT and text generation}
+\label{ch:gpt-generation}
+
+\begin{quote}
+\emph{``GPT is just next-token prediction, scaled up. The emergent capabilities come from the scale, not from a change in the objective.''}
+\end{quote}
+
+% ============================================================
+\section{The GPT family}
+
+GPT (Generative Pre-trained Transformer) models are \emph{decoder-only} Transformers trained with a causal language modeling objective: predict the next token given all previous tokens.
+
+\begin{longtable}{p{2.5cm}p{2.5cm}p{2.5cm}p{4.5cm}}
+\toprule
+\textbf{Model} & \textbf{Parameters} & \textbf{Year} & \textbf{Key innovation} \\
+\midrule
+GPT-1 & 117M & 2018 & Pre-train + fine-tune paradigm \\
+GPT-2 & 1.5B & 2019 & Zero-shot task transfer \\
+GPT-3 & 175B & 2020 & In-context learning, few-shot \\
+GPT-4 & Unknown & 2023 & Multimodal, RLHF \\
+GPT-4o & Unknown & 2024 & Omni: text, vision, audio \\
+\bottomrule
+\end{longtable}
+
+For hands-on work, we use \textbf{GPT-2} (open weights, runs on free Colab GPU) and \textbf{TinyLlama-1.1B} (modern architecture, small enough for experimentation).
+
+% ============================================================
+\section{Autoregressive generation}
+
+Autoregressive generation works token by token:
+\begin{enumerate}
+  \item Feed the prompt tokens to the model.
+  \item The model outputs logits over the entire vocabulary.
+  \item Select the next token from the logits (via a \emph{decoding strategy}).
+  \item Append the token to the sequence. Repeat.
+\end{enumerate}
+
+\begin{minted}{python}
+from transformers import GPT2LMHeadModel, GPT2Tokenizer
+import torch
+
+tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+model = GPT2LMHeadModel.from_pretrained("gpt2")
+model.eval()
+
+prompt = "The future of artificial intelligence"
+input_ids = tokenizer.encode(prompt, return_tensors="pt")
+
+# Manual autoregressive loop
+generated = input_ids.clone()
+for _ in range(30):
+    with torch.no_grad():
+        outputs = model(generated)
+        next_logits = outputs.logits[:, -1, :]  # logits for last position
+        next_token = torch.argmax(next_logits, dim=-1, keepdim=True)  # greedy
+        generated = torch.cat([generated, next_token], dim=-1)
+
+print(tokenizer.decode(generated[0]))
+\end{minted}
+
+% ============================================================
+\section{Decoding strategies}
+
+\subsection{Greedy decoding}
+
+Always pick the highest-probability token. Fast but repetitive and boring.
+
+\subsection{Temperature sampling}
+
+Scale the logits by a temperature $T$ before softmax:
+\[
+P(w_i) = \frac{e^{z_i / T}}{\sum_j e^{z_j / T}}
+\]
+\begin{itemize}
+  \item $T = 1.0$: standard sampling.
+  \item $T < 1.0$: sharper distribution, more deterministic.
+  \item $T > 1.0$: flatter distribution, more creative/random.
+\end{itemize}
+
+\subsection{Top-k sampling}
+
+Keep only the $k$ highest-probability tokens, redistribute probability among them.
+
+\subsection{Top-p (nucleus) sampling}
+
+Keep the smallest set of tokens whose cumulative probability exceeds $p$. Adapts dynamically: uses fewer tokens when the model is confident, more when uncertain.
+
+\subsection{Beam search}
+
+Maintain $b$ candidate sequences (beams) at each step. Select the $b$ highest-probability continuations. Good for translation and summarization where quality matters more than diversity.
+
+\begin{minted}{python}
+from transformers import pipeline
+
+generator = pipeline("text-generation", model="gpt2")
+
+prompt = "In 2026, the most important AI breakthrough was"
+
+# Greedy
+print("=== Greedy ===")
+print(generator(prompt, max_new_tokens=50, do_sample=False)[0]["generated_text"])
+
+# Temperature sampling
+print("\n=== Temperature 0.3 (focused) ===")
+print(generator(prompt, max_new_tokens=50, do_sample=True,
+                temperature=0.3)[0]["generated_text"])
+
+print("\n=== Temperature 1.5 (creative) ===")
+print(generator(prompt, max_new_tokens=50, do_sample=True,
+                temperature=1.5)[0]["generated_text"])
+
+# Top-k sampling
+print("\n=== Top-k (k=10) ===")
+print(generator(prompt, max_new_tokens=50, do_sample=True,
+                top_k=10)[0]["generated_text"])
+
+# Top-p (nucleus) sampling
+print("\n=== Top-p (p=0.9) ===")
+print(generator(prompt, max_new_tokens=50, do_sample=True,
+                top_p=0.9)[0]["generated_text"])
+
+# Beam search
+print("\n=== Beam search (4 beams) ===")
+print(generator(prompt, max_new_tokens=50, num_beams=4,
+                do_sample=False)[0]["generated_text"])
+\end{minted}
+
+\begin{aitip}
+For most creative tasks, \texttt{temperature=0.7} with \texttt{top\_p=0.9} is a good starting point. For factual tasks (code, math), use \texttt{temperature=0.2} or greedy decoding.
+\end{aitip}
+
+% ============================================================
+\section{HuggingFace \texttt{generate()} API}
+
+The \texttt{generate()} method on any HuggingFace causal LM supports all decoding strategies:
+
+\begin{minted}{python}
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(
+    model_name, torch_dtype="auto", device_map="auto"
+)
+
+messages = [
+    {"role": "system", "content": "You are a helpful AI assistant."},
+    {"role": "user", "content": "Explain gradient descent in 3 sentences."},
+]
+prompt = tokenizer.apply_chat_template(messages, tokenize=False,
+                                        add_generation_prompt=True)
+inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+
+output = model.generate(
+    **inputs,
+    max_new_tokens=150,
+    temperature=0.7,
+    top_p=0.9,
+    do_sample=True,
+    repetition_penalty=1.1,
+)
+print(tokenizer.decode(output[0], skip_special_tokens=True))
+\end{minted}
+
+% ============================================================
+\section{Controlling repetition}
+
+Base models tend to repeat themselves. Strategies:
+
+\begin{minted}{python}
+# Repetition penalty: penalizes tokens that already appeared
+output = model.generate(**inputs, max_new_tokens=100,
+                        repetition_penalty=1.2)
+
+# No-repeat n-gram: prevents repeating any n-gram
+output = model.generate(**inputs, max_new_tokens=100,
+                        no_repeat_ngram_size=3)
+\end{minted}
+
+\begin{warningbox}
+Setting \texttt{repetition\_penalty} too high (> 1.5) can cause incoherent output because the model avoids common, necessary words. Start with 1.1--1.2.
+\end{warningbox}
+
+% ============================================================
+\section{Comparing models: GPT-2 vs TinyLlama}
+
+\begin{minted}{python}
+from transformers import pipeline
+
+models = ["gpt2", "TinyLlama/TinyLlama-1.1B-Chat-v1.0"]
+prompt = "Machine learning is"
+
+for m in models:
+    gen = pipeline("text-generation", model=m, device_map="auto")
+    result = gen(prompt, max_new_tokens=60, do_sample=True,
+                 temperature=0.7, top_p=0.9)
+    print(f"\n=== {m} ===")
+    print(result[0]["generated_text"])
+\end{minted}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Generate 5 completions for the same prompt using temperature values 0.1, 0.5, 0.8, 1.0, and 1.5. Describe how the outputs change.
+  \item Implement top-k sampling from scratch: given logits, zero out everything except the top $k$ values, apply softmax, and sample.
+  \item Use TinyLlama to generate a 200-word explanation of photosynthesis. Try greedy, beam search ($b=5$), and nucleus sampling ($p=0.9$). Which is best?
+  \item Measure the generation speed (tokens/second) of GPT-2 on CPU vs GPU.
+  \item Generate a short story with GPT-2. First without repetition penalty, then with \texttt{repetition\_penalty=1.15}. Compare.
+\end{enumerate}
+\end{exercise}
+
+\begin{ethicsbox}
+Open-weight models like GPT-2 and TinyLlama have no built-in content filters. They can generate hate speech, disinformation, and harmful instructions. When building applications, always add output filtering, content moderation, or use instruction-tuned models with safety training.
+\end{ethicsbox}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item GPT models are decoder-only Transformers trained to predict the next token.
+  \item Autoregressive generation produces text one token at a time, feeding each output back as input.
+  \item Decoding strategies (greedy, temperature, top-k, top-p, beam search) control the tradeoff between quality and diversity.
+  \item Temperature scales logits: low = focused, high = creative.
+  \item Top-p (nucleus) sampling adapts the candidate set dynamically to the model's confidence.
+  \item HuggingFace \texttt{generate()} supports all strategies with simple keyword arguments.
+  \item Repetition penalties prevent degenerate loops in open-ended generation.
+\end{itemize}

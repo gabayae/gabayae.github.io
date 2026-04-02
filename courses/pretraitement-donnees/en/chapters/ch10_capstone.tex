@@ -1,0 +1,212 @@
+\chapter{Capstone project}
+\label{ch:capstone}
+
+\begin{quote}
+\emph{``The best way to learn data preprocessing is to preprocess data.''}
+\end{quote}
+
+% ============================================================
+\section{Capstone overview}
+
+In this final chapter, you will apply everything from Chapters~1--9 to a complete, end-to-end preprocessing project. You will choose one of five project options, each using a real, messy dataset that requires substantial cleaning and transformation before analysis.
+
+\begin{datatip}
+Each project is designed to take approximately 3 hours. You are expected to deliver: (1)~a Jupyter notebook with documented code, (2)~a clean, analysis-ready dataset saved as Parquet, and (3)~a brief written report (1--2 pages) summarizing your preprocessing decisions and their justification.
+\end{datatip}
+
+% ============================================================
+\section{Evaluation criteria}
+
+Your project will be evaluated on five criteria:
+
+\begin{longtable}{p{4cm}p{3cm}p{6cm}}
+\toprule
+\textbf{Criterion} & \textbf{Weight} & \textbf{Description} \\
+\midrule
+Data quality report & 15\% & Thorough initial assessment of data quality \\
+Missing data strategy & 20\% & Justified choice of imputation method(s) \\
+Outlier handling & 15\% & Detection, investigation, and treatment \\
+Feature engineering & 25\% & Creativity and domain relevance of new features \\
+Pipeline and reproducibility & 25\% & Complete, leakage-free, saved pipeline \\
+\bottomrule
+\end{longtable}
+
+% ============================================================
+\section{Project 1: Melbourne Housing price prediction}
+
+\textbf{Dataset:} Melbourne Housing Snapshot (Kaggle)\\
+\textbf{Goal:} Prepare the dataset for a house price regression model.
+
+\subsection{Requirements}
+
+\begin{minted}{python}
+import pandas as pd
+
+# Load the raw dataset
+df = pd.read_csv("melb_data.csv")
+print(f"Shape: {df.shape}")
+print(f"Missing values:\n{df.isnull().sum()}")
+\end{minted}
+
+Tasks:
+\begin{enumerate}
+  \item Produce a comprehensive data quality report (Chapter~1).
+  \item Handle missing values in \texttt{BuildingArea}, \texttt{YearBuilt}, \texttt{Car}, \texttt{CouncilArea} using at least two different imputation strategies. Justify your choices (Chapter~3).
+  \item Detect and treat outliers in \texttt{Price}, \texttt{Landsize}, and \texttt{BuildingArea} (Chapter~4).
+  \item Encode categorical variables (\texttt{Type}, \texttt{Method}, \texttt{Regionname}, \texttt{Suburb}). For high-cardinality \texttt{Suburb}, use target encoding or frequency encoding (Chapter~5).
+  \item Engineer at least 5 new features: price per room, building age, distance categories, suburb-level averages, seasonal sale indicator (Chapter~6).
+  \item Build a complete \texttt{Pipeline} with \texttt{ColumnTransformer}. Save with \texttt{joblib} (Chapter~9).
+  \item Train a baseline model and report $R^2$ on a held-out test set.
+\end{enumerate}
+
+% ============================================================
+\section{Project 2: Titanic survival classification}
+
+\textbf{Dataset:} Titanic (Kaggle)\\
+\textbf{Goal:} Prepare the dataset for a survival classification model.
+
+\subsection{Requirements}
+
+\begin{minted}{python}
+url = ("https://raw.githubusercontent.com/datasciencedojo/"
+       "datasets/master/titanic.csv")
+df = pd.read_csv(url)
+print(f"Shape: {df.shape}")
+print(f"Survival rate: {df['Survived'].mean():.2%}")
+\end{minted}
+
+Tasks:
+\begin{enumerate}
+  \item Analyze missing data patterns. Investigate whether \texttt{Age} missingness is MCAR or MAR by comparing it against \texttt{Pclass} and \texttt{Sex} (Chapter~3).
+  \item Impute \texttt{Age} using KNN imputation. Compare with median imputation by evaluating downstream model accuracy.
+  \item Extract title from \texttt{Name} (Mr, Mrs, Miss, Master, etc.) and encode it (Chapters~5 and 7).
+  \item Create features: \texttt{FamilySize} = \texttt{SibSp} + \texttt{Parch} + 1, \texttt{IsAlone}, \texttt{FarePerPerson}, cabin deck letter (Chapter~6).
+  \item Build a complete pipeline with cross-validated evaluation.
+\end{enumerate}
+
+% ============================================================
+\section{Project 3: FIFA 21 player value estimation}
+
+\textbf{Dataset:} FIFA 21 Raw Data (Kaggle)\\
+\textbf{Goal:} Clean the notoriously messy FIFA dataset and prepare it for player value prediction.
+
+\subsection{Requirements}
+
+\begin{minted}{python}
+df = pd.read_csv("fifa21_raw.csv")
+print(f"Shape: {df.shape}")
+# Note: many columns have string-encoded numbers (e.g., "€110M", "190lbs")
+print(df[["Value", "Wage", "Weight", "Height"]].head())
+\end{minted}
+
+Tasks:
+\begin{enumerate}
+  \item Parse string-encoded currency values (\texttt{Value}, \texttt{Wage}): convert ``\texteuro110M'' to 110000000, ``\texteuro220K'' to 220000.
+  \item Parse height (``5'11'') and weight (``190lbs'') to metric units.
+  \item Handle the \texttt{Hits} and \texttt{W/F}, \texttt{SM}, \texttt{IR} columns (star ratings stored as strings).
+  \item Detect and treat outliers in player values (many free agents have value 0).
+  \item Engineer position-based features, age-based potential features, and physical attribute ratios.
+  \item Build a clean pipeline from raw CSV to model-ready features.
+\end{enumerate}
+
+% ============================================================
+\section{Project 4: Jena Climate time series forecasting}
+
+\textbf{Dataset:} Jena Climate 2009--2016 (Kaggle)\\
+\textbf{Goal:} Prepare the dataset for temperature forecasting.
+
+\subsection{Requirements}
+
+\begin{minted}{python}
+df = pd.read_csv("jena_climate_2009_2016.csv")
+df["datetime"] = pd.to_datetime(df["Date Time"],
+                                 format="%d.%m.%Y %H:%M:%S")
+df = df.set_index("datetime")
+print(f"Shape: {df.shape}")
+print(f"Date range: {df.index.min()} to {df.index.max()}")
+\end{minted}
+
+Tasks:
+\begin{enumerate}
+  \item Resample from 10-minute to hourly and daily frequencies (Chapter~8).
+  \item Detect and handle sensor anomalies (sudden spikes, constant readings).
+  \item Create lag features: 1h, 6h, 12h, 24h, 7d for temperature.
+  \item Create rolling statistics: 24h mean, 7d mean, 24h std.
+  \item Decompose into trend, seasonality, and residual. Use each as a feature.
+  \item Add cyclical encoding for hour of day, day of week, and month.
+  \item Build a pipeline and train a baseline model for 24-hour-ahead temperature prediction.
+\end{enumerate}
+
+% ============================================================
+\section{Project 5: 20 Newsgroups text classification}
+
+\textbf{Dataset:} 20 Newsgroups (scikit-learn)\\
+\textbf{Goal:} Preprocess text data for topic classification.
+
+\subsection{Requirements}
+
+\begin{minted}{python}
+from sklearn.datasets import fetch_20newsgroups
+
+# Use a subset of 5 categories
+categories = ["sci.space", "rec.sport.baseball", "comp.graphics",
+              "talk.politics.mideast", "soc.religion.christian"]
+newsgroups = fetch_20newsgroups(subset="all", categories=categories,
+                                remove=("headers", "footers", "quotes"))
+print(f"Documents: {len(newsgroups.data)}")
+print(f"Categories: {newsgroups.target_names}")
+\end{minted}
+
+Tasks:
+\begin{enumerate}
+  \item Build a text cleaning pipeline: lowercase, remove emails/URLs/numbers, remove special characters (Chapter~7).
+  \item Tokenize, remove stopwords, and lemmatize.
+  \item Create a TF-IDF matrix with appropriate parameters (\texttt{min\_df}, \texttt{max\_df}, \texttt{ngram\_range}).
+  \item Add document-level features: document length, average word length, vocabulary richness (unique words / total words).
+  \item Build a pipeline combining text preprocessing and a classifier.
+  \item Evaluate with cross-validation and a confusion matrix.
+\end{enumerate}
+
+% ============================================================
+\section{Deliverables checklist}
+
+\begin{minted}{python}
+# Template for the final deliverable check
+deliverables = {
+    "data_quality_report": False,    # Section with quality metrics
+    "missing_data_handled": False,    # Justified imputation
+    "outliers_handled": False,        # Detection + treatment
+    "features_engineered": False,     # >= 5 new features
+    "pipeline_built": False,          # sklearn Pipeline
+    "pipeline_saved": False,          # joblib file
+    "baseline_model": False,          # Train + evaluate
+    "report_written": False,          # 1-2 page summary
+}
+
+# Check off each item as you complete it
+for item, done in deliverables.items():
+    status = "DONE" if done else "TODO"
+    print(f"  [{status}] {item}")
+\end{minted}
+
+% ============================================================
+\section{Exercises}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Choose one of the five projects above. Complete all required tasks and submit your Jupyter notebook, saved pipeline, and written report.
+  \item (Bonus) After completing your main project, apply the same preprocessing approach to a second project. Compare the challenges and discuss how preprocessing strategies differ across domains.
+  \item (Bonus) Deploy your saved pipeline as a simple prediction function: write a script that loads the pipeline from \texttt{joblib} and accepts new data from the command line or a CSV file.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item A capstone project integrates all preprocessing skills: loading, cleaning, imputation, outlier handling, encoding, scaling, feature engineering, and pipeline automation.
+  \item Real datasets require domain-specific decisions at every step --- there is no single ``correct'' preprocessing recipe.
+  \item Reproducibility (via pipelines and saved artifacts) is as important as accuracy.
+  \item Documentation of preprocessing choices and their justification is a professional requirement.
+  \item The five project options cover tabular regression, tabular classification, messy data cleaning, time series, and text --- the main data preprocessing domains.
+\end{itemize}

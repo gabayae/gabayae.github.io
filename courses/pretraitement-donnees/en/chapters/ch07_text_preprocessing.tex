@@ -1,0 +1,291 @@
+\chapter{Text preprocessing}
+\label{ch:text-preprocessing}
+
+\begin{quote}
+\emph{``Natural language is the most unstructured data of all.''}
+\end{quote}
+
+% ============================================================
+\section{Why text needs preprocessing}
+
+Text data cannot be fed directly into numerical models. It must be cleaned, normalized, tokenized, and converted to numerical representations. The quality of text preprocessing directly determines the quality of any downstream NLP task.
+
+\begin{datatip}
+Text preprocessing is language-dependent. Tokenization rules, stopwords, and stemming algorithms differ between English and French. This chapter covers both languages where relevant.
+\end{datatip}
+
+% ============================================================
+\section{Loading text datasets}
+
+\begin{minted}{python}
+from sklearn.datasets import fetch_20newsgroups
+
+# 20 Newsgroups: classic text classification dataset
+newsgroups = fetch_20newsgroups(subset="train",
+                                remove=("headers", "footers", "quotes"))
+
+print(f"Number of documents: {len(newsgroups.data)}")
+print(f"Number of categories: {len(newsgroups.target_names)}")
+print(f"\nCategories: {newsgroups.target_names}")
+print(f"\nSample document:\n{newsgroups.data[0][:300]}")
+\end{minted}
+
+\begin{minted}{python}
+import pandas as pd
+
+# Create a DataFrame for easier manipulation
+df = pd.DataFrame({
+    "text": newsgroups.data,
+    "category": [newsgroups.target_names[i] for i in newsgroups.target]
+})
+print(df["category"].value_counts().head(10))
+\end{minted}
+
+% ============================================================
+\section{Text cleaning}
+
+\begin{minted}{python}
+import re
+
+def clean_text(text):
+    """Basic text cleaning pipeline."""
+    # Lowercase
+    text = text.lower()
+    # Remove email addresses
+    text = re.sub(r'\S+@\S+', '', text)
+    # Remove URLs
+    text = re.sub(r'http\S+|www\.\S+', '', text)
+    # Remove numbers (optional: sometimes numbers matter)
+    text = re.sub(r'\d+', '', text)
+    # Remove special characters, keep letters and spaces
+    text = re.sub(r'[^a-z\s]', '', text)
+    # Remove extra whitespace
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+# Apply to dataset
+df["text_clean"] = df["text"].apply(clean_text)
+print(df[["text", "text_clean"]].iloc[0])
+\end{minted}
+
+\begin{preprocesstip}
+Text cleaning is order-dependent. Always lowercase \emph{before} removing patterns. Always remove URLs and emails \emph{before} removing special characters (otherwise you destroy the patterns you need to match).
+\end{preprocesstip}
+
+% ============================================================
+\section{Tokenization}
+
+\begin{minted}{python}
+import nltk
+nltk.download("punkt_tab", quiet=True)
+from nltk.tokenize import word_tokenize, sent_tokenize
+
+text = "Dr. Smith's analysis shows that 42% of patients improved. This is significant!"
+
+# Sentence tokenization
+sentences = sent_tokenize(text)
+print(f"Sentences: {sentences}")
+
+# Word tokenization
+tokens = word_tokenize(text)
+print(f"Tokens: {tokens}")
+print(f"Number of tokens: {len(tokens)}")
+\end{minted}
+
+\begin{minted}{python}
+# Simple whitespace tokenization vs NLTK
+text_fr = "L'analyse du Dr. N'Guessan montre que c'est significatif."
+
+# Whitespace split: misses contractions
+simple_tokens = text_fr.split()
+print(f"Simple: {simple_tokens}")
+
+# NLTK: handles contractions and abbreviations
+nltk_tokens = word_tokenize(text_fr, language="french")
+print(f"NLTK:   {nltk_tokens}")
+\end{minted}
+
+% ============================================================
+\section{Stopword removal}
+
+\begin{minted}{python}
+nltk.download("stopwords", quiet=True)
+from nltk.corpus import stopwords
+
+# English stopwords
+stop_en = set(stopwords.words("english"))
+print(f"English stopwords ({len(stop_en)}): "
+      f"{sorted(list(stop_en))[:15]}...")
+
+# French stopwords
+stop_fr = set(stopwords.words("french"))
+print(f"French stopwords ({len(stop_fr)}): "
+      f"{sorted(list(stop_fr))[:15]}...")
+
+# Remove stopwords from tokens
+tokens = ["the", "patient", "showed", "significant", "improvement",
+          "in", "blood", "pressure", "after", "the", "treatment"]
+filtered = [t for t in tokens if t not in stop_en]
+print(f"Before: {tokens}")
+print(f"After:  {filtered}")
+\end{minted}
+
+\begin{warningbox}
+Removing stopwords is not always beneficial. In sentiment analysis, ``not good'' becomes ``good'' after removing ``not''. In topic modeling, stopword removal usually helps. Always evaluate the impact on your specific task.
+\end{warningbox}
+
+% ============================================================
+\section{Stemming and lemmatization}
+
+\begin{minted}{python}
+from nltk.stem import PorterStemmer, SnowballStemmer
+nltk.download("wordnet", quiet=True)
+from nltk.stem import WordNetLemmatizer
+
+stemmer = PorterStemmer()
+lemmatizer = WordNetLemmatizer()
+
+words = ["running", "runs", "ran", "studies", "studying",
+         "better", "preprocessing", "processed"]
+
+print(f"{'Word':<15} {'Stem':<15} {'Lemma':<15}")
+print("-" * 45)
+for w in words:
+    print(f"{w:<15} {stemmer.stem(w):<15} {lemmatizer.lemmatize(w, 'v'):<15}")
+\end{minted}
+
+\begin{minted}{python}
+# French stemming with Snowball
+stemmer_fr = SnowballStemmer("french")
+mots = ["traitements", "traiter", "trait\u00e9es", "am\u00e9lioration",
+        "am\u00e9liorer", "analyse", "analyses", "analyser"]
+
+print("\nFrench stemming:")
+for m in mots:
+    print(f"  {m:<20} -> {stemmer_fr.stem(m)}")
+\end{minted}
+
+\begin{preprocesstip}
+Stemming is fast but aggressive: ``university'' and ``universe'' may share the same stem. Lemmatization is slower but linguistically accurate: it returns real dictionary words. For most NLP pipelines, lemmatization is preferred.
+\end{preprocesstip}
+
+% ============================================================
+\section{Complete text preprocessing pipeline}
+
+\begin{minted}{python}
+def preprocess_text(text, language="english"):
+    """Full text preprocessing pipeline."""
+    # 1. Clean
+    text = text.lower()
+    text = re.sub(r'\S+@\S+', '', text)
+    text = re.sub(r'http\S+|www\.\S+', '', text)
+    text = re.sub(r'[^a-z\s\u00e0-\u00ff]', '', text)  # keep accented chars
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    # 2. Tokenize
+    tokens = word_tokenize(text, language=language)
+
+    # 3. Remove stopwords
+    stop = set(stopwords.words(language))
+    tokens = [t for t in tokens if t not in stop and len(t) > 2]
+
+    # 4. Lemmatize
+    lemmatizer = WordNetLemmatizer()
+    tokens = [lemmatizer.lemmatize(t) for t in tokens]
+
+    return tokens
+
+# Apply to the full dataset
+df["tokens"] = df["text"].apply(preprocess_text)
+df["n_tokens"] = df["tokens"].apply(len)
+print(df[["category", "n_tokens"]].groupby("category")["n_tokens"].mean()
+        .sort_values(ascending=False).head(10))
+\end{minted}
+
+% ============================================================
+\section{TF-IDF vectorization}
+
+\begin{minted}{python}
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+# TF-IDF: Term Frequency - Inverse Document Frequency
+tfidf = TfidfVectorizer(max_features=5000,
+                         stop_words="english",
+                         min_df=5, max_df=0.7,
+                         ngram_range=(1, 2))
+
+X_tfidf = tfidf.fit_transform(df["text_clean"])
+print(f"TF-IDF matrix shape: {X_tfidf.shape}")
+print(f"Vocabulary size: {len(tfidf.vocabulary_)}")
+
+# Top terms by TF-IDF score for first document
+feature_names = tfidf.get_feature_names_out()
+doc_tfidf = X_tfidf[0].toarray().flatten()
+top_idx = doc_tfidf.argsort()[-10:][::-1]
+print("\nTop TF-IDF terms for document 0:")
+for idx in top_idx:
+    print(f"  {feature_names[idx]}: {doc_tfidf[idx]:.4f}")
+\end{minted}
+
+\begin{minted}{python}
+# Bag of Words (simpler alternative)
+from sklearn.feature_extraction.text import CountVectorizer
+
+bow = CountVectorizer(max_features=3000, stop_words="english")
+X_bow = bow.fit_transform(df["text_clean"])
+print(f"BoW matrix shape: {X_bow.shape}")
+\end{minted}
+
+% ============================================================
+\section{Regular expressions for text extraction}
+
+\begin{minted}{python}
+import re
+
+# Extract structured data from unstructured text
+texts = [
+    "Patient BP: 120/80 mmHg, HR: 72 bpm",
+    "Lab result: glucose 142 mg/dL, HbA1c 7.2%",
+    "Contact: dr.smith@hospital.org, Tel: +1-555-0123",
+]
+
+# Extract blood pressure
+bp_pattern = r'(\d{2,3})/(\d{2,3})\s*mmHg'
+for t in texts:
+    match = re.search(bp_pattern, t)
+    if match:
+        print(f"Systolic: {match.group(1)}, Diastolic: {match.group(2)}")
+
+# Extract all numbers with units
+num_unit = r'(\d+\.?\d*)\s*(mg/dL|mmHg|bpm|%)'
+for t in texts:
+    matches = re.findall(num_unit, t)
+    for value, unit in matches:
+        print(f"  {value} {unit}")
+\end{minted}
+
+% ============================================================
+\section{Exercises}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Load the 20 Newsgroups dataset. Build a complete preprocessing pipeline (clean, tokenize, remove stopwords, lemmatize). Compute the vocabulary size before and after preprocessing.
+  \item Create a TF-IDF matrix from the 20 Newsgroups dataset. Find the top 10 terms for the categories ``sci.space'' and ``rec.sport.baseball''. Are they meaningful?
+  \item Write a regex pattern that extracts all email addresses from a text. Test it on the raw (unprocessed) 20 Newsgroups data.
+  \item Compare Snowball stemming for English and French on a bilingual document. Show cases where stemming produces incorrect roots.
+  \item Build a text preprocessing pipeline for French text. Use French stopwords and Snowball French stemmer. Test on 5 sample French sentences about data science.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Text preprocessing converts unstructured text into numerical features for machine learning.
+  \item The standard pipeline is: clean (lowercase, remove noise) $\to$ tokenize $\to$ remove stopwords $\to$ stem/lemmatize $\to$ vectorize.
+  \item Stopword removal helps topic modeling but can hurt sentiment analysis.
+  \item Lemmatization produces real words and is generally preferred over stemming.
+  \item TF-IDF weights terms by importance (frequent in a document, rare across documents).
+  \item Regular expressions extract structured data (numbers, emails, patterns) from unstructured text.
+  \item Multilingual preprocessing requires language-specific tokenizers, stopword lists, and stemmers.
+\end{itemize}

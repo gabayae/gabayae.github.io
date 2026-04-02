@@ -1,0 +1,446 @@
+\chapter{Machine learning for clinical prediction}
+\label{ch:ml-clinical}
+
+\begin{quote}
+\emph{``A model that works perfectly on your training data and fails on the next patient is not a model --- it is a memory.''}
+\end{quote}
+
+% ============================================================
+\section{When to use ML vs traditional statistics}
+
+Machine learning and traditional statistics answer different questions:
+
+\begin{itemize}
+  \item \textbf{Traditional statistics} (regression, t-tests): ``Which risk factors are associated with heart disease, and by how much?'' The goal is \emph{inference} --- understanding relationships.
+  \item \textbf{Machine learning}: ``Given this patient's data, what is their probability of heart disease?'' The goal is \emph{prediction} --- accuracy on new patients.
+\end{itemize}
+
+\begin{clinicalnote}
+Use logistic regression when you need to explain \emph{why} (odds ratios, confidence intervals, p-values for each risk factor). Use ML when you need the best possible \emph{prediction} and interpretability is secondary. In practice, many clinical studies use both: regression to understand the biology, ML to build the screening tool.
+\end{clinicalnote}
+
+\subsection{When NOT to use ML}
+
+\begin{itemize}
+  \item Small datasets ($< 200$ patients): ML overfits easily. Stick with logistic regression.
+  \item When you need regulatory approval: the FDA requires interpretable models for most clinical decision support tools.
+  \item When a simple rule works: if ``glucose $> 126$'' classifies 90\% of diabetics correctly, you do not need a random forest.
+\end{itemize}
+
+\begin{minted}{python}
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import (classification_report, confusion_matrix,
+                             roc_curve, roc_auc_score, RocCurveDisplay)
+\end{minted}
+
+% ============================================================
+\section{Loading clinical data}
+
+We use the UCI Heart Disease dataset --- a classic benchmark in clinical ML.
+
+\begin{minted}{python}
+# UCI Heart Disease dataset
+url = ("https://raw.githubusercontent.com/raphaelfontenelle/"
+       "heart-disease-uci/main/heart.csv")
+heart = pd.read_csv(url)
+print(f"Shape: {heart.shape}")
+print(f"Heart disease prevalence: {heart['target'].mean():.1%}")
+heart.head()
+\end{minted}
+
+\begin{minted}{python}
+# Column descriptions
+column_info = {
+    "age": "Age in years",
+    "sex": "1 = male, 0 = female",
+    "cp": "Chest pain type (0-3)",
+    "trestbps": "Resting blood pressure (mmHg)",
+    "chol": "Serum cholesterol (mg/dL)",
+    "fbs": "Fasting blood sugar > 120 mg/dL (1 = true)",
+    "restecg": "Resting ECG results (0-2)",
+    "thalach": "Maximum heart rate achieved",
+    "exang": "Exercise-induced angina (1 = yes)",
+    "oldpeak": "ST depression induced by exercise",
+    "slope": "Slope of peak exercise ST segment",
+    "ca": "Number of major vessels colored by fluoroscopy (0-3)",
+    "thal": "Thalassemia (1 = normal, 2 = fixed defect, 3 = reversible)",
+    "target": "Heart disease (1 = yes, 0 = no)"
+}
+for col, desc in column_info.items():
+    print(f"  {col:12s} : {desc}")
+\end{minted}
+
+% ============================================================
+\section{Train/test split and cross-validation}
+
+\subsection{Why split the data?}
+
+If you train a model on all your data and then evaluate it on the same data, the accuracy is misleadingly high. The model has ``seen the answers.'' To estimate real-world performance, you must evaluate on data the model has \emph{never seen}.
+
+\begin{minted}{python}
+# Define features and target
+feature_cols = ["age", "sex", "cp", "trestbps", "chol", "fbs",
+                "restecg", "thalach", "exang", "oldpeak", "slope", "ca", "thal"]
+X = heart[feature_cols]
+y = heart["target"]
+
+# 70/30 train/test split (stratified to preserve class balance)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42, stratify=y
+)
+print(f"Training set: {X_train.shape[0]} patients")
+print(f"Test set:     {X_test.shape[0]} patients")
+print(f"Training prevalence: {y_train.mean():.1%}")
+print(f"Test prevalence:     {y_test.mean():.1%}")
+\end{minted}
+
+\subsection{Cross-validation}
+
+A single train/test split can be lucky or unlucky. Cross-validation (CV) gives a more robust estimate by rotating the test set:
+
+\begin{minted}{python}
+# 5-fold cross-validation with logistic regression
+lr = LogisticRegression(max_iter=1000, random_state=42)
+cv_scores = cross_val_score(lr, X, y, cv=5, scoring="accuracy")
+print(f"CV accuracy: {cv_scores.mean():.3f} +/- {cv_scores.std():.3f}")
+print(f"Per-fold: {cv_scores.round(3)}")
+\end{minted}
+
+\begin{warningbox}
+Never use test set results to choose your model or tune hyperparameters. The test set must only be used \textbf{once}, at the very end. If you peek at test results during model selection, you are effectively training on the test set.
+\end{warningbox}
+
+% ============================================================
+\section{Decision trees}
+
+A decision tree splits patients into groups using yes/no questions, forming a flowchart that clinicians can follow.
+
+\begin{minted}{python}
+# Fit a decision tree
+dt = DecisionTreeClassifier(max_depth=4, random_state=42)
+dt.fit(X_train, y_train)
+
+# Evaluate
+y_pred_dt = dt.predict(X_test)
+print("Decision Tree Results:")
+print(classification_report(y_test, y_pred_dt,
+                            target_names=["No Disease", "Disease"]))
+\end{minted}
+
+\begin{minted}{python}
+# Visualize the tree
+fig, ax = plt.subplots(figsize=(20, 10))
+plot_tree(dt, feature_names=feature_cols,
+          class_names=["No Disease", "Disease"],
+          filled=True, rounded=True, fontsize=9, ax=ax)
+plt.title("Decision tree for heart disease prediction")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{clinicalnote}
+Decision trees are popular in emergency medicine because they produce \emph{clinical decision rules} --- simple flowcharts that a physician can follow at the bedside without a computer. The HEART score, Wells criteria, and Ottawa ankle rules are all conceptually similar to decision trees.
+\end{clinicalnote}
+
+\subsection{The danger of deep trees}
+
+\begin{minted}{python}
+# Overfit tree (no depth limit)
+dt_overfit = DecisionTreeClassifier(random_state=42)  # no max_depth
+dt_overfit.fit(X_train, y_train)
+
+print(f"Training accuracy (overfit): {dt_overfit.score(X_train, y_train):.3f}")
+print(f"Test accuracy (overfit):     {dt_overfit.score(X_test, y_test):.3f}")
+print(f"Training accuracy (depth=4): {dt.score(X_train, y_train):.3f}")
+print(f"Test accuracy (depth=4):     {dt.score(X_test, y_test):.3f}")
+\end{minted}
+
+\begin{pythontip}
+When training accuracy is much higher than test accuracy, your model is \textbf{overfitting} --- it has memorized the training data instead of learning general patterns. Limit tree depth with \texttt{max\_depth} or require a minimum number of samples per leaf with \texttt{min\_samples\_leaf}.
+\end{pythontip}
+
+% ============================================================
+\section{Random forests}
+
+A random forest combines hundreds of decision trees, each trained on a random subset of the data and features. The final prediction is the majority vote.
+
+\begin{minted}{python}
+# Fit a random forest
+rf = RandomForestClassifier(n_estimators=200, max_depth=6,
+                            random_state=42, n_jobs=-1)
+rf.fit(X_train, y_train)
+
+y_pred_rf = rf.predict(X_test)
+print("Random Forest Results:")
+print(classification_report(y_test, y_pred_rf,
+                            target_names=["No Disease", "Disease"]))
+\end{minted}
+
+\begin{minted}{python}
+# Cross-validation comparison
+models = {
+    "Logistic Regression": LogisticRegression(max_iter=1000, random_state=42),
+    "Decision Tree (depth=4)": DecisionTreeClassifier(max_depth=4, random_state=42),
+    "Random Forest": RandomForestClassifier(n_estimators=200, max_depth=6,
+                                            random_state=42, n_jobs=-1)
+}
+
+print("5-fold CV accuracy:")
+for name, model in models.items():
+    scores = cross_val_score(model, X, y, cv=5, scoring="accuracy")
+    print(f"  {name:30s}: {scores.mean():.3f} +/- {scores.std():.3f}")
+\end{minted}
+
+% ============================================================
+\section{ROC curves and AUC}
+
+The ROC (Receiver Operating Characteristic) curve plots sensitivity vs (1 -- specificity) across all possible classification thresholds. The AUC (Area Under the Curve) summarizes discriminative ability in a single number.
+
+\begin{itemize}
+  \item AUC = 0.5: no better than flipping a coin.
+  \item AUC = 0.7--0.8: acceptable discrimination.
+  \item AUC = 0.8--0.9: excellent discrimination.
+  \item AUC $> 0.9$: outstanding (rare in clinical practice).
+\end{itemize}
+
+\begin{minted}{python}
+# Get predicted probabilities
+lr.fit(X_train, y_train)
+y_prob_lr = lr.predict_proba(X_test)[:, 1]
+y_prob_rf = rf.predict_proba(X_test)[:, 1]
+
+# Compute ROC curves
+fpr_lr, tpr_lr, _ = roc_curve(y_test, y_prob_lr)
+fpr_rf, tpr_rf, _ = roc_curve(y_test, y_prob_rf)
+auc_lr = roc_auc_score(y_test, y_prob_lr)
+auc_rf = roc_auc_score(y_test, y_prob_rf)
+
+# Plot
+fig, ax = plt.subplots(figsize=(7, 6))
+ax.plot(fpr_lr, tpr_lr, label=f"Logistic Regression (AUC = {auc_lr:.3f})",
+        linewidth=2)
+ax.plot(fpr_rf, tpr_rf, label=f"Random Forest (AUC = {auc_rf:.3f})",
+        linewidth=2)
+ax.plot([0, 1], [0, 1], "k--", alpha=0.5, label="Random (AUC = 0.500)")
+ax.set_xlabel("False Positive Rate (1 - Specificity)")
+ax.set_ylabel("True Positive Rate (Sensitivity)")
+ax.set_title("ROC curves: Heart disease prediction")
+ax.legend(loc="lower right")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{clinicalnote}
+In clinical practice, ROC curves are used to compare diagnostic tests. When evaluating a new biomarker for sepsis, you plot its ROC curve against existing biomarkers (CRP, procalcitonin). The test with the highest AUC has the best overall discriminative ability.
+\end{clinicalnote}
+
+% ============================================================
+\section{Feature importance}
+
+\textbf{Question:} Which risk factors matter most for predicting heart disease?
+
+\begin{minted}{python}
+# Random forest feature importance
+importances = rf.feature_importances_
+importance_df = pd.DataFrame({
+    "Feature": feature_cols,
+    "Importance": importances
+}).sort_values("Importance", ascending=True)
+
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.barh(importance_df["Feature"], importance_df["Importance"], color="steelblue")
+ax.set_xlabel("Feature importance (Gini)")
+ax.set_title("Which risk factors predict heart disease?")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Top 5 features
+print("Top 5 most important features:")
+for _, row in importance_df.tail(5).iloc[::-1].iterrows():
+    print(f"  {row['Feature']:12s}: {row['Importance']:.3f}")
+\end{minted}
+
+\begin{warningbox}
+Feature importance from random forests tells you which variables are useful for \emph{prediction}, not which variables \emph{cause} the outcome. A variable can be important for prediction because it is a proxy for something else. Do not confuse predictive importance with causal importance.
+\end{warningbox}
+
+% ============================================================
+\section{Calibration}
+
+A model says ``this patient has a 70\% risk of heart disease.'' Does that mean that among all patients the model gives 70\%, roughly 70\% actually have heart disease? If yes, the model is \textbf{well-calibrated}.
+
+\begin{minted}{python}
+from sklearn.calibration import calibration_curve
+
+# Calibration plot for random forest
+prob_true, prob_pred = calibration_curve(y_test, y_prob_rf, n_bins=8)
+
+fig, ax = plt.subplots(figsize=(6, 6))
+ax.plot(prob_pred, prob_true, "o-", linewidth=2, label="Random Forest")
+ax.plot([0, 1], [0, 1], "k--", label="Perfectly calibrated")
+ax.set_xlabel("Mean predicted probability")
+ax.set_ylabel("Observed proportion")
+ax.set_title("Calibration plot")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Brier score: lower is better (0 = perfect)
+from sklearn.metrics import brier_score_loss
+
+brier_lr = brier_score_loss(y_test, y_prob_lr)
+brier_rf = brier_score_loss(y_test, y_prob_rf)
+print(f"Brier score (Logistic Regression): {brier_lr:.4f}")
+print(f"Brier score (Random Forest):       {brier_rf:.4f}")
+\end{minted}
+
+\begin{clinicalnote}
+Calibration is critical in clinical prediction models. If a diabetes risk calculator tells a patient ``you have a 40\% chance of developing diabetes in 10 years,'' that number must be accurate --- it drives treatment decisions. The Framingham Risk Score and QRISK are regularly re-calibrated for different populations.
+\end{clinicalnote}
+
+% ============================================================
+\section{Overfitting: the danger of small clinical datasets}
+
+\begin{minted}{python}
+# Demonstrate overfitting with varying dataset sizes
+train_sizes = [30, 50, 100, 150, 200, len(X_train)]
+results = []
+
+for size in train_sizes:
+    if size > len(X_train):
+        continue
+    X_sub = X_train.iloc[:size]
+    y_sub = y_train.iloc[:size]
+
+    rf_temp = RandomForestClassifier(n_estimators=100, random_state=42)
+    rf_temp.fit(X_sub, y_sub)
+
+    train_acc = rf_temp.score(X_sub, y_sub)
+    test_acc = rf_temp.score(X_test, y_test)
+    results.append({"n_train": size, "train_acc": train_acc, "test_acc": test_acc})
+
+results_df = pd.DataFrame(results)
+
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.plot(results_df["n_train"], results_df["train_acc"], "o-",
+        label="Training accuracy", linewidth=2)
+ax.plot(results_df["n_train"], results_df["test_acc"], "s-",
+        label="Test accuracy", linewidth=2)
+ax.set_xlabel("Number of training patients")
+ax.set_ylabel("Accuracy")
+ax.set_title("Learning curve: more data reduces overfitting")
+ax.legend()
+ax.set_ylim(0.5, 1.05)
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{pythontip}
+Signs of overfitting: (1)~training accuracy is much higher than test accuracy, (2)~performance varies wildly across cross-validation folds, (3)~adding more features hurts test performance. The cure: more data, simpler models, regularization, or cross-validation for model selection.
+\end{pythontip}
+
+% ============================================================
+\section{Practical: heart disease prediction pipeline}
+
+\begin{minted}{python}
+# Complete pipeline from raw data to evaluated model
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+
+# Full pipeline
+pipeline = Pipeline([
+    ("imputer", SimpleImputer(strategy="median")),
+    ("scaler", StandardScaler()),
+    ("classifier", RandomForestClassifier(n_estimators=200, max_depth=6,
+                                          random_state=42))
+])
+
+# Cross-validate the full pipeline
+cv_scores = cross_val_score(pipeline, X, y, cv=5, scoring="roc_auc")
+print(f"Pipeline CV AUC: {cv_scores.mean():.3f} +/- {cv_scores.std():.3f}")
+
+# Final fit and evaluation
+pipeline.fit(X_train, y_train)
+y_prob_final = pipeline.predict_proba(X_test)[:, 1]
+y_pred_final = pipeline.predict(X_test)
+
+print(f"\nFinal test AUC: {roc_auc_score(y_test, y_prob_final):.3f}")
+print(f"\n{classification_report(y_test, y_pred_final, target_names=['No Disease', 'Disease'])}")
+\end{minted}
+
+% ============================================================
+\section{Ethics: fairness in clinical prediction models}
+
+\begin{warningbox}
+Clinical prediction models can perpetuate and amplify health disparities. A model trained predominantly on one population may perform poorly on another. Before deploying any clinical ML model, ask:
+\begin{itemize}
+  \item \textbf{Who is in the training data?} If 90\% of patients are white males, the model may not work for women or minority groups.
+  \item \textbf{Does performance differ across subgroups?} Check AUC, sensitivity, and specificity separately by sex, race, and age group.
+  \item \textbf{What are the consequences of errors?} A false negative for cardiac risk in a young woman is more dangerous than a false positive.
+  \item \textbf{Is the model transparent?} Clinicians and patients deserve to know how a prediction was made.
+\end{itemize}
+\end{warningbox}
+
+\begin{minted}{python}
+# Check model performance by sex
+for sex_val, sex_label in [(1, "Male"), (0, "Female")]:
+    mask = X_test["sex"] == sex_val
+    if mask.sum() < 10:
+        print(f"{sex_label}: too few samples ({mask.sum()})")
+        continue
+
+    auc_sub = roc_auc_score(y_test[mask], y_prob_final[mask])
+    sens = (y_pred_final[mask] == 1)[y_test[mask] == 1].mean()
+    spec = (y_pred_final[mask] == 0)[y_test[mask] == 0].mean()
+
+    print(f"{sex_label:8s}: AUC = {auc_sub:.3f}, "
+          f"Sensitivity = {sens:.3f}, Specificity = {spec:.3f}, "
+          f"n = {mask.sum()}")
+\end{minted}
+
+\begin{clinicalnote}
+In 2019, a widely-used commercial algorithm for allocating healthcare resources was found to be biased against Black patients. The algorithm used healthcare \emph{costs} as a proxy for healthcare \emph{needs}, but because Black patients had lower costs due to systemic barriers to access, the algorithm systematically underestimated their needs. This affected millions of patients. The lesson: always audit your model for disparities.
+\end{clinicalnote}
+
+\begin{exercise}
+Using the UCI Heart Disease dataset:
+\begin{enumerate}
+  \item \textbf{Baseline.} Fit a logistic regression model using all features. Report CV accuracy and AUC.
+  \item \textbf{Decision tree.} Fit a decision tree with \texttt{max\_depth=3}. Visualize the tree. Can a clinician follow this decision rule at the bedside?
+  \item \textbf{Random forest.} Fit a random forest with 200 trees. Compare its AUC to logistic regression and the decision tree. Is the improvement worth the loss of interpretability?
+  \item \textbf{Feature selection.} Train a random forest using only the top 5 most important features. How does performance compare to using all 13 features?
+  \item \textbf{ROC comparison.} Plot ROC curves for all three models on the same figure. Which model would you choose for a screening tool? For a confirmatory test?
+  \item \textbf{Threshold analysis.} For the random forest, plot sensitivity and specificity as a function of the classification threshold (from 0 to 1). At what threshold are they equal?
+  \item \textbf{Calibration.} Plot calibration curves for logistic regression and random forest. Which model is better calibrated?
+  \item \textbf{Fairness audit.} Compare AUC, sensitivity, and specificity between male and female patients. Are there concerning disparities? What might explain them?
+  \item \textbf{Clinical deployment.} Write a paragraph (in a Markdown cell) describing how you would validate this model before using it in a real hospital. Consider: external validation, regulatory requirements, clinician workflow, and patient consent.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Use traditional statistics (regression) for inference and ML for prediction.
+  \item Always split data into training and test sets. Never evaluate on training data.
+  \item Cross-validation gives more robust performance estimates than a single split.
+  \item Decision trees are interpretable and clinician-friendly but prone to overfitting.
+  \item Random forests improve accuracy by averaging many trees.
+  \item ROC curves and AUC compare the discriminative ability of different models.
+  \item Feature importance reveals which risk factors drive predictions (but not causation).
+  \item Calibration checks whether predicted probabilities match observed outcomes.
+  \item Overfitting is the central danger of ML on small clinical datasets --- always validate.
+  \item Fairness audits are essential: check model performance across demographic subgroups before deployment.
+\end{itemize}

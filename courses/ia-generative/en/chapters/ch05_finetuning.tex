@@ -1,0 +1,262 @@
+\chapter{Fine-tuning LLMs}
+\label{ch:finetuning}
+
+\begin{quote}
+\emph{``Pre-training gives the model knowledge. Fine-tuning gives it a job.''}
+\end{quote}
+
+% ============================================================
+\section{Why fine-tune?}
+
+Prompt engineering has limits. When you need a model to:
+\begin{itemize}
+  \item Consistently follow a specific output format,
+  \item Handle domain-specific terminology (legal, medical, scientific),
+  \item Achieve maximum accuracy on a narrow task,
+  \item Reduce latency by using a smaller, specialized model,
+\end{itemize}
+fine-tuning is the answer.
+
+% ============================================================
+\section{Full fine-tuning vs parameter-efficient methods}
+
+\textbf{Full fine-tuning} updates all model parameters. For a 7B model, this requires:
+\begin{itemize}
+  \item 28 GB for model weights (FP32)
+  \item 28 GB for optimizer states (Adam)
+  \item 28 GB for gradients
+  \item Total: $\sim$84 GB VRAM --- multiple A100 GPUs.
+\end{itemize}
+
+\textbf{Parameter-efficient fine-tuning (PEFT)} freezes most parameters and trains a small number of additional ones.
+
+% ============================================================
+\section{LoRA: Low-Rank Adaptation}
+
+LoRA decomposes weight updates into low-rank matrices. Instead of updating $W \in \mathbb{R}^{d \times d}$, we learn $\Delta W = BA$ where $B \in \mathbb{R}^{d \times r}$ and $A \in \mathbb{R}^{r \times d}$, with rank $r \ll d$.
+
+\[
+W' = W + \alpha \cdot BA
+\]
+
+Benefits: only $2dr$ parameters instead of $d^2$. For $d=4096, r=16$: from 16.7M to 131K parameters per layer.
+
+\begin{minted}{python}
+from peft import LoraConfig, get_peft_model, TaskType
+from transformers import AutoModelForCausalLM
+
+model = AutoModelForCausalLM.from_pretrained(
+    "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    torch_dtype="auto",
+    device_map="auto",
+)
+
+lora_config = LoraConfig(
+    task_type=TaskType.CAUSAL_LM,
+    r=16,                        # rank
+    lora_alpha=32,               # scaling factor
+    lora_dropout=0.05,
+    target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
+)
+
+peft_model = get_peft_model(model, lora_config)
+peft_model.print_trainable_parameters()
+# trainable params: ~4M / total: ~1.1B = 0.36%
+\end{minted}
+
+% ============================================================
+\section{QLoRA: quantized LoRA}
+
+QLoRA loads the base model in 4-bit precision (NF4 quantization), then trains LoRA adapters in FP16. This reduces VRAM usage by $\sim$4x:
+
+\begin{minted}{python}
+from transformers import BitsAndBytesConfig
+import torch
+
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_compute_dtype=torch.float16,
+    bnb_4bit_use_double_quant=True,
+)
+
+model = AutoModelForCausalLM.from_pretrained(
+    "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    quantization_config=bnb_config,
+    device_map="auto",
+)
+
+# Now apply LoRA on top of the quantized model
+peft_model = get_peft_model(model, lora_config)
+peft_model.print_trainable_parameters()
+\end{minted}
+
+\begin{aitip}
+QLoRA makes fine-tuning a 7B model possible on a single free Colab T4 GPU (16 GB VRAM). This democratizes fine-tuning --- you do not need expensive hardware.
+\end{aitip}
+
+% ============================================================
+\section{Datasets for fine-tuning}
+
+\begin{longtable}{p{3cm}p{3cm}p{6.5cm}}
+\toprule
+\textbf{Dataset} & \textbf{Size} & \textbf{Description} \\
+\midrule
+Alpaca & 52K & Instruction-following data from Stanford \\
+Dolly & 15K & Databricks employee-written instructions \\
+OpenAssistant & 160K & Multi-turn conversation data \\
+UltraChat & 1.5M & Synthetic multi-turn dialogues \\
+\bottomrule
+\end{longtable}
+
+\begin{minted}{python}
+from datasets import load_dataset
+
+# Load Dolly dataset
+dataset = load_dataset("databricks/databricks-dolly-15k", split="train")
+print(f"Dataset size: {len(dataset)}")
+print(dataset[0])
+
+# Format for instruction tuning
+def format_instruction(example):
+    if example["context"]:
+        text = (f"### Instruction:\n{example['instruction']}\n\n"
+                f"### Context:\n{example['context']}\n\n"
+                f"### Response:\n{example['response']}")
+    else:
+        text = (f"### Instruction:\n{example['instruction']}\n\n"
+                f"### Response:\n{example['response']}")
+    return {"text": text}
+
+formatted = dataset.map(format_instruction)
+print(formatted[0]["text"][:300])
+\end{minted}
+
+% ============================================================
+\section{Fine-tuning with HuggingFace Trainer}
+
+\begin{minted}{python}
+from transformers import (
+    AutoModelForCausalLM, AutoTokenizer,
+    TrainingArguments, Trainer, DataCollatorForLanguageModeling,
+    BitsAndBytesConfig,
+)
+from peft import LoraConfig, get_peft_model, TaskType
+from datasets import load_dataset
+import torch
+
+# 1. Load model in 4-bit
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_compute_dtype=torch.float16,
+)
+
+model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+tokenizer.pad_token = tokenizer.eos_token
+
+model = AutoModelForCausalLM.from_pretrained(
+    model_name, quantization_config=bnb_config, device_map="auto"
+)
+
+# 2. Apply LoRA
+lora_config = LoraConfig(
+    task_type=TaskType.CAUSAL_LM, r=16, lora_alpha=32,
+    lora_dropout=0.05,
+    target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
+)
+model = get_peft_model(model, lora_config)
+
+# 3. Prepare dataset
+dataset = load_dataset("databricks/databricks-dolly-15k", split="train[:1000]")
+
+def tokenize(example):
+    text = f"### Instruction:\n{example['instruction']}\n### Response:\n{example['response']}"
+    return tokenizer(text, truncation=True, max_length=512, padding="max_length")
+
+tokenized = dataset.map(tokenize, remove_columns=dataset.column_names)
+
+# 4. Training arguments
+training_args = TrainingArguments(
+    output_dir="./tinyllama-dolly-lora",
+    num_train_epochs=3,
+    per_device_train_batch_size=4,
+    gradient_accumulation_steps=4,
+    learning_rate=2e-4,
+    fp16=True,
+    logging_steps=10,
+    save_strategy="epoch",
+    warmup_ratio=0.03,
+    lr_scheduler_type="cosine",
+)
+
+# 5. Train
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized,
+    data_collator=DataCollatorForLanguageModeling(tokenizer, mlm=False),
+)
+trainer.train()
+
+# 6. Save LoRA adapter
+model.save_pretrained("./tinyllama-dolly-lora")
+\end{minted}
+
+% ============================================================
+\section{Evaluation after fine-tuning}
+
+\begin{minted}{python}
+# Load the fine-tuned model
+from peft import PeftModel
+
+base_model = AutoModelForCausalLM.from_pretrained(
+    model_name, quantization_config=bnb_config, device_map="auto"
+)
+finetuned = PeftModel.from_pretrained(base_model, "./tinyllama-dolly-lora")
+
+# Compare base vs fine-tuned
+prompt = "### Instruction:\nExplain what a neural network is.\n### Response:\n"
+inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+
+# Base model
+base_out = base_model.generate(**inputs, max_new_tokens=100, temperature=0.7)
+print("=== Base model ===")
+print(tokenizer.decode(base_out[0], skip_special_tokens=True))
+
+# Fine-tuned model
+ft_out = finetuned.generate(**inputs, max_new_tokens=100, temperature=0.7)
+print("\n=== Fine-tuned model ===")
+print(tokenizer.decode(ft_out[0], skip_special_tokens=True))
+\end{minted}
+
+\begin{warningbox}
+Fine-tuning on small datasets risks \emph{catastrophic forgetting}: the model loses general capabilities. Use a held-out validation set and monitor both task-specific and general performance.
+\end{warningbox}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Fine-tune TinyLlama on 500 examples from the Dolly dataset using QLoRA. Report training loss at each epoch.
+  \item Experiment with LoRA rank values: $r \in \{4, 8, 16, 32\}$. Which gives the best trade-off between quality and training time?
+  \item Fine-tune on a custom dataset: create 100 instruction-response pairs about a topic you care about (e.g., cooking, history, or a specific domain). Evaluate the model before and after.
+  \item Compare the VRAM usage of full fine-tuning vs QLoRA on TinyLlama. Use \texttt{torch.cuda.max\_memory\_allocated()}.
+\end{enumerate}
+\end{exercise}
+
+\begin{ethicsbox}
+Fine-tuning can embed biases from training data. If your dataset contains stereotypes, the model will learn them. Always audit your training data for bias, test the fine-tuned model on diverse inputs, and document the data sources and known limitations.
+\end{ethicsbox}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Fine-tuning adapts a pre-trained model to a specific task or domain.
+  \item Full fine-tuning updates all parameters and requires massive VRAM.
+  \item LoRA trains low-rank adapter matrices, reducing trainable parameters by 99\%+.
+  \item QLoRA combines 4-bit quantization with LoRA, enabling fine-tuning on free Colab GPUs.
+  \item Instruction-tuning datasets (Alpaca, Dolly) teach models to follow instructions.
+  \item HuggingFace Trainer + PEFT provides a complete fine-tuning pipeline in $\sim$30 lines.
+  \item Always evaluate on held-out data and watch for catastrophic forgetting.
+\end{itemize}

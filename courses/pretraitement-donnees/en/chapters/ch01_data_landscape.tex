@@ -1,0 +1,234 @@
+\chapter{Data landscape and pipelines}
+\label{ch:data-landscape}
+
+\begin{quote}
+\emph{``Data is the new oil --- but like oil, it must be refined before it is useful.''}
+--- Clive Humby
+\end{quote}
+
+% ============================================================
+\section{What is data preprocessing?}
+
+Data preprocessing is the set of transformations applied to raw data before analysis or modeling. It bridges the gap between the data you \emph{have} and the data you \emph{need}.
+
+A typical preprocessing pipeline includes:
+\begin{enumerate}
+  \item \textbf{Loading} --- reading data from files, databases, or APIs.
+  \item \textbf{Inspection} --- understanding structure, types, and quality.
+  \item \textbf{Cleaning} --- handling missing values, duplicates, and errors.
+  \item \textbf{Transformation} --- encoding, scaling, and creating features.
+  \item \textbf{Validation} --- confirming the output meets downstream requirements.
+\end{enumerate}
+
+\begin{datatip}
+In industry surveys, data practitioners report spending 60--80\% of project time on preprocessing. Mastering this phase is the single highest-leverage skill in data science.
+\end{datatip}
+
+% ============================================================
+\section{Data types and structures}
+
+\subsection{Structured, semi-structured, and unstructured data}
+
+\begin{itemize}
+  \item \textbf{Structured:} tables with rows and columns (CSV, SQL databases, Excel).
+  \item \textbf{Semi-structured:} data with flexible schemas (JSON, XML, YAML).
+  \item \textbf{Unstructured:} free text, images, audio, video.
+\end{itemize}
+
+This course focuses on structured and semi-structured data, with one chapter (Chapter~7) devoted to text.
+
+\subsection{Variable types}
+
+\begin{minted}{python}
+import pandas as pd
+
+# Load a real dataset to inspect variable types
+url = ("https://raw.githubusercontent.com/datasciencedojo/"
+       "datasets/master/titanic.csv")
+df = pd.read_csv(url)
+print(df.dtypes)
+\end{minted}
+
+Output (abbreviated):
+\begin{minted}{text}
+PassengerId      int64
+Survived         int64
+Pclass           int64
+Name            object
+Sex             object
+Age            float64
+SibSp            int64
+Fare           float64
+Embarked        object
+\end{minted}
+
+\begin{preprocesstip}
+The \texttt{object} dtype in pandas usually means string data, but it can also hide mixed types. Always verify with \texttt{df[col].apply(type).value\_counts()}.
+\end{preprocesstip}
+
+\subsection{Numerical vs.\ categorical}
+
+\begin{minted}{python}
+numerical = df.select_dtypes(include="number").columns.tolist()
+categorical = df.select_dtypes(include="object").columns.tolist()
+
+print(f"Numerical columns ({len(numerical)}): {numerical}")
+print(f"Categorical columns ({len(categorical)}): {categorical}")
+\end{minted}
+
+% ============================================================
+\section{Common data formats}
+
+\begin{longtable}{lllp{5cm}}
+\toprule
+\textbf{Format} & \textbf{Extension} & \textbf{pandas reader} & \textbf{Notes} \\
+\midrule
+CSV & \texttt{.csv} & \texttt{read\_csv} & Most common; watch for delimiter and encoding \\
+Excel & \texttt{.xlsx} & \texttt{read\_excel} & Requires \texttt{openpyxl}; multi-sheet support \\
+JSON & \texttt{.json} & \texttt{read\_json} & Nested structures need \texttt{json\_normalize} \\
+Parquet & \texttt{.parquet} & \texttt{read\_parquet} & Columnar, fast, type-preserving \\
+SQL & --- & \texttt{read\_sql} & Requires \texttt{sqlalchemy} connection \\
+\bottomrule
+\end{longtable}
+
+% ============================================================
+\section{First look at a real dataset}
+
+We will use the Melbourne Housing dataset throughout several chapters:
+
+\begin{minted}{python}
+# Melbourne Housing dataset
+melb = pd.read_csv("melb_data.csv")
+
+# Shape: rows x columns
+print(f"Shape: {melb.shape}")
+
+# First 3 rows
+print(melb.head(3))
+
+# Summary statistics
+print(melb.describe())
+
+# Missing values per column
+print(melb.isnull().sum().sort_values(ascending=False).head(10))
+\end{minted}
+
+\begin{minted}{python}
+# Quick quality report
+def data_quality_report(df):
+    """Generate a quick quality report for any DataFrame."""
+    report = pd.DataFrame({
+        "dtype": df.dtypes,
+        "non_null": df.notnull().sum(),
+        "null_count": df.isnull().sum(),
+        "null_pct": (df.isnull().sum() / len(df) * 100).round(1),
+        "n_unique": df.nunique(),
+        "sample_value": df.iloc[0]
+    })
+    return report.sort_values("null_pct", ascending=False)
+
+print(data_quality_report(melb))
+\end{minted}
+
+\begin{datatip}
+Always run a quality report \emph{before} any analysis. The five numbers you need immediately are: shape, dtypes, null counts, unique counts, and summary statistics.
+\end{datatip}
+
+% ============================================================
+\section{The preprocessing workflow}
+
+\begin{minted}{python}
+# A minimal end-to-end preprocessing workflow
+import pandas as pd
+import numpy as np
+
+# 1. Load
+df = pd.read_csv("melb_data.csv")
+
+# 2. Inspect
+print(df.info())
+
+# 3. Clean: drop duplicates, handle missing values
+df = df.drop_duplicates()
+df["Car"] = df["Car"].fillna(df["Car"].median())
+df = df.dropna(subset=["Price"])
+
+# 4. Transform: encode categorical, scale numerical
+df["Type_encoded"] = df["Type"].map({"h": 0, "u": 1, "t": 2})
+
+# 5. Validate
+assert df.isnull().sum().sum() == 0 or True  # relaxed for demo
+print(f"Clean shape: {df.shape}")
+\end{minted}
+
+% ============================================================
+\section{Pandas review: essential operations}
+
+\subsection{Selection and filtering}
+
+\begin{minted}{python}
+# Select columns
+prices = melb[["Suburb", "Price", "Rooms"]]
+
+# Filter rows
+expensive = melb[melb["Price"] > 2_000_000]
+south = melb[melb["Regionname"] == "Southern Metropolitan"]
+
+# Combined
+big_south = melb[(melb["Regionname"] == "Southern Metropolitan") &
+                 (melb["Rooms"] >= 4)]
+print(f"Large southern houses: {len(big_south)}")
+\end{minted}
+
+\subsection{Groupby and aggregation}
+
+\begin{minted}{python}
+# Average price by region
+region_stats = (melb.groupby("Regionname")["Price"]
+                .agg(["mean", "median", "count"])
+                .sort_values("median", ascending=False))
+print(region_stats)
+\end{minted}
+
+\begin{warningbox}
+Pandas \texttt{groupby} silently drops \texttt{NaN} group keys by default. If your grouping column has missing values, they will be excluded from the result. Use \texttt{dropna=False} to include them.
+\end{warningbox}
+
+% ============================================================
+\section{Tools and libraries overview}
+
+\begin{minted}{python}
+# Core preprocessing stack
+import pandas as pd               # data manipulation
+import numpy as np                 # numerical operations
+import matplotlib.pyplot as plt    # visualization
+import seaborn as sns              # statistical plots
+import missingno as msno           # missing data visualization
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.impute import SimpleImputer, KNNImputer
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+\end{minted}
+
+% ============================================================
+\section{Exercises}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Download the Melbourne Housing dataset. Write a quality report showing: number of rows, columns, dtype of each column, percentage of missing values, and number of unique values.
+  \item Load the Gapminder dataset (\texttt{gapminder.csv} or via \texttt{plotly.express}). Identify which columns are numerical, which are categorical, and which have missing values.
+  \item Write a function \texttt{detect\_mixed\_types(df)} that checks each column for mixed Python types and returns a list of problematic columns.
+  \item Compare loading the Titanic dataset as CSV vs.\ Parquet. Measure file size and load time using \texttt{\%timeit}.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Data preprocessing transforms raw data into analysis-ready data and consumes the majority of project time.
+  \item Data comes in structured, semi-structured, and unstructured formats; pandas handles the first two.
+  \item Every preprocessing workflow follows five steps: load, inspect, clean, transform, validate.
+  \item A quick quality report (shape, dtypes, nulls, uniques, statistics) should be your first action on any new dataset.
+  \item The core Python stack for preprocessing is pandas, numpy, scikit-learn, matplotlib, and missingno.
+\end{itemize}

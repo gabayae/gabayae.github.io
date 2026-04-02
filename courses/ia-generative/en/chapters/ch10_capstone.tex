@@ -1,0 +1,395 @@
+\chapter{Capstone projects}
+\label{ch:capstone}
+
+\begin{quote}
+\emph{``The best way to learn generative AI is to build something real. These five projects take you from concept to working application.''}
+\end{quote}
+
+This chapter presents five capstone projects. Each project integrates concepts from multiple chapters and produces a complete, deployable application. Choose one (or more) based on your interests.
+
+% ============================================================
+\section{Project 1: RAG application on a PDF corpus}
+
+\textbf{Goal:} Build a question-answering system over a collection of PDF documents.
+
+\textbf{Chapters used:} 1 (embeddings), 4 (prompting), 6 (RAG).
+
+\subsection{Specification}
+
+\begin{enumerate}
+  \item Load 5--10 PDF documents (research papers, textbooks, reports).
+  \item Chunk documents with overlap (500--800 characters).
+  \item Store embeddings in ChromaDB with metadata (filename, page number).
+  \item Build a LangChain RAG chain with Gemini as the LLM.
+  \item Add source citations: each answer must reference the document and page.
+  \item Evaluate with 10 test questions where you know the correct answer.
+\end{enumerate}
+
+\begin{minted}{python}
+# Starter code: RAG with source tracking
+from langchain_community.document_loaders import PyPDFDirectoryLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+
+# Load all PDFs from a directory
+loader = PyPDFDirectoryLoader("./pdf_corpus/")
+docs = loader.load()
+print(f"Loaded {len(docs)} pages from PDFs")
+
+# Split
+splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=80)
+chunks = splitter.split_documents(docs)
+
+# Embed and store
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+vectorstore = Chroma.from_documents(chunks, embeddings,
+                                     persist_directory="./capstone_rag_db")
+retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+
+# RAG chain with sources
+llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.2)
+
+template = ChatPromptTemplate.from_template(
+    """Answer the question based on the context below. Include source
+references (document name, page number) for each claim.
+
+Context:
+{context}
+
+Question: {question}
+
+Answer (with sources):"""
+)
+
+def format_docs_with_sources(docs):
+    formatted = []
+    for d in docs:
+        source = d.metadata.get("source", "unknown")
+        page = d.metadata.get("page", "?")
+        formatted.append(f"[{source}, p.{page}]\n{d.page_content}")
+    return "\n\n".join(formatted)
+
+chain = (
+    {"context": retriever | format_docs_with_sources,
+     "question": RunnablePassthrough()}
+    | template | llm | StrOutputParser()
+)
+
+answer = chain.invoke("What are the main findings of the study?")
+print(answer)
+\end{minted}
+
+\subsection{Deliverables}
+
+\begin{itemize}
+  \item Working Jupyter notebook with full pipeline.
+  \item Evaluation table: 10 questions, expected answers, generated answers, correctness rating (1--5).
+  \item 200-word reflection on RAG limitations encountered.
+\end{itemize}
+
+% ============================================================
+\section{Project 2: Fine-tune a domain chatbot}
+
+\textbf{Goal:} Fine-tune TinyLlama on a custom instruction dataset to create a domain-specific assistant.
+
+\textbf{Chapters used:} 1 (tokenization), 3 (generation), 5 (fine-tuning).
+
+\subsection{Specification}
+
+\begin{enumerate}
+  \item Choose a domain (e.g., cooking, African history, Python programming).
+  \item Create 200+ instruction-response pairs (mix of hand-written and curated).
+  \item Fine-tune TinyLlama with QLoRA ($r=16$, 3 epochs).
+  \item Compare base model vs fine-tuned model on 20 test questions.
+  \item Measure perplexity before and after fine-tuning.
+\end{enumerate}
+
+\begin{minted}{python}
+# Dataset creation helper
+import json
+
+def create_instruction_dataset(topic, num_examples=50):
+    """Use an LLM to help generate instruction-response pairs."""
+    from groq import Groq
+    client = Groq()
+
+    pairs = []
+    prompt = f"""Generate {num_examples} diverse instruction-response pairs
+about {topic}. Format as JSON array with keys: instruction, response.
+Each response should be 2-4 sentences. Be accurate and educational."""
+
+    response = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.8, max_tokens=4096,
+    )
+
+    try:
+        pairs = json.loads(response.choices[0].message.content)
+    except json.JSONDecodeError:
+        print("Failed to parse JSON. Manual cleanup needed.")
+
+    return pairs
+
+# Generate and save
+pairs = create_instruction_dataset("West African cuisine", 50)
+with open("cooking_dataset.json", "w") as f:
+    json.dump(pairs, f, indent=2)
+print(f"Generated {len(pairs)} pairs")
+\end{minted}
+
+% ============================================================
+\section{Project 3: Image generation pipeline}
+
+\textbf{Goal:} Build an image generation application with style control and variations.
+
+\textbf{Chapters used:} 7 (diffusion models).
+
+\subsection{Specification}
+
+\begin{enumerate}
+  \item Create a pipeline that generates images from text prompts.
+  \item Implement style presets (photorealistic, watercolor, digital art, sketch).
+  \item Add image-to-image for variations of existing images.
+  \item Use ControlNet for edge-guided generation.
+  \item Generate a gallery of 20 images across 5 different styles.
+\end{enumerate}
+
+\begin{minted}{python}
+from diffusers import StableDiffusionPipeline, StableDiffusionImg2ImgPipeline
+import torch
+
+class ImageGenerator:
+    STYLE_PROMPTS = {
+        "photorealistic": "photorealistic, 8k, highly detailed, sharp focus",
+        "watercolor": "watercolor painting, soft colors, artistic",
+        "digital_art": "digital art, vibrant colors, detailed illustration",
+        "sketch": "pencil sketch, black and white, detailed drawing",
+        "oil_painting": "oil painting, rich textures, masterpiece",
+    }
+
+    def __init__(self, model_id="stabilityai/stable-diffusion-2-1-base"):
+        self.pipe = StableDiffusionPipeline.from_pretrained(
+            model_id, torch_dtype=torch.float16
+        ).to("cuda")
+
+    def generate(self, prompt, style="photorealistic", seed=42, **kwargs):
+        styled_prompt = f"{prompt}, {self.STYLE_PROMPTS[style]}"
+        generator = torch.Generator("cuda").manual_seed(seed)
+        image = self.pipe(
+            styled_prompt,
+            negative_prompt="blurry, low quality, deformed",
+            generator=generator,
+            num_inference_steps=30,
+            guidance_scale=7.5,
+            **kwargs,
+        ).images[0]
+        return image
+
+gen = ImageGenerator()
+for style in ["photorealistic", "watercolor", "digital_art", "sketch"]:
+    img = gen.generate("A bustling market in Cotonou", style=style)
+    img.save(f"market_{style}.png")
+    print(f"Generated: market_{style}.png")
+\end{minted}
+
+% ============================================================
+\section{Project 4: Multi-agent research assistant}
+
+\textbf{Goal:} Build a multi-agent system where agents collaborate to research, draft, and review a report.
+
+\textbf{Chapters used:} 4 (prompting), 6 (RAG), 9 (agents).
+
+\subsection{Specification}
+
+\begin{enumerate}
+  \item \textbf{Researcher agent}: searches for information and compiles notes.
+  \item \textbf{Writer agent}: drafts a structured report from the notes.
+  \item \textbf{Reviewer agent}: checks for accuracy, coherence, and completeness.
+  \item Use LangGraph to orchestrate the workflow with conditional loops.
+  \item The reviewer can send the draft back to the writer for revision (max 2 rounds).
+\end{enumerate}
+
+\begin{minted}{python}
+from langgraph.graph import StateGraph, END
+from langchain_google_genai import ChatGoogleGenerativeAI
+from typing import TypedDict
+
+class ResearchState(TypedDict):
+    topic: str
+    research_notes: str
+    draft: str
+    review: str
+    revision_count: int
+    final_report: str
+
+llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.3)
+
+def researcher(state):
+    result = llm.invoke(
+        f"You are a researcher. Compile detailed notes on: {state['topic']}. "
+        f"Include key facts, statistics, and recent developments."
+    )
+    return {"research_notes": result.content}
+
+def writer(state):
+    result = llm.invoke(
+        f"You are a technical writer. Write a structured report based on:\n"
+        f"{state['research_notes']}\n"
+        f"{'Previous review: ' + state.get('review', '') if state.get('review') else ''}"
+    )
+    return {"draft": result.content,
+            "revision_count": state.get("revision_count", 0) + 1}
+
+def reviewer(state):
+    result = llm.invoke(
+        f"You are a critical reviewer. Review this report for accuracy, "
+        f"completeness, and clarity:\n{state['draft']}\n"
+        f"Respond with APPROVED if the report is good, or list specific improvements."
+    )
+    return {"review": result.content}
+
+def should_revise(state):
+    if state.get("revision_count", 0) >= 3:
+        return "finalize"
+    if "APPROVED" in state.get("review", ""):
+        return "finalize"
+    return "revise"
+
+def finalize(state):
+    return {"final_report": state["draft"]}
+
+# Build graph
+workflow = StateGraph(ResearchState)
+workflow.add_node("research", researcher)
+workflow.add_node("write", writer)
+workflow.add_node("review", reviewer)
+workflow.add_node("finalize", finalize)
+
+workflow.set_entry_point("research")
+workflow.add_edge("research", "write")
+workflow.add_edge("write", "review")
+workflow.add_conditional_edges("review", should_revise,
+                                {"revise": "write", "finalize": "finalize"})
+workflow.add_edge("finalize", END)
+
+app = workflow.compile()
+result = app.invoke({"topic": "The impact of AI on education in Africa",
+                      "revision_count": 0})
+print(result["final_report"])
+\end{minted}
+
+% ============================================================
+\section{Project 5: Evaluation benchmark}
+
+\textbf{Goal:} Build a comprehensive evaluation benchmark for comparing LLMs.
+
+\textbf{Chapters used:} 3 (generation), 4 (prompting), 8 (evaluation).
+
+\subsection{Specification}
+
+\begin{enumerate}
+  \item Design 50 test cases across 5 categories: factual QA, reasoning, code generation, summarization, and safety.
+  \item Evaluate 3 models (GPT-2, TinyLlama, Gemini Flash) on all test cases.
+  \item Compute automated metrics: BLEU, ROUGE, perplexity.
+  \item Conduct human evaluation on a 20-case subset.
+  \item Produce a comparison report with tables and visualizations.
+\end{enumerate}
+
+\begin{minted}{python}
+import json
+from rouge_score import rouge_scorer
+import numpy as np
+
+class LLMBenchmark:
+    def __init__(self):
+        self.scorer = rouge_scorer.RougeScorer(
+            ["rouge1", "rouge2", "rougeL"], use_stemmer=True
+        )
+        self.results = []
+
+    def add_test_case(self, category, question, reference_answer):
+        self.results.append({
+            "category": category,
+            "question": question,
+            "reference": reference_answer,
+            "model_outputs": {},
+        })
+
+    def evaluate_model(self, model_name, generate_fn):
+        for case in self.results:
+            output = generate_fn(case["question"])
+            scores = self.scorer.score(case["reference"], output)
+            case["model_outputs"][model_name] = {
+                "output": output,
+                "rouge1_f1": scores["rouge1"].fmeasure,
+                "rouge2_f1": scores["rouge2"].fmeasure,
+                "rougeL_f1": scores["rougeL"].fmeasure,
+            }
+
+    def summary(self):
+        for model in list(self.results[0]["model_outputs"].keys()):
+            r1 = np.mean([c["model_outputs"][model]["rouge1_f1"] for c in self.results])
+            r2 = np.mean([c["model_outputs"][model]["rouge2_f1"] for c in self.results])
+            rl = np.mean([c["model_outputs"][model]["rougeL_f1"] for c in self.results])
+            print(f"{model}: ROUGE-1={r1:.3f}, ROUGE-2={r2:.3f}, ROUGE-L={rl:.3f}")
+
+# Usage
+bench = LLMBenchmark()
+bench.add_test_case("factual", "What is the capital of Benin?", "The capital of Benin is Porto-Novo.")
+bench.add_test_case("reasoning", "If A > B and B > C, is A > C?", "Yes, by transitivity, A > C.")
+# ... add more test cases
+\end{minted}
+
+% ============================================================
+\section{Project grading rubric}
+
+\begin{longtable}{p{4cm}p{2cm}p{6.5cm}}
+\toprule
+\textbf{Criterion} & \textbf{Points} & \textbf{Description} \\
+\midrule
+Working code & 30 & Code runs without errors on Colab \\
+Technical depth & 25 & Correct use of techniques from the course \\
+Evaluation & 20 & Quantitative and/or qualitative evaluation \\
+Documentation & 15 & Clear notebook with explanations \\
+Reflection & 10 & Discussion of limitations and improvements \\
+\midrule
+\textbf{Total} & \textbf{100} & \\
+\bottomrule
+\end{longtable}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Choose one of the five projects and implement it completely.
+  \item Write a 500-word project report covering: objective, approach, results, limitations, and future work.
+  \item Present your project in a 10-minute demo showing the working application.
+  \item Peer-review one other student's project using the grading rubric above.
+  \item Propose a sixth capstone project idea that combines at least 3 chapters from this course. Write the specification.
+\end{enumerate}
+\end{exercise}
+
+\begin{ethicsbox}
+Your capstone project will likely be the first generative AI system you build. Before sharing it:
+\begin{itemize}
+  \item Test for biased or harmful outputs.
+  \item Add appropriate disclaimers (``AI-generated content'').
+  \item Do not fine-tune on copyrighted or private data without permission.
+  \item Consider the social impact: who benefits and who might be harmed?
+\end{itemize}
+Every AI practitioner is responsible for the systems they build.
+\end{ethicsbox}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Five capstone projects cover RAG, fine-tuning, image generation, multi-agent systems, and evaluation.
+  \item Each project integrates concepts from multiple course chapters.
+  \item Projects are evaluated on working code, technical depth, evaluation, documentation, and reflection.
+  \item Build responsibly: test for harm, document limitations, and add appropriate disclaimers.
+\end{itemize}

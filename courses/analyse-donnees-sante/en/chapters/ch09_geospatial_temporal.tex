@@ -1,0 +1,401 @@
+\chapter{Geospatial and temporal health data}
+\label{ch:geospatial-temporal}
+
+\begin{quote}
+\emph{``An epidemic is a story told in time and space. If you can plot both, you can see where it came from and where it is going.''}
+\end{quote}
+
+% ============================================================
+\section{Time series in health}
+
+A \emph{time series} is a sequence of measurements recorded at regular intervals: daily case counts, weekly death tolls, monthly vaccination doses. Health time series have three components:
+
+\begin{itemize}
+  \item \textbf{Trend.} The long-term direction --- is incidence rising or falling?
+  \item \textbf{Seasonality.} Regular cycles --- malaria peaks during rainy seasons, influenza peaks in winter.
+  \item \textbf{Noise.} Random day-to-day fluctuation that obscures the signal.
+\end{itemize}
+
+\begin{clinicalnote}
+Epidemic curves (``epi curves'') are the most important time series in public health. During an outbreak, the shape of the epi curve tells you whether the source is a point exposure (sharp peak), a continuous source (plateau), or person-to-person transmission (successive waves).
+\end{clinicalnote}
+
+% ============================================================
+\section{Plotting time series with pandas}
+
+\subsection{Date parsing and indexing}
+
+Pandas handles dates natively. The key is to parse date columns and set them as the index:
+
+\begin{minted}{python}
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Example: daily malaria cases at a district hospital
+dates = pd.date_range("2023-01-01", periods=365, freq="D")
+import numpy as np
+np.random.seed(42)
+# Simulate seasonal pattern: peak during rainy season (June-September)
+day_of_year = dates.dayofyear
+seasonal = 50 + 40 * np.sin(2 * np.pi * (day_of_year - 90) / 365)
+cases = np.maximum(0, seasonal + np.random.normal(0, 12, 365)).astype(int)
+
+df = pd.DataFrame({"date": dates, "cases": cases})
+df["date"] = pd.to_datetime(df["date"])
+df = df.set_index("date")
+df.head()
+\end{minted}
+
+\subsection{Rolling averages}
+
+Day-to-day fluctuation makes trends hard to see. A \emph{rolling average} smooths the curve:
+
+\begin{minted}{python}
+df["cases_7d"] = df["cases"].rolling(window=7).mean()
+df["cases_14d"] = df["cases"].rolling(window=14).mean()
+
+fig, ax = plt.subplots(figsize=(12, 5))
+ax.bar(df.index, df["cases"], alpha=0.3, label="Daily cases", color="steelblue")
+ax.plot(df.index, df["cases_7d"], color="red", linewidth=2, label="7-day average")
+ax.plot(df.index, df["cases_14d"], color="darkgreen", linewidth=2, label="14-day average")
+ax.set_xlabel("Date")
+ax.set_ylabel("Malaria cases")
+ax.set_title("Daily malaria cases with rolling averages")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{pythontip}
+The \texttt{window} parameter sets the number of days to average over. A 7-day window removes day-of-week effects; a 14-day window smooths more aggressively. Choose based on how noisy your data is.
+\end{pythontip}
+
+\subsection{Trend decomposition}
+
+The \texttt{statsmodels} library can decompose a time series into trend, seasonal, and residual components:
+
+\begin{minted}{python}
+from statsmodels.tsa.seasonal import seasonal_decompose
+
+result = seasonal_decompose(df["cases"], model="additive", period=30)
+
+fig, axes = plt.subplots(4, 1, figsize=(12, 10), sharex=True)
+result.observed.plot(ax=axes[0], title="Observed")
+result.trend.plot(ax=axes[1], title="Trend")
+result.seasonal.plot(ax=axes[2], title="Seasonal")
+result.resid.plot(ax=axes[3], title="Residual")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{warningbox}
+The \texttt{period} parameter must match the expected cycle length. For daily data with monthly seasonality, use \texttt{period=30}. For weekly data with annual seasonality, use \texttt{period=52}. A wrong period will produce misleading decompositions.
+\end{warningbox}
+
+% ============================================================
+\section{COVID-19 case curves}
+
+\subsection{Loading JHU data}
+
+The Johns Hopkins University CSSE COVID-19 dataset is one of the most cited public health datasets in history:
+
+\begin{minted}{python}
+# JHU CSSE COVID-19 confirmed cases (global, time series)
+url = ("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/"
+       "master/csse_covid_19_data/csse_covid_19_time_series/"
+       "time_series_covid19_confirmed_global.csv")
+confirmed = pd.read_csv(url)
+print(f"Shape: {confirmed.shape}")
+confirmed.head()
+\end{minted}
+
+\subsection{Reshaping wide to long format}
+
+The JHU data is in wide format (one column per date). We need to reshape it:
+
+\begin{minted}{python}
+# Focus on 5 African countries
+countries = ["South Africa", "Nigeria", "Kenya", "Egypt", "Morocco"]
+africa = confirmed[confirmed["Country/Region"].isin(countries)]
+
+# Group by country (some countries have province-level rows)
+africa = africa.groupby("Country/Region").sum(numeric_only=True)
+africa = africa.drop(columns=["Lat", "Long"], errors="ignore")
+
+# Reshape: wide -> long
+africa_long = africa.T
+africa_long.index = pd.to_datetime(africa_long.index)
+africa_long.index.name = "date"
+africa_long.head()
+\end{minted}
+
+\subsection{Computing daily cases and 7-day averages}
+
+\begin{minted}{python}
+# Cumulative -> daily new cases
+daily = africa_long.diff().clip(lower=0)  # clip removes negative corrections
+
+# 7-day rolling average
+daily_7d = daily.rolling(7).mean()
+
+# Plot
+fig, ax = plt.subplots(figsize=(14, 6))
+for country in countries:
+    ax.plot(daily_7d.index, daily_7d[country], linewidth=2, label=country)
+ax.set_xlabel("Date")
+ax.set_ylabel("Daily new cases (7-day average)")
+ax.set_title("COVID-19 daily cases in 5 African countries")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{clinicalnote}
+The \texttt{.diff()} method converts cumulative counts to daily increments. Negative values occasionally appear because of data corrections (e.g., a country revises its total downward). Clipping at zero is the standard approach, though it slightly inflates subsequent days.
+\end{clinicalnote}
+
+% ============================================================
+\section{Introduction to geospatial data}
+
+Geospatial data links measurements to locations on Earth. Two common formats:
+
+\begin{itemize}
+  \item \textbf{Shapefiles} (\texttt{.shp}) --- the traditional GIS format. A shapefile is actually a set of files (\texttt{.shp}, \texttt{.shx}, \texttt{.dbf}, \texttt{.prj}) that together define polygon geometries and attributes.
+  \item \textbf{GeoJSON} (\texttt{.geojson}) --- a single JSON file. Easier to share, read, and use on the web.
+\end{itemize}
+
+Both formats store \emph{geometries} (country borders, district boundaries, hospital point locations) and \emph{attributes} (population, case count, mortality rate) in the same structure.
+
+% ============================================================
+\section{geopandas for disease mapping}
+
+\texttt{geopandas} extends pandas with spatial capabilities. A \texttt{GeoDataFrame} is a DataFrame with a special \texttt{geometry} column that holds shapes.
+
+\subsection{Installation}
+
+\begin{minted}{python}
+# In Google Colab or local environment
+!pip install geopandas mapclassify
+\end{minted}
+
+\subsection{Loading a world map}
+
+\begin{minted}{python}
+import geopandas as gpd
+
+# Natural Earth dataset (built into geopandas)
+world = gpd.read_file(gpd.datasets.get_path("naturalearth_lowres"))
+print(f"Columns: {world.columns.tolist()}")
+print(f"CRS: {world.crs}")  # Coordinate Reference System
+world.head()
+\end{minted}
+
+\subsection{Choropleth maps}
+
+A \emph{choropleth} map colors regions according to a variable. This is the standard tool for mapping disease burden by country or district:
+
+\begin{minted}{python}
+# Filter to Africa
+africa_map = world[world["continent"] == "Africa"].copy()
+
+# Plot population estimate
+fig, ax = plt.subplots(figsize=(10, 10))
+africa_map.plot(column="pop_est", cmap="YlOrRd", legend=True,
+                legend_kwds={"label": "Population", "shrink": 0.6},
+                edgecolor="black", linewidth=0.5, ax=ax)
+ax.set_title("Population estimates in African countries")
+ax.set_axis_off()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{pythontip}
+Good colormaps for health data: \texttt{"YlOrRd"} (sequential, low-to-high severity), \texttt{"RdYlGn\_r"} (diverging, red = bad, green = good), \texttt{"Blues"} (sequential, neutral). Avoid rainbow colormaps (\texttt{"jet"}) --- they mislead the eye.
+\end{pythontip}
+
+% ============================================================
+\section{Mapping malaria prevalence by African country}
+
+Let us combine real health data with geospatial plotting. We will use the WHO Global Health Observatory malaria incidence data:
+
+\begin{minted}{python}
+# WHO GHO: Estimated malaria incidence (per 1000 population at risk)
+url = "https://apps.who.int/gho/athena/api/GHO/MALARIA_INCIDENCE?format=csv"
+malaria = pd.read_csv(url)
+print(malaria.columns.tolist())
+malaria.head()
+\end{minted}
+
+\begin{minted}{python}
+# Filter to most recent year and country-level data
+latest_year = malaria["YEAR (DISPLAY)"].max()
+malaria_latest = malaria[malaria["YEAR (DISPLAY)"] == latest_year].copy()
+
+# Keep relevant columns
+malaria_latest = malaria_latest[["COUNTRY (DISPLAY)", "Numeric"]].copy()
+malaria_latest.columns = ["country", "incidence_per_1000"]
+malaria_latest.head()
+\end{minted}
+
+\begin{minted}{python}
+# Merge with Africa map
+# Match country names (some need manual fixing)
+name_map = {
+    "United Republic of Tanzania": "Tanzania",
+    "Democratic Republic of the Congo": "Dem. Rep. Congo",
+    "Central African Republic": "Central African Rep.",
+    "South Sudan": "S. Sudan",
+    "Côte d'Ivoire": "Côte d'Ivoire",
+    "Equatorial Guinea": "Eq. Guinea",
+}
+malaria_latest["country"] = malaria_latest["country"].replace(name_map)
+
+africa_malaria = africa_map.merge(malaria_latest, left_on="name",
+                                   right_on="country", how="left")
+\end{minted}
+
+\begin{minted}{python}
+fig, ax = plt.subplots(figsize=(10, 10))
+africa_malaria.plot(column="incidence_per_1000", cmap="YlOrRd",
+                     legend=True, missing_kwds={"color": "lightgrey"},
+                     legend_kwds={"label": "Incidence per 1,000",
+                                  "shrink": 0.6},
+                     edgecolor="black", linewidth=0.5, ax=ax)
+ax.set_title(f"Malaria incidence in Africa ({latest_year})")
+ax.set_axis_off()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{clinicalnote}
+The malaria burden in sub-Saharan Africa accounts for approximately 95\% of global malaria deaths. Choropleth maps immediately reveal the geographic concentration and help target intervention programs such as insecticide-treated nets (ITNs) and indoor residual spraying (IRS).
+\end{clinicalnote}
+
+% ============================================================
+\section{Combining temporal and spatial analysis}
+
+\subsection{Small multiples: one map per time period}
+
+A practical alternative to animation is the \emph{small multiples} approach --- one map per time period side by side:
+
+\begin{minted}{python}
+# Example: COVID-19 cumulative cases per country at 3 time points
+dates_to_plot = ["2020-06-01", "2021-01-01", "2021-06-01"]
+
+fig, axes = plt.subplots(1, 3, figsize=(18, 7))
+for ax, date_str in zip(axes, dates_to_plot):
+    date_col = pd.to_datetime(date_str).strftime("%-m/%-d/%y")
+    if date_col in africa.columns:
+        data_col = africa[date_col]
+    else:
+        # Find nearest date
+        all_dates = pd.to_datetime(africa.columns, errors="coerce")
+        nearest = all_dates[all_dates <= pd.to_datetime(date_str)][-1]
+        data_col = africa[nearest.strftime("%-m/%-d/%y")]
+
+    temp = africa_map.copy()
+    temp = temp.merge(data_col.reset_index(), left_on="name",
+                       right_on="Country/Region", how="left")
+    temp.plot(column=data_col.name, cmap="Reds", legend=True,
+              edgecolor="black", linewidth=0.5, ax=ax,
+              missing_kwds={"color": "lightgrey"})
+    ax.set_title(date_str)
+    ax.set_axis_off()
+
+plt.suptitle("COVID-19 cumulative cases in Africa", fontsize=14)
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\subsection{Animated maps (optional advanced)}
+
+For presentations, animated GIFs can show epidemic spread over time. The idea: create one frame per time step, then combine with \texttt{imageio} or \texttt{matplotlib.animation}:
+
+\begin{minted}{python}
+import matplotlib.animation as animation
+
+fig, ax = plt.subplots(figsize=(10, 10))
+
+def update(frame_date):
+    ax.clear()
+    # Merge case data for this date with the map
+    temp = africa_map.copy()
+    # ... merge logic similar to above ...
+    temp.plot(column="cases", cmap="Reds", ax=ax, edgecolor="black",
+              linewidth=0.5, missing_kwds={"color": "lightgrey"},
+              vmin=0, vmax=max_cases)
+    ax.set_title(f"COVID-19 cases — {frame_date}")
+    ax.set_axis_off()
+
+# Create animation (one frame per month)
+# ani = animation.FuncAnimation(fig, update, frames=monthly_dates,
+#                                interval=500)
+# ani.save("covid_africa.gif", writer="pillow")
+\end{minted}
+
+\begin{warningbox}
+Animated maps are visually impressive but can be hard to interpret scientifically. For publication, small multiples or static snapshots with a time slider (in a dashboard) are preferred. Use animations for presentations and communication with the public.
+\end{warningbox}
+
+% ============================================================
+\section{Practical: COVID-19 dashboard for 5 African countries}
+
+\begin{exercise}
+Build a multi-panel COVID-19 dashboard for South Africa, Nigeria, Kenya, Egypt, and Morocco. Your dashboard should have four panels:
+
+\textbf{Panel 1 --- Confirmed cases over time.}
+\begin{enumerate}
+  \item Load the JHU CSSE time series data for confirmed cases:\\
+  \url{https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv}
+  \item Filter to the 5 countries. Compute daily new cases and 7-day rolling averages.
+  \item Plot all 5 countries on one axis with a legend.
+\end{enumerate}
+
+\textbf{Panel 2 --- Deaths over time.}
+\begin{enumerate}
+  \item Load the JHU deaths time series:\\
+  \url{https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv}
+  \item Compute daily deaths (7-day average) and plot.
+\end{enumerate}
+
+\textbf{Panel 3 --- Vaccination progress.}
+\begin{enumerate}
+  \item Load the Our World in Data vaccination dataset:\\
+  \url{https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/vaccinations/vaccinations.csv}
+  \item Filter to the 5 countries. Plot \texttt{people\_fully\_vaccinated\_per\_hundred} over time.
+\end{enumerate}
+
+\textbf{Panel 4 --- Choropleth map.}
+\begin{enumerate}
+  \item Using \texttt{geopandas}, create a choropleth of total confirmed cases (or cases per million) across all African countries at the latest available date.
+  \item Highlight the 5 focus countries with thicker borders.
+\end{enumerate}
+
+\textbf{Layout:}
+\begin{minted}{python}
+fig, axes = plt.subplots(2, 2, figsize=(18, 14))
+# axes[0, 0] -> Panel 1: Cases
+# axes[0, 1] -> Panel 2: Deaths
+# axes[1, 0] -> Panel 3: Vaccination
+# axes[1, 1] -> Panel 4: Choropleth map
+\end{minted}
+
+\textbf{Bonus:}
+\begin{itemize}
+  \item Add a table below the figure showing summary statistics for each country: total cases, total deaths, case fatality rate (\%), vaccination coverage (\%).
+  \item Normalize cases and deaths per 100\,000 population to allow fair comparison.
+\end{itemize}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Health time series have three components: trend, seasonality, and noise.
+  \item Rolling averages (\texttt{.rolling()}) smooth daily fluctuations; \texttt{seasonal\_decompose()} separates components formally.
+  \item The JHU CSSE dataset provides global COVID-19 case, death, and recovery time series. Use \texttt{.diff()} to convert cumulative counts to daily new cases.
+  \item Geospatial data comes in shapefiles (\texttt{.shp}) or GeoJSON (\texttt{.geojson}). \texttt{geopandas} reads both.
+  \item Choropleth maps color regions by a health variable --- use \texttt{.plot(column=...)} with an appropriate colormap.
+  \item Merging health data with map data requires matching country names --- always check for mismatches.
+  \item Small multiples (one map per time period) are more scientifically rigorous than animations.
+\end{itemize}

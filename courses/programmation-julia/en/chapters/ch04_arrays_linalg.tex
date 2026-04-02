@@ -1,0 +1,306 @@
+\chapter{Arrays and linear algebra}
+\label{ch:arrays-linalg}
+
+\begin{quote}
+\emph{``In Julia, arrays are not a library feature. They are a language feature, and everything is built to make them fast.''}
+\end{quote}
+
+% ============================================================
+\section{Creating arrays}
+
+\begin{minted}{julia}
+# 1D arrays (vectors)
+v = [1, 2, 3, 4, 5]          # Vector{Int64}
+w = [1.0, 2.0, 3.0]          # Vector{Float64}
+mixed = Any[1, "two", 3.0]   # Vector{Any} — avoid for performance
+
+# Ranges (lazy, no memory allocation)
+r = 1:10                     # UnitRange
+r2 = 0.0:0.1:1.0             # StepRangeLen
+collect(1:5)                  # [1, 2, 3, 4, 5]
+
+# Constructor functions
+zeros(5)                      # [0.0, 0.0, 0.0, 0.0, 0.0]
+ones(3)                       # [1.0, 1.0, 1.0]
+fill(42, 5)                   # [42, 42, 42, 42, 42]
+rand(5)                       # 5 uniform random numbers in [0,1)
+randn(5)                      # 5 standard normal random numbers
+collect(range(0, 1, length=11))  # 11 equally spaced points
+\end{minted}
+
+% ============================================================
+\section{2D arrays (matrices)}
+
+\begin{minted}{julia}
+# Row elements separated by spaces, rows by semicolons
+A = [1 2 3; 4 5 6; 7 8 9]    # 3×3 Matrix{Int64}
+
+# Or with newlines
+B = [1.0 2.0
+     3.0 4.0]                 # 2×2 Matrix{Float64}
+
+# Constructor functions
+zeros(3, 4)                    # 3×4 zero matrix
+ones(2, 3)                     # 2×3 ones matrix
+rand(3, 3)                     # 3×3 random matrix
+Matrix{Float64}(I, 3, 3)      # 3×3 identity (need: using LinearAlgebra)
+
+# Useful constructors
+diagm([1, 2, 3])               # 3×3 diagonal matrix
+reshape(1:12, 3, 4)            # 3×4 matrix filled column-major
+
+# Properties
+size(A)                        # (3, 3)
+size(A, 1)                     # 3 (rows)
+ndims(A)                       # 2
+length(A)                      # 9 (total elements)
+eltype(A)                      # Int64
+\end{minted}
+
+% ============================================================
+\section{Indexing and slicing}
+
+\begin{minted}{julia}
+A = [10 20 30; 40 50 60; 70 80 90]
+
+# Single element
+A[2, 3]              # 60 (row 2, column 3)
+A[1]                 # 10 (linear index, column-major order)
+
+# Slices (views into the array)
+A[1, :]              # [10, 20, 30]   — first row
+A[:, 2]              # [20, 50, 80]   — second column
+A[1:2, 2:3]          # [20 30; 50 60] — submatrix
+
+# Logical indexing
+v = [3, 1, 4, 1, 5, 9, 2, 6]
+v[v .> 3]            # [4, 5, 9, 6]
+
+# Views (no copy — alias to original memory)
+v_sub = @view A[1:2, :]
+v_sub[1, 1] = 999    # modifies A!
+
+# findall, findfirst
+findall(x -> x > 50, A)   # CartesianIndex array
+findfirst(x -> x > 50, A) # CartesianIndex(3, 1) → value 70
+\end{minted}
+
+\begin{performancetip}
+Slicing with \texttt{A[1:2, :]} allocates a new array. Use \texttt{@view A[1:2, :]} or the macro \texttt{@views} before a block of code to avoid allocations. In hot loops, views can dramatically reduce memory pressure.
+\end{performancetip}
+
+% ============================================================
+\section{Broadcasting: the dot syntax}
+
+Broadcasting applies an operation element-wise, automatically expanding dimensions:
+
+\begin{minted}{julia}
+# Element-wise operations with dot
+a = [1, 2, 3]
+b = [10, 20, 30]
+
+a .+ b               # [11, 22, 33]
+a .* b               # [10, 40, 90]
+a .^ 2               # [1, 4, 9]
+sin.(a)              # [sin(1), sin(2), sin(3)]
+
+# Broadcasting a scalar
+a .+ 10              # [11, 12, 13]
+
+# Fused broadcasting with @. (one allocation for the whole expression)
+@. result = sin(a) + cos(b) * a^2
+
+# Broadcasting with matrices
+A = [1 2; 3 4]
+v = [10, 20]
+
+A .+ v               # adds v to each column
+A .+ v'              # adds v' to each row (v' is a 1×2 matrix)
+
+# Comparison broadcasting
+A .> 2               # [false false; true true]
+\end{minted}
+
+\begin{juliatip}
+The \texttt{@.} macro adds dots to every function call and operator in the expression. So \texttt{@. y = sin(x) + cos(x)\^{}2} becomes \texttt{y .= sin.(x) .+ cos.(x).\^{}2}, which fuses into a single loop with one allocation.
+\end{juliatip}
+
+% ============================================================
+\section{Common array operations}
+
+\begin{minted}{julia}
+v = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3]
+
+# Aggregation
+sum(v)                  # 39
+prod(v)                 # 32400
+minimum(v), maximum(v)  # (1, 9)
+extrema(v)              # (1, 9)
+mean(v)                 # 3.9 (need: using Statistics)
+std(v)                  # standard deviation
+
+# Sorting
+sort(v)                 # sorted copy
+sort!(v)                # in-place sort
+sortperm(v)             # indices that would sort v
+
+# Searching
+in(5, v)                # true (or: 5 ∈ v)
+count(isodd, v)         # number of odd elements
+any(x -> x > 8, v)     # true
+all(x -> x > 0, v)     # true
+
+# Mutation
+push!(v, 99)            # append
+pop!(v)                 # remove last
+pushfirst!(v, 0)        # prepend
+deleteat!(v, 3)         # remove element at index 3
+append!(v, [10, 20])    # concatenate
+
+# Concatenation
+vcat([1, 2], [3, 4])    # [1, 2, 3, 4]
+hcat([1, 2], [3, 4])    # [1 3; 2 4]
+\end{minted}
+
+% ============================================================
+\section{Linear algebra}
+
+\begin{minted}{julia}
+using LinearAlgebra
+
+A = [4.0 1.0; 2.0 3.0]
+b = [1.0, 2.0]
+
+# Basic operations
+A'                      # conjugate transpose (adjoint)
+transpose(A)            # transpose (no conjugation)
+det(A)                  # determinant: 10.0
+tr(A)                   # trace: 7.0
+inv(A)                  # inverse (avoid — use \ instead)
+rank(A)                 # 2
+
+# Solving linear systems: Ax = b
+x = A \ b               # much faster and more stable than inv(A) * b
+A * x ≈ b               # true (≈ is \approx + Tab)
+
+# Eigenvalues and eigenvectors
+vals, vecs = eigen(A)
+vals                     # eigenvalues
+vecs                     # eigenvectors (columns)
+
+# SVD
+U, S, V = svd(A)
+
+# Norms
+norm(b)                  # Euclidean norm (L2)
+norm(b, 1)               # L1 norm
+norm(b, Inf)             # infinity norm
+norm(A)                  # operator norm (largest singular value)
+
+# Dot product and cross product
+dot([1, 2, 3], [4, 5, 6])    # 32
+cross([1, 0, 0], [0, 1, 0])  # [0, 0, 1]
+
+# Special matrix types (Julia optimizes operations for these)
+D = Diagonal([1, 2, 3])      # Diagonal matrix
+S = Symmetric(A)              # Symmetric wrapper
+U = UpperTriangular(A)        # Upper triangular
+\end{minted}
+
+\begin{warningbox}
+Never compute \texttt{inv(A) * b}. Always use \texttt{A \textbackslash{} b}. The backslash operator automatically selects the most efficient and numerically stable algorithm (LU, Cholesky, QR, etc.) based on the matrix structure.
+\end{warningbox}
+
+% ============================================================
+\section{Matrix factorizations}
+
+\begin{minted}{julia}
+using LinearAlgebra
+
+A = rand(5, 5)
+A = A + A'  # make symmetric positive definite (approximately)
+A += 5I     # add 5 to diagonal to ensure positive definiteness
+
+# LU factorization
+F = lu(A)
+F.L          # lower triangular
+F.U          # upper triangular
+F.p          # permutation vector
+F.L * F.U ≈ A[F.p, :]   # true
+
+# Cholesky factorization (for symmetric positive definite)
+C = cholesky(A)
+C.L          # lower triangular factor
+C.L * C.L' ≈ A   # true
+
+# QR factorization
+Q, R = qr(A)
+
+# Solve with factorizations (efficient for multiple right-hand sides)
+F = lu(A)
+x1 = F \ b1    # reuses the factorization
+x2 = F \ b2
+\end{minted}
+
+% ============================================================
+\section{Sparse arrays}
+
+\begin{minted}{julia}
+using SparseArrays
+
+# Create sparse matrices
+S = sparse([1, 2, 3, 1], [1, 2, 3, 3], [10, 20, 30, 5], 3, 3)
+# 3×3 SparseMatrixCSC with 4 stored entries:
+#  [1, 1]  =  10
+#  [2, 2]  =  20
+#  [1, 3]  =  5
+#  [3, 3]  =  30
+
+# Convert dense to sparse
+A_dense = [1 0 0; 0 2 0; 0 0 3]
+A_sparse = sparse(A_dense)
+
+# Sparse identity
+I_sparse = spdiagm(0 => ones(1000))
+
+# Memory comparison
+A_dense = zeros(1000, 1000)
+A_dense[1,1] = 1.0; A_dense[500,500] = 2.0; A_dense[1000,1000] = 3.0
+A_sparse = sparse(A_dense)
+
+Base.summarysize(A_dense)    # ~8 MB
+Base.summarysize(A_sparse)   # ~80 bytes (only nonzeros stored)
+
+# Operations work the same
+b = rand(1000)
+x_dense = A_dense \ b
+x_sparse = A_sparse \ b     # much faster for large sparse systems
+\end{minted}
+
+\begin{performancetip}
+For large systems with few nonzero entries per row (finite elements, graphs, PDEs), sparse matrices can be thousands of times faster than dense ones. Always check the sparsity pattern of your problem.
+\end{performancetip}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Create a 10-element vector of random integers between 1 and 100. Compute the mean, median, and standard deviation.
+  \item Generate a $5 \times 5$ random matrix $A$, a vector $b$ of length 5, and solve $Ax = b$. Verify that $\|Ax - b\| < 10^{-10}$.
+  \item Use broadcasting to compute $\sin^2(x) + \cos^2(x)$ for $x \in \{0, 0.1, 0.2, \ldots, 2\pi\}$ and verify the result is always 1 (up to floating-point precision).
+  \item Create a $1000 \times 1000$ tridiagonal matrix using \texttt{spdiagm} and solve a linear system with it. Compare the time with a dense solve.
+  \item Implement the power iteration algorithm to find the dominant eigenvalue of a matrix. Compare with \texttt{eigen()}.
+  \item Use comprehensions to build the $n \times n$ Hilbert matrix $H_{ij} = \frac{1}{i + j - 1}$. Compute its condition number with \texttt{cond(H)} for $n = 5, 10, 15, 20$. Why does it grow?
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Julia arrays are column-major and 1-indexed.
+  \item Broadcasting (dot syntax) fuses element-wise operations into efficient loops.
+  \item Use \texttt{@view} to avoid allocations when slicing.
+  \item LinearAlgebra provides \texttt{eigen}, \texttt{svd}, \texttt{lu}, \texttt{cholesky}, \texttt{qr}, and the backslash solver.
+  \item Always use \texttt{A \textbackslash{} b} instead of \texttt{inv(A) * b}.
+  \item SparseArrays store only nonzero entries, enabling efficient operations on large sparse systems.
+  \item Special matrix types (Diagonal, Symmetric, Triangular) trigger optimized algorithms automatically.
+\end{itemize}

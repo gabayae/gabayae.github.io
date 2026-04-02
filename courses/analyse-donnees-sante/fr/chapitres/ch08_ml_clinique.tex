@@ -1,0 +1,446 @@
+\chapter{Apprentissage automatique pour la pr\'ediction clinique}
+\label{ch:ml-clinique}
+
+\begin{quote}
+\emph{<<\,Un mod\`ele qui fonctionne parfaitement sur vos donn\'ees d'entra\^inement et \'echoue sur le patient suivant n'est pas un mod\`ele --- c'est un souvenir.\,>>}
+\end{quote}
+
+% ============================================================
+\section{Quand utiliser l'AA vs les statistiques traditionnelles}
+
+L'apprentissage automatique (AA) et les statistiques traditionnelles r\'epondent \`a des questions diff\'erentes :
+
+\begin{itemize}
+  \item \textbf{Statistiques traditionnelles} (r\'egression, tests $t$) : <<\,Quels facteurs de risque sont associ\'es aux maladies cardiaques, et dans quelle mesure ?\,>> L'objectif est l'\emph{inf\'erence} --- comprendre les relations.
+  \item \textbf{Apprentissage automatique} : <<\,Etant donn\'e les donn\'ees de ce patient, quelle est sa probabilit\'e de maladie cardiaque ?\,>> L'objectif est la \emph{pr\'ediction} --- la pr\'ecision sur de nouveaux patients.
+\end{itemize}
+
+\begin{clinicalnote}
+Utilisez la r\'egression logistique quand vous devez expliquer le \emph{pourquoi} (rapports des cotes, intervalles de confiance, valeurs $p$ pour chaque facteur de risque). Utilisez l'AA quand vous avez besoin de la meilleure \emph{pr\'ediction} possible et que l'interpr\'etabilit\'e est secondaire. En pratique, de nombreuses \'etudes cliniques utilisent les deux : la r\'egression pour comprendre la biologie, l'AA pour construire l'outil de d\'epistage.
+\end{clinicalnote}
+
+\subsection{Quand NE PAS utiliser l'AA}
+
+\begin{itemize}
+  \item Petits jeux de donn\'ees ($< 200$ patients) : l'AA sur-ajuste facilement. Restez avec la r\'egression logistique.
+  \item Quand vous avez besoin d'une approbation r\'eglementaire : la FDA exige des mod\`eles interpr\'etables pour la plupart des outils d'aide \`a la d\'ecision clinique.
+  \item Quand une r\`egle simple fonctionne : si <<\,glyc\'emie $> 126$\,>> classe correctement 90\,\% des diab\'etiques, vous n'avez pas besoin d'une for\^et al\'eatoire.
+\end{itemize}
+
+\begin{minted}{python}
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import (classification_report, confusion_matrix,
+                             roc_curve, roc_auc_score, RocCurveDisplay)
+\end{minted}
+
+% ============================================================
+\section{Chargement des donn\'ees cliniques}
+
+Nous utilisons le jeu de donn\'ees UCI Heart Disease --- un benchmark classique en AA clinique.
+
+\begin{minted}{python}
+# Jeu de donnees UCI Heart Disease
+url = ("https://raw.githubusercontent.com/raphaelfontenelle/"
+       "heart-disease-uci/main/heart.csv")
+heart = pd.read_csv(url)
+print(f"Dimensions : {heart.shape}")
+print(f"Prevalence de maladie cardiaque : {heart['target'].mean():.1%}")
+heart.head()
+\end{minted}
+
+\begin{minted}{python}
+# Descriptions des colonnes
+column_info = {
+    "age": "Age en annees",
+    "sex": "1 = homme, 0 = femme",
+    "cp": "Type de douleur thoracique (0-3)",
+    "trestbps": "Pression arterielle au repos (mmHg)",
+    "chol": "Cholesterol serique (mg/dL)",
+    "fbs": "Glycemie a jeun > 120 mg/dL (1 = vrai)",
+    "restecg": "Resultats ECG au repos (0-2)",
+    "thalach": "Frequence cardiaque maximale atteinte",
+    "exang": "Angor induit par l'exercice (1 = oui)",
+    "oldpeak": "Depression ST induite par l'exercice",
+    "slope": "Pente du segment ST au pic d'exercice",
+    "ca": "Nombre de vaisseaux principaux colores par fluoroscopie (0-3)",
+    "thal": "Thalassemie (1 = normal, 2 = defaut fixe, 3 = reversible)",
+    "target": "Maladie cardiaque (1 = oui, 0 = non)"
+}
+for col, desc in column_info.items():
+    print(f"  {col:12s} : {desc}")
+\end{minted}
+
+% ============================================================
+\section{S\'eparation entra\^inement/test et validation crois\'ee}
+
+\subsection{Pourquoi s\'eparer les donn\'ees ?}
+
+Si vous entra\^inez un mod\`ele sur toutes vos donn\'ees puis l'\'evaluez sur les m\^emes donn\'ees, l'exactitude est trompeusement \'elev\'ee. Le mod\`ele a <<\,vu les r\'eponses\,>>. Pour estimer la performance en conditions r\'eelles, vous devez \'evaluer sur des donn\'ees que le mod\`ele n'a \emph{jamais vues}.
+
+\begin{minted}{python}
+# Definir les variables et la cible
+feature_cols = ["age", "sex", "cp", "trestbps", "chol", "fbs",
+                "restecg", "thalach", "exang", "oldpeak", "slope", "ca", "thal"]
+X = heart[feature_cols]
+y = heart["target"]
+
+# Separation 70/30 (stratifiee pour preserver l'equilibre des classes)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42, stratify=y
+)
+print(f"Ensemble d'entrainement : {X_train.shape[0]} patients")
+print(f"Ensemble de test :        {X_test.shape[0]} patients")
+print(f"Prevalence entrainement : {y_train.mean():.1%}")
+print(f"Prevalence test :         {y_test.mean():.1%}")
+\end{minted}
+
+\subsection{Validation crois\'ee}
+
+Une seule s\'eparation entra\^inement/test peut \^etre chanceuse ou malchanceuse. La validation crois\'ee (VC) fournit une estimation plus robuste en faisant tourner l'ensemble de test :
+
+\begin{minted}{python}
+# Validation croisee a 5 plis avec regression logistique
+lr = LogisticRegression(max_iter=1000, random_state=42)
+cv_scores = cross_val_score(lr, X, y, cv=5, scoring="accuracy")
+print(f"Exactitude VC : {cv_scores.mean():.3f} +/- {cv_scores.std():.3f}")
+print(f"Par pli : {cv_scores.round(3)}")
+\end{minted}
+
+\begin{warningbox}
+N'utilisez jamais les r\'esultats du test pour choisir votre mod\`ele ou ajuster les hyperparam\`etres. L'ensemble de test ne doit \^etre utilis\'e qu'\textbf{une seule fois}, \`a la toute fin. Si vous consultez les r\'esultats du test pendant la s\'election du mod\`ele, vous entra\^inez effectivement sur l'ensemble de test.
+\end{warningbox}
+
+% ============================================================
+\section{Arbres de d\'ecision}
+
+Un arbre de d\'ecision s\'epare les patients en groupes \`a l'aide de questions oui/non, formant un organigramme que les cliniciens peuvent suivre.
+
+\begin{minted}{python}
+# Ajuster un arbre de decision
+dt = DecisionTreeClassifier(max_depth=4, random_state=42)
+dt.fit(X_train, y_train)
+
+# Evaluer
+y_pred_dt = dt.predict(X_test)
+print("Resultats de l'arbre de decision :")
+print(classification_report(y_test, y_pred_dt,
+                            target_names=["Pas de maladie", "Maladie"]))
+\end{minted}
+
+\begin{minted}{python}
+# Visualiser l'arbre
+fig, ax = plt.subplots(figsize=(20, 10))
+plot_tree(dt, feature_names=feature_cols,
+          class_names=["Pas de maladie", "Maladie"],
+          filled=True, rounded=True, fontsize=9, ax=ax)
+plt.title("Arbre de decision pour la prediction de maladie cardiaque")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{clinicalnote}
+Les arbres de d\'ecision sont populaires en m\'edecine d'urgence car ils produisent des \emph{r\`egles de d\'ecision clinique} --- des organigrammes simples qu'un m\'edecin peut suivre au chevet du patient sans ordinateur. Le score HEART, les crit\`eres de Wells et les r\`egles d'Ottawa pour la cheville sont tous conceptuellement similaires aux arbres de d\'ecision.
+\end{clinicalnote}
+
+\subsection{Le danger des arbres profonds}
+
+\begin{minted}{python}
+# Arbre sur-ajuste (pas de limite de profondeur)
+dt_overfit = DecisionTreeClassifier(random_state=42)  # pas de max_depth
+dt_overfit.fit(X_train, y_train)
+
+print(f"Exactitude entrainement (sur-ajuste) : {dt_overfit.score(X_train, y_train):.3f}")
+print(f"Exactitude test (sur-ajuste) :         {dt_overfit.score(X_test, y_test):.3f}")
+print(f"Exactitude entrainement (profondeur=4) : {dt.score(X_train, y_train):.3f}")
+print(f"Exactitude test (profondeur=4) :         {dt.score(X_test, y_test):.3f}")
+\end{minted}
+
+\begin{pythontip}
+Quand l'exactitude d'entra\^inement est bien sup\'erieure \`a celle du test, votre mod\`ele \textbf{sur-ajuste} --- il a m\'emoris\'e les donn\'ees d'entra\^inement au lieu d'apprendre des motifs g\'en\'eraux. Limitez la profondeur de l'arbre avec \texttt{max\_depth} ou exigez un nombre minimum d'\'echantillons par feuille avec \texttt{min\_samples\_leaf}.
+\end{pythontip}
+
+% ============================================================
+\section{For\^ets al\'eatoires}
+
+Une for\^et al\'eatoire combine des centaines d'arbres de d\'ecision, chacun entra\^in\'e sur un sous-ensemble al\'eatoire des donn\'ees et des variables. La pr\'ediction finale est le vote majoritaire.
+
+\begin{minted}{python}
+# Ajuster une foret aleatoire
+rf = RandomForestClassifier(n_estimators=200, max_depth=6,
+                            random_state=42, n_jobs=-1)
+rf.fit(X_train, y_train)
+
+y_pred_rf = rf.predict(X_test)
+print("Resultats de la foret aleatoire :")
+print(classification_report(y_test, y_pred_rf,
+                            target_names=["Pas de maladie", "Maladie"]))
+\end{minted}
+
+\begin{minted}{python}
+# Comparaison par validation croisee
+models = {
+    "Regression logistique": LogisticRegression(max_iter=1000, random_state=42),
+    "Arbre de decision (profondeur=4)": DecisionTreeClassifier(max_depth=4, random_state=42),
+    "Foret aleatoire": RandomForestClassifier(n_estimators=200, max_depth=6,
+                                              random_state=42, n_jobs=-1)
+}
+
+print("Exactitude VC a 5 plis :")
+for name, model in models.items():
+    scores = cross_val_score(model, X, y, cv=5, scoring="accuracy")
+    print(f"  {name:40s}: {scores.mean():.3f} +/- {scores.std():.3f}")
+\end{minted}
+
+% ============================================================
+\section{Courbes ROC et AUC}
+
+La courbe ROC (\emph{Receiver Operating Characteristic}) trace la sensibilit\'e en fonction de (1 -- sp\'ecificit\'e) pour tous les seuils de classification possibles. L'AUC (\emph{Area Under the Curve}) r\'esume la capacit\'e discriminante en un seul nombre.
+
+\begin{itemize}
+  \item AUC = 0,5 : pas mieux que le hasard.
+  \item AUC = 0,7--0,8 : discrimination acceptable.
+  \item AUC = 0,8--0,9 : excellente discrimination.
+  \item AUC $> 0{,}9$ : exceptionnelle (rare en pratique clinique).
+\end{itemize}
+
+\begin{minted}{python}
+# Obtenir les probabilites predites
+lr.fit(X_train, y_train)
+y_prob_lr = lr.predict_proba(X_test)[:, 1]
+y_prob_rf = rf.predict_proba(X_test)[:, 1]
+
+# Calculer les courbes ROC
+fpr_lr, tpr_lr, _ = roc_curve(y_test, y_prob_lr)
+fpr_rf, tpr_rf, _ = roc_curve(y_test, y_prob_rf)
+auc_lr = roc_auc_score(y_test, y_prob_lr)
+auc_rf = roc_auc_score(y_test, y_prob_rf)
+
+# Tracer
+fig, ax = plt.subplots(figsize=(7, 6))
+ax.plot(fpr_lr, tpr_lr, label=f"Regression logistique (AUC = {auc_lr:.3f})",
+        linewidth=2)
+ax.plot(fpr_rf, tpr_rf, label=f"Foret aleatoire (AUC = {auc_rf:.3f})",
+        linewidth=2)
+ax.plot([0, 1], [0, 1], "k--", alpha=0.5, label="Hasard (AUC = 0.500)")
+ax.set_xlabel("Taux de faux positifs (1 - Specificite)")
+ax.set_ylabel("Taux de vrais positifs (Sensibilite)")
+ax.set_title("Courbes ROC : prediction de maladie cardiaque")
+ax.legend(loc="lower right")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{clinicalnote}
+En pratique clinique, les courbes ROC servent \`a comparer des tests diagnostiques. Lors de l'\'evaluation d'un nouveau biomarqueur pour le sepsis, vous tracez sa courbe ROC par rapport aux biomarqueurs existants (CRP, procalcitonine). Le test avec l'AUC la plus \'elev\'ee a la meilleure capacit\'e discriminante globale.
+\end{clinicalnote}
+
+% ============================================================
+\section{Importance des variables}
+
+\textbf{Question :} Quels facteurs de risque comptent le plus pour pr\'edire la maladie cardiaque ?
+
+\begin{minted}{python}
+# Importance des variables de la foret aleatoire
+importances = rf.feature_importances_
+importance_df = pd.DataFrame({
+    "Feature": feature_cols,
+    "Importance": importances
+}).sort_values("Importance", ascending=True)
+
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.barh(importance_df["Feature"], importance_df["Importance"], color="steelblue")
+ax.set_xlabel("Importance des variables (Gini)")
+ax.set_title("Quels facteurs de risque predisent la maladie cardiaque ?")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Top 5 des variables
+print("Top 5 des variables les plus importantes :")
+for _, row in importance_df.tail(5).iloc[::-1].iterrows():
+    print(f"  {row['Feature']:12s}: {row['Importance']:.3f}")
+\end{minted}
+
+\begin{warningbox}
+L'importance des variables dans les for\^ets al\'eatoires indique quelles variables sont utiles pour la \emph{pr\'ediction}, pas quelles variables \emph{causent} le r\'esultat. Une variable peut \^etre importante pour la pr\'ediction parce qu'elle est un proxy d'autre chose. Ne confondez pas importance pr\'edictive et importance causale.
+\end{warningbox}
+
+% ============================================================
+\section{Calibration}
+
+Un mod\`ele dit <<\,ce patient a 70\,\% de risque de maladie cardiaque\,>>. Cela signifie-t-il que parmi tous les patients auxquels le mod\`ele attribue 70\,\%, environ 70\,\% ont effectivement la maladie ? Si oui, le mod\`ele est \textbf{bien calibr\'e}.
+
+\begin{minted}{python}
+from sklearn.calibration import calibration_curve
+
+# Graphique de calibration pour la foret aleatoire
+prob_true, prob_pred = calibration_curve(y_test, y_prob_rf, n_bins=8)
+
+fig, ax = plt.subplots(figsize=(6, 6))
+ax.plot(prob_pred, prob_true, "o-", linewidth=2, label="Foret aleatoire")
+ax.plot([0, 1], [0, 1], "k--", label="Calibration parfaite")
+ax.set_xlabel("Probabilite predite moyenne")
+ax.set_ylabel("Proportion observee")
+ax.set_title("Graphique de calibration")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Score de Brier : plus bas = meilleur (0 = parfait)
+from sklearn.metrics import brier_score_loss
+
+brier_lr = brier_score_loss(y_test, y_prob_lr)
+brier_rf = brier_score_loss(y_test, y_prob_rf)
+print(f"Score de Brier (Regression logistique) : {brier_lr:.4f}")
+print(f"Score de Brier (Foret aleatoire) :       {brier_rf:.4f}")
+\end{minted}
+
+\begin{clinicalnote}
+La calibration est essentielle dans les mod\`eles de pr\'ediction clinique. Si un calculateur de risque de diab\`ete dit \`a un patient <<\,vous avez 40\,\% de chances de d\'evelopper un diab\`ete dans 10 ans\,>>, ce chiffre doit \^etre exact --- il guide les d\'ecisions th\'erapeutiques. Le Framingham Risk Score et le QRISK sont r\'eguli\`erement recalibr\'es pour diff\'erentes populations.
+\end{clinicalnote}
+
+% ============================================================
+\section{Sur-ajustement : le danger des petits jeux de donn\'ees cliniques}
+
+\begin{minted}{python}
+# Demontrer le sur-ajustement avec des tailles de jeux de donnees variables
+train_sizes = [30, 50, 100, 150, 200, len(X_train)]
+results = []
+
+for size in train_sizes:
+    if size > len(X_train):
+        continue
+    X_sub = X_train.iloc[:size]
+    y_sub = y_train.iloc[:size]
+
+    rf_temp = RandomForestClassifier(n_estimators=100, random_state=42)
+    rf_temp.fit(X_sub, y_sub)
+
+    train_acc = rf_temp.score(X_sub, y_sub)
+    test_acc = rf_temp.score(X_test, y_test)
+    results.append({"n_train": size, "train_acc": train_acc, "test_acc": test_acc})
+
+results_df = pd.DataFrame(results)
+
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.plot(results_df["n_train"], results_df["train_acc"], "o-",
+        label="Exactitude entrainement", linewidth=2)
+ax.plot(results_df["n_train"], results_df["test_acc"], "s-",
+        label="Exactitude test", linewidth=2)
+ax.set_xlabel("Nombre de patients d'entrainement")
+ax.set_ylabel("Exactitude")
+ax.set_title("Courbe d'apprentissage : plus de donnees reduit le sur-ajustement")
+ax.legend()
+ax.set_ylim(0.5, 1.05)
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{pythontip}
+Signes de sur-ajustement : (1)~l'exactitude d'entra\^inement est bien sup\'erieure \`a celle du test, (2)~la performance varie fortement entre les plis de validation crois\'ee, (3)~ajouter des variables d\'egrade la performance sur le test. Le rem\`ede : plus de donn\'ees, mod\`eles plus simples, r\'egularisation ou validation crois\'ee pour la s\'election du mod\`ele.
+\end{pythontip}
+
+% ============================================================
+\section{Travaux pratiques : pipeline de pr\'ediction de maladie cardiaque}
+
+\begin{minted}{python}
+# Pipeline complet des donnees brutes au modele evalue
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+
+# Pipeline complet
+pipeline = Pipeline([
+    ("imputer", SimpleImputer(strategy="median")),
+    ("scaler", StandardScaler()),
+    ("classifier", RandomForestClassifier(n_estimators=200, max_depth=6,
+                                          random_state=42))
+])
+
+# Validation croisee du pipeline complet
+cv_scores = cross_val_score(pipeline, X, y, cv=5, scoring="roc_auc")
+print(f"AUC VC du pipeline : {cv_scores.mean():.3f} +/- {cv_scores.std():.3f}")
+
+# Ajustement final et evaluation
+pipeline.fit(X_train, y_train)
+y_prob_final = pipeline.predict_proba(X_test)[:, 1]
+y_pred_final = pipeline.predict(X_test)
+
+print(f"\nAUC test finale : {roc_auc_score(y_test, y_prob_final):.3f}")
+print(f"\n{classification_report(y_test, y_pred_final, target_names=['Pas de maladie', 'Maladie'])}")
+\end{minted}
+
+% ============================================================
+\section{\'Ethique : \'equit\'e dans les mod\`eles de pr\'ediction clinique}
+
+\begin{warningbox}
+Les mod\`eles de pr\'ediction clinique peuvent perp\'etuer et amplifier les in\'egalit\'es de sant\'e. Un mod\`ele entra\^in\'e principalement sur une population peut mal fonctionner sur une autre. Avant de d\'eployer tout mod\`ele d'AA clinique, demandez-vous :
+\begin{itemize}
+  \item \textbf{Qui figure dans les donn\'ees d'entra\^inement ?} Si 90\,\% des patients sont des hommes blancs, le mod\`ele peut ne pas fonctionner pour les femmes ou les groupes minoritaires.
+  \item \textbf{La performance diff\`ere-t-elle entre sous-groupes ?} V\'erifiez l'AUC, la sensibilit\'e et la sp\'ecificit\'e s\'epar\'ement par sexe, origine ethnique et groupe d'\'age.
+  \item \textbf{Quelles sont les cons\'equences des erreurs ?} Un faux n\'egatif pour le risque cardiaque chez une jeune femme est plus dangereux qu'un faux positif.
+  \item \textbf{Le mod\`ele est-il transparent ?} Les cliniciens et les patients m\'eritent de savoir comment une pr\'ediction a \'et\'e faite.
+\end{itemize}
+\end{warningbox}
+
+\begin{minted}{python}
+# Verifier la performance du modele par sexe
+for sex_val, sex_label in [(1, "Homme"), (0, "Femme")]:
+    mask = X_test["sex"] == sex_val
+    if mask.sum() < 10:
+        print(f"{sex_label}: trop peu d'echantillons ({mask.sum()})")
+        continue
+
+    auc_sub = roc_auc_score(y_test[mask], y_prob_final[mask])
+    sens = (y_pred_final[mask] == 1)[y_test[mask] == 1].mean()
+    spec = (y_pred_final[mask] == 0)[y_test[mask] == 0].mean()
+
+    print(f"{sex_label:8s}: AUC = {auc_sub:.3f}, "
+          f"Sensibilite = {sens:.3f}, Specificite = {spec:.3f}, "
+          f"n = {mask.sum()}")
+\end{minted}
+
+\begin{clinicalnote}
+En 2019, un algorithme commercial largement utilis\'e pour l'allocation des ressources de sant\'e s'est r\'ev\'el\'e biais\'e contre les patients noirs. L'algorithme utilisait les \emph{co\^uts} de sant\'e comme proxy des \emph{besoins} de sant\'e, mais comme les patients noirs avaient des co\^uts plus faibles en raison de barri\`eres syst\'emiques \`a l'acc\`es, l'algorithme sous-estimait syst\'ematiquement leurs besoins. Cela a affect\'e des millions de patients. La le\c{c}on : auditez toujours votre mod\`ele pour les disparit\'es.
+\end{clinicalnote}
+
+\begin{exercise}
+En utilisant le jeu de donn\'ees UCI Heart Disease :
+\begin{enumerate}
+  \item \textbf{Base de r\'ef\'erence.} Ajustez un mod\`ele de r\'egression logistique avec toutes les variables. Rapportez l'exactitude VC et l'AUC.
+  \item \textbf{Arbre de d\'ecision.} Ajustez un arbre de d\'ecision avec \texttt{max\_depth=3}. Visualisez l'arbre. Un clinicien peut-il suivre cette r\`egle de d\'ecision au chevet du patient ?
+  \item \textbf{For\^et al\'eatoire.} Ajustez une for\^et al\'eatoire avec 200 arbres. Comparez son AUC \`a la r\'egression logistique et \`a l'arbre de d\'ecision. L'am\'elioration vaut-elle la perte d'interpr\'etabilit\'e ?
+  \item \textbf{S\'election de variables.} Entra\^inez une for\^et al\'eatoire en utilisant uniquement les 5 variables les plus importantes. Comment la performance se compare-t-elle \`a l'utilisation des 13 variables ?
+  \item \textbf{Comparaison ROC.} Tracez les courbes ROC des trois mod\`eles sur la m\^eme figure. Quel mod\`ele choisiriez-vous pour un outil de d\'epistage ? Pour un test de confirmation ?
+  \item \textbf{Analyse des seuils.} Pour la for\^et al\'eatoire, tracez la sensibilit\'e et la sp\'ecificit\'e en fonction du seuil de classification (de 0 \`a 1). \`A quel seuil sont-elles \'egales ?
+  \item \textbf{Calibration.} Tracez les courbes de calibration pour la r\'egression logistique et la for\^et al\'eatoire. Quel mod\`ele est mieux calibr\'e ?
+  \item \textbf{Audit d'\'equit\'e.} Comparez l'AUC, la sensibilit\'e et la sp\'ecificit\'e entre patients masculins et f\'eminins. Y a-t-il des disparit\'es pr\'eoccupantes ? Qu'est-ce qui pourrait les expliquer ?
+  \item \textbf{D\'eploiement clinique.} R\'edigez un paragraphe (dans une cellule Markdown) d\'ecrivant comment vous valideriez ce mod\`ele avant de l'utiliser dans un v\'eritable h\^opital. Consid\'erez : la validation externe, les exigences r\'eglementaires, le flux de travail clinique et le consentement du patient.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Utilisez les statistiques traditionnelles (r\'egression) pour l'inf\'erence et l'AA pour la pr\'ediction.
+  \item S\'eparez toujours les donn\'ees en ensembles d'entra\^inement et de test. N'\'evaluez jamais sur les donn\'ees d'entra\^inement.
+  \item La validation crois\'ee donne des estimations de performance plus robustes qu'une seule s\'eparation.
+  \item Les arbres de d\'ecision sont interpr\'etables et adapt\'es aux cliniciens mais sujets au sur-ajustement.
+  \item Les for\^ets al\'eatoires am\'eliorent l'exactitude en agr\'egeant de nombreux arbres.
+  \item Les courbes ROC et l'AUC comparent la capacit\'e discriminante de diff\'erents mod\`eles.
+  \item L'importance des variables r\'ev\`ele quels facteurs de risque guident les pr\'edictions (mais pas la causalit\'e).
+  \item La calibration v\'erifie si les probabilit\'es pr\'edites correspondent aux r\'esultats observ\'es.
+  \item Le sur-ajustement est le danger central de l'AA sur les petits jeux de donn\'ees cliniques --- validez toujours.
+  \item Les audits d'\'equit\'e sont essentiels : v\'erifiez la performance du mod\`ele par sous-groupes d\'emographiques avant le d\'eploiement.
+\end{itemize}

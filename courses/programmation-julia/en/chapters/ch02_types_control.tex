@@ -1,0 +1,311 @@
+\chapter{Types, variables, and control flow}
+\label{ch:types-control}
+
+\begin{quote}
+\emph{``In Julia, types are not classes. They are tags that the compiler uses to generate fast code.''}
+\end{quote}
+
+% ============================================================
+\section{Primitive types}
+
+Julia has a rich hierarchy of numeric types:
+
+\begin{minted}{julia}
+# Integers
+x = 42              # Int64 (on 64-bit systems)
+y = Int32(42)       # explicitly 32-bit
+big = Int128(10)^30 # 128-bit integer
+huge = big"999999999999999999999999999999999"  # BigInt (arbitrary precision)
+
+typeof(x)           # Int64
+sizeof(x)           # 8 bytes
+
+# Floating-point
+a = 3.14            # Float64 (double precision)
+b = Float32(3.14)   # single precision
+c = BigFloat(π)     # arbitrary precision
+
+# Boolean
+flag = true         # Bool (subtype of Integer)
+flag + 1            # 2 — true is 1, false is 0
+
+# Characters and strings
+ch = 'α'            # Char (Unicode character, 4 bytes)
+s = "Hello, Julia"  # String (UTF-8 encoded)
+\end{minted}
+
+\begin{juliatip}
+Use \texttt{typeof(x)} to check any value's type. Use \texttt{supertypes(Int64)} to see the full type hierarchy: \texttt{Int64 <: Signed <: Integer <: Real <: Number <: Any}.
+\end{juliatip}
+
+% ============================================================
+\section{Variables and assignment}
+
+Variables in Julia are bindings to values, not typed boxes:
+
+\begin{minted}{julia}
+x = 10        # x refers to an Int64
+x = "hello"   # now x refers to a String — no error
+
+# Multiple assignment
+a, b, c = 1, 2.0, "three"
+
+# Swap without a temporary variable
+a, b = b, a
+
+# Constants — the compiler optimizes these
+const SPEED_OF_LIGHT = 299_792_458  # underscores for readability
+const π_approx = 355 // 113        # Rational{Int64}
+\end{minted}
+
+\begin{warningbox}
+Redefining a \texttt{const} raises a warning (not an error) if the new value has a different type. Use \texttt{const} for values that truly should not change.
+\end{warningbox}
+
+% ============================================================
+\section{The type hierarchy}
+
+Julia's type system is a tree rooted at \texttt{Any}:
+
+\begin{minted}{julia}
+# Abstract types — cannot be instantiated, used for dispatch
+abstract type Shape end
+
+# Concrete types — can be instantiated
+struct Circle <: Shape
+    radius::Float64
+end
+
+struct Rectangle <: Shape
+    width::Float64
+    height::Float64
+end
+
+# Check type relationships
+Circle <: Shape       # true
+Circle <: Any         # true
+Int64 <: Number       # true
+String <: Number      # false
+
+# Useful introspection
+subtypes(Integer)     # [Bool, Signed, Unsigned]
+supertype(Float64)    # AbstractFloat
+\end{minted}
+
+% ============================================================
+\section{Strings}
+
+Strings in Julia are immutable, UTF-8 encoded sequences:
+
+\begin{minted}{julia}
+# String basics
+s = "Julia is fast"
+length(s)             # 13 (number of characters)
+sizeof(s)             # 13 (bytes — same here, but differs for Unicode)
+s[1]                  # 'J' (Char)
+s[end]                # 't'
+s[1:5]                # "Julia" (substring)
+
+# String interpolation
+name = "World"
+greeting = "Hello, $name!"
+computation = "2 + 3 = $(2 + 3)"
+
+# Multi-line strings
+poem = """
+    Roses are red,
+    Julia is fast,
+    Python is nice,
+    but C won't last.
+    """
+
+# Common operations
+uppercase("julia")          # "JULIA"
+replace("Hello", "l" => "r")  # "Herro"
+split("a,b,c,d", ",")      # ["a", "b", "c", "d"]
+join(["one", "two", "three"], " + ")  # "one + two + three"
+occursin("fast", "Julia is fast")     # true
+
+# Regular expressions
+m = match(r"(\d+)\s*kg", "Weight: 82 kg")
+m.captures[1]              # "82"
+\end{minted}
+
+\begin{juliatip}
+Indexing into UTF-8 strings by byte position can fail for multi-byte characters. Use \texttt{eachindex(s)} or \texttt{collect(s)} to iterate safely over characters.
+\end{juliatip}
+
+% ============================================================
+\section{Control flow: conditionals}
+
+\begin{minted}{julia}
+# if-elseif-else
+temperature = 38.5
+
+if temperature >= 39.0
+    status = "high fever"
+elseif temperature >= 37.5
+    status = "low-grade fever"
+else
+    status = "normal"
+end
+println("Status: $status")
+
+# Ternary operator
+status = temperature >= 37.5 ? "fever" : "normal"
+
+# Short-circuit evaluation
+x = -5
+x > 0 || error("x must be positive")  # throws an error
+x > 0 && println("x is positive")     # does nothing (no error)
+\end{minted}
+
+% ============================================================
+\section{Control flow: loops}
+
+\begin{minted}{julia}
+# for loops with ranges
+for i in 1:5
+    println("Iteration $i")
+end
+
+# Iterating over collections
+fruits = ["apple", "banana", "cherry"]
+for fruit in fruits
+    println(fruit)
+end
+
+# Enumerate (index + value)
+for (i, fruit) in enumerate(fruits)
+    println("$i: $fruit")
+end
+
+# Nested loops with a single for
+for i in 1:3, j in 1:3
+    i == j && println("($i, $j) is on the diagonal")
+end
+
+# while loop
+n = 1
+while n <= 1000
+    n *= 2
+end
+println("First power of 2 above 1000: $n")  # 1024
+
+# break and continue
+for i in 1:100
+    i % 7 != 0 && continue   # skip non-multiples of 7
+    i > 50 && break           # stop after 50
+    println(i)
+end
+\end{minted}
+
+% ============================================================
+\section{Comprehensions}
+
+Comprehensions are the Julian way to build collections concisely:
+
+\begin{minted}{julia}
+# Array comprehension
+squares = [x^2 for x in 1:10]
+# [1, 4, 9, 16, 25, 36, 49, 64, 81, 100]
+
+# With a filter
+even_squares = [x^2 for x in 1:10 if iseven(x)]
+# [4, 16, 36, 64, 100]
+
+# 2D comprehension → Matrix
+multiplication_table = [i * j for i in 1:5, j in 1:5]
+
+# Generator expression (lazy — no memory allocation)
+total = sum(1/k^2 for k in 1:1_000_000)
+# ≈ π²/6
+
+# Dictionary comprehension
+word_lengths = Dict(w => length(w) for w in ["Julia", "Python", "R"])
+# Dict("Julia" => 5, "Python" => 6, "R" => 1)
+
+# Set comprehension
+unique_remainders = Set(x % 7 for x in 1:100)
+\end{minted}
+
+\begin{performancetip}
+Generator expressions (without square brackets) are lazy: \texttt{sum(x\^{}2 for x in 1:10\^{}8)} uses almost no memory because it never allocates the array. Always prefer generators when you only need to aggregate a result.
+\end{performancetip}
+
+% ============================================================
+\section{Tuples and named tuples}
+
+\begin{minted}{julia}
+# Tuples — immutable, ordered collections
+point = (3.0, 4.0)
+point[1]                # 3.0
+x, y = point            # destructuring
+
+# Named tuples — tuples with field names
+patient = (name="Alice", age=34, bp=120)
+patient.name            # "Alice"
+patient.age             # 34
+
+# Useful for returning multiple values from functions
+function divrem_custom(a, b)
+    return (quotient=a ÷ b, remainder=a % b)
+end
+result = divrem_custom(17, 5)
+result.quotient         # 3
+result.remainder        # 2
+\end{minted}
+
+% ============================================================
+\section{Nothing, Missing, and error handling}
+
+\begin{minted}{julia}
+# Nothing — the absence of a value (like None in Python)
+function maybe_find(collection, target)
+    for item in collection
+        item == target && return item
+    end
+    return nothing
+end
+
+result = maybe_find([1, 2, 3], 5)
+isnothing(result)       # true
+
+# Missing — represents missing data (like NA in R)
+data = [1.0, 2.0, missing, 4.0]
+sum(data)               # missing (propagates!)
+sum(skipmissing(data))  # 7.0
+
+# Exception handling
+try
+    x = parse(Int, "not_a_number")
+catch e
+    println("Error: $(typeof(e)) — $(e.msg)")
+finally
+    println("This always runs")
+end
+\end{minted}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Explore the type hierarchy: starting from \texttt{Float64}, use \texttt{supertype()} repeatedly to climb to \texttt{Any}. How many levels are there?
+  \item Write a function \texttt{classify\_bmi(weight, height)} that returns a named tuple \texttt{(bmi=..., category=...)} using WHO BMI categories.
+  \item Using a comprehension, generate all Pythagorean triples $(a, b, c)$ with $a < b < c \leq 50$ where $a^2 + b^2 = c^2$.
+  \item Create a vector with \texttt{missing} values: \texttt{v = [10, missing, 30, missing, 50]}. Compute the mean of the non-missing values.
+  \item Write a program that reads a string of DNA nucleotides (e.g., \texttt{"ATCGGATCCA"}) and returns a dictionary counting each nucleotide.
+  \item Use string interpolation and a loop to print a formatted multiplication table for numbers 1 through 10.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Julia has a rich numeric type hierarchy: \texttt{Int64}, \texttt{Float64}, \texttt{BigInt}, \texttt{Rational}, etc.
+  \item Variables are untyped bindings; values carry the type.
+  \item Strings are UTF-8, immutable, and support interpolation with \texttt{\$}.
+  \item Control flow uses \texttt{if/elseif/else}, \texttt{for}, \texttt{while}, and short-circuit operators.
+  \item Comprehensions and generators build collections concisely and efficiently.
+  \item \texttt{missing} propagates through computations; use \texttt{skipmissing()} to handle it.
+  \item Named tuples are lightweight, immutable structs for returning structured data.
+\end{itemize}

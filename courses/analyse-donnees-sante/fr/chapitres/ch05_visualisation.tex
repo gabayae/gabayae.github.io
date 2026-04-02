@@ -1,0 +1,572 @@
+\chapter{Visualisation pour la sant\'e}
+\label{ch:visualisation}
+
+\begin{quote}
+\emph{<<\,La plus grande valeur d'une image, c'est lorsqu'elle nous force \`a remarquer ce que nous ne nous attendions pas \`a voir.\,>> --- John Tukey}
+\end{quote}
+
+% ============================================================
+\section{Principes de la visualisation de donn\'ees de sant\'e}
+
+Une bonne figure de sant\'e r\'epond \`a une question. Une mauvaise d\'ecore une diapositive. Avant d'\'ecrire le moindre code de graphique, posez-vous ces questions :
+\begin{enumerate}
+  \item \textbf{Quel est le message ?} <<\,L'incidence du paludisme diminue en Afrique subsaharienne\,>> --- pas <<\,voici des donn\'ees\,>>.
+  \item \textbf{Qui est le public ?} Les cliniciens ont besoin de graphiques diff\'erents de ceux des d\'ecideurs politiques.
+  \item \textbf{Quelle comparaison compte ?} Entre groupes ? Au fil du temps ? Par rapport \`a un seuil ?
+\end{enumerate}
+
+R\`egles applicables \`a toute figure de sant\'e :
+\begin{itemize}
+  \item \'Etiquetez les axes avec les unit\'es (<<\,PA systolique (mmHg)\,>>, pas <<\,PA\,>>).
+  \item Utilisez des palettes adapt\'ees aux daltoniens.
+  \item N'utilisez pas de graphiques 3D, de camemberts ou de doubles axes Y, sauf raison tr\`es justifi\'ee.
+  \item Incluez les tailles d'\'echantillon dans les titres ou les annotations.
+  \item Commencez l'axe Y \`a z\'ero pour les diagrammes en barres. Pour les courbes, z\'ero est optionnel si la plage est \'etroite.
+\end{itemize}
+
+\begin{clinicalnote}
+Dans les publications cliniques, les figures sont souvent la premi\`ere chose (et parfois la seule) que les \'evaluateurs examinent attentivement. Une figure claire et bien \'etiquet\'ee peut porter un article. Une figure trompeuse peut le couler. The Lancet et le BMJ ont tous deux des directives sp\'ecifiques pour les figures --- \'etudiez-les avant de soumettre.
+\end{clinicalnote}
+
+% ============================================================
+\section{Mise en place : matplotlib et seaborn}
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Definir un style propre pour tous les graphiques
+sns.set_theme(style="whitegrid", font_scale=1.1)
+plt.rcParams["figure.figsize"] = (8, 5)
+plt.rcParams["figure.dpi"] = 100
+
+# Palette adaptee aux daltoniens
+cb_palette = ["#0072B2", "#D55E00", "#009E73",
+              "#CC79A7", "#F0E442", "#56B4E9"]
+sns.set_palette(cb_palette)
+\end{minted}
+
+\begin{pythontip}
+La palette de six couleurs ci-dessus provient de l'article de Bang Wong <<\,Points of view: Color blindness\,>> (Nature Methods, 2011). Elle est distinguable par les personnes atteintes des formes les plus courantes de d\'eficience de la vision des couleurs. Utilisez-la comme palette par d\'efaut.
+\end{pythontip}
+
+% ============================================================
+\section{Histogrammes et courbes de densit\'e}
+
+Les histogrammes montrent la \emph{distribution} d'une seule variable. En sant\'e, cela vous indique si une mesure suit une distribution normale, est asym\'etrique ou bimodale.
+
+\begin{minted}{python}
+# Charger les donnees Gapminder
+url = ("https://raw.githubusercontent.com/datasets/"
+       "gapminder/main/data/gapminder.csv")
+gapminder = pd.read_csv(url)
+recent = gapminder[gapminder["year"] == 2007]
+
+# Histogramme de l'esperance de vie
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+# Gauche : histogramme
+axes[0].hist(recent["lifeExp"], bins=20, edgecolor="white", alpha=0.8)
+axes[0].set_xlabel("Esperance de vie (annees)")
+axes[0].set_ylabel("Nombre de pays")
+axes[0].set_title("Distribution de l'esperance de vie, 2007")
+axes[0].axvline(recent["lifeExp"].median(), color="red",
+                linestyle="--", label=f'Mediane : {recent["lifeExp"].median():.1f}')
+axes[0].legend()
+
+# Droite : estimation de densite par noyau (version lissee)
+sns.kdeplot(data=recent, x="lifeExp", hue="continent",
+            fill=True, alpha=0.3, ax=axes[1])
+axes[1].set_xlabel("Esperance de vie (annees)")
+axes[1].set_title("Esperance de vie par continent, 2007")
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Exemple clinique : distribution de la glycemie a jeun
+np.random.seed(42)
+normal_glucose = np.random.normal(95, 10, 800)
+prediabetic = np.random.normal(115, 8, 150)
+diabetic = np.random.normal(180, 40, 50)
+all_glucose = np.concatenate([normal_glucose, prediabetic, diabetic])
+
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.hist(all_glucose, bins=40, edgecolor="white", alpha=0.7)
+ax.axvline(100, color="orange", linestyle="--", linewidth=2,
+           label="Seuil normal (100 mg/dL)")
+ax.axvline(126, color="red", linestyle="--", linewidth=2,
+           label="Seuil diabetique (126 mg/dL)")
+ax.set_xlabel("Glycemie a jeun (mg/dL)")
+ax.set_ylabel("Nombre de patients")
+ax.set_title("Distribution de la glycemie a jeun (n=1 000)")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+% ============================================================
+\section{Bo\^ites \`a moustaches}
+
+Les bo\^ites \`a moustaches comparent les distributions entre groupes. La bo\^ite montre l'EIQ (25\textsuperscript{e}--75\textsuperscript{e} percentile), la ligne est la m\'ediane, et les moustaches s'\'etendent \`a 1,5$\times$EIQ. Les points au-del\`a des moustaches sont des valeurs aberrantes.
+
+\begin{minted}{python}
+# Pression arterielle par continent
+fig, ax = plt.subplots(figsize=(10, 6))
+sns.boxplot(data=recent, x="continent", y="lifeExp", ax=ax)
+ax.set_xlabel("Continent")
+ax.set_ylabel("Esperance de vie (annees)")
+ax.set_title("Esperance de vie par continent, 2007 (n={})".format(len(recent)))
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Exemple clinique : IMC par sexe et groupe d'age
+np.random.seed(42)
+n = 500
+clinical = pd.DataFrame({
+    "sex": np.random.choice(["Male", "Female"], n),
+    "age_group": np.random.choice(["18-39", "40-59", "60+"], n,
+                                  p=[0.3, 0.4, 0.3]),
+    "bmi": np.random.normal(27, 5, n).clip(15, 50)
+})
+
+fig, ax = plt.subplots(figsize=(10, 6))
+sns.boxplot(data=clinical, x="age_group", y="bmi", hue="sex",
+            order=["18-39", "40-59", "60+"], ax=ax)
+ax.axhline(25, color="orange", linestyle="--", alpha=0.7,
+           label="Seuil surpoids")
+ax.axhline(30, color="red", linestyle="--", alpha=0.7,
+           label="Seuil obesite")
+ax.set_xlabel("Groupe d'age")
+ax.set_ylabel("IMC (kg/m2)")
+ax.set_title(f"IMC par sexe et groupe d'age (n={n})")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{warningbox}
+Les bo\^ites \`a moustaches masquent la forme de la distribution. Une distribution bimodale appara\^it identique \`a une distribution unimodale dans une bo\^ite \`a moustaches. Envisagez d'utiliser un \textbf{graphique en violon} (\texttt{sns.violinplot}) ou un \textbf{strip plot} (\texttt{sns.stripplot}) superpos\'e \`a la bo\^ite pour les petits \'echantillons.
+\end{warningbox}
+
+% ============================================================
+\section{Diagrammes en barres}
+
+Les diagrammes en barres comparent des \emph{effectifs} ou des \emph{taux} entre cat\'egories. Ils sont le choix standard pour comparer les pr\'evalences de maladies.
+
+\begin{minted}{python}
+# Comparaison de l'esperance de vie : 15 pays les plus bas (2007)
+bottom15 = recent.nsmallest(15, "lifeExp")
+
+fig, ax = plt.subplots(figsize=(10, 7))
+ax.barh(bottom15["country"], bottom15["lifeExp"], color="#D55E00")
+ax.set_xlabel("Esperance de vie (annees)")
+ax.set_title("15 pays avec l'esperance de vie la plus basse, 2007")
+ax.invert_yaxis()  # le plus eleve en haut
+for i, v in enumerate(bottom15["lifeExp"]):
+    ax.text(v + 0.5, i, f"{v:.1f}", va="center", fontsize=9)
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Comparaison de prevalence de maladies par pays (simule)
+diseases = pd.DataFrame({
+    "country": ["Nigeria", "DRC", "Tanzania", "Kenya", "Ghana",
+                "South Africa", "Ethiopia", "Uganda"],
+    "malaria_prev": [27.3, 31.2, 7.5, 5.8, 15.2, 0.5, 1.2, 9.7],
+    "hiv_prev": [1.3, 0.7, 4.7, 4.9, 1.7, 19.0, 1.0, 5.4],
+})
+
+fig, ax = plt.subplots(figsize=(10, 6))
+x = np.arange(len(diseases))
+width = 0.35
+ax.bar(x - width/2, diseases["malaria_prev"], width,
+       label="Paludisme", color="#0072B2")
+ax.bar(x + width/2, diseases["hiv_prev"], width,
+       label="VIH", color="#D55E00")
+ax.set_xticks(x)
+ax.set_xticklabels(diseases["country"], rotation=45, ha="right")
+ax.set_ylabel("Prevalence (%)")
+ax.set_title("Prevalence du paludisme vs VIH par pays")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+% ============================================================
+\section{Courbes temporelles et courbes \'epid\'emiques}
+
+Les courbes temporelles montrent comment une mesure \'evolue dans le temps. Elles sont essentielles pour suivre les tendances des maladies et la progression des \'epid\'emies.
+
+\subsection{Tendances temporelles}
+
+\begin{minted}{python}
+# Tendances de l'esperance de vie par continent
+continent_trend = gapminder.groupby(
+    ["year", "continent"])["lifeExp"].mean().reset_index()
+
+fig, ax = plt.subplots(figsize=(10, 6))
+for continent in continent_trend["continent"].unique():
+    subset = continent_trend[continent_trend["continent"] == continent]
+    ax.plot(subset["year"], subset["lifeExp"],
+            marker="o", markersize=4, label=continent)
+
+ax.set_xlabel("Annee")
+ax.set_ylabel("Esperance de vie moyenne (annees)")
+ax.set_title("Tendances de l'esperance de vie par continent, 1952-2007")
+ax.legend(title="Continent")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\subsection{Courbes \'epid\'emiques}
+
+\begin{minted}{python}
+# Simuler une courbe epidemique (forme de type SIR)
+np.random.seed(42)
+days = pd.date_range("2023-01-01", periods=120, freq="D")
+# Simuler les nouveaux cas quotidiens avec un pic de type SIR
+t = np.arange(120)
+peak = 45
+cases = np.maximum(0, 200 * np.exp(-0.5 * ((t - peak) / 15) ** 2)
+                   + np.random.normal(0, 10, 120)).astype(int)
+
+epi = pd.DataFrame({"date": days, "new_cases": cases})
+epi["rolling_7d"] = epi["new_cases"].rolling(7).mean()
+epi["cumulative"] = epi["new_cases"].cumsum()
+
+fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+
+# Haut : cas quotidiens + moyenne sur 7 jours
+axes[0].bar(epi["date"], epi["new_cases"], alpha=0.4,
+            color="#0072B2", label="Cas quotidiens")
+axes[0].plot(epi["date"], epi["rolling_7d"], color="#D55E00",
+             linewidth=2, label="Moyenne sur 7 jours")
+axes[0].set_ylabel("Nouveaux cas par jour")
+axes[0].set_title("Courbe epidemique : nouveaux cas quotidiens")
+axes[0].legend()
+
+# Bas : cas cumules
+axes[1].plot(epi["date"], epi["cumulative"], color="#009E73",
+             linewidth=2)
+axes[1].set_xlabel("Date")
+axes[1].set_ylabel("Cas cumules")
+axes[1].set_title("Nombre cumule de cas")
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{clinicalnote}
+Lors des \'epid\'emies, la courbe \'epid\'emique (<<\,epi curve\,>>) est la visualisation la plus importante en sant\'e publique. Sa forme r\'ev\`ele le mode de transmission : une \'epid\'emie de source ponctuelle pr\'esente un pic aigu ; une source continue produit un plateau ; une transmission de personne \`a personne g\'en\`ere des vagues successives. La moyenne glissante sur 7 jours lisse les d\'elais de d\'eclaration et les effets de week-end.
+\end{clinicalnote}
+
+% ============================================================
+\section{Nuages de points}
+
+Les nuages de points montrent la relation entre deux variables continues.
+
+\begin{minted}{python}
+# PIB par habitant vs esperance de vie (le graphique classique de Gapminder)
+fig, ax = plt.subplots(figsize=(10, 7))
+for continent in recent["continent"].unique():
+    subset = recent[recent["continent"] == continent]
+    ax.scatter(subset["gdpPercap"], subset["lifeExp"],
+               s=subset["pop"] / 1e6,  # taille de bulle = population
+               alpha=0.6, label=continent)
+
+ax.set_xscale("log")
+ax.set_xlabel("PIB par habitant (echelle log, USD)")
+ax.set_ylabel("Esperance de vie (annees)")
+ax.set_title("Richesse vs Sante, 2007 (taille de bulle = population)")
+ax.legend(title="Continent")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Nuage de points clinique : IMC vs PA systolique avec droite de regression
+np.random.seed(42)
+n = 200
+bmi = np.random.normal(28, 5, n).clip(18, 45)
+sbp = 80 + 1.8 * bmi + np.random.normal(0, 12, n)
+
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.scatter(bmi, sbp, alpha=0.5, s=30, color="#0072B2")
+
+# Ajouter la droite de regression
+from numpy.polynomial.polynomial import polyfit
+b, m = polyfit(bmi, sbp, 1)
+x_line = np.linspace(bmi.min(), bmi.max(), 100)
+ax.plot(x_line, b + m * x_line, color="#D55E00", linewidth=2,
+        label=f"y = {m:.1f}x + {b:.1f}")
+
+# Coefficient de correlation
+from scipy.stats import pearsonr
+r, p = pearsonr(bmi, sbp)
+ax.set_xlabel("IMC (kg/m2)")
+ax.set_ylabel("PA systolique (mmHg)")
+ax.set_title(f"IMC vs PA systolique (r={r:.2f}, p<0.001, n={n})")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{pythontip}
+Les fonctions \texttt{sns.regplot()} et \texttt{sns.lmplot()} de seaborn ajoutent automatiquement des droites de r\'egression et des bandes de confiance. Utilisez \texttt{sns.lmplot()} lorsque vous souhaitez s\'eparer par une variable cat\'egorielle (par ex.\ r\'egression par sexe).
+\end{pythontip}
+
+% ============================================================
+\section{Courbes de survie de Kaplan-Meier}
+
+L'analyse de survie suit le temps jusqu'\`a un \'ev\'enement (d\'ec\`es, rechute, infection). La courbe de Kaplan-Meier estime la probabilit\'e de survivre au-del\`a de chaque point temporel.
+
+\begin{minted}{python}
+# Installer lifelines si necessaire : !pip install lifelines
+from lifelines import KaplanMeierFitter
+
+# Donnees de survie simulees : deux groupes de traitement
+np.random.seed(42)
+n_per_group = 100
+
+# Groupe traitement : survie plus longue
+treatment_time = np.random.exponential(24, n_per_group).clip(0, 60)
+treatment_event = np.random.binomial(1, 0.7, n_per_group)
+
+# Groupe temoin : survie plus courte
+control_time = np.random.exponential(15, n_per_group).clip(0, 60)
+control_event = np.random.binomial(1, 0.8, n_per_group)
+
+fig, ax = plt.subplots(figsize=(10, 6))
+
+# Ajuster et tracer le groupe traitement
+kmf_treatment = KaplanMeierFitter()
+kmf_treatment.fit(treatment_time, event_observed=treatment_event,
+                  label="Traitement (n=100)")
+kmf_treatment.plot_survival_function(ax=ax, ci_show=True)
+
+# Ajuster et tracer le groupe temoin
+kmf_control = KaplanMeierFitter()
+kmf_control.fit(control_time, event_observed=control_event,
+                label="Temoin (n=100)")
+kmf_control.plot_survival_function(ax=ax, ci_show=True)
+
+ax.set_xlabel("Temps (mois)")
+ax.set_ylabel("Probabilite de survie")
+ax.set_title("Courbes de survie de Kaplan-Meier par groupe de traitement")
+ax.set_ylim(0, 1.05)
+
+# Ajouter les lignes de survie mediane
+for kmf, color in [(kmf_treatment, "#0072B2"), (kmf_control, "#D55E00")]:
+    median = kmf.median_survival_time_
+    if not np.isinf(median):
+        ax.axhline(0.5, color="gray", linestyle=":", alpha=0.5)
+        ax.axvline(median, color=color, linestyle=":", alpha=0.5)
+
+plt.tight_layout()
+plt.show()
+
+# Afficher la survie mediane
+print(f"Survie mediane (traitement) : "
+      f"{kmf_treatment.median_survival_time_:.1f} mois")
+print(f"Survie mediane (temoin) : "
+      f"{kmf_control.median_survival_time_:.1f} mois")
+\end{minted}
+
+\begin{warningbox}
+Si \texttt{lifelines} n'est pas install\'e, ex\'ecutez \texttt{!pip install lifelines} dans votre notebook. Il n'est pas pr\'einstall\'e dans Google Colab.
+\end{warningbox}
+
+\begin{clinicalnote}
+Les courbes de Kaplan-Meier g\`erent les observations \textbf{censur\'ees} --- patients encore en vie \`a la fin de l'\'etude ou perdus de vue. Sans censure ad\'equate, vous sous-estimeriez la survie. Les marques verticales sur la courbe indiquent les observations censur\'ees.
+\end{clinicalnote}
+
+% ============================================================
+\section{Cartes thermiques}
+
+Les cartes thermiques affichent des matrices de valeurs \`a l'aide de l'intensit\'e des couleurs. Deux usages courants en sant\'e :
+
+\subsection{Matrices de corr\'elation}
+
+\begin{minted}{python}
+# Correlation entre indicateurs de sante
+np.random.seed(42)
+n = 300
+health = pd.DataFrame({
+    "IMC": np.random.normal(27, 5, n),
+    "PA_Systolique": np.random.normal(130, 18, n),
+    "PA_Diastolique": np.random.normal(82, 10, n),
+    "Glycemie": np.random.normal(105, 25, n),
+    "Cholesterol": np.random.normal(200, 40, n),
+    "HbA1c": np.random.normal(5.8, 1.2, n),
+    "Freq_Cardiaque": np.random.normal(72, 12, n),
+    "Age": np.random.normal(55, 15, n).clip(18, 90)
+})
+
+# Ajouter des correlations realistes
+health["PA_Systolique"] += 0.8 * health["IMC"]
+health["Glycemie"] += 15 * health["HbA1c"]
+health["PA_Diastolique"] += 0.4 * health["PA_Systolique"]
+health["Cholesterol"] += 0.5 * health["IMC"]
+
+corr = health.corr()
+
+fig, ax = plt.subplots(figsize=(9, 8))
+mask = np.triu(np.ones_like(corr, dtype=bool))  # masquer le triangle superieur
+sns.heatmap(corr, mask=mask, annot=True, fmt=".2f",
+            cmap="RdBu_r", center=0, vmin=-1, vmax=1,
+            square=True, ax=ax)
+ax.set_title("Matrice de correlation des indicateurs de sante")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\subsection{Co-occurrence de maladies}
+
+\begin{minted}{python}
+# Co-occurrence de pathologies chroniques
+conditions = ["Hypertension", "Diabete", "BPCO",
+              "Insuffisance cardiaque", "IRC", "Obesite"]
+np.random.seed(42)
+cooccurrence = np.random.randint(5, 60, (6, 6))
+cooccurrence = (cooccurrence + cooccurrence.T) // 2  # rendre symetrique
+np.fill_diagonal(cooccurrence, [320, 180, 95, 75, 110, 210])
+
+co_df = pd.DataFrame(cooccurrence,
+                     index=conditions, columns=conditions)
+
+fig, ax = plt.subplots(figsize=(9, 8))
+sns.heatmap(co_df, annot=True, fmt="d", cmap="YlOrRd",
+            square=True, ax=ax)
+ax.set_title("Matrice de co-occurrence des maladies\n"
+             "(diagonale = total des cas, hors diagonale = co-occurrence)")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+% ============================================================
+\section{Travaux pratiques : construire un tableau de bord sant\'e \`a 4 panneaux}
+
+Combiner plusieurs graphiques dans une seule figure est essentiel pour les rapports et publications. Voici un tableau de bord complet \`a 4 panneaux utilisant des donn\'ees r\'eelles :
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+sns.set_theme(style="whitegrid", font_scale=1.0)
+
+# Charger les donnees
+url = ("https://raw.githubusercontent.com/datasets/"
+       "gapminder/main/data/gapminder.csv")
+df = pd.read_csv(url)
+recent = df[df["year"] == 2007].copy()
+
+# Creer la figure a 4 panneaux
+fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+fig.suptitle("Tableau de bord sante mondiale, 2007",
+             fontsize=16, fontweight="bold", y=1.02)
+
+# ----------------------------------------------------------
+# Panneau A : Distribution de l'esperance de vie par continent
+# ----------------------------------------------------------
+ax = axes[0, 0]
+sns.boxplot(data=recent, x="continent", y="lifeExp", ax=ax,
+            palette="Set2")
+ax.set_xlabel("")
+ax.set_ylabel("Esperance de vie (annees)")
+ax.set_title("A. Esperance de vie par continent")
+ax.tick_params(axis="x", rotation=30)
+
+# ----------------------------------------------------------
+# Panneau B : PIB vs Esperance de vie
+# ----------------------------------------------------------
+ax = axes[0, 1]
+for continent in recent["continent"].unique():
+    subset = recent[recent["continent"] == continent]
+    ax.scatter(subset["gdpPercap"], subset["lifeExp"],
+               s=subset["pop"] / 2e6, alpha=0.6,
+               label=continent)
+ax.set_xscale("log")
+ax.set_xlabel("PIB par habitant (USD, echelle log)")
+ax.set_ylabel("Esperance de vie (annees)")
+ax.set_title("B. Richesse vs sante")
+ax.legend(fontsize=8, title="Continent", title_fontsize=8)
+
+# ----------------------------------------------------------
+# Panneau C : Tendances de l'esperance de vie
+# ----------------------------------------------------------
+ax = axes[1, 0]
+trend = df.groupby(["year", "continent"])["lifeExp"].mean().reset_index()
+for continent in trend["continent"].unique():
+    subset = trend[trend["continent"] == continent]
+    ax.plot(subset["year"], subset["lifeExp"],
+            marker="o", markersize=3, label=continent)
+ax.set_xlabel("Annee")
+ax.set_ylabel("Esperance de vie moyenne (annees)")
+ax.set_title("C. Tendances de l'esperance de vie, 1952-2007")
+ax.legend(fontsize=8, title="Continent", title_fontsize=8)
+
+# ----------------------------------------------------------
+# Panneau D : 10 pays avec l'esperance de vie la plus basse
+# ----------------------------------------------------------
+ax = axes[1, 1]
+bottom10 = recent.nsmallest(10, "lifeExp")
+ax.barh(bottom10["country"], bottom10["lifeExp"], color="#D55E00")
+ax.set_xlabel("Esperance de vie (annees)")
+ax.set_title("D. 10 pays avec l'esperance de vie la plus basse")
+ax.invert_yaxis()
+for i, v in enumerate(bottom10["lifeExp"]):
+    ax.text(v + 0.3, i, f"{v:.1f}", va="center", fontsize=8)
+
+plt.tight_layout()
+plt.savefig("health_dashboard_2007.png", dpi=150, bbox_inches="tight")
+plt.show()
+print("Tableau de bord sauvegarde sous health_dashboard_2007.png")
+\end{minted}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Modifiez le tableau de bord pour afficher les donn\'ees de 2002 au lieu de 2007. L'histoire change-t-elle ?
+  \item Ajoutez un 5\textsuperscript{e} panneau montrant un histogramme du PIB par habitant (transform\'e en log) avec une ligne verticale \`a la m\'ediane mondiale. Utilisez \texttt{fig, axes = plt.subplots(2, 3)} ou \texttt{plt.subplot2grid()}.
+  \item Cr\'eez un tableau de bord clinique pour une cohorte simul\'ee de 500 patients avec les panneaux suivants :
+    \begin{itemize}
+      \item Histogramme de l'IMC avec les seuils de surpoids/ob\'esit\'e
+      \item Bo\^ite \`a moustaches de la PA systolique par sexe
+      \item Nuage de points \'age vs HbA1c avec une ligne de seuil diab\'etique \`a 6,5\,\%
+      \item Diagramme en barres de la fr\'equence des diagnostics
+    \end{itemize}
+  \item En utilisant Our World in Data (\url{https://github.com/owid/owid-datasets}), t\'el\'echargez un jeu de donn\'ees sur le paludisme ou la tuberculose. Construisez un tableau de bord \'epid\'emique avec :
+    \begin{itemize}
+      \item Courbe d'incidence au fil du temps pour 5 pays
+      \item Diagramme en barres de l'incidence de l'ann\'ee la plus r\'ecente
+      \item Nuage de points de l'incidence vs le PIB
+      \item Carte thermique de la corr\'elation entre indicateurs de sant\'e
+    \end{itemize}
+  \item Cr\'eez un graphique de Kaplan-Meier comparant la survie entre 3 groupes de traitement (m\'edicament A, m\'edicament B, placebo) \`a partir de donn\'ees simul\'ees. Ajoutez des annotations de survie m\'ediane.
+  \item Construisez une visualisation <<\,avant/apr\`es intervention\,>> : montrez un indicateur de sant\'e (par ex.\ cas de paludisme) sous forme de courbe avec une ligne verticale marquant la date d'intervention. Coloriez les p\'eriodes avant et apr\`es intervention avec des couleurs diff\'erentes.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item \'Etiquetez toujours les axes avec les unit\'es, incluez les tailles d'\'echantillon et utilisez des palettes adapt\'ees aux daltoniens.
+  \item Les \textbf{histogrammes} montrent les distributions ; ajoutez des lignes de seuil clinique pour donner du contexte.
+  \item Les \textbf{bo\^ites \`a moustaches} comparent les groupes ; envisagez des graphiques en violon pour plus de d\'etail.
+  \item Les \textbf{diagrammes en barres} comparent des effectifs ou des taux ; utilisez des barres horizontales pour de nombreuses cat\'egories.
+  \item Les \textbf{courbes temporelles} montrent les tendances ; ajoutez des moyennes glissantes sur 7 jours pour les courbes \'epid\'emiques.
+  \item Les \textbf{nuages de points} r\'ev\`elent les relations ; ajoutez des droites de r\'egression et rapportez les valeurs de $r$.
+  \item Les \textbf{courbes de Kaplan-Meier} sont la norme pour les donn\'ees de survie ; utilisez la biblioth\`eque \texttt{lifelines}.
+  \item Les \textbf{cartes thermiques} affichent les matrices de corr\'elation et les sch\'emas de co-occurrence.
+  \item Les figures multi-panneaux (\texttt{plt.subplots()}) combinent des graphiques reli\'es en une histoire coh\'erente.
+  \item Sauvegardez les figures de qualit\'e publication avec \texttt{plt.savefig("fichier.png", dpi=300, bbox\_inches="tight")}.
+\end{itemize}

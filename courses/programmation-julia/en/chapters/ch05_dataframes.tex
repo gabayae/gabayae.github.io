@@ -1,0 +1,290 @@
+\chapter{DataFrames and data wrangling}
+\label{ch:dataframes}
+
+\begin{quote}
+\emph{``Data wrangling is the process of transforming messy, real-world data into a clean, structured format suitable for analysis.''}
+\end{quote}
+
+% ============================================================
+\section{The DataFrames.jl package}
+
+\begin{minted}{julia}
+using DataFrames
+
+# Create a DataFrame from columns
+df = DataFrame(
+    name   = ["Alice", "Bob", "Charlie", "Diana", "Eve"],
+    age    = [28, 35, 42, 31, 27],
+    salary = [55000, 72000, 88000, 63000, 51000],
+    dept   = ["Engineering", "Marketing", "Engineering", "HR", "Marketing"]
+)
+
+# Basic inspection
+size(df)              # (5, 4)
+nrow(df), ncol(df)    # (5, 4)
+names(df)             # ["name", "age", "salary", "dept"]
+describe(df)          # summary statistics
+first(df, 3)          # first 3 rows
+last(df, 2)           # last 2 rows
+eltype.(eachcol(df))  # column types
+\end{minted}
+
+% ============================================================
+\section{Reading and writing data}
+
+\begin{minted}{julia}
+using CSV, DataFrames
+
+# Read CSV files
+df = CSV.read("data.csv", DataFrame)
+
+# Read with options
+df = CSV.read("data.csv", DataFrame;
+    delim=',',
+    header=true,
+    missingstring="NA",
+    types=Dict(:age => Int, :salary => Float64),
+    select=[:name, :age, :salary]   # read only these columns
+)
+
+# Read directly from a URL
+using Downloads
+url = "https://raw.githubusercontent.com/owid/covid-19-data/" *
+      "master/public/data/owid-covid-data.csv"
+Downloads.download(url, "covid.csv")
+covid = CSV.read("covid.csv", DataFrame)
+
+# Write to CSV
+CSV.write("output.csv", df)
+
+# Read from RDatasets (built-in classic datasets)
+using RDatasets
+iris = dataset("datasets", "iris")
+mtcars = dataset("datasets", "mtcars")
+\end{minted}
+
+\begin{juliatip}
+\texttt{CSV.read} is very fast --- often faster than pandas for large files. For even better performance on huge files, use \texttt{CSV.read("big.csv", DataFrame; ntasks=8)} to parallelize parsing across threads.
+\end{juliatip}
+
+% ============================================================
+\section{Selecting and filtering}
+
+\begin{minted}{julia}
+using DataFrames, RDatasets
+
+iris = dataset("datasets", "iris")
+
+# Select columns
+select(iris, :SepalLength, :Species)
+select(iris, Not(:PetalWidth))
+select(iris, Between(:SepalLength, :PetalLength))
+select(iris, r"Sepal")          # regex column selection
+
+# Create new columns with select
+select(iris, :SepalLength, :SepalWidth,
+    [:SepalLength, :SepalWidth] => ByRow((l, w) -> l * w) => :SepalArea
+)
+
+# Filter rows
+filter(:Species => ==("setosa"), iris)
+filter(row -> row.SepalLength > 5.0 && row.Species == "setosa", iris)
+subset(iris, :SepalLength => x -> x .> 5.0)
+
+# Combine selection and filtering
+iris |>
+    x -> filter(:Species => ==("virginica"), x) |>
+    x -> select(x, :SepalLength, :PetalLength)
+\end{minted}
+
+% ============================================================
+\section{Transforming data}
+
+\begin{minted}{julia}
+using DataFrames, Statistics
+
+df = DataFrame(
+    city = ["Paris", "London", "Berlin", "Madrid", "Rome"],
+    pop_million = [2.16, 8.98, 3.64, 3.22, 2.87],
+    area_km2 = [105, 1572, 892, 604, 1285]
+)
+
+# Add a new column
+transform(df, [:pop_million, :area_km2] =>
+    ByRow((p, a) -> p * 1e6 / a) => :density)
+
+# In-place transformation
+transform!(df, :city => ByRow(uppercase) => :city_upper)
+
+# Multiple transformations
+transform(df,
+    :pop_million => (x -> x .* 1e6) => :population,
+    :area_km2 => (x -> x ./ 2.59) => :area_sq_miles
+)
+
+# Replace values
+df.city = replace.(df.city, "Paris" => "Paris (France)")
+
+# Handle missing data
+df_missing = DataFrame(
+    x = [1, 2, missing, 4, missing],
+    y = [missing, 2, 3, missing, 5]
+)
+dropmissing(df_missing)          # drop rows with any missing
+dropmissing(df_missing, :x)      # drop rows where x is missing
+coalesce.(df_missing.x, 0)      # replace missing with 0
+\end{minted}
+
+% ============================================================
+\section{Sorting}
+
+\begin{minted}{julia}
+using DataFrames, RDatasets
+
+mtcars = dataset("datasets", "mtcars")
+
+# Sort by one column
+sort(mtcars, :MPG)                    # ascending
+sort(mtcars, :MPG, rev=true)          # descending
+
+# Sort by multiple columns
+sort(mtcars, [:Cyl, :MPG])            # Cyl ascending, then MPG ascending
+sort(mtcars, [:Cyl, order(:MPG, rev=true)])
+
+# In-place sort
+sort!(mtcars, :HP, rev=true)
+\end{minted}
+
+% ============================================================
+\section{Grouping and split-apply-combine}
+
+\begin{minted}{julia}
+using DataFrames, Statistics, RDatasets
+
+iris = dataset("datasets", "iris")
+
+# Group by species
+gdf = groupby(iris, :Species)
+length(gdf)    # 3 groups
+
+# Apply aggregation
+combine(gdf,
+    :SepalLength => mean => :mean_sepal_length,
+    :SepalLength => std  => :std_sepal_length,
+    :PetalLength => mean => :mean_petal_length,
+    nrow => :count
+)
+# 3×5 DataFrame: one row per species
+
+# Multiple grouping columns
+mtcars = dataset("datasets", "mtcars")
+combine(groupby(mtcars, [:Cyl, :Gear]),
+    :MPG => mean => :avg_mpg,
+    :HP  => mean => :avg_hp,
+    nrow => :count
+)
+
+# Transform within groups (keeps all rows)
+transform(groupby(iris, :Species),
+    :SepalLength => (x -> (x .- mean(x)) ./ std(x)) => :SepalLength_zscore
+)
+
+# Filter groups
+subset(groupby(mtcars, :Cyl),
+    :MPG => x -> x .> median(x)   # keep above-median MPG within each Cyl group
+)
+\end{minted}
+
+\begin{juliatip}
+The split-apply-combine pattern in DataFrames.jl is: (1) \texttt{groupby} to split, (2) \texttt{combine}/\texttt{transform}/\texttt{subset} to apply and combine. This is analogous to pandas \texttt{groupby().agg()} or dplyr \texttt{group\_by() \%>\% summarise()}.
+\end{juliatip}
+
+% ============================================================
+\section{Joins}
+
+\begin{minted}{julia}
+using DataFrames
+
+# Two related tables
+employees = DataFrame(
+    id = [1, 2, 3, 4, 5],
+    name = ["Alice", "Bob", "Charlie", "Diana", "Eve"],
+    dept_id = [10, 20, 10, 30, 20]
+)
+
+departments = DataFrame(
+    dept_id = [10, 20, 30, 40],
+    dept_name = ["Engineering", "Marketing", "HR", "Finance"]
+)
+
+# Inner join (only matching rows)
+innerjoin(employees, departments, on=:dept_id)
+
+# Left join (keep all employees)
+leftjoin(employees, departments, on=:dept_id)
+
+# Right join (keep all departments)
+rightjoin(employees, departments, on=:dept_id)
+
+# Outer join (keep everything)
+outerjoin(employees, departments, on=:dept_id)
+
+# Join on different column names
+sales = DataFrame(emp_id=[1,2,3], revenue=[1000, 2000, 1500])
+innerjoin(employees, sales, on=:id => :emp_id)
+
+# Anti-join (employees NOT in sales)
+antijoin(employees, sales, on=:id => :emp_id)
+
+# Semi-join (employees who ARE in sales, but only employee columns)
+semijoin(employees, sales, on=:id => :emp_id)
+\end{minted}
+
+% ============================================================
+\section{Reshaping: stack and unstack}
+
+\begin{minted}{julia}
+using DataFrames
+
+# Wide format
+wide = DataFrame(
+    country = ["France", "Germany", "Italy"],
+    pop_2020 = [67.39, 83.24, 59.55],
+    pop_2021 = [67.75, 83.16, 59.24],
+    pop_2022 = [67.97, 84.08, 58.86]
+)
+
+# Wide → Long (stack / melt)
+long = stack(wide, r"pop_", :country;
+    variable_name=:year, value_name=:population)
+
+# Clean the year column
+transform!(long, :year => ByRow(y -> parse(Int, last(string(y), 4))) => :year)
+
+# Long → Wide (unstack)
+unstack(long, :country, :year, :population)
+\end{minted}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Load the iris dataset from RDatasets. Compute the mean and standard deviation of all four measurements, grouped by species.
+  \item Load the mtcars dataset. Filter for cars with more than 100 HP and 6 or more cylinders. Sort by MPG descending.
+  \item Download the Our World in Data COVID-19 CSV. Filter for a country of your choice, select date and new cases, and compute the 7-day rolling average.
+  \item Create two DataFrames: \texttt{students} (id, name, major) and \texttt{grades} (student\_id, course, grade). Perform an inner join and compute the average grade per major.
+  \item Using the mtcars dataset, demonstrate the split-apply-combine pattern: group by number of cylinders, compute mean MPG, mean HP, and count.
+  \item Create a wide-format DataFrame with monthly sales for 4 products over 12 months. Reshape to long format, then compute total annual sales per product.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item DataFrames.jl is Julia's tabular data package, similar to pandas and dplyr.
+  \item CSV.jl reads and writes CSV files efficiently, with parallel parsing.
+  \item \texttt{select}, \texttt{filter}/\texttt{subset}, and \texttt{transform} are the core manipulation verbs.
+  \item \texttt{groupby} + \texttt{combine} implements the split-apply-combine pattern.
+  \item Six join types are available: inner, left, right, outer, semi, anti.
+  \item \texttt{stack} (wide to long) and \texttt{unstack} (long to wide) reshape data.
+  \item RDatasets.jl provides hundreds of classic datasets for practice.
+\end{itemize}

@@ -1,0 +1,263 @@
+\chapter{Feature engineering}
+\label{ch:feature-engineering}
+
+\begin{quote}
+\emph{``Coming up with features is difficult, time-consuming, requires expert knowledge. Applied machine learning is basically feature engineering.''}
+--- Andrew Ng
+\end{quote}
+
+% ============================================================
+\section{What is feature engineering?}
+
+Feature engineering is the process of creating new input variables from existing data to improve model performance. While encoding and scaling (Chapter~5) transform existing features, feature engineering \emph{creates} new ones that capture patterns the raw data does not explicitly represent.
+
+\begin{datatip}
+A well-engineered feature can be worth more than a complex model. A simple linear regression with the right features often outperforms a deep neural network with raw features.
+\end{datatip}
+
+% ============================================================
+\section{Polynomial and interaction features}
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import PolynomialFeatures
+
+# Melbourne Housing dataset
+df = pd.read_csv("melb_data.csv")
+df = df.dropna(subset=["Price", "Rooms", "Distance", "Landsize"])
+
+# Polynomial features: capture non-linear relationships
+poly = PolynomialFeatures(degree=2, interaction_only=False,
+                          include_bias=False)
+features = df[["Rooms", "Distance"]]
+poly_features = poly.fit_transform(features)
+poly_names = poly.get_feature_names_out(["Rooms", "Distance"])
+
+poly_df = pd.DataFrame(poly_features, columns=poly_names)
+print(poly_df.head())
+print(f"Original features: {features.shape[1]}")
+print(f"Polynomial features: {poly_df.shape[1]}")
+\end{minted}
+
+\begin{minted}{python}
+# Interaction only: no squared terms, just cross-products
+poly_inter = PolynomialFeatures(degree=2, interaction_only=True,
+                                 include_bias=False)
+inter_features = poly_inter.fit_transform(features)
+inter_names = poly_inter.get_feature_names_out(["Rooms", "Distance"])
+print(f"Interaction features: {inter_names}")
+\end{minted}
+
+\begin{warningbox}
+Polynomial features grow combinatorially: $n$ features at degree $d$ produce $\binom{n+d}{d} - 1$ features. With 20 features at degree~3, you get 1770 features. Use this technique selectively, not on the entire feature set.
+\end{warningbox}
+
+% ============================================================
+\section{Mathematical transformations}
+
+\begin{minted}{python}
+# Ratio features: often more informative than raw values
+df["price_per_room"] = df["Price"] / df["Rooms"]
+df["price_per_sqm"] = df["Price"] / df["Landsize"].replace(0, np.nan)
+df["rooms_per_bathroom"] = df["Rooms"] / df["Bathroom"].replace(0, 1)
+
+print(df[["Price", "Rooms", "price_per_room",
+          "price_per_sqm"]].describe())
+\end{minted}
+
+\begin{minted}{python}
+# Log transform for skewed features
+df["log_price"] = np.log1p(df["Price"])
+df["log_landsize"] = np.log1p(df["Landsize"])
+
+# Square root: gentler than log
+df["sqrt_distance"] = np.sqrt(df["Distance"])
+
+# Compare correlation with target
+for col in ["Distance", "sqrt_distance", "log_price"]:
+    if col in df.columns and df[col].notnull().sum() > 0:
+        corr = df[col].corr(df["Price"])
+        print(f"Corr({col}, Price) = {corr:.3f}")
+\end{minted}
+
+\begin{preprocesstip}
+Ratio features encode \emph{domain knowledge} in a single number. ``Price per square meter'' is a standard real estate metric that captures value density better than price or area alone.
+\end{preprocesstip}
+
+% ============================================================
+\section{Date and time features}
+
+\begin{minted}{python}
+# Melbourne Housing: extract date components
+df["Date"] = pd.to_datetime(df["Date"], dayfirst=True)
+
+df["sale_year"] = df["Date"].dt.year
+df["sale_month"] = df["Date"].dt.month
+df["sale_dayofweek"] = df["Date"].dt.dayofweek  # 0=Monday
+df["sale_quarter"] = df["Date"].dt.quarter
+df["sale_is_weekend"] = df["Date"].dt.dayofweek.isin([5, 6]).astype(int)
+
+print(df[["Date", "sale_year", "sale_month",
+          "sale_dayofweek", "sale_quarter"]].head())
+\end{minted}
+
+\begin{minted}{python}
+# Cyclical encoding for month (so December and January are close)
+df["month_sin"] = np.sin(2 * np.pi * df["sale_month"] / 12)
+df["month_cos"] = np.cos(2 * np.pi * df["sale_month"] / 12)
+
+# Days since a reference date
+reference = pd.Timestamp("2016-01-01")
+df["days_since_ref"] = (df["Date"] - reference).dt.days
+
+print(df[["sale_month", "month_sin", "month_cos"]].head(12))
+\end{minted}
+
+% ============================================================
+\section{Aggregation features}
+
+\begin{minted}{python}
+# Suburb-level statistics as features
+suburb_stats = df.groupby("Suburb")["Price"].agg(
+    suburb_mean_price="mean",
+    suburb_median_price="median",
+    suburb_price_std="std",
+    suburb_n_sales="count"
+).reset_index()
+
+df = df.merge(suburb_stats, on="Suburb", how="left")
+
+# How does this property compare to its suburb average?
+df["price_vs_suburb"] = df["Price"] / df["suburb_mean_price"]
+
+print(df[["Suburb", "Price", "suburb_mean_price",
+          "price_vs_suburb"]].head(10))
+\end{minted}
+
+\begin{minted}{python}
+# Gapminder: country-level features over time
+gap = pd.read_csv("gapminder.csv")
+
+# Year-over-year growth rate
+gap = gap.sort_values(["country", "year"])
+gap["gdp_growth"] = gap.groupby("country")["gdpPercap"].pct_change()
+gap["pop_growth"] = gap.groupby("country")["pop"].pct_change()
+
+# Rolling average (smoothed trend)
+gap["lifeExp_rolling3"] = (gap.groupby("country")["lifeExp"]
+                               .transform(lambda x: x.rolling(3).mean()))
+
+print(gap[gap["country"] == "Benin"][
+    ["year", "lifeExp", "lifeExp_rolling3", "gdp_growth"]].tail(6))
+\end{minted}
+
+% ============================================================
+\section{Text-derived features}
+
+\begin{minted}{python}
+# Extract features from text columns without full NLP
+# Using Melbourne suburb names and addresses
+
+# Length of address
+df["address_length"] = df["Address"].str.len()
+df["address_word_count"] = df["Address"].str.split().str.len()
+
+# Contains specific keywords
+df["is_street"] = df["Address"].str.contains("St$", regex=True).astype(int)
+df["is_road"] = df["Address"].str.contains("Rd$", regex=True).astype(int)
+df["is_avenue"] = df["Address"].str.contains("Av", regex=False).astype(int)
+
+print(df[["Address", "address_length", "is_street",
+          "is_road"]].head(10))
+\end{minted}
+
+% ============================================================
+\section{Domain knowledge features}
+
+\begin{minted}{python}
+# Real estate domain knowledge
+df["total_rooms"] = df["Rooms"] + df["Bathroom"] + df["Car"]
+df["has_multiple_bathrooms"] = (df["Bathroom"] > 1).astype(int)
+df["is_new_build"] = (df["YearBuilt"] > 2010).astype(int)
+df["building_age"] = df["sale_year"] - df["YearBuilt"]
+df["is_close_to_cbd"] = (df["Distance"] < 10).astype(int)
+
+# Property type indicators
+df["is_house"] = (df["Type"] == "h").astype(int)
+df["is_unit"] = (df["Type"] == "u").astype(int)
+
+# Interaction: large house close to CBD
+df["large_close"] = df["is_house"] * df["is_close_to_cbd"] * df["Rooms"]
+
+print(df[["Suburb", "Type", "Rooms", "Distance",
+          "building_age", "large_close"]].head(10))
+\end{minted}
+
+\begin{datatip}
+The best features come from understanding the domain. Spend time with domain experts. Ask: ``What factors do professionals in this field consider when making decisions?'' Encode those factors as features.
+\end{datatip}
+
+% ============================================================
+\section{Feature selection after engineering}
+
+\begin{minted}{python}
+from sklearn.feature_selection import mutual_info_regression
+
+# Select numerical features
+feature_cols = ["Rooms", "Distance", "Landsize", "building_age",
+                "price_per_room", "suburb_mean_price", "large_close",
+                "days_since_ref", "Bathroom", "Car"]
+target = "Price"
+
+# Drop rows with NaN for this analysis
+subset = df[feature_cols + [target]].dropna()
+
+mi = mutual_info_regression(subset[feature_cols], subset[target],
+                            random_state=42)
+mi_series = pd.Series(mi, index=feature_cols).sort_values(ascending=False)
+
+print("Mutual information with Price:")
+print(mi_series)
+\end{minted}
+
+\begin{minted}{python}
+# Correlation matrix for engineered features
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+corr = subset[feature_cols].corr()
+fig, ax = plt.subplots(figsize=(10, 8))
+sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm",
+            center=0, ax=ax)
+plt.title("Feature correlation matrix")
+plt.tight_layout()
+plt.savefig("feature_correlation.png", dpi=150)
+plt.show()
+\end{minted}
+
+% ============================================================
+\section{Exercises}
+
+\begin{exercise}
+\begin{enumerate}
+  \item For the Melbourne Housing dataset, create at least 5 new features using domain knowledge. Rank them by mutual information with Price.
+  \item Create cyclical encoding for the sale month. Verify that December and January are close in the encoded space by computing their Euclidean distance.
+  \item Using the Gapminder dataset, create year-over-year growth rate features for GDP per capita and life expectancy. Which country had the highest GDP growth in a single period?
+  \item Build polynomial features (degree~2) for \texttt{Rooms}, \texttt{Distance}, and \texttt{Landsize}. Train a linear regression with and without polynomial features and compare $R^2$.
+  \item Create a feature engineering function \texttt{engineer\_melb(df)} that takes the raw Melbourne dataset and returns a DataFrame with at least 10 new features, ready for modeling.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Feature engineering creates new variables that capture patterns invisible in raw data.
+  \item Polynomial and interaction features capture non-linear and cross-feature relationships.
+  \item Ratio features (price per room, price per square meter) encode domain knowledge compactly.
+  \item Date features (year, month, day of week, cyclical encoding) unlock temporal patterns.
+  \item Aggregation features (group means, rolling averages) add contextual information.
+  \item Domain knowledge is the most valuable source of feature ideas --- consult experts.
+  \item After engineering, use mutual information or correlation to select the most predictive features.
+\end{itemize}
