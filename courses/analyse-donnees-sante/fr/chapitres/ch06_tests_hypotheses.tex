@@ -1,0 +1,457 @@
+\chapter{Tests d'hypoth\`eses}
+\label{ch:tests-hypotheses}
+
+\begin{quote}
+\emph{<<\,L'objectif d'un test statistique n'est pas de prouver que quelque chose est vrai. C'est de mesurer \`a quel point nous devrions \^etre surpris si rien ne se passait.\,>>}
+\end{quote}
+
+% ============================================================
+\section{La logique des tests d'hypoth\`eses}
+
+Chaque question clinique peut \^etre formul\'ee comme un test entre deux \'enonc\'es concurrents :
+
+\begin{itemize}
+  \item \textbf{Hypoth\`ese nulle ($H_0$) :} Il n'y a \emph{aucun} effet, aucune diff\'erence, aucune association. Le m\'edicament ne fonctionne pas. Les deux groupes ont la m\^eme pression art\'erielle.
+  \item \textbf{Hypoth\`ese alternative ($H_1$) :} Il \emph{y a} un effet, une diff\'erence ou une association. Le m\'edicament abaisse le cholest\'erol. Le groupe traitement a une pression art\'erielle plus basse que le groupe t\'emoin.
+\end{itemize}
+
+Nous collectons des donn\'ees, calculons une statistique de test et demandons : \emph{si $H_0$ \'etait vraie, quelle est la probabilit\'e d'observer des donn\'ees aussi extr\^emes ?} Cette probabilit\'e est la \textbf{valeur $p$}.
+
+\begin{clinicalnote}
+La formulation clinique importe. Un statisticien \'ecrit $H_0: \mu_1 = \mu_2$. Un clinicien \'ecrit <<\,il n'y a pas de diff\'erence de pression art\'erielle systolique entre le groupe statine et le groupe placebo\,>>. Les deux disent la m\^eme chose --- utilisez la formulation qui rend la question de recherche claire.
+\end{clinicalnote}
+
+\subsection{Les \'etapes d'un test d'hypoth\`ese}
+
+\begin{enumerate}
+  \item \textbf{\'Enoncer les hypoth\`eses} ($H_0$ et $H_1$).
+  \item \textbf{Choisir le niveau de signification} $\alpha$ (g\'en\'eralement 0,05).
+  \item \textbf{Collecter les donn\'ees} et calculer la \textbf{statistique de test}.
+  \item \textbf{Calculer la valeur $p$} --- la probabilit\'e d'observer un r\'esultat au moins aussi extr\^eme que le v\^otre, en supposant $H_0$ vraie.
+  \item \textbf{D\'ecider :} si $p < \alpha$, rejeter $H_0$. Sinon, ne pas rejeter $H_0$.
+\end{enumerate}
+
+\begin{minted}{python}
+import numpy as np
+import pandas as pd
+from scipy import stats
+import matplotlib.pyplot as plt
+import seaborn as sns
+\end{minted}
+
+% ============================================================
+\section{Valeurs $p$ : ce qu'elles signifient et ce qu'elles ne signifient pas}
+
+\subsection{Ce qu'est une valeur $p$}
+
+Une valeur $p$ est la probabilit\'e d'observer des donn\'ees aussi extr\^emes (ou plus extr\^emes) que celles collect\'ees, \emph{en supposant} $H_0$ vraie. Un $p = 0{,}03$ signifie : si le m\'edicament n'a vraiment aucun effet, il y a 3\,\% de chances de voir des r\'esultats aussi extr\^emes par le seul hasard.
+
+\subsection{Ce qu'une valeur $p$ n'est PAS}
+
+\begin{itemize}
+  \item Ce n'est \textbf{pas} la probabilit\'e que $H_0$ soit vraie.
+  \item Ce n'est \textbf{pas} la probabilit\'e que le r\'esultat soit d\^u au hasard.
+  \item Elle ne mesure \textbf{pas} la taille de l'effet.
+  \item $p = 0{,}049$ n'est pas fondamentalement diff\'erent de $p = 0{,}051$.
+\end{itemize}
+
+\begin{warningbox}
+Une petite valeur $p$ ne signifie pas un effet \emph{important} ou \emph{cliniquement significatif}. Une \'etude avec 100\,000 patients peut trouver $p < 0{,}001$ pour une diff\'erence de pression art\'erielle de 0,5~mmHg --- statistiquement significatif mais cliniquement sans int\'er\^et. Rapportez toujours la \textbf{taille d'effet} en plus des valeurs $p$.
+\end{warningbox}
+
+\subsection{Erreurs de type I et de type II}
+
+\begin{itemize}
+  \item \textbf{Erreur de type I (faux positif) :} Vous rejetez $H_0$ alors qu'elle est vraie. Vous concluez que le m\'edicament fonctionne alors que ce n'est pas le cas. Contr\^ol\'ee par $\alpha$.
+  \item \textbf{Erreur de type II (faux n\'egatif) :} Vous ne rejetez pas $H_0$ alors que $H_1$ est vraie. Vous manquez un vrai effet. Li\'ee \`a la \textbf{puissance} ($1 - \beta$).
+\end{itemize}
+
+\begin{minted}{python}
+# Visualiser la logique : distribution d'echantillonnage sous H0
+np.random.seed(42)
+null_distribution = np.random.normal(loc=0, scale=1, size=10000)
+
+fig, ax = plt.subplots(figsize=(9, 4))
+ax.hist(null_distribution, bins=60, density=True, alpha=0.7, color="steelblue")
+ax.axvline(1.96, color="red", linestyle="--", label="Valeur critique (alpha=0.05)")
+ax.axvline(-1.96, color="red", linestyle="--")
+ax.fill_betweenx([0, 0.45], 1.96, 3.5, alpha=0.3, color="red", label="Zone de rejet")
+ax.fill_betweenx([0, 0.45], -3.5, -1.96, alpha=0.3, color="red")
+ax.set_xlabel("Statistique de test (z)")
+ax.set_ylabel("Densite")
+ax.set_title("Test bilateral : zones de rejet sous H0")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+% ============================================================
+\section{Test $t$ \`a un \'echantillon}
+
+\textbf{Question :} Le cholest\'erol total moyen de nos patients est-il diff\'erent de la moyenne nationale de 200~mg/dL ?
+
+\begin{minted}{python}
+# Donnees de cholesterol simulees de la clinique (mg/dL)
+np.random.seed(42)
+cholesterol = np.random.normal(loc=212, scale=35, size=80)
+
+# Test t a un echantillon : la moyenne est-elle differente de 200 ?
+t_stat, p_value = stats.ttest_1samp(cholesterol, popmean=200)
+print(f"Moyenne echantillon : {cholesterol.mean():.1f} mg/dL")
+print(f"Statistique t : {t_stat:.3f}")
+print(f"Valeur p : {p_value:.4f}")
+
+if p_value < 0.05:
+    print("Rejeter H0 : le cholesterol moyen differe de 200 mg/dL")
+else:
+    print("Ne pas rejeter H0 : pas de preuve que la moyenne differe de 200 mg/dL")
+\end{minted}
+
+\begin{clinicalnote}
+Le test $t$ \`a un \'echantillon compare une moyenne d'\'echantillon \`a une valeur de r\'ef\'erence connue. En pratique clinique, la r\'ef\'erence peut \^etre une moyenne nationale, un seuil de recommandation ou une valeur de base avant traitement.
+\end{clinicalnote}
+
+% ============================================================
+\section{Test $t$ \`a deux \'echantillons}
+
+\textbf{Question :} La pression art\'erielle systolique est-elle diff\'erente entre le groupe traitement et le groupe t\'emoin ?
+
+\begin{minted}{python}
+# Donnees d'essai clinique simulees
+np.random.seed(42)
+treatment = np.random.normal(loc=128, scale=15, size=60)
+control = np.random.normal(loc=138, scale=16, size=55)
+
+# Test t a deux echantillons independants
+t_stat, p_value = stats.ttest_ind(treatment, control)
+print(f"Moyenne traitement : {treatment.mean():.1f} mmHg")
+print(f"Moyenne temoin :     {control.mean():.1f} mmHg")
+print(f"Difference :         {control.mean() - treatment.mean():.1f} mmHg")
+print(f"Statistique t :      {t_stat:.3f}")
+print(f"Valeur p :           {p_value:.4f}")
+\end{minted}
+
+\subsection{V\'erification des hypoth\`eses}
+
+Le test $t$ suppose une normalit\'e approximative et une \'egalit\'e des variances. V\'erifiez les deux :
+
+\begin{minted}{python}
+# Normalite : test de Shapiro-Wilk (H0 : les donnees sont normalement distribuees)
+_, p_treat = stats.shapiro(treatment)
+_, p_ctrl = stats.shapiro(control)
+print(f"Shapiro-Wilk p (traitement) : {p_treat:.4f}")
+print(f"Shapiro-Wilk p (temoin) :     {p_ctrl:.4f}")
+
+# Egalite des variances : test de Levene
+_, p_levene = stats.levene(treatment, control)
+print(f"Test de Levene p : {p_levene:.4f}")
+
+# Si les variances sont inegales, utiliser le test t de Welch :
+t_stat, p_value = stats.ttest_ind(treatment, control, equal_var=False)
+print(f"Test t de Welch valeur p : {p_value:.4f}")
+\end{minted}
+
+\begin{pythontip}
+Mettez \texttt{equal\_var=False} dans \texttt{ttest\_ind()} pour utiliser le test $t$ de Welch. Il ne suppose pas l'\'egalit\'e des variances et constitue souvent le choix le plus s\^ur par d\'efaut.
+\end{pythontip}
+
+% ============================================================
+\section{Test $t$ appari\'e}
+
+\textbf{Question :} Un programme d'exercice de 12 semaines r\'eduit-il la pression art\'erielle systolique ?
+
+Chaque patient est mesur\'e \emph{avant} et \emph{apr\`es}. Le test $t$ appari\'e utilise les diff\'erences intra-patient.
+
+\begin{minted}{python}
+# Donnees simulees avant/apres intervention
+np.random.seed(42)
+n_patients = 45
+bp_before = np.random.normal(loc=142, scale=12, size=n_patients)
+# Apres intervention : reduction moyenne de ~8 mmHg avec variation individuelle
+bp_after = bp_before - np.random.normal(loc=8, scale=6, size=n_patients)
+
+# Test t apparie
+t_stat, p_value = stats.ttest_rel(bp_before, bp_after)
+differences = bp_before - bp_after
+print(f"PA moyenne avant :   {bp_before.mean():.1f} mmHg")
+print(f"PA moyenne apres :   {bp_after.mean():.1f} mmHg")
+print(f"Reduction moyenne :  {differences.mean():.1f} mmHg")
+print(f"Statistique t :      {t_stat:.3f}")
+print(f"Valeur p :           {p_value:.6f}")
+\end{minted}
+
+\begin{minted}{python}
+# Visualiser avant/apres
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+# Lignes appariees
+for i in range(n_patients):
+    axes[0].plot([0, 1], [bp_before[i], bp_after[i]],
+                 color="gray", alpha=0.4)
+axes[0].plot([0, 1], [bp_before.mean(), bp_after.mean()],
+             color="red", linewidth=3, marker="o", markersize=8)
+axes[0].set_xticks([0, 1])
+axes[0].set_xticklabels(["Avant", "Apres"])
+axes[0].set_ylabel("PA systolique (mmHg)")
+axes[0].set_title("Trajectoires individuelles des patients")
+
+# Distribution des differences
+axes[1].hist(differences, bins=15, edgecolor="black", alpha=0.7, color="steelblue")
+axes[1].axvline(0, color="red", linestyle="--", label="Aucun changement")
+axes[1].axvline(differences.mean(), color="green", linestyle="--",
+                label=f"Moyenne = {differences.mean():.1f}")
+axes[1].set_xlabel("Reduction de PA (mmHg)")
+axes[1].set_ylabel("Frequence")
+axes[1].set_title("Distribution des changements de PA")
+axes[1].legend()
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{warningbox}
+Une erreur courante est d'utiliser un test $t$ \`a deux \'echantillons \emph{ind\'ependants} sur des donn\'ees avant/apr\`es. Cela ignore l'appariement et r\'eduit la puissance statistique. Si les m\^emes patients sont mesur\'es deux fois, utilisez toujours un test $t$ \textbf{appari\'e}.
+\end{warningbox}
+
+% ============================================================
+\section{Test du chi-deux d'ind\'ependance}
+
+\textbf{Question :} La pr\'evalence du diab\`ete est-elle associ\'ee \`a la cat\'egorie d'ob\'esit\'e ?
+
+Le test du chi-deux fonctionne avec des variables \emph{cat\'egorielles}. Il compare les effectifs observ\'es \`a ceux attendus si les variables \'etaient ind\'ependantes.
+
+\begin{minted}{python}
+# Donnees de tableau croise simulees
+np.random.seed(42)
+n = 500
+bmi_cat = np.random.choice(["Normal", "Surpoids", "Obese"],
+                           size=n, p=[0.3, 0.4, 0.3])
+# La probabilite de diabete augmente avec l'obesite
+diabetes_prob = {"Normal": 0.08, "Surpoids": 0.18, "Obese": 0.35}
+diabetes = [np.random.binomial(1, diabetes_prob[b]) for b in bmi_cat]
+
+df_chi = pd.DataFrame({"bmi_category": bmi_cat, "diabetes": diabetes})
+df_chi["diabetes_label"] = df_chi["diabetes"].map({0: "Non", 1: "Oui"})
+
+# Tableau de contingence
+contingency = pd.crosstab(df_chi["bmi_category"], df_chi["diabetes_label"])
+print(contingency)
+print()
+
+# Test du chi-deux
+chi2, p_value, dof, expected = stats.chi2_contingency(contingency)
+print(f"Statistique du chi-deux : {chi2:.2f}")
+print(f"Degres de liberte :      {dof}")
+print(f"Valeur p :               {p_value:.4f}")
+print(f"\nFrequences attendues (si independance) :")
+print(pd.DataFrame(expected, index=contingency.index,
+                   columns=contingency.columns).round(1))
+\end{minted}
+
+\begin{clinicalnote}
+Le test du chi-deux exige que les effectifs attendus par cellule soient d'au moins 5. Si vous avez de petites cellules (par ex.\ une maladie rare), utilisez le test exact de Fisher : \texttt{stats.fisher\_exact(table)} pour les tableaux $2 \times 2$.
+\end{clinicalnote}
+
+% ============================================================
+\section{Test U de Mann-Whitney}
+
+Quand vos donn\'ees ne sont pas normalement distribu\'ees --- fr\'equent pour la dur\'ee de s\'ejour, les donn\'ees de co\^ut ou les petits \'echantillons --- utilisez le test U de Mann-Whitney. Il compare les \emph{rangs} des observations plut\^ot que les moyennes.
+
+\begin{minted}{python}
+# Duree de sejour : chirurgical vs medical (donnees asymetriques a droite)
+np.random.seed(42)
+los_surgical = np.random.exponential(scale=7, size=40)
+los_medical = np.random.exponential(scale=4.5, size=45)
+
+# Test U de Mann-Whitney
+u_stat, p_value = stats.mannwhitneyu(los_surgical, los_medical,
+                                      alternative="two-sided")
+print(f"Duree de sejour mediane (chirurgical) : {np.median(los_surgical):.1f} jours")
+print(f"Duree de sejour mediane (medical) :     {np.median(los_medical):.1f} jours")
+print(f"Statistique U :                         {u_stat:.0f}")
+print(f"Valeur p :                              {p_value:.4f}")
+\end{minted}
+
+\begin{minted}{python}
+# Visualiser les distributions asymetriques
+fig, ax = plt.subplots(figsize=(8, 4))
+ax.hist(los_surgical, bins=15, alpha=0.6, label="Chirurgical", color="coral")
+ax.hist(los_medical, bins=15, alpha=0.6, label="Medical", color="steelblue")
+ax.set_xlabel("Duree de sejour (jours)")
+ax.set_ylabel("Frequence")
+ax.set_title("Duree de sejour par service")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{pythontip}
+R\`egle g\'en\'erale pour le choix d'un test :
+\begin{itemize}
+  \item Donn\'ees normales, deux groupes $\rightarrow$ test $t$
+  \item Donn\'ees non normales, deux groupes $\rightarrow$ test U de Mann-Whitney
+  \item Donn\'ees cat\'egorielles $\rightarrow$ test du chi-deux
+  \item Mesures appari\'ees $\rightarrow$ test $t$ appari\'e (ou test de Wilcoxon si non normal)
+\end{itemize}
+\end{pythontip}
+
+% ============================================================
+\section{Correction pour tests multiples}
+
+\subsection{Le probl\`eme}
+
+Si vous testez 20 hypoth\`eses \`a $\alpha = 0{,}05$, vous attendez $20 \times 0{,}05 = 1$ faux positif \emph{m\^eme s'il ne se passe rien}. En g\'enomique, vous pourriez tester 20\,000 g\`enes simultan\'ement. Sans correction, vous obtiendriez 1\,000 <<\,d\'ecouvertes\,>> fallacieuses.
+
+\begin{minted}{python}
+# Simulation : 1000 tests ou H0 est vraie pour tous
+np.random.seed(42)
+n_tests = 1000
+p_values = []
+for _ in range(n_tests):
+    # Deux echantillons aleatoires de la MEME distribution (H0 est vraie)
+    a = np.random.normal(0, 1, 30)
+    b = np.random.normal(0, 1, 30)
+    _, p = stats.ttest_ind(a, b)
+    p_values.append(p)
+
+p_values = np.array(p_values)
+false_positives = (p_values < 0.05).sum()
+print(f"Tests effectues : {n_tests}")
+print(f"Faux positifs (p < 0.05) : {false_positives}")
+print(f"Taux de faux positifs : {false_positives/n_tests:.1%}")
+\end{minted}
+
+\subsection{Correction de Bonferroni}
+
+La correction la plus simple : diviser $\alpha$ par le nombre de tests.
+
+\begin{minted}{python}
+from statsmodels.stats.multitest import multipletests
+
+# Correction de Bonferroni
+rejected_bonf, pvals_corrected_bonf, _, _ = multipletests(
+    p_values, alpha=0.05, method="bonferroni"
+)
+print(f"Bonferroni : {rejected_bonf.sum()} resultats significatifs")
+\end{minted}
+
+\subsection{Benjamini-Hochberg (FDR)}
+
+Moins conservative : contr\^ole le \emph{taux de fausses d\'ecouvertes} (la proportion d'hypoth\`eses rejet\'ees qui sont des faux positifs).
+
+\begin{minted}{python}
+# Correction FDR de Benjamini-Hochberg
+rejected_fdr, pvals_corrected_fdr, _, _ = multipletests(
+    p_values, alpha=0.05, method="fdr_bh"
+)
+print(f"FDR (BH) : {rejected_fdr.sum()} resultats significatifs")
+\end{minted}
+
+\begin{clinicalnote}
+En g\'enomique et prot\'eomique, la correction FDR est le standard. Quand vous lisez un article rapportant <<\,542 g\`enes diff\'erentiellement exprim\'es \`a FDR $< 0{,}05$\,>>, les auteurs ont utilis\'e Benjamini-Hochberg (ou une m\'ethode similaire) pour contr\^oler les milliers de tests simultan\'es.
+\end{clinicalnote}
+
+\begin{warningbox}
+Bonferroni est tr\`es conservative --- elle minimise les faux positifs mais peut manquer de vrais effets (erreur de type~II \'elev\'ee). Le FDR est un bon compromis pour les analyses exploratoires. Pour les essais cliniques confirmatoires, Bonferroni est souvent pr\'ef\'er\'ee car les faux positifs sont plus co\^uteux.
+\end{warningbox}
+
+% ============================================================
+\section{Taille d'effet : signification clinique vs statistique}
+
+\subsection{$d$ de Cohen}
+
+Le $d$ de Cohen mesure la taille de la diff\'erence en \emph{unit\'es d'\'ecart-type} :
+$$d = \frac{\bar{x}_1 - \bar{x}_2}{s_{\text{group\'e}}}$$
+
+\begin{itemize}
+  \item $|d| < 0{,}2$ : effet n\'egligeable
+  \item $0{,}2 \leq |d| < 0{,}5$ : petit effet
+  \item $0{,}5 \leq |d| < 0{,}8$ : effet moyen
+  \item $|d| \geq 0{,}8$ : grand effet
+\end{itemize}
+
+\begin{minted}{python}
+def cohens_d(group1, group2):
+    """Calculer le d de Cohen pour deux groupes independants."""
+    n1, n2 = len(group1), len(group2)
+    var1, var2 = group1.var(ddof=1), group2.var(ddof=1)
+    pooled_std = np.sqrt(((n1 - 1) * var1 + (n2 - 1) * var2) / (n1 + n2 - 2))
+    return (group1.mean() - group2.mean()) / pooled_std
+
+# Avec nos donnees PA traitement vs temoin
+d = cohens_d(treatment, control)
+print(f"d de Cohen : {d:.2f}")
+print(f"Interpretation : {'grand' if abs(d) >= 0.8 else 'moyen' if abs(d) >= 0.5 else 'petit' if abs(d) >= 0.2 else 'negligeable'} effet")
+\end{minted}
+
+\subsection{Pourquoi la taille d'effet est importante}
+
+\begin{minted}{python}
+# Grand echantillon + effet minuscule = valeur p significative
+np.random.seed(42)
+huge_group1 = np.random.normal(120.0, 15, size=50000)
+huge_group2 = np.random.normal(120.5, 15, size=50000)  # seulement 0.5 mmHg de difference
+
+t, p = stats.ttest_ind(huge_group1, huge_group2)
+d = cohens_d(huge_group1, huge_group2)
+print(f"Difference de moyennes : {huge_group2.mean() - huge_group1.mean():.2f} mmHg")
+print(f"Valeur p : {p:.6f}")
+print(f"d de Cohen : {d:.3f}")
+print("Statistiquement significatif ? Oui. Cliniquement pertinent ? Non.")
+\end{minted}
+
+\begin{clinicalnote}
+Dans un rapport d'essai clinique, la FDA et l'EMA attendent \`a la fois des valeurs $p$ \emph{et} des intervalles de confiance pour l'effet du traitement. Un m\'edicament qui abaisse l'HbA1c de 0,01\,\% avec $p < 0{,}001$ ne sera pas approuv\'e. L'effet doit \^etre \textbf{cliniquement significatif}.
+\end{clinicalnote}
+
+% ============================================================
+\section{Travaux pratiques : tests d'hypoth\`eses avec des donn\'ees de type Framingham}
+
+\begin{minted}{python}
+# Charger un jeu de donnees cardiovasculaire de type Framingham
+url = ("https://raw.githubusercontent.com/dsrscientist/"
+       "dataset-for-machine-learning/master/framingham.csv")
+fram = pd.read_csv(url)
+print(f"Dimensions : {fram.shape}")
+print(f"Colonnes : {fram.columns.tolist()}")
+fram.head()
+\end{minted}
+
+\begin{minted}{python}
+# Exploration rapide
+fram.describe()
+\end{minted}
+
+\begin{minted}{python}
+# Supprimer les lignes avec valeurs manquantes par simplicite
+fram_clean = fram.dropna()
+print(f"Jeu de donnees nettoye : {fram_clean.shape[0]} patients")
+\end{minted}
+
+\begin{exercise}
+En utilisant le jeu de donn\'ees Framingham :
+\begin{enumerate}
+  \item \textbf{Test $t$ \`a un \'echantillon.} Le cholest\'erol total moyen de cette cohorte diff\`ere-t-il de la moyenne nationale am\'ericaine de 200~mg/dL ?
+  \item \textbf{Test $t$ \`a deux \'echantillons.} Comparez la pression art\'erielle systolique entre les patients ayant d\'evelopp\'e une coronaropathie (\texttt{TenYearCHD = 1}) et ceux qui ne l'ont pas fait. Rapportez la valeur $p$, la diff\'erence de moyennes et le $d$ de Cohen.
+  \item \textbf{Test du chi-deux.} Cr\'eez un tableau de contingence $2 \times 2$ de \texttt{currentSmoker} vs \texttt{TenYearCHD}. Le tabagisme est-il associ\'e au risque de coronaropathie \`a 10 ans ?
+  \item \textbf{Test U de Mann-Whitney.} Comparez \texttt{cigsPerDay} entre les groupes coronaropathie et non-coronaropathie. Pourquoi le test de Mann-Whitney est-il plus appropri\'e qu'un test $t$ ici ?
+  \item \textbf{Tests multiples.} Ex\'ecutez des tests $t$ comparant coronaropathie vs non-coronaropathie pour toutes les variables continues (age, totChol, sysBP, diaBP, BMI, heartRate, glucose). Appliquez les corrections de Bonferroni et FDR. Quelles variables restent significatives apr\`es chaque correction ?
+  \item \textbf{Interpr\'etation clinique.} Pour la variable avec la plus grande taille d'effet ($d$ de Cohen), discutez si la diff\'erence est cliniquement significative.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Un test d'hypoth\`ese mesure \`a quel point les donn\'ees seraient surprenantes si $H_0$ \'etait vraie.
+  \item La valeur $p$ n'est \emph{pas} la probabilit\'e que $H_0$ soit vraie.
+  \item Test $t$ \`a un \'echantillon : comparer une moyenne d'\'echantillon \`a une valeur de r\'ef\'erence.
+  \item Test $t$ \`a deux \'echantillons : comparer les moyennes entre deux groupes ind\'ependants.
+  \item Test $t$ appari\'e : comparer les moyennes des m\^emes sujets mesur\'es deux fois.
+  \item Test du chi-deux : tester l'association entre deux variables cat\'egorielles.
+  \item Test U de Mann-Whitney : alternative non param\'etrique quand les donn\'ees ne sont pas normales.
+  \item La correction pour tests multiples (Bonferroni, FDR) emp\^eche les fausses d\'ecouvertes.
+  \item La taille d'effet ($d$ de Cohen) distingue la signification statistique de la signification clinique.
+  \item Rapportez toujours les valeurs $p$ et les tailles d'effet dans la recherche clinique.
+\end{itemize}

@@ -1,0 +1,572 @@
+\chapter{Visualization for health data}
+\label{ch:visualization}
+
+\begin{quote}
+\emph{``The greatest value of a picture is when it forces us to notice what we never expected to see.'' --- John Tukey}
+\end{quote}
+
+% ============================================================
+\section{Principles of health data visualization}
+
+A good health figure answers a question. A bad one decorates a slide. Before writing any plotting code, ask yourself:
+\begin{enumerate}
+  \item \textbf{What is the message?} ``Malaria incidence is declining in Sub-Saharan Africa'' --- not ``here is some data.''
+  \item \textbf{Who is the audience?} Clinicians need different plots than policymakers.
+  \item \textbf{What comparison matters?} Between groups? Over time? Against a threshold?
+\end{enumerate}
+
+Rules that apply to every health figure:
+\begin{itemize}
+  \item Label axes with units (``Systolic BP (mmHg)'', not ``BP'').
+  \item Use colorblind-friendly palettes.
+  \item Do not use 3D charts, pie charts, or dual y-axes unless you have a very good reason.
+  \item Include sample sizes in titles or annotations.
+  \item Start y-axes at zero for bar charts. For line plots, zero is optional if the range is narrow.
+\end{itemize}
+
+\begin{clinicalnote}
+In clinical publications, figures are often the first (and sometimes the only) thing reviewers examine closely. A clear, well-labeled figure can carry a paper. A misleading one can sink it. The Lancet and BMJ both have specific figure guidelines --- study them before submitting.
+\end{clinicalnote}
+
+% ============================================================
+\section{Setup: matplotlib and seaborn}
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Set a clean style for all plots
+sns.set_theme(style="whitegrid", font_scale=1.1)
+plt.rcParams["figure.figsize"] = (8, 5)
+plt.rcParams["figure.dpi"] = 100
+
+# Colorblind-friendly palette
+cb_palette = ["#0072B2", "#D55E00", "#009E73",
+              "#CC79A7", "#F0E442", "#56B4E9"]
+sns.set_palette(cb_palette)
+\end{minted}
+
+\begin{pythontip}
+The six-color palette above is from Bang Wong's ``Points of view: Color blindness'' (Nature Methods, 2011). It is distinguishable by people with the most common forms of color vision deficiency. Use it as your default.
+\end{pythontip}
+
+% ============================================================
+\section{Histograms and density plots}
+
+Histograms show the \emph{distribution} of a single variable. In health, this tells you whether a measurement follows a normal distribution, is skewed, or is bimodal.
+
+\begin{minted}{python}
+# Load Gapminder data
+url = ("https://raw.githubusercontent.com/datasets/"
+       "gapminder/main/data/gapminder.csv")
+gapminder = pd.read_csv(url)
+recent = gapminder[gapminder["year"] == 2007]
+
+# Histogram of life expectancy
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+# Left: histogram
+axes[0].hist(recent["lifeExp"], bins=20, edgecolor="white", alpha=0.8)
+axes[0].set_xlabel("Life expectancy (years)")
+axes[0].set_ylabel("Number of countries")
+axes[0].set_title("Distribution of life expectancy, 2007")
+axes[0].axvline(recent["lifeExp"].median(), color="red",
+                linestyle="--", label=f'Median: {recent["lifeExp"].median():.1f}')
+axes[0].legend()
+
+# Right: kernel density estimate (smooth version)
+sns.kdeplot(data=recent, x="lifeExp", hue="continent",
+            fill=True, alpha=0.3, ax=axes[1])
+axes[1].set_xlabel("Life expectancy (years)")
+axes[1].set_title("Life expectancy by continent, 2007")
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Clinical example: distribution of fasting glucose
+np.random.seed(42)
+normal_glucose = np.random.normal(95, 10, 800)
+prediabetic = np.random.normal(115, 8, 150)
+diabetic = np.random.normal(180, 40, 50)
+all_glucose = np.concatenate([normal_glucose, prediabetic, diabetic])
+
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.hist(all_glucose, bins=40, edgecolor="white", alpha=0.7)
+ax.axvline(100, color="orange", linestyle="--", linewidth=2,
+           label="Normal threshold (100 mg/dL)")
+ax.axvline(126, color="red", linestyle="--", linewidth=2,
+           label="Diabetic threshold (126 mg/dL)")
+ax.set_xlabel("Fasting glucose (mg/dL)")
+ax.set_ylabel("Number of patients")
+ax.set_title("Distribution of fasting glucose (n=1,000)")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+% ============================================================
+\section{Box plots}
+
+Box plots compare distributions across groups. The box shows the IQR (25th--75th percentile), the line is the median, and the whiskers extend to 1.5$\times$IQR. Points beyond the whiskers are outliers.
+
+\begin{minted}{python}
+# Blood pressure by continent
+fig, ax = plt.subplots(figsize=(10, 6))
+sns.boxplot(data=recent, x="continent", y="lifeExp", ax=ax)
+ax.set_xlabel("Continent")
+ax.set_ylabel("Life expectancy (years)")
+ax.set_title("Life expectancy by continent, 2007 (n={})".format(len(recent)))
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Clinical example: BMI by sex and age group
+np.random.seed(42)
+n = 500
+clinical = pd.DataFrame({
+    "sex": np.random.choice(["Male", "Female"], n),
+    "age_group": np.random.choice(["18-39", "40-59", "60+"], n,
+                                  p=[0.3, 0.4, 0.3]),
+    "bmi": np.random.normal(27, 5, n).clip(15, 50)
+})
+
+fig, ax = plt.subplots(figsize=(10, 6))
+sns.boxplot(data=clinical, x="age_group", y="bmi", hue="sex",
+            order=["18-39", "40-59", "60+"], ax=ax)
+ax.axhline(25, color="orange", linestyle="--", alpha=0.7,
+           label="Overweight threshold")
+ax.axhline(30, color="red", linestyle="--", alpha=0.7,
+           label="Obese threshold")
+ax.set_xlabel("Age group")
+ax.set_ylabel("BMI (kg/m²)")
+ax.set_title(f"BMI by sex and age group (n={n})")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{warningbox}
+Box plots hide the shape of the distribution. A bimodal distribution looks the same as a unimodal one in a box plot. Consider using a \textbf{violin plot} (\texttt{sns.violinplot}) or a \textbf{strip plot} (\texttt{sns.stripplot}) overlaid on the box plot for small samples.
+\end{warningbox}
+
+% ============================================================
+\section{Bar charts}
+
+Bar charts compare \emph{counts} or \emph{rates} across categories. They are the standard choice for disease prevalence comparisons.
+
+\begin{minted}{python}
+# Life expectancy comparison: bottom 15 countries (2007)
+bottom15 = recent.nsmallest(15, "lifeExp")
+
+fig, ax = plt.subplots(figsize=(10, 7))
+ax.barh(bottom15["country"], bottom15["lifeExp"], color="#D55E00")
+ax.set_xlabel("Life expectancy (years)")
+ax.set_title("15 countries with lowest life expectancy, 2007")
+ax.invert_yaxis()  # highest at top
+for i, v in enumerate(bottom15["lifeExp"]):
+    ax.text(v + 0.5, i, f"{v:.1f}", va="center", fontsize=9)
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Disease prevalence comparison by country (simulated)
+diseases = pd.DataFrame({
+    "country": ["Nigeria", "DRC", "Tanzania", "Kenya", "Ghana",
+                "South Africa", "Ethiopia", "Uganda"],
+    "malaria_prev": [27.3, 31.2, 7.5, 5.8, 15.2, 0.5, 1.2, 9.7],
+    "hiv_prev": [1.3, 0.7, 4.7, 4.9, 1.7, 19.0, 1.0, 5.4],
+})
+
+fig, ax = plt.subplots(figsize=(10, 6))
+x = np.arange(len(diseases))
+width = 0.35
+ax.bar(x - width/2, diseases["malaria_prev"], width,
+       label="Malaria", color="#0072B2")
+ax.bar(x + width/2, diseases["hiv_prev"], width,
+       label="HIV", color="#D55E00")
+ax.set_xticks(x)
+ax.set_xticklabels(diseases["country"], rotation=45, ha="right")
+ax.set_ylabel("Prevalence (%)")
+ax.set_title("Malaria vs HIV prevalence by country")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+% ============================================================
+\section{Line plots: time trends and epidemic curves}
+
+Line plots show how a measurement changes over time. They are essential for tracking disease trends and epidemic progression.
+
+\subsection{Time trends}
+
+\begin{minted}{python}
+# Life expectancy trends by continent
+continent_trend = gapminder.groupby(
+    ["year", "continent"])["lifeExp"].mean().reset_index()
+
+fig, ax = plt.subplots(figsize=(10, 6))
+for continent in continent_trend["continent"].unique():
+    subset = continent_trend[continent_trend["continent"] == continent]
+    ax.plot(subset["year"], subset["lifeExp"],
+            marker="o", markersize=4, label=continent)
+
+ax.set_xlabel("Year")
+ax.set_ylabel("Mean life expectancy (years)")
+ax.set_title("Life expectancy trends by continent, 1952-2007")
+ax.legend(title="Continent")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\subsection{Epidemic curves}
+
+\begin{minted}{python}
+# Simulate an epidemic curve (SIR-like shape)
+np.random.seed(42)
+days = pd.date_range("2023-01-01", periods=120, freq="D")
+# Simulate daily new cases with an SIR-like peak
+t = np.arange(120)
+peak = 45
+cases = np.maximum(0, 200 * np.exp(-0.5 * ((t - peak) / 15) ** 2)
+                   + np.random.normal(0, 10, 120)).astype(int)
+
+epi = pd.DataFrame({"date": days, "new_cases": cases})
+epi["rolling_7d"] = epi["new_cases"].rolling(7).mean()
+epi["cumulative"] = epi["new_cases"].cumsum()
+
+fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+
+# Top: daily cases + 7-day average
+axes[0].bar(epi["date"], epi["new_cases"], alpha=0.4,
+            color="#0072B2", label="Daily cases")
+axes[0].plot(epi["date"], epi["rolling_7d"], color="#D55E00",
+             linewidth=2, label="7-day average")
+axes[0].set_ylabel("New cases per day")
+axes[0].set_title("Epidemic curve: daily new cases")
+axes[0].legend()
+
+# Bottom: cumulative cases
+axes[1].plot(epi["date"], epi["cumulative"], color="#009E73",
+             linewidth=2)
+axes[1].set_xlabel("Date")
+axes[1].set_ylabel("Cumulative cases")
+axes[1].set_title("Cumulative case count")
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{clinicalnote}
+During outbreaks, the epidemic curve (``epi curve'') is the single most important visualization. Its shape tells you the transmission pattern: a point-source outbreak has a sharp peak; a propagated outbreak has successive waves. The 7-day rolling average smooths out reporting delays and weekend effects.
+\end{clinicalnote}
+
+% ============================================================
+\section{Scatter plots}
+
+Scatter plots show the relationship between two continuous variables.
+
+\begin{minted}{python}
+# GDP per capita vs life expectancy (the classic Gapminder plot)
+fig, ax = plt.subplots(figsize=(10, 7))
+for continent in recent["continent"].unique():
+    subset = recent[recent["continent"] == continent]
+    ax.scatter(subset["gdpPercap"], subset["lifeExp"],
+               s=subset["pop"] / 1e6,  # bubble size = population
+               alpha=0.6, label=continent)
+
+ax.set_xscale("log")
+ax.set_xlabel("GDP per capita (log scale, USD)")
+ax.set_ylabel("Life expectancy (years)")
+ax.set_title("Wealth vs Health, 2007 (bubble size = population)")
+ax.legend(title="Continent")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Clinical scatter: BMI vs systolic BP with regression line
+np.random.seed(42)
+n = 200
+bmi = np.random.normal(28, 5, n).clip(18, 45)
+sbp = 80 + 1.8 * bmi + np.random.normal(0, 12, n)
+
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.scatter(bmi, sbp, alpha=0.5, s=30, color="#0072B2")
+
+# Add regression line
+from numpy.polynomial.polynomial import polyfit
+b, m = polyfit(bmi, sbp, 1)
+x_line = np.linspace(bmi.min(), bmi.max(), 100)
+ax.plot(x_line, b + m * x_line, color="#D55E00", linewidth=2,
+        label=f"y = {m:.1f}x + {b:.1f}")
+
+# Correlation coefficient
+from scipy.stats import pearsonr
+r, p = pearsonr(bmi, sbp)
+ax.set_xlabel("BMI (kg/m²)")
+ax.set_ylabel("Systolic BP (mmHg)")
+ax.set_title(f"BMI vs Systolic BP (r={r:.2f}, p<0.001, n={n})")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{pythontip}
+Seaborn's \texttt{sns.regplot()} and \texttt{sns.lmplot()} add regression lines and confidence bands automatically. Use \texttt{sns.lmplot()} when you want to split by a categorical variable (e.g., regression by sex).
+\end{pythontip}
+
+% ============================================================
+\section{Kaplan-Meier survival curves}
+
+Survival analysis tracks time until an event (death, relapse, infection). The Kaplan-Meier curve estimates the probability of surviving beyond each time point.
+
+\begin{minted}{python}
+# Install lifelines if needed: !pip install lifelines
+from lifelines import KaplanMeierFitter
+
+# Simulated survival data: two treatment groups
+np.random.seed(42)
+n_per_group = 100
+
+# Treatment group: longer survival
+treatment_time = np.random.exponential(24, n_per_group).clip(0, 60)
+treatment_event = np.random.binomial(1, 0.7, n_per_group)
+
+# Control group: shorter survival
+control_time = np.random.exponential(15, n_per_group).clip(0, 60)
+control_event = np.random.binomial(1, 0.8, n_per_group)
+
+fig, ax = plt.subplots(figsize=(10, 6))
+
+# Fit and plot treatment group
+kmf_treatment = KaplanMeierFitter()
+kmf_treatment.fit(treatment_time, event_observed=treatment_event,
+                  label="Treatment (n=100)")
+kmf_treatment.plot_survival_function(ax=ax, ci_show=True)
+
+# Fit and plot control group
+kmf_control = KaplanMeierFitter()
+kmf_control.fit(control_time, event_observed=control_event,
+                label="Control (n=100)")
+kmf_control.plot_survival_function(ax=ax, ci_show=True)
+
+ax.set_xlabel("Time (months)")
+ax.set_ylabel("Survival probability")
+ax.set_title("Kaplan-Meier survival curves by treatment group")
+ax.set_ylim(0, 1.05)
+
+# Add median survival lines
+for kmf, color in [(kmf_treatment, "#0072B2"), (kmf_control, "#D55E00")]:
+    median = kmf.median_survival_time_
+    if not np.isinf(median):
+        ax.axhline(0.5, color="gray", linestyle=":", alpha=0.5)
+        ax.axvline(median, color=color, linestyle=":", alpha=0.5)
+
+plt.tight_layout()
+plt.show()
+
+# Print median survival
+print(f"Median survival (treatment): "
+      f"{kmf_treatment.median_survival_time_:.1f} months")
+print(f"Median survival (control): "
+      f"{kmf_control.median_survival_time_:.1f} months")
+\end{minted}
+
+\begin{warningbox}
+If \texttt{lifelines} is not installed, run \texttt{!pip install lifelines} in your notebook. It is not pre-installed in Google Colab.
+\end{warningbox}
+
+\begin{clinicalnote}
+Kaplan-Meier curves handle \textbf{censored} observations --- patients who are still alive at the end of the study or who were lost to follow-up. Without proper censoring, you would underestimate survival. The vertical tick marks on the curve show censored observations.
+\end{clinicalnote}
+
+% ============================================================
+\section{Heatmaps}
+
+Heatmaps display matrices of values using color intensity. Two common uses in health:
+
+\subsection{Correlation matrices}
+
+\begin{minted}{python}
+# Correlation between health indicators
+np.random.seed(42)
+n = 300
+health = pd.DataFrame({
+    "BMI": np.random.normal(27, 5, n),
+    "Systolic_BP": np.random.normal(130, 18, n),
+    "Diastolic_BP": np.random.normal(82, 10, n),
+    "Glucose": np.random.normal(105, 25, n),
+    "Cholesterol": np.random.normal(200, 40, n),
+    "HbA1c": np.random.normal(5.8, 1.2, n),
+    "Heart_Rate": np.random.normal(72, 12, n),
+    "Age": np.random.normal(55, 15, n).clip(18, 90)
+})
+
+# Add realistic correlations
+health["Systolic_BP"] += 0.8 * health["BMI"]
+health["Glucose"] += 15 * health["HbA1c"]
+health["Diastolic_BP"] += 0.4 * health["Systolic_BP"]
+health["Cholesterol"] += 0.5 * health["BMI"]
+
+corr = health.corr()
+
+fig, ax = plt.subplots(figsize=(9, 8))
+mask = np.triu(np.ones_like(corr, dtype=bool))  # hide upper triangle
+sns.heatmap(corr, mask=mask, annot=True, fmt=".2f",
+            cmap="RdBu_r", center=0, vmin=-1, vmax=1,
+            square=True, ax=ax)
+ax.set_title("Correlation matrix of health indicators")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\subsection{Disease co-occurrence}
+
+\begin{minted}{python}
+# Co-occurrence of chronic conditions
+conditions = ["Hypertension", "Diabetes", "COPD",
+              "Heart Failure", "CKD", "Obesity"]
+np.random.seed(42)
+cooccurrence = np.random.randint(5, 60, (6, 6))
+cooccurrence = (cooccurrence + cooccurrence.T) // 2  # make symmetric
+np.fill_diagonal(cooccurrence, [320, 180, 95, 75, 110, 210])
+
+co_df = pd.DataFrame(cooccurrence,
+                     index=conditions, columns=conditions)
+
+fig, ax = plt.subplots(figsize=(9, 8))
+sns.heatmap(co_df, annot=True, fmt="d", cmap="YlOrRd",
+            square=True, ax=ax)
+ax.set_title("Disease co-occurrence matrix\n"
+             "(diagonal = total cases, off-diagonal = co-occurring)")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+% ============================================================
+\section{Practical: build a 4-panel health dashboard}
+
+Combining multiple plots into a single figure is essential for reports and publications. Here is a complete 4-panel dashboard using real data:
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+sns.set_theme(style="whitegrid", font_scale=1.0)
+
+# Load data
+url = ("https://raw.githubusercontent.com/datasets/"
+       "gapminder/main/data/gapminder.csv")
+df = pd.read_csv(url)
+recent = df[df["year"] == 2007].copy()
+
+# Create the 4-panel figure
+fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+fig.suptitle("Global Health Dashboard, 2007",
+             fontsize=16, fontweight="bold", y=1.02)
+
+# ----------------------------------------------------------
+# Panel A: Life expectancy distribution by continent
+# ----------------------------------------------------------
+ax = axes[0, 0]
+sns.boxplot(data=recent, x="continent", y="lifeExp", ax=ax,
+            palette="Set2")
+ax.set_xlabel("")
+ax.set_ylabel("Life expectancy (years)")
+ax.set_title("A. Life expectancy by continent")
+ax.tick_params(axis="x", rotation=30)
+
+# ----------------------------------------------------------
+# Panel B: GDP vs Life expectancy scatter
+# ----------------------------------------------------------
+ax = axes[0, 1]
+for continent in recent["continent"].unique():
+    subset = recent[recent["continent"] == continent]
+    ax.scatter(subset["gdpPercap"], subset["lifeExp"],
+               s=subset["pop"] / 2e6, alpha=0.6,
+               label=continent)
+ax.set_xscale("log")
+ax.set_xlabel("GDP per capita (USD, log scale)")
+ax.set_ylabel("Life expectancy (years)")
+ax.set_title("B. Wealth vs health")
+ax.legend(fontsize=8, title="Continent", title_fontsize=8)
+
+# ----------------------------------------------------------
+# Panel C: Life expectancy trends over time
+# ----------------------------------------------------------
+ax = axes[1, 0]
+trend = df.groupby(["year", "continent"])["lifeExp"].mean().reset_index()
+for continent in trend["continent"].unique():
+    subset = trend[trend["continent"] == continent]
+    ax.plot(subset["year"], subset["lifeExp"],
+            marker="o", markersize=3, label=continent)
+ax.set_xlabel("Year")
+ax.set_ylabel("Mean life expectancy (years)")
+ax.set_title("C. Life expectancy trends, 1952-2007")
+ax.legend(fontsize=8, title="Continent", title_fontsize=8)
+
+# ----------------------------------------------------------
+# Panel D: Bottom 10 countries bar chart
+# ----------------------------------------------------------
+ax = axes[1, 1]
+bottom10 = recent.nsmallest(10, "lifeExp")
+ax.barh(bottom10["country"], bottom10["lifeExp"], color="#D55E00")
+ax.set_xlabel("Life expectancy (years)")
+ax.set_title("D. 10 lowest life expectancy countries")
+ax.invert_yaxis()
+for i, v in enumerate(bottom10["lifeExp"]):
+    ax.text(v + 0.3, i, f"{v:.1f}", va="center", fontsize=8)
+
+plt.tight_layout()
+plt.savefig("health_dashboard_2007.png", dpi=150, bbox_inches="tight")
+plt.show()
+print("Dashboard saved as health_dashboard_2007.png")
+\end{minted}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Modify the dashboard to show 2002 data instead of 2007. Does the story change?
+  \item Add a 5th panel showing a histogram of GDP per capita (log-transformed) with a vertical line at the world median. Use \texttt{fig, axes = plt.subplots(2, 3)} or \texttt{plt.subplot2grid()}.
+  \item Create a clinical dashboard for a simulated cohort of 500 patients with the following panels:
+    \begin{itemize}
+      \item Histogram of BMI with overweight/obese thresholds
+      \item Box plot of systolic BP by sex
+      \item Scatter plot of age vs.\ HbA1c with a diabetic threshold line at 6.5\%
+      \item Bar chart of diagnosis frequency
+    \end{itemize}
+  \item Using Our World in Data (\url{https://github.com/owid/owid-datasets}), download a dataset on malaria or tuberculosis. Build an epidemic dashboard with:
+    \begin{itemize}
+      \item Line plot of incidence over time for 5 countries
+      \item Bar chart of the most recent year's incidence
+      \item Scatter plot of incidence vs.\ GDP
+      \item Heatmap of correlation between health indicators
+    \end{itemize}
+  \item Create a Kaplan-Meier plot comparing survival between 3 treatment groups (drug A, drug B, placebo) using simulated data. Add median survival annotations.
+  \item Build a ``pre/post intervention'' visualization: show a health indicator (e.g., malaria cases) as a line plot with a vertical line marking the intervention date. Shade the pre-intervention and post-intervention periods in different colors.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Always label axes with units, include sample sizes, and use colorblind-friendly palettes.
+  \item \textbf{Histograms} show distributions; add clinical threshold lines to give context.
+  \item \textbf{Box plots} compare groups; consider violin plots for more detail.
+  \item \textbf{Bar charts} compare counts or rates; use horizontal bars for many categories.
+  \item \textbf{Line plots} show trends over time; add 7-day rolling averages for epidemic curves.
+  \item \textbf{Scatter plots} reveal relationships; add regression lines and report $r$ values.
+  \item \textbf{Kaplan-Meier curves} are the standard for survival data; use the \texttt{lifelines} library.
+  \item \textbf{Heatmaps} display correlation matrices and co-occurrence patterns.
+  \item Multi-panel figures (\texttt{plt.subplots()}) combine related plots into a coherent story.
+  \item Save publication-quality figures with \texttt{plt.savefig("file.png", dpi=300, bbox\_inches="tight")}.
+\end{itemize}

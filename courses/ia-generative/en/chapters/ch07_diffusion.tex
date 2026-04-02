@@ -1,0 +1,267 @@
+\chapter{Diffusion models and image generation}
+\label{ch:diffusion}
+
+\begin{quote}
+\emph{``Diffusion models generate images by learning to reverse a noise process. Start with pure noise, denoise step by step, and a coherent image emerges.''}
+\end{quote}
+
+% ============================================================
+\section{The diffusion process}
+
+\subsection{Forward process (adding noise)}
+
+Given an image $\mathbf{x}_0$, the forward process adds Gaussian noise over $T$ timesteps:
+\[
+q(\mathbf{x}_t | \mathbf{x}_{t-1}) = \mathcal{N}(\mathbf{x}_t; \sqrt{1-\beta_t}\,\mathbf{x}_{t-1},\; \beta_t \mathbf{I})
+\]
+
+where $\beta_t$ is the noise schedule. After enough steps, $\mathbf{x}_T \approx \mathcal{N}(\mathbf{0}, \mathbf{I})$.
+
+\subsection{Reverse process (denoising)}
+
+A neural network learns to reverse the noise:
+\[
+p_\theta(\mathbf{x}_{t-1} | \mathbf{x}_t) = \mathcal{N}(\mathbf{x}_{t-1}; \boldsymbol{\mu}_\theta(\mathbf{x}_t, t),\; \sigma_t^2 \mathbf{I})
+\]
+
+The model predicts the noise $\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)$ and uses it to compute $\boldsymbol{\mu}_\theta$.
+
+\subsection{Training objective}
+
+The simplified DDPM loss is:
+\[
+L = \mathbb{E}_{t, \mathbf{x}_0, \boldsymbol{\epsilon}} \left[\| \boldsymbol{\epsilon} - \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t) \|^2 \right]
+\]
+
+\begin{minted}{python}
+import torch
+import torch.nn.functional as F
+
+def diffusion_loss(model, x_0, noise_scheduler):
+    """Simplified DDPM training step."""
+    batch_size = x_0.shape[0]
+    # Sample random timesteps
+    t = torch.randint(0, noise_scheduler.num_train_timesteps,
+                      (batch_size,), device=x_0.device)
+    # Sample noise
+    noise = torch.randn_like(x_0)
+    # Add noise to images
+    x_t = noise_scheduler.add_noise(x_0, noise, t)
+    # Predict noise
+    noise_pred = model(x_t, t).sample
+    # MSE loss
+    loss = F.mse_loss(noise_pred, noise)
+    return loss
+\end{minted}
+
+% ============================================================
+\section{Noise schedules}
+
+The noise schedule $\{\beta_t\}_{t=1}^T$ controls how fast noise is added:
+
+\begin{itemize}
+  \item \textbf{Linear:} $\beta_t$ increases linearly from $\beta_1 = 10^{-4}$ to $\beta_T = 0.02$.
+  \item \textbf{Cosine:} smoother noise addition, better for small images.
+  \item \textbf{Scaled linear:} used by Stable Diffusion, tuned for latent space.
+\end{itemize}
+
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+T = 1000
+# Linear schedule
+beta_linear = np.linspace(1e-4, 0.02, T)
+alpha_linear = np.cumprod(1 - beta_linear)
+
+# Cosine schedule
+s = 0.008
+steps = np.arange(T + 1) / T
+f = np.cos((steps + s) / (1 + s) * np.pi / 2) ** 2
+alpha_cosine = f[1:] / f[0]
+
+plt.figure(figsize=(8, 4))
+plt.plot(alpha_linear, label="Linear")
+plt.plot(alpha_cosine, label="Cosine")
+plt.xlabel("Timestep")
+plt.ylabel("Cumulative alpha (signal remaining)")
+plt.title("Noise schedules")
+plt.legend()
+plt.tight_layout()
+plt.savefig("noise_schedules.png", dpi=150)
+plt.show()
+\end{minted}
+
+% ============================================================
+\section{The U-Net architecture}
+
+Diffusion models typically use a \textbf{U-Net}: an encoder-decoder with skip connections. The U-Net takes a noisy image and the timestep, and predicts the noise.
+
+Key components:
+\begin{itemize}
+  \item \textbf{Downsampling blocks}: convolutions that reduce spatial resolution.
+  \item \textbf{Upsampling blocks}: transposed convolutions that increase resolution.
+  \item \textbf{Skip connections}: concatenate encoder features to decoder features.
+  \item \textbf{Timestep embedding}: sinusoidal embedding of $t$, injected into each block.
+  \item \textbf{Cross-attention}: for text-conditioned generation, the U-Net attends to text embeddings.
+\end{itemize}
+
+% ============================================================
+\section{Stable Diffusion}
+
+Stable Diffusion operates in \emph{latent space}: images are compressed by a VAE encoder, diffusion happens in the latent space, and the VAE decoder reconstructs the image.
+
+\begin{minted}{python}
+from diffusers import StableDiffusionPipeline
+import torch
+
+pipe = StableDiffusionPipeline.from_pretrained(
+    "stabilityai/stable-diffusion-2-1-base",
+    torch_dtype=torch.float16,
+)
+pipe = pipe.to("cuda")
+
+prompt = "A serene African village at sunset, digital art, highly detailed"
+image = pipe(
+    prompt,
+    num_inference_steps=30,
+    guidance_scale=7.5,
+).images[0]
+
+image.save("african_village.png")
+image
+\end{minted}
+
+\begin{aitip}
+\texttt{guidance\_scale} controls how closely the image follows the prompt. Values of 7--9 work well for most prompts. Higher values produce more literal interpretations but can reduce image quality.
+\end{aitip}
+
+% ============================================================
+\section{Negative prompts and parameters}
+
+\begin{minted}{python}
+image = pipe(
+    prompt="Portrait of a scientist in a laboratory, photorealistic",
+    negative_prompt="blurry, low quality, deformed, cartoon",
+    num_inference_steps=50,
+    guidance_scale=8.0,
+    height=512,
+    width=512,
+).images[0]
+image.save("scientist.png")
+\end{minted}
+
+% ============================================================
+\section{Image-to-image generation}
+
+Start from an existing image and modify it:
+
+\begin{minted}{python}
+from diffusers import StableDiffusionImg2ImgPipeline
+from PIL import Image
+
+pipe_img2img = StableDiffusionImg2ImgPipeline.from_pretrained(
+    "stabilityai/stable-diffusion-2-1-base",
+    torch_dtype=torch.float16,
+).to("cuda")
+
+init_image = Image.open("sketch.png").resize((512, 512))
+
+result = pipe_img2img(
+    prompt="A beautiful watercolor painting of a landscape",
+    image=init_image,
+    strength=0.75,  # 0=no change, 1=complete regeneration
+    guidance_scale=7.5,
+).images[0]
+result.save("watercolor.png")
+\end{minted}
+
+% ============================================================
+\section{ControlNet: guided generation}
+
+ControlNet adds spatial conditioning (edges, depth, pose) to Stable Diffusion:
+
+\begin{minted}{python}
+from diffusers import StableDiffusionControlNetPipeline, ControlNetModel
+from controlnet_aux import CannyDetector
+from PIL import Image
+import torch
+
+# Load ControlNet for Canny edges
+controlnet = ControlNetModel.from_pretrained(
+    "lllyasviel/sd-controlnet-canny", torch_dtype=torch.float16
+)
+pipe_cn = StableDiffusionControlNetPipeline.from_pretrained(
+    "stabilityai/stable-diffusion-2-1-base",
+    controlnet=controlnet,
+    torch_dtype=torch.float16,
+).to("cuda")
+
+# Extract edges from reference image
+canny = CannyDetector()
+reference = Image.open("building_photo.png")
+edges = canny(reference, low_threshold=100, high_threshold=200)
+
+# Generate with edge guidance
+result = pipe_cn(
+    prompt="A futuristic building, cyberpunk style, neon lights",
+    image=edges,
+    num_inference_steps=30,
+).images[0]
+result.save("cyberpunk_building.png")
+\end{minted}
+
+% ============================================================
+\section{Batch generation and seed control}
+
+\begin{minted}{python}
+import torch
+
+# Reproducible generation with seeds
+generator = torch.Generator("cuda").manual_seed(42)
+
+images = pipe(
+    prompt=["A cat astronaut", "A dog scientist", "A bird musician"],
+    num_inference_steps=30,
+    guidance_scale=7.5,
+    generator=generator,
+).images
+
+for i, img in enumerate(images):
+    img.save(f"generated_{i}.png")
+\end{minted}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Generate 5 images with the same prompt but different seeds. How much variation do you observe?
+  \item Experiment with \texttt{guidance\_scale} values: 1, 5, 7.5, 12, 20. Document the effect on image quality and prompt adherence.
+  \item Use image-to-image to transform a simple sketch into a detailed illustration. Try different \texttt{strength} values.
+  \item Apply ControlNet with Canny edge detection to generate architectural variations of a building photo.
+  \item Generate an image, then use img2img to create 3 variations with increasing \texttt{strength} (0.3, 0.5, 0.8).
+\end{enumerate}
+\end{exercise}
+
+\begin{ethicsbox}
+Image generation raises serious ethical concerns:
+\begin{itemize}
+  \item \textbf{Deepfakes:} generating realistic images of real people without consent.
+  \item \textbf{Copyright:} models trained on copyrighted art without artist permission.
+  \item \textbf{Bias:} models can perpetuate stereotypes (e.g., generating mostly light-skinned faces for ``professional'').
+  \item \textbf{Harmful content:} models can generate violent or explicit images.
+\end{itemize}
+Always use safety checkers (enabled by default in diffusers), watermark AI-generated images, and never generate non-consensual images of real people.
+\end{ethicsbox}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Diffusion models learn to reverse a noise process: start from noise, denoise step by step.
+  \item The training objective is simple: predict the noise that was added.
+  \item Noise schedules (linear, cosine) control the diffusion speed.
+  \item U-Net with cross-attention is the standard architecture for text-conditioned generation.
+  \item Stable Diffusion works in latent space for efficiency.
+  \item ControlNet adds spatial guidance (edges, depth, pose) to the generation process.
+  \item Guidance scale, negative prompts, and number of steps are the key generation parameters.
+  \item Ethical deployment requires safety filters, watermarking, and consent.
+\end{itemize}

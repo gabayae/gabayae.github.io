@@ -1,0 +1,267 @@
+\chapter{Data loading}
+\label{ch:data-loading}
+
+\begin{quote}
+\emph{``You can't analyze what you can't load.''}
+\end{quote}
+
+% ============================================================
+\section{Loading CSV files}
+
+CSV (comma-separated values) is the most common data exchange format. Pandas handles it with \texttt{read\_csv}, which has over 50 parameters for dealing with real-world quirks.
+
+\begin{minted}{python}
+import pandas as pd
+
+# Basic load
+df = pd.read_csv("titanic.csv")
+print(df.shape)
+print(df.head())
+\end{minted}
+
+\subsection{Common CSV problems}
+
+\begin{minted}{python}
+# Problem 1: Wrong delimiter
+# Some European CSVs use semicolons
+df_euro = pd.read_csv("data_eu.csv", sep=";", decimal=",")
+
+# Problem 2: Encoding issues
+df_fr = pd.read_csv("french_data.csv", encoding="latin-1")
+
+# Problem 3: Messy headers
+df = pd.read_csv("messy.csv", header=0, skiprows=[1, 2])
+df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
+print(df.columns.tolist())
+\end{minted}
+
+\begin{preprocesstip}
+Always standardize column names immediately after loading: lowercase, underscores, no spaces. This prevents subtle bugs from inconsistent capitalization.
+\end{preprocesstip}
+
+\subsection{Optimizing CSV loads}
+
+\begin{minted}{python}
+# Load only needed columns (saves memory)
+cols = ["PassengerId", "Survived", "Pclass", "Sex", "Age", "Fare"]
+df = pd.read_csv("titanic.csv", usecols=cols)
+
+# Specify dtypes to save memory
+dtypes = {"Survived": "int8", "Pclass": "int8", "Sex": "category"}
+df = pd.read_csv("titanic.csv", usecols=cols, dtype=dtypes)
+print(df.memory_usage(deep=True))
+
+# Load in chunks for large files
+chunks = pd.read_csv("large_file.csv", chunksize=50_000)
+result = pd.concat([chunk[chunk["Age"] > 30] for chunk in chunks])
+\end{minted}
+
+\begin{warningbox}
+Never load a multi-gigabyte CSV into memory all at once. Use \texttt{chunksize}, or switch to Parquet/Feather format. A 2\,GB CSV typically becomes 400\,MB in Parquet with faster load times.
+\end{warningbox}
+
+% ============================================================
+\section{Loading Excel files}
+
+\begin{minted}{python}
+# Basic Excel load (requires openpyxl)
+df = pd.read_excel("survey_results.xlsx", sheet_name="Sheet1")
+
+# Load all sheets into a dictionary
+all_sheets = pd.read_excel("multi_sheet.xlsx", sheet_name=None)
+for name, sheet_df in all_sheets.items():
+    print(f"Sheet '{name}': {sheet_df.shape}")
+
+# Skip header rows and footers
+df = pd.read_excel("report.xlsx", skiprows=3, skipfooter=2,
+                    engine="openpyxl")
+\end{minted}
+
+\begin{datatip}
+Excel files preserve formatting but lose type precision. Dates may load as strings, percentages as floats between 0 and 1, and currency as plain numbers. Always verify dtypes after loading Excel.
+\end{datatip}
+
+% ============================================================
+\section{Loading JSON data}
+
+\begin{minted}{python}
+import json
+
+# Flat JSON
+df = pd.read_json("flat_data.json")
+
+# Nested JSON (common from APIs)
+with open("nested_data.json") as f:
+    raw = json.load(f)
+
+# Use json_normalize to flatten
+from pandas import json_normalize
+
+df = json_normalize(raw["results"],
+                    record_path="measurements",
+                    meta=["station_id", "station_name"])
+print(df.head())
+\end{minted}
+
+\begin{minted}{python}
+# Real example: loading Gapminder-style JSON
+import requests
+
+url = "https://api.worldbank.org/v2/country/BEN/indicator/SP.POP.TOTL?format=json&per_page=60"
+response = requests.get(url)
+data = response.json()
+
+# The actual data is in data[1]
+df_wb = pd.DataFrame(data[1])
+print(df_wb[["date", "value"]].head(10))
+\end{minted}
+
+% ============================================================
+\section{Loading from SQL databases}
+
+\begin{minted}{python}
+from sqlalchemy import create_engine
+
+# SQLite (file-based, no server needed)
+engine = create_engine("sqlite:///local_data.db")
+
+# Load entire table
+df = pd.read_sql("SELECT * FROM patients", engine)
+
+# Load with filtering (push computation to the database)
+query = """
+SELECT patient_id, age, diagnosis, lab_value
+FROM patients
+WHERE age > 40
+  AND diagnosis IS NOT NULL
+ORDER BY lab_value DESC
+LIMIT 10000
+"""
+df = pd.read_sql(query, engine)
+print(df.shape)
+\end{minted}
+
+\begin{preprocesstip}
+When loading from SQL, always push as much filtering as possible into the query. Loading 10 million rows into pandas and then filtering is much slower than letting the database filter first.
+\end{preprocesstip}
+
+% ============================================================
+\section{Loading from APIs}
+
+\begin{minted}{python}
+import requests
+import pandas as pd
+
+# REST API example: Open Meteo weather API
+url = "https://archive-api.open-meteo.com/v1/archive"
+params = {
+    "latitude": 6.36,    # Cotonou
+    "longitude": 2.43,
+    "start_date": "2024-01-01",
+    "end_date": "2024-12-31",
+    "daily": "temperature_2m_mean,precipitation_sum",
+}
+
+response = requests.get(url, params=params)
+data = response.json()
+
+df_weather = pd.DataFrame({
+    "date": data["daily"]["time"],
+    "temp_mean": data["daily"]["temperature_2m_mean"],
+    "precip_mm": data["daily"]["precipitation_sum"],
+})
+df_weather["date"] = pd.to_datetime(df_weather["date"])
+print(df_weather.head())
+\end{minted}
+
+\begin{minted}{python}
+# Pagination: many APIs return data in pages
+all_records = []
+page = 1
+
+while True:
+    resp = requests.get(f"{base_url}?page={page}&per_page=100")
+    records = resp.json()["results"]
+    if not records:
+        break
+    all_records.extend(records)
+    page += 1
+
+df = pd.DataFrame(all_records)
+print(f"Total records: {len(df)}")
+\end{minted}
+
+% ============================================================
+\section{Web scraping basics}
+
+\begin{minted}{python}
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+
+# Scrape an HTML table
+url = "https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)"
+response = requests.get(url)
+soup = BeautifulSoup(response.content, "html.parser")
+
+# pandas can read HTML tables directly
+tables = pd.read_html(url)
+print(f"Found {len(tables)} tables on the page")
+gdp_df = tables[2]  # pick the right table by index
+print(gdp_df.head())
+\end{minted}
+
+\begin{warningbox}
+Web scraping may violate a website's terms of service. Always check \texttt{robots.txt} and the site's ToS before scraping. For research, prefer official APIs and open data portals.
+\end{warningbox}
+
+% ============================================================
+\section{Comparing formats: performance}
+
+\begin{minted}{python}
+import time
+
+# Compare CSV vs Parquet load times
+# First, create a Parquet version
+df = pd.read_csv("large_dataset.csv")
+df.to_parquet("large_dataset.parquet")
+
+# Time CSV load
+start = time.time()
+df_csv = pd.read_csv("large_dataset.csv")
+csv_time = time.time() - start
+
+# Time Parquet load
+start = time.time()
+df_pq = pd.read_parquet("large_dataset.parquet")
+pq_time = time.time() - start
+
+print(f"CSV load:     {csv_time:.2f}s")
+print(f"Parquet load: {pq_time:.2f}s")
+print(f"Speedup:      {csv_time / pq_time:.1f}x")
+\end{minted}
+
+% ============================================================
+\section{Exercises}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Load the Titanic CSV with optimized dtypes. Compare memory usage before and after dtype optimization.
+  \item Load data from the World Bank API for three African countries (Benin, Nigeria, Ghana) for the indicator \texttt{SP.POP.TOTL} (total population). Combine into a single DataFrame.
+  \item Load an Excel file with multiple sheets. Write a function that returns a dictionary mapping sheet names to their shapes.
+  \item Scrape an HTML table from Wikipedia and clean the column names (lowercase, underscores, no special characters).
+  \item Convert the Adult Census UCI dataset from CSV to Parquet. Compare file sizes and load times.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Pandas provides readers for CSV, Excel, JSON, SQL, Parquet, HTML, and more.
+  \item CSV loading requires attention to delimiters, encodings, headers, and dtypes.
+  \item JSON from APIs often needs \texttt{json\_normalize} to flatten nested structures.
+  \item SQL loads should push filtering into the query, not into pandas.
+  \item APIs require handling pagination, rate limits, and authentication.
+  \item Parquet is 3--5x faster than CSV for loading and uses 5x less disk space.
+\end{itemize}

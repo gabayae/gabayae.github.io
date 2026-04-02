@@ -1,0 +1,562 @@
+\chapter{Data cleaning in health contexts}
+\label{ch:data-cleaning}
+
+\begin{quote}
+\emph{``Garbage in, garbage out. In health data, garbage in can mean wrong treatments, wrong policies, and wrong conclusions about human lives.''}
+\end{quote}
+
+% ============================================================
+\section{Why data cleaning matters in health}
+
+Every health dataset has problems. Lab values get entered with wrong units. Patients appear twice under different IDs. Dates are recorded as \texttt{03/04/2023} --- is that March 4 or April 3? A blood glucose of 5000~mg/dL is clearly an error, but a glucose of 500~mg/dL might be a real diabetic emergency.
+
+Data cleaning is not optional pre-processing. It is a clinical reasoning task. You must decide:
+\begin{itemize}
+  \item Is this value \emph{wrong} or just \emph{unusual}?
+  \item Should this record be \emph{corrected}, \emph{flagged}, or \emph{removed}?
+  \item Will my cleaning decisions \emph{bias} the analysis?
+\end{itemize}
+
+\begin{clinicalnote}
+In a 2019 study of electronic health records from a large US hospital system, researchers found that 18\% of lab values had at least one quality issue --- duplicate entries, physiologically impossible values, or inconsistent units. Cleaning decisions changed the estimated prevalence of chronic kidney disease by over 3 percentage points.
+\end{clinicalnote}
+
+% ============================================================
+\section{Missing data: types and mechanisms}
+
+\subsection{The three mechanisms}
+
+Not all missing data is the same. The mechanism determines what you can do about it.
+
+\begin{enumerate}
+  \item \textbf{MCAR --- Missing Completely At Random.} The missingness has nothing to do with the data. Example: a lab tube is dropped and the sample is lost. The probability of losing the sample is unrelated to the patient's health.
+  \item \textbf{MAR --- Missing At Random.} The missingness depends on \emph{observed} variables but not the missing value itself. Example: younger patients are less likely to have cholesterol measured (because clinicians order it less often for young patients). Once you account for age, the missingness is random.
+  \item \textbf{MNAR --- Missing Not At Random.} The missingness depends on the \emph{unobserved} value itself. Example: very sick patients are too ill to attend follow-up appointments, so their outcome data is missing \emph{because} they are sick. This is the hardest case.
+\end{enumerate}
+
+\begin{warningbox}
+MNAR is common in health data and dangerous. If you drop all patients with missing follow-up data, you are systematically excluding the sickest patients --- your analysis will overestimate treatment success. There is no statistical fix for MNAR; you need domain knowledge to assess the likely direction and magnitude of bias.
+\end{warningbox}
+
+\subsection{Clinical examples of each mechanism}
+
+\begin{center}
+\begin{tabular}{lp{5cm}p{5cm}}
+\toprule
+\textbf{Type} & \textbf{Example} & \textbf{Consequence of dropping} \\
+\midrule
+MCAR & Lab sample hemolyzed due to transport vibration & No bias, but reduced sample size \\
+MAR & HbA1c not ordered for non-diabetic patients & Bias if you study HbA1c without accounting for indication \\
+MNAR & Severely depressed patients skip follow-up questionnaires & Underestimate depression severity in remaining data \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ============================================================
+\section{Detecting missing values with pandas}
+
+\subsection{Basic detection}
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+
+# Create a clinical dataset with missing values
+data = {
+    "patient_id": ["P001", "P002", "P003", "P004", "P005", "P006"],
+    "age": [45, 67, 34, np.nan, 71, 52],
+    "sex": ["M", "F", "F", "M", np.nan, "F"],
+    "systolic_bp": [128, 158, np.nan, 145, 162, np.nan],
+    "hba1c": [5.4, 7.8, 5.1, np.nan, 8.2, 6.3],
+    "smoking": ["Never", np.nan, "Current", "Former", np.nan, "Never"]
+}
+df = pd.DataFrame(data)
+
+# Count missing values per column
+print(df.isnull().sum())
+
+# Percentage missing per column
+print((df.isnull().sum() / len(df) * 100).round(1))
+
+# Rows with any missing value
+print(f"Rows with missing data: {df.isnull().any(axis=1).sum()} / {len(df)}")
+\end{minted}
+
+\begin{pythontip}
+\texttt{.isnull()} and \texttt{.isna()} are identical in pandas. Use whichever reads better to you. Both detect \texttt{NaN}, \texttt{None}, and \texttt{NaT} (missing datetime).
+\end{pythontip}
+
+\subsection{Visualizing missingness with msno}
+
+The \texttt{missingno} library provides instant visual summaries of missing data patterns:
+
+\begin{minted}{python}
+import missingno as msno
+import matplotlib.pyplot as plt
+
+# Matrix plot: white bars = missing
+msno.matrix(df)
+plt.title("Missing data pattern")
+plt.tight_layout()
+plt.show()
+
+# Bar chart: count of non-null values per column
+msno.bar(df)
+plt.tight_layout()
+plt.show()
+
+# Heatmap: correlations between missingness of different columns
+# If two columns tend to be missing together, they will show high correlation
+msno.heatmap(df)
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{warningbox}
+If \texttt{missingno} is not installed, run \texttt{!pip install missingno} in your notebook. In Google Colab it is not pre-installed.
+\end{warningbox}
+
+\subsection{Patterns of co-missingness}
+
+When two variables are often missing together, it suggests a common cause. For example, if both \texttt{systolic\_bp} and \texttt{diastolic\_bp} are missing for the same patients, it likely means the BP measurement was not taken at all --- not that each value was independently lost.
+
+\begin{minted}{python}
+# Check which columns are missing together
+missing_pairs = df.isnull().corr()
+print(missing_pairs)
+\end{minted}
+
+% ============================================================
+\section{Imputation strategies}
+
+\subsection{When to impute vs.\ when to drop}
+
+\begin{itemize}
+  \item \textbf{Drop rows} if missingness is MCAR and the missing fraction is small ($<5\%$).
+  \item \textbf{Drop columns} if $>50\%$ of values are missing and the variable is not critical.
+  \item \textbf{Impute} when you need to retain sample size and you have a reasonable strategy.
+  \item \textbf{Flag + sensitivity analysis} for MNAR data.
+\end{itemize}
+
+\begin{minted}{python}
+# Drop rows with any missing value
+df_complete = df.dropna()
+print(f"Rows remaining: {len(df_complete)} / {len(df)}")
+
+# Drop rows only if specific columns are missing
+df_partial = df.dropna(subset=["age", "systolic_bp"])
+\end{minted}
+
+\subsection{Mean/median imputation for continuous variables}
+
+\begin{minted}{python}
+# Median imputation for lab values (robust to outliers)
+df["systolic_bp"] = df["systolic_bp"].fillna(df["systolic_bp"].median())
+df["hba1c"] = df["hba1c"].fillna(df["hba1c"].median())
+
+# Mean imputation for age (approximately symmetric distribution)
+df["age"] = df["age"].fillna(df["age"].mean())
+\end{minted}
+
+\begin{clinicalnote}
+Use \textbf{median} rather than mean for lab values like creatinine, glucose, and triglycerides. These distributions are typically right-skewed --- a few very high values pull the mean upward, making it a poor representative of the ``typical'' patient. The median is resistant to these outliers.
+\end{clinicalnote}
+
+\subsection{Mode imputation for categorical variables}
+
+\begin{minted}{python}
+# Mode imputation for sex and smoking status
+df["sex"] = df["sex"].fillna(df["sex"].mode()[0])
+df["smoking"] = df["smoking"].fillna(df["smoking"].mode()[0])
+\end{minted}
+
+\subsection{Group-specific imputation}
+
+Sometimes the right imputation value depends on a group. Imputing systolic BP with the overall median ignores the fact that older patients have higher BP:
+
+\begin{minted}{python}
+# Impute systolic_bp with the median for the patient's age group
+df["age_group"] = pd.cut(df["age"], bins=[0, 40, 60, 100],
+                         labels=["<40", "40-59", "60+"])
+df["systolic_bp"] = df.groupby("age_group")["systolic_bp"].transform(
+    lambda x: x.fillna(x.median())
+)
+\end{minted}
+
+\subsection{KNN imputation}
+
+K-nearest neighbors imputation finds the $k$ most similar patients (based on other variables) and uses their values to fill in the missing one:
+
+\begin{minted}{python}
+from sklearn.impute import KNNImputer
+
+# Select numeric columns for KNN imputation
+numeric_cols = ["age", "systolic_bp", "hba1c"]
+imputer = KNNImputer(n_neighbors=5)
+df[numeric_cols] = imputer.fit_transform(df[numeric_cols])
+\end{minted}
+
+\begin{pythontip}
+KNN imputation respects relationships between variables. If a patient with high BMI, high age, and high HbA1c is missing systolic BP, KNN will impute from similar patients --- who likely also have high BP. This is more realistic than using the overall median.
+\end{pythontip}
+
+\subsection{Creating a missingness indicator}
+
+For important variables, create a flag so you can later test whether missingness itself is associated with outcomes:
+
+\begin{minted}{python}
+# Before imputing, create a flag
+df["bp_was_missing"] = df["systolic_bp"].isnull().astype(int)
+
+# Then impute
+df["systolic_bp"] = df["systolic_bp"].fillna(df["systolic_bp"].median())
+\end{minted}
+
+% ============================================================
+\section{Handling duplicates}
+
+\subsection{Detecting duplicates}
+
+\begin{minted}{python}
+# Load a dataset with deliberate duplicates
+patients = pd.DataFrame({
+    "patient_id": ["P001", "P002", "P003", "P002", "P004", "P003"],
+    "visit_date": ["2023-01-15", "2023-01-16", "2023-01-17",
+                   "2023-01-16", "2023-01-18", "2023-02-20"],
+    "systolic_bp": [128, 158, 112, 158, 145, 118],
+    "diagnosis": ["HTN", "T2DM", "None", "T2DM", "HTN", "None"]
+})
+
+# Exact duplicates (all columns identical)
+print(f"Exact duplicates: {patients.duplicated().sum()}")
+print(patients[patients.duplicated(keep=False)])  # show all copies
+
+# Duplicates based on patient_id only
+print(f"\nDuplicate patient IDs: {patients.duplicated(subset='patient_id').sum()}")
+\end{minted}
+
+\subsection{Deciding what counts as a duplicate}
+
+In health data, ``duplicate'' is not always straightforward:
+
+\begin{center}
+\begin{tabular}{lp{8cm}}
+\toprule
+\textbf{Scenario} & \textbf{Appropriate action} \\
+\midrule
+Same patient, same visit, identical values & True duplicate --- remove one copy \\
+Same patient, same visit, different values & Data entry error --- investigate which is correct \\
+Same patient, different visit dates & Repeated measures --- keep all (this is longitudinal data) \\
+Different patient IDs, same demographics & Possible duplicate registration --- flag for manual review \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{minted}{python}
+# Remove exact duplicates
+patients_clean = patients.drop_duplicates()
+print(f"After removing exact duplicates: {len(patients_clean)} rows")
+
+# Keep only the first visit per patient
+first_visits = patients.drop_duplicates(subset="patient_id", keep="first")
+print(f"First visits only: {len(first_visits)} rows")
+
+# Keep only the last visit per patient
+last_visits = patients.drop_duplicates(subset="patient_id", keep="last")
+\end{minted}
+
+\begin{clinicalnote}
+In clinical registries, duplicate patient records are a major safety issue. A patient registered under two IDs may receive conflicting prescriptions. Deduplication in production systems uses probabilistic matching on name, date of birth, and address --- far beyond what simple \texttt{drop\_duplicates()} can do.
+\end{clinicalnote}
+
+% ============================================================
+\section{Inconsistent data}
+
+\subsection{ICD code formats}
+
+The International Classification of Diseases uses codes like \texttt{E11.9} (Type 2 diabetes without complications). In messy data, you will find the same condition recorded as \texttt{E11.9}, \texttt{E119}, \texttt{e11.9}, or even \texttt{250.00} (the old ICD-9 code).
+
+\begin{minted}{python}
+diagnoses = pd.Series(["E11.9", "e11.9", "E119", "E11.9 ", " e11.9"])
+
+# Standardize: uppercase, strip whitespace, ensure dot format
+cleaned = (diagnoses
+           .str.strip()
+           .str.upper()
+           .str.replace(r"^([A-Z]\d{2})(\d+)$", r"\1.\2", regex=True))
+print(cleaned)
+\end{minted}
+
+\subsection{Date formats}
+
+\begin{minted}{python}
+dates = pd.Series(["2023-01-15", "01/15/2023", "15-Jan-2023",
+                   "Jan 15, 2023", "20230115"])
+
+# pd.to_datetime handles multiple formats automatically
+parsed = pd.to_datetime(dates, format="mixed", dayfirst=False)
+print(parsed)
+
+# Standardize to ISO format
+print(parsed.dt.strftime("%Y-%m-%d"))
+\end{minted}
+
+\begin{warningbox}
+The date \texttt{03/04/2023} is March 4 in the US but April 3 in Europe. Always check the source. If your dataset mixes conventions, you will get silent errors --- the date will parse without warning, but it will be \emph{wrong}. Use \texttt{dayfirst=True} for European-format dates.
+\end{warningbox}
+
+\subsection{Unit conversions}
+
+Different labs report results in different units. The most common confusion:
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+\textbf{Analyte} & \textbf{US unit} & \textbf{SI unit} & \textbf{Conversion} \\
+\midrule
+Glucose & mg/dL & mmol/L & divide by 18.018 \\
+Cholesterol & mg/dL & mmol/L & divide by 38.67 \\
+Creatinine & mg/dL & \textmu mol/L & multiply by 88.42 \\
+Hemoglobin & g/dL & g/L & multiply by 10 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{minted}{python}
+# Standardize glucose to mmol/L
+# Assume values > 30 are in mg/dL (glucose in mmol/L is rarely > 30)
+def standardize_glucose(value, unit=None):
+    """Convert glucose to mmol/L. Infer unit if not provided."""
+    if unit == "mg/dL" or (unit is None and value > 30):
+        return value / 18.018
+    return value  # already in mmol/L
+
+df["glucose_mmol"] = df["glucose"].apply(
+    lambda x: standardize_glucose(x)
+)
+\end{minted}
+
+\begin{pythontip}
+When a dataset has no unit column, use the value range to infer the unit. Fasting glucose in mg/dL is typically 70--300; in mmol/L it is 3.9--16.7. If you see a value of 126, it is almost certainly mg/dL. If you see 7.0, it is almost certainly mmol/L.
+\end{pythontip}
+
+\subsection{Standardizing text fields}
+
+\begin{minted}{python}
+# Sex/gender field with inconsistent entries
+sex_col = pd.Series(["Male", "male", "M", "m", "MALE", "Female",
+                     "female", "F", "f", "FEMALE"])
+
+# Map to standard values
+sex_mapping = {"male": "M", "m": "M", "female": "F", "f": "F"}
+sex_clean = sex_col.str.strip().str.lower().map(sex_mapping)
+print(sex_clean)
+\end{minted}
+
+% ============================================================
+\section{Data validation}
+
+After cleaning, validate that your data makes clinical sense.
+
+\subsection{Range checks}
+
+\begin{minted}{python}
+# Define clinically plausible ranges
+ranges = {
+    "age": (0, 120),
+    "systolic_bp": (60, 300),
+    "diastolic_bp": (30, 200),
+    "heart_rate": (20, 300),
+    "hba1c": (2.0, 20.0),
+    "glucose_mgdl": (10, 1500),
+    "bmi": (8, 80),
+    "temperature_c": (25, 45),
+}
+
+def validate_range(df, column, low, high):
+    """Flag values outside the plausible range."""
+    out_of_range = df[(df[column] < low) | (df[column] > high)]
+    if len(out_of_range) > 0:
+        print(f"WARNING: {len(out_of_range)} values in '{column}' "
+              f"outside [{low}, {high}]")
+        print(out_of_range[["patient_id", column]])
+    return out_of_range
+
+# Apply range checks
+for col, (low, high) in ranges.items():
+    if col in df.columns:
+        validate_range(df, col, low, high)
+\end{minted}
+
+\subsection{Cross-field validation}
+
+Some errors only become visible when you compare columns:
+
+\begin{minted}{python}
+# Diastolic should be lower than systolic
+bp_errors = df[df["diastolic_bp"] >= df["systolic_bp"]]
+if len(bp_errors) > 0:
+    print(f"WARNING: {len(bp_errors)} rows where diastolic >= systolic")
+
+# Pregnancy flag should only be 1 for female patients
+preg_errors = df[(df["pregnant"] == 1) & (df["sex"] == "M")]
+if len(preg_errors) > 0:
+    print(f"WARNING: {len(preg_errors)} male patients flagged as pregnant")
+
+# Death date should be after admission date
+date_errors = df[df["death_date"] < df["admission_date"]]
+if len(date_errors) > 0:
+    print(f"WARNING: {len(date_errors)} deaths recorded before admission")
+\end{minted}
+
+\begin{clinicalnote}
+Not every ``impossible'' value is an error. A heart rate of 250~bpm is physiologically extreme but can occur in supraventricular tachycardia. A glucose of 800~mg/dL is rare but real in diabetic ketoacidosis. Domain knowledge tells you whether to remove, flag, or keep.
+\end{clinicalnote}
+
+\subsection{Automated validation report}
+
+\begin{minted}{python}
+def data_quality_report(df):
+    """Generate a summary of data quality issues."""
+    report = []
+    for col in df.columns:
+        n_missing = df[col].isnull().sum()
+        pct_missing = n_missing / len(df) * 100
+        n_unique = df[col].nunique()
+
+        row = {
+            "column": col,
+            "dtype": str(df[col].dtype),
+            "n_missing": n_missing,
+            "pct_missing": round(pct_missing, 1),
+            "n_unique": n_unique,
+        }
+
+        if df[col].dtype in ["float64", "int64"]:
+            row["min"] = df[col].min()
+            row["max"] = df[col].max()
+            row["mean"] = round(df[col].mean(), 2)
+
+        report.append(row)
+
+    return pd.DataFrame(report)
+
+quality = data_quality_report(df)
+print(quality.to_string(index=False))
+\end{minted}
+
+% ============================================================
+\section{A complete cleaning pipeline}
+
+Here is a realistic pipeline applied to NHANES-style data:
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+from sklearn.impute import KNNImputer
+
+# -----------------------------------------------------------
+# Step 1: Load data
+# -----------------------------------------------------------
+url = ("https://raw.githubusercontent.com/datasets/"
+       "gapminder/main/data/gapminder.csv")
+df = pd.read_csv(url)
+print(f"Raw data: {df.shape}")
+
+# -----------------------------------------------------------
+# Step 2: Standardize column names
+# -----------------------------------------------------------
+df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
+
+# -----------------------------------------------------------
+# Step 3: Remove exact duplicates
+# -----------------------------------------------------------
+n_before = len(df)
+df = df.drop_duplicates()
+print(f"Duplicates removed: {n_before - len(df)}")
+
+# -----------------------------------------------------------
+# Step 4: Assess missing data
+# -----------------------------------------------------------
+missing_pct = (df.isnull().sum() / len(df) * 100).round(1)
+print("Missing percentages:")
+print(missing_pct[missing_pct > 0])
+
+# -----------------------------------------------------------
+# Step 5: Validate ranges
+# -----------------------------------------------------------
+# Life expectancy should be between 20 and 90
+outliers = df[(df["lifeexp"] < 20) | (df["lifeexp"] > 90)]
+print(f"Life expectancy outliers: {len(outliers)}")
+
+# -----------------------------------------------------------
+# Step 6: Save cleaned data
+# -----------------------------------------------------------
+df.to_csv("gapminder_cleaned.csv", index=False)
+print(f"Cleaned data saved: {df.shape}")
+\end{minted}
+
+% ============================================================
+\section{Practical: cleaning a messy clinical dataset}
+
+\begin{exercise}
+Download or create a messy clinical dataset with the following deliberate errors, then clean it step by step:
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+
+# Messy clinical data with deliberate errors
+messy = pd.DataFrame({
+    "patient_id": ["P001", "P002", "P003", "P004", "P002",
+                   "P005", "P006", "P007", "P008", "P009"],
+    "age": [45, 67, -3, 52, 67, 200, 38, np.nan, 71, 44],
+    "sex": ["M", "F", "Female", "m", "F",
+            "Male", np.nan, "F", "X", "M"],
+    "systolic_bp": [128, 158, 112, 450, 158,
+                    135, 122, np.nan, 162, 118],
+    "diastolic_bp": [82, 160, 74, 92, 160,
+                     88, 78, np.nan, 98, 76],
+    "glucose_mgdl": [95, 7.2, 110, 180, 95,
+                     88, 102, 6.8, 220, 5.5],
+    "hba1c": [5.4, 7.8, 5.1, 6.3, 7.8,
+              np.nan, 5.8, 6.1, 55, 5.2],
+    "visit_date": ["2023-01-15", "01/16/2023", "2023-01-17",
+                   "2023/01/18", "2023-01-16",
+                   "15-Jan-2023", "2023-01-20", "2023-01-21",
+                   "2023-01-22", "Jan 23, 2023"],
+    "icd_code": ["I10", "E119", "e11.9", "I10 ", " i10",
+                 "E11.9", "I10", "e119", "I10", "E11.9"]
+})
+\end{minted}
+
+Tasks:
+\begin{enumerate}
+  \item Generate a data quality report: count missing values, check data types, compute summary statistics.
+  \item Identify and remove exact duplicate rows (P002 appears twice with identical data).
+  \item Fix the \texttt{sex} column: standardize to ``M'' and ``F''. Decide what to do with ``X'' and \texttt{NaN}.
+  \item Validate \texttt{age}: flag or correct the impossible values ($-3$ and $200$). Set them to \texttt{NaN}.
+  \item Validate \texttt{systolic\_bp}: a value of 450 is impossible. Set to \texttt{NaN}.
+  \item Check that diastolic $<$ systolic for all patients. Flag violations.
+  \item Fix \texttt{glucose\_mgdl}: some values (7.2, 6.8, 5.5) are clearly in mmol/L. Convert them to mg/dL by multiplying by 18.018.
+  \item Fix \texttt{hba1c}: the value 55 is likely in mmol/mol (IFCC) rather than \% (NGSP). Convert using: $\text{NGSP} = 0.0915 \times \text{IFCC} + 2.15$.
+  \item Standardize \texttt{visit\_date} to ISO format (YYYY-MM-DD).
+  \item Standardize \texttt{icd\_code}: uppercase, stripped, with dot separator.
+  \item Impute remaining missing values: median for continuous, mode for categorical.
+  \item Generate a final data quality report and compare with the initial one.
+  \item Save the cleaned dataset to \texttt{cleaned\_clinical\_data.csv}.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Missing data in health has three mechanisms: MCAR, MAR, and MNAR. The mechanism determines the appropriate strategy.
+  \item Use \texttt{.isnull().sum()} for quick counts and \texttt{missingno} for visual patterns.
+  \item Imputation options: mean/median for continuous data, mode for categorical, KNN for multivariate imputation.
+  \item Duplicates in health data may be true duplicates, data entry errors, or repeated visits --- each requires a different response.
+  \item Inconsistent coding (ICD formats, date formats, units) is ubiquitous and must be standardized.
+  \item Validate data against clinically plausible ranges \emph{after} cleaning.
+  \item Always create a data quality report before and after cleaning so you can document every decision.
+\end{itemize}

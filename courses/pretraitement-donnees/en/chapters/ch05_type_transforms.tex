@@ -1,0 +1,268 @@
+\chapter{Data type transformations}
+\label{ch:type-transforms}
+
+\begin{quote}
+\emph{``Machine learning algorithms don't understand categories --- they understand numbers.''}
+\end{quote}
+
+% ============================================================
+\section{Why transform data types?}
+
+Most machine learning algorithms require numerical input. Raw datasets contain categorical variables (``Male'', ``Female''), ordinal variables (``Low'', ``Medium'', ``High''), and numerical variables on vastly different scales (age in years, income in thousands). Proper encoding and scaling are essential.
+
+\begin{datatip}
+Type transformation has two faces: \textbf{encoding} converts categories to numbers, and \textbf{scaling} puts numbers on comparable ranges. Both are required for most ML pipelines.
+\end{datatip}
+
+% ============================================================
+\section{Categorical encoding}
+
+\subsection{Label (ordinal) encoding}
+
+\begin{minted}{python}
+import pandas as pd
+from sklearn.preprocessing import OrdinalEncoder
+
+# Adult Census dataset
+url = ("https://archive.ics.uci.edu/ml/machine-learning-databases/"
+       "adult/adult.data")
+cols = ["age", "workclass", "fnlwgt", "education", "education_num",
+        "marital_status", "occupation", "relationship", "race",
+        "sex", "capital_gain", "capital_loss", "hours_per_week",
+        "native_country", "income"]
+df = pd.read_csv(url, header=None, names=cols, na_values=" ?",
+                 skipinitialspace=True)
+
+# Ordinal encoding: for variables with a natural order
+edu_order = [["Preschool", "1st-4th", "5th-6th", "7th-8th", "9th",
+              "10th", "11th", "12th", "HS-grad", "Some-college",
+              "Assoc-voc", "Assoc-acdm", "Bachelors", "Masters",
+              "Prof-school", "Doctorate"]]
+
+enc = OrdinalEncoder(categories=edu_order,
+                     handle_unknown="use_encoded_value",
+                     unknown_value=-1)
+df["education_ord"] = enc.fit_transform(df[["education"]])
+print(df[["education", "education_ord"]].drop_duplicates()
+        .sort_values("education_ord"))
+\end{minted}
+
+\begin{warningbox}
+Ordinal encoding imposes a numeric order. Using it on nominal categories (e.g., country names) implies ``France $<$ Germany $<$ Japan'', which is meaningless and can mislead models.
+\end{warningbox}
+
+\subsection{One-hot encoding}
+
+\begin{minted}{python}
+from sklearn.preprocessing import OneHotEncoder
+
+# One-hot encoding: for nominal (unordered) categories
+ohe = OneHotEncoder(sparse_output=False, drop="first",
+                    handle_unknown="ignore")
+encoded = ohe.fit_transform(df[["sex", "race"]])
+encoded_df = pd.DataFrame(encoded,
+                          columns=ohe.get_feature_names_out())
+print(encoded_df.head())
+print(f"New columns: {encoded_df.shape[1]}")
+\end{minted}
+
+\begin{minted}{python}
+# pandas get_dummies: quick one-hot encoding
+df_encoded = pd.get_dummies(df, columns=["sex", "race"],
+                            drop_first=True, dtype=int)
+print(df_encoded.columns.tolist()[-10:])
+\end{minted}
+
+\begin{preprocesstip}
+Use \texttt{drop="first"} (or \texttt{drop\_first=True}) to avoid multicollinearity. With $k$ categories, you only need $k-1$ dummy variables --- the dropped category becomes the reference level.
+\end{preprocesstip}
+
+\subsection{Target encoding}
+
+\begin{minted}{python}
+# Target encoding: replace each category with the mean of the target
+# Useful for high-cardinality columns (e.g., 100+ categories)
+target_means = df.groupby("occupation")["income"].apply(
+    lambda x: (x == ">50K").mean()
+).to_dict()
+
+df["occupation_target_enc"] = df["occupation"].map(target_means)
+print(df[["occupation", "occupation_target_enc"]]
+        .drop_duplicates().sort_values("occupation_target_enc"))
+\end{minted}
+
+\begin{warningbox}
+Target encoding causes data leakage if applied before train/test split. Always fit on training data only, then transform both train and test. Use \texttt{sklearn.model\_selection.cross\_val\_predict} or K-fold target encoding to reduce overfitting.
+\end{warningbox}
+
+\subsection{Frequency and binary encoding}
+
+\begin{minted}{python}
+# Frequency encoding: replace category with its frequency
+freq = df["native_country"].value_counts(normalize=True)
+df["country_freq"] = df["native_country"].map(freq)
+print(df[["native_country", "country_freq"]].head(10))
+
+# Binary encoding: fewer columns than one-hot for high cardinality
+# category-encoders library provides this
+# pip install category-encoders
+# import category_encoders as ce
+# encoder = ce.BinaryEncoder(cols=["native_country"])
+# df_binary = encoder.fit_transform(df)
+\end{minted}
+
+% ============================================================
+\section{Numerical scaling}
+
+\subsection{StandardScaler (z-score normalization)}
+
+\begin{minted}{python}
+from sklearn.preprocessing import StandardScaler
+
+scaler = StandardScaler()
+df[["age_scaled", "hours_scaled"]] = scaler.fit_transform(
+    df[["age", "hours_per_week"]]
+)
+
+print(df[["age", "age_scaled", "hours_per_week", "hours_scaled"]].describe())
+\end{minted}
+
+\subsection{MinMaxScaler}
+
+\begin{minted}{python}
+from sklearn.preprocessing import MinMaxScaler
+
+minmax = MinMaxScaler(feature_range=(0, 1))
+df[["age_minmax"]] = minmax.fit_transform(df[["age"]])
+
+# After scaling: min=0, max=1
+print(df["age_minmax"].describe())
+\end{minted}
+
+\subsection{RobustScaler}
+
+\begin{minted}{python}
+from sklearn.preprocessing import RobustScaler
+
+# Uses median and IQR: robust to outliers
+robust = RobustScaler()
+df[["capital_gain_robust"]] = robust.fit_transform(df[["capital_gain"]])
+print(df["capital_gain_robust"].describe())
+\end{minted}
+
+\begin{preprocesstip}
+Choose your scaler based on the data and the model:
+\begin{itemize}
+  \item \textbf{StandardScaler}: default choice for most algorithms (SVM, logistic regression, neural networks).
+  \item \textbf{MinMaxScaler}: when you need bounded values (neural networks with sigmoid output).
+  \item \textbf{RobustScaler}: when your data has significant outliers.
+\end{itemize}
+\end{preprocesstip}
+
+% ============================================================
+\section{Comparing scalers visually}
+
+\begin{minted}{python}
+import matplotlib.pyplot as plt
+import numpy as np
+
+fig, axes = plt.subplots(1, 4, figsize=(16, 4))
+
+# Original
+df["capital_gain"].hist(bins=50, ax=axes[0])
+axes[0].set_title("Original")
+
+# Standard
+axes[1].hist(StandardScaler().fit_transform(df[["capital_gain"]]),
+             bins=50)
+axes[1].set_title("StandardScaler")
+
+# MinMax
+axes[2].hist(MinMaxScaler().fit_transform(df[["capital_gain"]]),
+             bins=50)
+axes[2].set_title("MinMaxScaler")
+
+# Robust
+axes[3].hist(RobustScaler().fit_transform(df[["capital_gain"]]),
+             bins=50)
+axes[3].set_title("RobustScaler")
+
+plt.tight_layout()
+plt.savefig("scaler_comparison.png", dpi=150)
+plt.show()
+\end{minted}
+
+% ============================================================
+\section{Discretization (binning)}
+
+\begin{minted}{python}
+# Equal-width binning
+df["age_bin_width"] = pd.cut(df["age"], bins=5,
+                              labels=["very_young", "young", "mid",
+                                      "senior", "elderly"])
+
+# Equal-frequency (quantile) binning
+df["age_bin_quantile"] = pd.qcut(df["age"], q=5,
+                                  labels=["Q1", "Q2", "Q3", "Q4", "Q5"])
+
+# Custom bins from domain knowledge
+df["age_group"] = pd.cut(df["age"],
+                          bins=[0, 25, 35, 50, 65, 100],
+                          labels=["<25", "25-34", "35-49", "50-64", "65+"])
+
+print(df["age_group"].value_counts().sort_index())
+\end{minted}
+
+\begin{minted}{python}
+# KBins discretization from sklearn
+from sklearn.preprocessing import KBinsDiscretizer
+
+kbd = KBinsDiscretizer(n_bins=5, encode="ordinal", strategy="quantile")
+df[["hours_binned"]] = kbd.fit_transform(df[["hours_per_week"]])
+print(df[["hours_per_week", "hours_binned"]].head(10))
+\end{minted}
+
+% ============================================================
+\section{Power transforms}
+
+\begin{minted}{python}
+from sklearn.preprocessing import PowerTransformer
+
+# Yeo-Johnson: works with positive and negative values
+pt = PowerTransformer(method="yeo-johnson")
+df[["capital_gain_yj"]] = pt.fit_transform(df[["capital_gain"]])
+
+# Box-Cox: only works with strictly positive values
+# pt_bc = PowerTransformer(method="box-cox")
+
+# Log transform: manual alternative for skewed data
+df["capital_gain_log"] = np.log1p(df["capital_gain"])
+
+print(f"Original skew:    {df['capital_gain'].skew():.2f}")
+print(f"Yeo-Johnson skew: {df['capital_gain_yj'].skew():.2f}")
+print(f"Log skew:         {df['capital_gain_log'].skew():.2f}")
+\end{minted}
+
+% ============================================================
+\section{Exercises}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Load the Titanic dataset. Apply one-hot encoding to \texttt{Sex} and \texttt{Embarked}. Apply ordinal encoding to \texttt{Pclass} (1st $>$ 2nd $>$ 3rd). Show the resulting DataFrame.
+  \item For the Adult Census dataset, compare the effect of StandardScaler, MinMaxScaler, and RobustScaler on \texttt{capital\_gain}. Plot all three distributions.
+  \item Implement target encoding for \texttt{native\_country} using 5-fold cross-validation to prevent leakage. Compare the encoded values with naive target encoding.
+  \item Create age groups for the Titanic dataset using domain-meaningful bins (child, teenager, young adult, middle-aged, senior). Compute survival rate by age group.
+  \item Apply a Yeo-Johnson power transform to all numerical columns in the Adult dataset. Compare skewness before and after.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Categorical encoding converts non-numeric data to numbers: use ordinal encoding for ordered categories, one-hot for nominal, and target encoding for high-cardinality features.
+  \item Scaling puts numerical features on comparable ranges: StandardScaler for general use, MinMaxScaler for bounded ranges, RobustScaler when outliers are present.
+  \item Discretization (binning) converts continuous variables into categories, useful for non-linear relationships and interpretability.
+  \item Power transforms (Yeo-Johnson, Box-Cox, log) reduce skewness and can improve model performance.
+  \item Always fit transformers on training data only, then apply to test data.
+\end{itemize}

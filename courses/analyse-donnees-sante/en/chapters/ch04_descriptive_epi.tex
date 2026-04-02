@@ -1,0 +1,492 @@
+\chapter{Descriptive statistics and epidemiological measures}
+\label{ch:descriptive-epi}
+
+\begin{quote}
+\emph{``Before you fit a model, describe the data. Before you describe the data, look at the data. Epidemiology begins with counting.''}
+\end{quote}
+
+% ============================================================
+\section{Central tendency: what is ``typical''?}
+
+\subsection{Mean, median, and when to use which}
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+
+# Fasting blood glucose for 10 patients (mg/dL)
+glucose = pd.Series([92, 98, 104, 95, 88, 110, 97, 340, 101, 93])
+
+print(f"Mean:   {glucose.mean():.1f} mg/dL")
+print(f"Median: {glucose.median():.1f} mg/dL")
+\end{minted}
+
+The mean is 121.8~mg/dL. The median is 97.5~mg/dL. One patient with a glucose of 340 (diabetic ketoacidosis) pulls the mean up by nearly 25~mg/dL. The median is unaffected.
+
+\begin{clinicalnote}
+\textbf{Rule of thumb for health data:} use the \textbf{median} when the distribution is skewed (most lab values, length of stay, health expenditures). Use the \textbf{mean} when the distribution is approximately symmetric (height, diastolic blood pressure in healthy adults).
+\end{clinicalnote}
+
+\subsection{Mode}
+
+The mode is the most frequent value. It is the only measure of central tendency for categorical data:
+
+\begin{minted}{python}
+diagnoses = pd.Series(["HTN", "T2DM", "HTN", "None", "HTN",
+                       "T2DM", "None", "HTN", "COPD", "HTN"])
+print(f"Most common diagnosis: {diagnoses.mode()[0]}")
+print(f"Frequency: {diagnoses.value_counts().iloc[0]}/{len(diagnoses)}")
+\end{minted}
+
+% ============================================================
+\section{Spread: how variable is the data?}
+
+\subsection{Standard deviation and variance}
+
+\begin{minted}{python}
+# Blood pressure readings from two clinics
+clinic_a = pd.Series([120, 122, 118, 125, 121, 119, 123, 120])
+clinic_b = pd.Series([98, 145, 110, 155, 102, 160, 115, 135])
+
+print(f"Clinic A: mean={clinic_a.mean():.1f}, SD={clinic_a.std():.1f}")
+print(f"Clinic B: mean={clinic_b.mean():.1f}, SD={clinic_b.std():.1f}")
+\end{minted}
+
+Both clinics have similar means ($\approx$121), but Clinic~B has much higher variability. A physician looking only at the mean would miss that Clinic~B has patients with dangerously high \emph{and} unusually low blood pressure.
+
+\subsection{IQR and percentiles}
+
+The interquartile range (IQR) is the range between the 25th and 75th percentiles. Like the median, it is robust to outliers.
+
+\begin{minted}{python}
+# Length of hospital stay (days) --- typically right-skewed
+los = pd.Series([2, 3, 3, 4, 4, 5, 5, 6, 7, 8, 12, 28, 45])
+
+q25 = los.quantile(0.25)
+q75 = los.quantile(0.75)
+iqr = q75 - q25
+
+print(f"Median LOS: {los.median():.0f} days")
+print(f"IQR: {q25:.0f}--{q75:.0f} days (range: {iqr:.0f})")
+print(f"Mean LOS: {los.mean():.1f} days")  # inflated by 28 and 45
+\end{minted}
+
+\begin{pythontip}
+Pandas \texttt{.describe()} gives you count, mean, std, min, 25\%, 50\%, 75\%, and max in one call. It is the fastest way to get a statistical snapshot of every numeric column.
+\end{pythontip}
+
+\subsection{Coefficient of variation}
+
+The coefficient of variation (CV) expresses the standard deviation as a percentage of the mean. It is useful for comparing variability between measurements with different units or scales:
+
+\begin{minted}{python}
+# Compare variability of glucose (mg/dL) vs hemoglobin (g/dL)
+glucose = pd.Series([95, 102, 88, 110, 97, 105, 92, 98])
+hemoglobin = pd.Series([13.2, 14.1, 12.8, 13.5, 14.0, 13.8, 12.5, 13.9])
+
+cv_glucose = (glucose.std() / glucose.mean()) * 100
+cv_hb = (hemoglobin.std() / hemoglobin.mean()) * 100
+
+print(f"CV glucose: {cv_glucose:.1f}%")
+print(f"CV hemoglobin: {cv_hb:.1f}%")
+\end{minted}
+
+% ============================================================
+\section{Frequency tables and cross-tabulations}
+
+\subsection{One-way frequency tables}
+
+\begin{minted}{python}
+# Load Gapminder data
+url = ("https://raw.githubusercontent.com/datasets/"
+       "gapminder/main/data/gapminder.csv")
+gapminder = pd.read_csv(url)
+recent = gapminder[gapminder["year"] == 2007]
+
+# Create life expectancy categories
+recent = recent.copy()
+recent["le_cat"] = pd.cut(recent["lifeExp"],
+                          bins=[0, 55, 70, 85],
+                          labels=["Low (<55)", "Medium (55-70)",
+                                  "High (>70)"])
+
+# Frequency table
+freq = recent["le_cat"].value_counts().sort_index()
+print(freq)
+
+# With proportions
+freq_table = pd.DataFrame({
+    "n": freq,
+    "pct": (freq / freq.sum() * 100).round(1),
+    "cum_pct": (freq.cumsum() / freq.sum() * 100).round(1)
+})
+print(freq_table)
+\end{minted}
+
+\subsection{Two-way cross-tabulations}
+
+\begin{minted}{python}
+# Cross-tabulate life expectancy category by continent
+ct = pd.crosstab(recent["continent"], recent["le_cat"], margins=True)
+print(ct)
+
+# With row percentages (percentage within each continent)
+ct_pct = pd.crosstab(recent["continent"], recent["le_cat"],
+                     normalize="index").round(3) * 100
+print(ct_pct)
+\end{minted}
+
+\begin{clinicalnote}
+Cross-tabulations are the workhorse of descriptive epidemiology. Every ``Table~1'' in a clinical paper is essentially a cross-tabulation of patient characteristics by study group. In pandas, \texttt{pd.crosstab()} builds them in one line.
+\end{clinicalnote}
+
+% ============================================================
+\section{Epidemiological measures: counting disease}
+
+\subsection{Prevalence}
+
+Prevalence is the \emph{proportion} of a population that has a condition at a given point in time:
+
+\[
+\text{Prevalence} = \frac{\text{Number of existing cases}}{\text{Total population}} \times 100
+\]
+
+\begin{minted}{python}
+# Diabetes prevalence from a health survey
+n_total = 5000
+n_diabetic = 625
+
+prevalence = n_diabetic / n_total * 100
+print(f"Diabetes prevalence: {prevalence:.1f}%")
+
+# With 95% confidence interval (normal approximation)
+from scipy import stats
+
+p = n_diabetic / n_total
+se = np.sqrt(p * (1 - p) / n_total)
+ci_low = (p - 1.96 * se) * 100
+ci_high = (p + 1.96 * se) * 100
+print(f"95% CI: [{ci_low:.1f}%, {ci_high:.1f}%]")
+\end{minted}
+
+\subsection{Incidence rate}
+
+Incidence measures \emph{new} cases over a period of time. The incidence rate uses person-time in the denominator:
+
+\[
+\text{Incidence rate} = \frac{\text{Number of new cases}}{\text{Total person-time at risk}}
+\]
+
+\begin{minted}{python}
+# Tuberculosis cohort: 200 patients followed for varying durations
+new_tb_cases = 18
+total_person_years = 850  # sum of follow-up time for all patients
+
+incidence_rate = new_tb_cases / total_person_years
+print(f"TB incidence rate: {incidence_rate:.4f} per person-year")
+print(f"                 = {incidence_rate * 1000:.1f} per 1,000 person-years")
+
+# 95% CI for incidence rate (Poisson approximation)
+ir_se = np.sqrt(new_tb_cases) / total_person_years
+ci_low = (incidence_rate - 1.96 * ir_se) * 1000
+ci_high = (incidence_rate + 1.96 * ir_se) * 1000
+print(f"95% CI: [{ci_low:.1f}, {ci_high:.1f}] per 1,000 person-years")
+\end{minted}
+
+\begin{warningbox}
+Prevalence and incidence answer different questions. Prevalence tells you the \emph{burden} of disease (how many people are sick right now). Incidence tells you the \emph{risk} of getting sick. A disease can have low incidence but high prevalence if patients survive a long time (e.g., Type~2 diabetes). A disease with high incidence and low prevalence kills quickly (e.g., Ebola).
+\end{warningbox}
+
+\subsection{Mortality rate}
+
+\begin{minted}{python}
+# Crude mortality rate
+deaths = 1250
+population = 500_000
+mortality_rate = deaths / population * 100_000
+print(f"Crude mortality rate: {mortality_rate:.1f} per 100,000")
+
+# Case fatality rate (CFR)
+total_cases = 3200
+deaths_among_cases = 128
+cfr = deaths_among_cases / total_cases * 100
+print(f"Case fatality rate: {cfr:.1f}%")
+\end{minted}
+
+\begin{clinicalnote}
+The case fatality rate (CFR) is often misinterpreted during epidemics. Early in an outbreak, the denominator (total cases) is underestimated because many mild cases are not tested. This makes the CFR appear higher than the true infection fatality rate (IFR). During early COVID-19, reported CFR was $\sim$3--4\%, but seroprevalence studies later estimated the IFR at $\sim$0.5--1\%.
+\end{clinicalnote}
+
+% ============================================================
+\section{Measures of association}
+
+\subsection{Risk ratio (relative risk)}
+
+The risk ratio compares the probability of disease between exposed and unexposed groups:
+
+\[
+\text{RR} = \frac{\text{Risk in exposed}}{\text{Risk in unexposed}} = \frac{a/(a+b)}{c/(c+d)}
+\]
+
+\begin{minted}{python}
+# Smoking and lung cancer (hypothetical cohort)
+# Exposed (smokers):     a=80 cancer, b=920 no cancer
+# Unexposed (non-smokers): c=10 cancer, d=990 no cancer
+a, b, c, d = 80, 920, 10, 990
+
+risk_exposed = a / (a + b)
+risk_unexposed = c / (c + d)
+rr = risk_exposed / risk_unexposed
+
+print(f"Risk in smokers:     {risk_exposed:.3f} ({risk_exposed*100:.1f}%)")
+print(f"Risk in non-smokers: {risk_unexposed:.3f} ({risk_unexposed*100:.1f}%)")
+print(f"Risk Ratio: {rr:.2f}")
+
+# 95% CI for log(RR)
+import math
+se_ln_rr = math.sqrt(1/a - 1/(a+b) + 1/c - 1/(c+d))
+ln_rr = math.log(rr)
+ci_low = math.exp(ln_rr - 1.96 * se_ln_rr)
+ci_high = math.exp(ln_rr + 1.96 * se_ln_rr)
+print(f"95% CI: [{ci_low:.2f}, {ci_high:.2f}]")
+\end{minted}
+
+\subsection{Odds ratio}
+
+The odds ratio is used in case-control studies where you cannot directly compute risk:
+
+\[
+\text{OR} = \frac{a \times d}{b \times c}
+\]
+
+\begin{minted}{python}
+# Case-control study: obesity and knee osteoarthritis
+# Cases (OA):      a=120 obese, c=80 non-obese
+# Controls (no OA): b=60 obese,  d=140 non-obese
+a, b, c, d = 120, 60, 80, 140
+
+odds_ratio = (a * d) / (b * c)
+print(f"Odds Ratio: {odds_ratio:.2f}")
+
+# 95% CI
+se_ln_or = math.sqrt(1/a + 1/b + 1/c + 1/d)
+ln_or = math.log(odds_ratio)
+ci_low = math.exp(ln_or - 1.96 * se_ln_or)
+ci_high = math.exp(ln_or + 1.96 * se_ln_or)
+print(f"95% CI: [{ci_low:.2f}, {ci_high:.2f}]")
+\end{minted}
+
+\begin{clinicalnote}
+The odds ratio approximates the risk ratio when the disease is rare ($<10\%$ prevalence in both groups). For common outcomes, the OR exaggerates the association. An OR of 2.0 for a condition with 40\% baseline prevalence does not mean ``twice the risk'' --- the actual RR would be lower.
+\end{clinicalnote}
+
+\subsection{Reusable functions}
+
+\begin{minted}{python}
+def risk_ratio(a, b, c, d, alpha=0.05):
+    """Compute risk ratio with confidence interval.
+
+    a = exposed with disease
+    b = exposed without disease
+    c = unexposed with disease
+    d = unexposed without disease
+    """
+    from scipy.stats import norm
+    z = norm.ppf(1 - alpha / 2)
+
+    rr = (a / (a + b)) / (c / (c + d))
+    se = math.sqrt(1/a - 1/(a+b) + 1/c - 1/(c+d))
+    ci = (math.exp(math.log(rr) - z * se),
+          math.exp(math.log(rr) + z * se))
+
+    return {"RR": round(rr, 3), "CI_low": round(ci[0], 3),
+            "CI_high": round(ci[1], 3)}
+
+
+def odds_ratio(a, b, c, d, alpha=0.05):
+    """Compute odds ratio with confidence interval."""
+    from scipy.stats import norm
+    z = norm.ppf(1 - alpha / 2)
+
+    o_r = (a * d) / (b * c)
+    se = math.sqrt(1/a + 1/b + 1/c + 1/d)
+    ci = (math.exp(math.log(o_r) - z * se),
+          math.exp(math.log(o_r) + z * se))
+
+    return {"OR": round(o_r, 3), "CI_low": round(ci[0], 3),
+            "CI_high": round(ci[1], 3)}
+
+
+# Example
+print(risk_ratio(80, 920, 10, 990))
+print(odds_ratio(120, 60, 80, 140))
+\end{minted}
+
+% ============================================================
+\section{Age-standardized rates}
+
+Crude rates can be misleading when comparing populations with different age structures. A country with an older population will have a higher crude mortality rate even if it is ``healthier'' at every age. Age standardization removes this confounding.
+
+\subsection{Direct standardization}
+
+\begin{minted}{python}
+# Compare crude vs age-standardized mortality between two regions
+# Region A (young population), Region B (old population)
+
+data_a = pd.DataFrame({
+    "age_group": ["0-14", "15-44", "45-64", "65+"],
+    "population": [50000, 80000, 40000, 10000],
+    "deaths": [50, 80, 200, 300]
+})
+data_a["rate"] = data_a["deaths"] / data_a["population"] * 100000
+
+data_b = pd.DataFrame({
+    "age_group": ["0-14", "15-44", "45-64", "65+"],
+    "population": [15000, 40000, 50000, 45000],
+    "deaths": [20, 50, 280, 1500]
+})
+data_b["rate"] = data_b["deaths"] / data_b["population"] * 100000
+
+# Standard population (e.g., WHO World Standard)
+standard_pop = pd.DataFrame({
+    "age_group": ["0-14", "15-44", "45-64", "65+"],
+    "std_weight": [0.26, 0.42, 0.22, 0.10]
+})
+
+# Crude rates
+crude_a = data_a["deaths"].sum() / data_a["population"].sum() * 100000
+crude_b = data_b["deaths"].sum() / data_b["population"].sum() * 100000
+print(f"Crude rate Region A: {crude_a:.1f} per 100,000")
+print(f"Crude rate Region B: {crude_b:.1f} per 100,000")
+
+# Age-standardized rates
+asr_a = (data_a["rate"] * standard_pop["std_weight"]).sum()
+asr_b = (data_b["rate"] * standard_pop["std_weight"]).sum()
+print(f"Age-standardized rate Region A: {asr_a:.1f} per 100,000")
+print(f"Age-standardized rate Region B: {asr_b:.1f} per 100,000")
+\end{minted}
+
+\begin{warningbox}
+Always report which standard population you used (WHO World Standard, European Standard, US 2000 Standard). Different standards give different results. If you compare your rates with published rates, you must use the same standard population.
+\end{warningbox}
+
+% ============================================================
+\section{Practical: computing descriptive statistics with real data}
+
+\subsection{Descriptive statistics on Gapminder data}
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+# Load Gapminder
+url = ("https://raw.githubusercontent.com/datasets/"
+       "gapminder/main/data/gapminder.csv")
+df = pd.read_csv(url)
+
+# Summary statistics by continent (2007)
+recent = df[df["year"] == 2007].copy()
+summary = recent.groupby("continent")["lifeExp"].agg(
+    ["count", "mean", "median", "std",
+     lambda x: x.quantile(0.25),
+     lambda x: x.quantile(0.75)]
+)
+summary.columns = ["n", "mean", "median", "sd", "Q1", "Q3"]
+print(summary.round(1))
+\end{minted}
+
+\subsection{Computing malaria prevalence by region}
+
+\begin{minted}{python}
+# Malaria estimated cases from Our World in Data
+url = ("https://raw.githubusercontent.com/owid/"
+       "owid-datasets/master/datasets/"
+       "Malaria%20incidence%20-%20IHME/Malaria%20incidence%20-%20IHME.csv")
+# Alternative: use WHO GHO data directly
+# url = "https://apps.who.int/gho/athena/api/GHO/MALARIA_EST_CASES?format=csv"
+
+# If the above URL does not work, use Our World in Data's GitHub
+url2 = ("https://raw.githubusercontent.com/owid/etl/master/etl/steps/"
+        "data/garden/who/2024-07-30/gho.py")  # metadata only
+
+# For a reliable source, use the preprocessed OWID malaria dataset
+owid_url = ("https://raw.githubusercontent.com/owid/"
+            "owid-datasets/master/datasets/"
+            "Estimated%20malaria%20incidence%20rate%20"
+            "(per%201%2C000%20population%20at%20risk)%20-%20WHO/"
+            "Estimated%20malaria%20incidence%20rate%20"
+            "(per%201%2C000%20population%20at%20risk)%20-%20WHO.csv")
+
+# Simulated malaria data for practice
+np.random.seed(42)
+countries = (["Nigeria", "DRC", "Mozambique", "Uganda", "Ghana"] * 3 +
+             ["India", "Indonesia", "Myanmar", "Pakistan", "Ethiopia"] * 3)
+regions = (["West Africa"] * 5 + ["Central Africa"] * 5 +
+           ["East Africa"] * 5 +
+           ["South Asia"] * 5 + ["Southeast Asia"] * 5 +
+           ["East Africa"] * 5)
+
+malaria = pd.DataFrame({
+    "country": countries,
+    "region": ["West Africa", "Central Africa", "East Africa",
+               "East Africa", "West Africa"] * 6,
+    "year": [2018]*5 + [2019]*5 + [2020]*5 +
+            [2018]*5 + [2019]*5 + [2020]*5,
+    "population_at_risk": np.random.randint(10_000_000, 200_000_000, 30),
+    "estimated_cases": np.random.randint(500_000, 50_000_000, 30)
+})
+
+# Compute prevalence per 1,000 population at risk
+malaria["prevalence_per_1000"] = (
+    malaria["estimated_cases"] / malaria["population_at_risk"] * 1000
+)
+
+# Summary by region
+region_summary = malaria.groupby("region").agg(
+    total_cases=("estimated_cases", "sum"),
+    total_pop=("population_at_risk", "sum"),
+    n_countries=("country", "nunique")
+)
+region_summary["prevalence_per_1000"] = (
+    region_summary["total_cases"] / region_summary["total_pop"] * 1000
+)
+print(region_summary.round(1))
+
+# Trend by year
+year_trend = malaria.groupby("year").agg(
+    total_cases=("estimated_cases", "sum"),
+    total_pop=("population_at_risk", "sum")
+)
+year_trend["prevalence_per_1000"] = (
+    year_trend["total_cases"] / year_trend["total_pop"] * 1000
+)
+print(year_trend.round(1))
+\end{minted}
+
+\begin{exercise}
+Using the Gapminder dataset and the epidemiological functions defined above:
+\begin{enumerate}
+  \item Compute summary statistics (mean, median, SD, IQR) for life expectancy, GDP per capita, and population for each continent in 2007.
+  \item Create a cross-tabulation of continent vs.\ life expectancy category (Low/Medium/High). Compute row percentages.
+  \item A cohort of 10\,000 people was followed for 5 years. During this time, 450 developed Type~2 diabetes. Compute the cumulative incidence and the incidence rate (assuming an average of 4.5 years of follow-up per person).
+  \item In a case-control study of 200 cases and 200 controls, 140 cases and 80 controls were exposed to a risk factor. Compute the odds ratio and its 95\% CI. Interpret the result.
+  \item Country~A has a crude mortality rate of 350 per 100\,000 and Country~B has 580 per 100\,000. Using the age-specific rates and standard population provided above, compute age-standardized rates. Does the ranking change after standardization?
+  \item Using Our World in Data or WHO data, compute the malaria incidence rate for 5~African countries over 3 years. Which country has the highest burden? Is the trend increasing or decreasing?
+  \item Write a function \texttt{prevalence\_ci(cases, total, confidence=0.95)} that returns the prevalence and its confidence interval. Test it with: 250 diabetic patients out of 2\,000 screened.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Use the \textbf{median} for skewed distributions (lab values, costs, length of stay) and the \textbf{mean} for symmetric distributions.
+  \item The \textbf{IQR} is a robust measure of spread; the \textbf{SD} is sensitive to outliers.
+  \item \textbf{Prevalence} = existing cases / population. \textbf{Incidence rate} = new cases / person-time.
+  \item The \textbf{risk ratio} compares risks in cohort studies; the \textbf{odds ratio} is used in case-control studies.
+  \item The OR approximates the RR only when the outcome is rare ($<10\%$).
+  \item \textbf{Age standardization} removes confounding by age when comparing populations.
+  \item Always report confidence intervals alongside point estimates.
+  \item \texttt{pd.crosstab()} builds the two-way tables that form the basis of epidemiological analysis.
+\end{itemize}

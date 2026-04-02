@@ -1,0 +1,406 @@
+\chapter{Regression for health outcomes}
+\label{ch:regression}
+
+\begin{quote}
+\emph{``Correlation tells you that two things move together. Regression tells you by how much --- and lets you adjust for confounders.''}
+\end{quote}
+
+% ============================================================
+\section{From correlation to prediction}
+
+In Chapter~6 we asked ``is there a difference?'' Now we ask ``can we predict one variable from another?'' Regression is the workhorse of clinical research: it appears in nearly every epidemiological study, every clinical trial analysis, and every risk prediction model.
+
+\begin{minted}{python}
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy import stats
+\end{minted}
+
+% ============================================================
+\section{Simple linear regression}
+
+\textbf{Question:} How does systolic blood pressure change with age?
+
+\begin{minted}{python}
+# Simulated clinical data
+np.random.seed(42)
+n = 200
+age = np.random.uniform(25, 80, n)
+# True relationship: SBP = 90 + 0.7 * age + noise
+sbp = 90 + 0.7 * age + np.random.normal(0, 12, n)
+
+df = pd.DataFrame({"age": age, "systolic_bp": sbp})
+
+# Fit with scipy
+slope, intercept, r_value, p_value, std_err = stats.linregress(df["age"], df["systolic_bp"])
+print(f"Intercept: {intercept:.2f}")
+print(f"Slope: {slope:.2f} mmHg per year of age")
+print(f"R-squared: {r_value**2:.3f}")
+print(f"p-value: {p_value:.2e}")
+\end{minted}
+
+\begin{minted}{python}
+# Visualize
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.scatter(df["age"], df["systolic_bp"], alpha=0.5, s=20, color="steelblue")
+x_line = np.linspace(25, 80, 100)
+ax.plot(x_line, intercept + slope * x_line, color="red", linewidth=2,
+        label=f"SBP = {intercept:.1f} + {slope:.2f} x Age")
+ax.set_xlabel("Age (years)")
+ax.set_ylabel("Systolic BP (mmHg)")
+ax.set_title("Simple linear regression: SBP vs Age")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{clinicalnote}
+The slope of 0.7 means that, on average, systolic BP increases by 0.7~mmHg for each additional year of age. This does \emph{not} mean aging \emph{causes} higher BP --- it means the two are linearly associated in this sample.
+\end{clinicalnote}
+
+% ============================================================
+\section{Multiple linear regression}
+
+\textbf{Question:} Predict systolic BP from age, BMI, and smoking status simultaneously.
+
+\begin{minted}{python}
+import statsmodels.api as sm
+
+# Expanded simulated data
+np.random.seed(42)
+n = 300
+age = np.random.uniform(25, 80, n)
+bmi = np.random.normal(27, 5, n)
+smoking = np.random.binomial(1, 0.25, n)  # 25% smokers
+# True model: SBP = 70 + 0.6*age + 0.8*BMI + 5*smoking + noise
+sbp = 70 + 0.6 * age + 0.8 * bmi + 5 * smoking + np.random.normal(0, 10, n)
+
+df = pd.DataFrame({
+    "age": age, "bmi": bmi, "smoking": smoking, "systolic_bp": sbp
+})
+
+# Fit multiple regression with statsmodels
+X = sm.add_constant(df[["age", "bmi", "smoking"]])
+model = sm.OLS(df["systolic_bp"], X).fit()
+print(model.summary())
+\end{minted}
+
+\subsection{Interpreting coefficients in clinical context}
+
+\begin{minted}{python}
+# Extract and display coefficients
+coef_df = pd.DataFrame({
+    "Coefficient": model.params,
+    "95% CI lower": model.conf_int()[0],
+    "95% CI upper": model.conf_int()[1],
+    "p-value": model.pvalues
+}).round(4)
+print(coef_df)
+\end{minted}
+
+Each coefficient answers: ``holding all other variables constant, what is the expected change in SBP for a one-unit increase in this predictor?''
+
+\begin{itemize}
+  \item \textbf{Age coefficient $\approx 0.6$}: each additional year of age is associated with 0.6~mmHg higher SBP, \emph{after adjusting for BMI and smoking}.
+  \item \textbf{BMI coefficient $\approx 0.8$}: each additional BMI unit is associated with 0.8~mmHg higher SBP, \emph{after adjusting for age and smoking}.
+  \item \textbf{Smoking coefficient $\approx 5$}: smokers have, on average, 5~mmHg higher SBP than non-smokers, \emph{after adjusting for age and BMI}.
+\end{itemize}
+
+\begin{pythontip}
+The phrase ``after adjusting for'' (or ``controlling for'') is the key difference between simple and multiple regression. It is why epidemiologists use multiple regression --- to separate the effect of one variable from potential confounders.
+\end{pythontip}
+
+% ============================================================
+\section{Confounders}
+
+A confounder is a variable that is associated with both the exposure and the outcome, distorting the apparent relationship between them.
+
+\begin{minted}{python}
+# Example: coffee drinking and heart disease
+# Both are associated with smoking (the confounder)
+np.random.seed(42)
+n = 500
+smoking = np.random.binomial(1, 0.3, n)
+coffee = 1.5 + 2 * smoking + np.random.normal(0, 1.5, n)  # smokers drink more coffee
+heart_disease_risk = 0.5 * smoking + np.random.normal(0, 0.3, n)  # smoking causes HD
+
+# Unadjusted: coffee appears to predict heart disease
+r_unadjusted, p_unadjusted = stats.pearsonr(coffee, heart_disease_risk)
+print(f"Unadjusted correlation (coffee vs HD risk): r = {r_unadjusted:.3f}, p = {p_unadjusted:.4f}")
+
+# Adjusted regression: coffee effect disappears
+df_conf = pd.DataFrame({"coffee": coffee, "smoking": smoking, "hd_risk": heart_disease_risk})
+X = sm.add_constant(df_conf[["coffee", "smoking"]])
+model_adj = sm.OLS(df_conf["hd_risk"], X).fit()
+print(f"\nAdjusted model:")
+print(f"  Coffee coefficient: {model_adj.params['coffee']:.4f} (p = {model_adj.pvalues['coffee']:.4f})")
+print(f"  Smoking coefficient: {model_adj.params['smoking']:.4f} (p = {model_adj.pvalues['smoking']:.4f})")
+\end{minted}
+
+\begin{warningbox}
+Without adjusting for smoking, you would wrongly conclude that coffee increases heart disease risk. This is one of the most common errors in observational studies. Always think about what confounders might be lurking in your data.
+\end{warningbox}
+
+% ============================================================
+\section{Checking regression assumptions}
+
+\begin{minted}{python}
+# Residual diagnostics for our SBP model
+residuals = model.resid
+fitted = model.fittedvalues
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+
+# Residuals vs fitted
+axes[0].scatter(fitted, residuals, alpha=0.4, s=15)
+axes[0].axhline(0, color="red", linestyle="--")
+axes[0].set_xlabel("Fitted values")
+axes[0].set_ylabel("Residuals")
+axes[0].set_title("Residuals vs Fitted")
+
+# Histogram of residuals
+axes[1].hist(residuals, bins=25, edgecolor="black", alpha=0.7)
+axes[1].set_xlabel("Residuals")
+axes[1].set_title("Distribution of residuals")
+
+# Q-Q plot
+stats.probplot(residuals, dist="norm", plot=axes[2])
+axes[2].set_title("Q-Q plot")
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{clinicalnote}
+The four key assumptions of linear regression: (1)~linearity, (2)~independence of residuals, (3)~homoscedasticity (constant variance), (4)~normality of residuals. The plots above help you check assumptions 1, 3, and 4. Violation does not always invalidate results, but it should make you cautious.
+\end{clinicalnote}
+
+% ============================================================
+\section{Logistic regression}
+
+When the outcome is binary (disease: yes/no), linear regression is inappropriate. Logistic regression models the \emph{probability} of the outcome.
+
+\textbf{Question:} Predict whether a patient has diabetes (yes/no) from age, BMI, and glucose level.
+
+\begin{minted}{python}
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, confusion_matrix
+
+# Load the Pima Indians Diabetes dataset
+url = ("https://raw.githubusercontent.com/jbrownlee/Datasets/"
+       "master/pima-indians-diabetes.data.csv")
+columns = ["pregnancies", "glucose", "blood_pressure", "skin_thickness",
+           "insulin", "bmi", "diabetes_pedigree", "age", "outcome"]
+pima = pd.read_csv(url, names=columns)
+print(f"Shape: {pima.shape}")
+print(f"Diabetes prevalence: {pima['outcome'].mean():.1%}")
+pima.head()
+\end{minted}
+
+\begin{minted}{python}
+# Fit logistic regression with statsmodels (for detailed output)
+X = sm.add_constant(pima[["age", "bmi", "glucose"]])
+y = pima["outcome"]
+
+logit_model = sm.Logit(y, X).fit()
+print(logit_model.summary())
+\end{minted}
+
+% ============================================================
+\section{Odds ratios from logistic regression}
+
+The coefficients of logistic regression are log-odds. Exponentiate them to get \textbf{odds ratios}:
+
+\begin{minted}{python}
+# Odds ratios with 95% confidence intervals
+odds_ratios = np.exp(logit_model.params)
+ci = np.exp(logit_model.conf_int())
+
+or_df = pd.DataFrame({
+    "Odds Ratio": odds_ratios,
+    "95% CI lower": ci[0],
+    "95% CI upper": ci[1],
+    "p-value": logit_model.pvalues
+}).round(4)
+print(or_df)
+\end{minted}
+
+\begin{clinicalnote}
+An odds ratio of 1.04 for glucose means: for each additional 1~mg/dL of glucose, the odds of diabetes increase by 4\%, holding age and BMI constant. An OR $> 1$ means higher risk; OR $< 1$ means lower risk; OR $= 1$ means no association.
+\end{clinicalnote}
+
+% ============================================================
+\section{Model evaluation: confusion matrix and beyond}
+
+\begin{minted}{python}
+# Fit with scikit-learn for prediction
+features = ["age", "bmi", "glucose"]
+X = pima[features]
+y = pima["outcome"]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42, stratify=y
+)
+
+clf = LogisticRegression(max_iter=1000, random_state=42)
+clf.fit(X_train, y_train)
+y_pred = clf.predict(X_test)
+\end{minted}
+
+\begin{minted}{python}
+# Confusion matrix
+cm = confusion_matrix(y_test, y_pred)
+print("Confusion Matrix:")
+print(cm)
+print()
+
+# Detailed metrics
+print(classification_report(y_test, y_pred,
+                            target_names=["No Diabetes", "Diabetes"]))
+\end{minted}
+
+\subsection{Sensitivity, specificity, PPV, NPV}
+
+\begin{minted}{python}
+tn, fp, fn, tp = cm.ravel()
+sensitivity = tp / (tp + fn)    # true positive rate (recall)
+specificity = tn / (tn + fp)    # true negative rate
+ppv = tp / (tp + fp)            # positive predictive value (precision)
+npv = tn / (tn + fn)            # negative predictive value
+
+print(f"Sensitivity (recall): {sensitivity:.3f}")
+print(f"  -> Of those WITH diabetes, {sensitivity:.1%} were correctly identified")
+print(f"Specificity:          {specificity:.3f}")
+print(f"  -> Of those WITHOUT diabetes, {specificity:.1%} were correctly identified")
+print(f"PPV (precision):      {ppv:.3f}")
+print(f"  -> Of those PREDICTED positive, {ppv:.1%} actually have diabetes")
+print(f"NPV:                  {npv:.3f}")
+print(f"  -> Of those PREDICTED negative, {npv:.1%} are truly disease-free")
+\end{minted}
+
+\begin{minted}{python}
+# Visualize the confusion matrix
+fig, ax = plt.subplots(figsize=(6, 5))
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+            xticklabels=["No Diabetes", "Diabetes"],
+            yticklabels=["No Diabetes", "Diabetes"], ax=ax)
+ax.set_xlabel("Predicted")
+ax.set_ylabel("Actual")
+ax.set_title("Confusion Matrix")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{warningbox}
+In clinical screening, missing a disease (false negative) is often more dangerous than a false alarm (false positive). A screening test for cancer should have \textbf{high sensitivity} even if specificity is moderate. A confirmatory test should have \textbf{high specificity}.
+\end{warningbox}
+
+% ============================================================
+\section{Introduction to survival analysis}
+
+Sometimes the outcome is not ``yes/no'' but ``time until event'' --- time to death, time to relapse, time to hospital readmission. This is \textbf{survival analysis}.
+
+\subsection{Why not just use logistic regression?}
+
+Two reasons:
+\begin{enumerate}
+  \item \textbf{Censoring.} Some patients leave the study before the event occurs. We know they survived \emph{at least} that long, but not their true event time.
+  \item \textbf{Time matters.} A drug that delays relapse by 3 years is better than one that delays it by 3 months, even if both eventually fail.
+\end{enumerate}
+
+\subsection{Kaplan-Meier curves}
+
+\begin{minted}{python}
+# Install lifelines if needed: pip install lifelines
+from lifelines import KaplanMeierFitter, CoxPHFitter
+
+# Simulated survival data
+np.random.seed(42)
+n = 200
+treatment = np.random.binomial(1, 0.5, n)
+# Treatment group survives longer
+time = np.where(treatment == 1,
+                np.random.exponential(24, n),   # treatment: mean 24 months
+                np.random.exponential(16, n))   # control: mean 16 months
+event = np.random.binomial(1, 0.75, n)  # 25% censored
+
+surv_df = pd.DataFrame({
+    "time": time, "event": event, "treatment": treatment
+})
+\end{minted}
+
+\begin{minted}{python}
+# Kaplan-Meier curves
+fig, ax = plt.subplots(figsize=(8, 5))
+
+for label, group_df in surv_df.groupby("treatment"):
+    kmf = KaplanMeierFitter()
+    kmf.fit(group_df["time"], event_observed=group_df["event"],
+            label="Treatment" if label == 1 else "Control")
+    kmf.plot_survival_function(ax=ax)
+
+ax.set_xlabel("Time (months)")
+ax.set_ylabel("Survival probability")
+ax.set_title("Kaplan-Meier survival curves")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\subsection{Cox proportional hazards model}
+
+The Cox model is the ``regression'' of survival analysis. It estimates how covariates affect the hazard (risk of event at each time point):
+
+\begin{minted}{python}
+# Cox proportional hazards
+cph = CoxPHFitter()
+cph.fit(surv_df, duration_col="time", event_col="event",
+        formula="treatment")
+cph.print_summary()
+\end{minted}
+
+\begin{minted}{python}
+# Hazard ratio
+hr = np.exp(cph.params_["treatment"])
+print(f"Hazard ratio for treatment: {hr:.3f}")
+if hr < 1:
+    print(f"Treatment reduces hazard by {(1-hr)*100:.1f}%")
+else:
+    print(f"Treatment increases hazard by {(hr-1)*100:.1f}%")
+\end{minted}
+
+\begin{clinicalnote}
+A hazard ratio of 0.65 means the treatment group has 35\% lower risk of the event at any given time point, compared to the control group. Hazard ratios are the standard way to report results in oncology trials, cardiovascular outcome studies, and any study with a time-to-event endpoint.
+\end{clinicalnote}
+
+% ============================================================
+\section{Practical: diabetes risk prediction}
+
+\begin{exercise}
+Using the Pima Indians Diabetes dataset (\url{https://raw.githubusercontent.com/jbrownlee/Datasets/master/pima-indians-diabetes.data.csv}):
+\begin{enumerate}
+  \item \textbf{Data preparation.} Load the dataset. Replace zero values in \texttt{glucose}, \texttt{blood\_pressure}, \texttt{bmi}, \texttt{skin\_thickness}, and \texttt{insulin} with \texttt{NaN} (these are biologically impossible zeros). Drop rows with missing values.
+  \item \textbf{Simple logistic regression.} Fit a model predicting diabetes from glucose alone. What is the odds ratio? Interpret it.
+  \item \textbf{Multiple logistic regression.} Fit a model using age, BMI, glucose, blood pressure, and diabetes pedigree function. Which variables are statistically significant? Report odds ratios with 95\% CIs.
+  \item \textbf{Model comparison.} Split the data 70/30. Fit both models on the training set. Compare sensitivity, specificity, and accuracy on the test set. Which model is better for \emph{screening}?
+  \item \textbf{Confounding.} Fit a model with glucose only, then add age. Does the glucose coefficient change? What does this tell you about confounding?
+  \item \textbf{Clinical thresholds.} Instead of the default 0.5 threshold, try 0.3 and 0.7. How do sensitivity and specificity change? When might you prefer a lower threshold?
+  \item \textbf{Bonus: survival analysis.} Using the simulated survival data above, add ``age'' and ``smoking'' as covariates to the Cox model. Which has the largest hazard ratio?
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Simple linear regression models the relationship between one predictor and a continuous outcome.
+  \item Multiple regression adjusts for confounders --- the phrase ``after controlling for'' reflects this.
+  \item Coefficients represent the expected change in the outcome for a one-unit change in the predictor, holding other variables constant.
+  \item Logistic regression predicts binary outcomes (disease yes/no) and produces odds ratios.
+  \item Model evaluation requires the confusion matrix: sensitivity, specificity, PPV, and NPV.
+  \item High sensitivity is critical for screening; high specificity is critical for confirmation.
+  \item Survival analysis (Kaplan-Meier, Cox model) handles time-to-event data with censoring.
+  \item Always check regression assumptions and report confidence intervals, not just p-values.
+\end{itemize}

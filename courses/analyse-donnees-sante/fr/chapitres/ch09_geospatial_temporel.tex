@@ -1,0 +1,401 @@
+\chapter{Donn\'ees g\'eospatiales et temporelles de sant\'e}
+\label{ch:geospatial-temporel}
+
+\begin{quote}
+\emph{<<\,Une \'epid\'emie est une histoire racont\'ee dans le temps et dans l'espace. Si vous pouvez tracer les deux, vous pouvez voir d'o\`u elle vient et o\`u elle va.\,>>}
+\end{quote}
+
+% ============================================================
+\section{S\'eries temporelles en sant\'e}
+
+Une \emph{s\'erie temporelle} est une suite de mesures enregistr\'ees \`a intervalles r\'eguliers : comptage quotidien des cas, bilan hebdomadaire des d\'ec\`es, doses mensuelles de vaccination. Les s\'eries temporelles de sant\'e ont trois composantes :
+
+\begin{itemize}
+  \item \textbf{Tendance.} La direction \`a long terme --- l'incidence augmente-t-elle ou diminue-t-elle ?
+  \item \textbf{Saisonnalit\'e.} Des cycles r\'eguliers --- le paludisme culmine pendant les saisons des pluies, la grippe culmine en hiver.
+  \item \textbf{Bruit.} La fluctuation al\'eatoire au jour le jour qui masque le signal.
+\end{itemize}
+
+\begin{clinicalnote}
+Les courbes \'epid\'emiques (<<\,epi curves\,>>) sont les s\'eries temporelles les plus importantes en sant\'e publique. Lors d'une \'epid\'emie, la forme de la courbe \'epid\'emique vous indique le mode de transmission : une exposition ponctuelle produit un pic aigu ; une source continue produit un plateau ; une transmission de personne \`a personne g\'en\`ere des vagues successives.
+\end{clinicalnote}
+
+% ============================================================
+\section{Tracer des s\'eries temporelles avec pandas}
+
+\subsection{Analyse et indexation des dates}
+
+Pandas g\`ere les dates nativement. L'essentiel est d'analyser les colonnes de dates et de les d\'efinir comme index :
+
+\begin{minted}{python}
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Exemple : cas quotidiens de paludisme dans un hopital de district
+dates = pd.date_range("2023-01-01", periods=365, freq="D")
+import numpy as np
+np.random.seed(42)
+# Simuler un schema saisonnier : pic pendant la saison des pluies (juin-septembre)
+day_of_year = dates.dayofyear
+seasonal = 50 + 40 * np.sin(2 * np.pi * (day_of_year - 90) / 365)
+cases = np.maximum(0, seasonal + np.random.normal(0, 12, 365)).astype(int)
+
+df = pd.DataFrame({"date": dates, "cases": cases})
+df["date"] = pd.to_datetime(df["date"])
+df = df.set_index("date")
+df.head()
+\end{minted}
+
+\subsection{Moyennes glissantes}
+
+Les fluctuations quotidiennes rendent les tendances difficiles \`a voir. Une \emph{moyenne glissante} lisse la courbe :
+
+\begin{minted}{python}
+df["cases_7d"] = df["cases"].rolling(window=7).mean()
+df["cases_14d"] = df["cases"].rolling(window=14).mean()
+
+fig, ax = plt.subplots(figsize=(12, 5))
+ax.bar(df.index, df["cases"], alpha=0.3, label="Cas quotidiens", color="steelblue")
+ax.plot(df.index, df["cases_7d"], color="red", linewidth=2, label="Moyenne 7 jours")
+ax.plot(df.index, df["cases_14d"], color="darkgreen", linewidth=2, label="Moyenne 14 jours")
+ax.set_xlabel("Date")
+ax.set_ylabel("Cas de paludisme")
+ax.set_title("Cas quotidiens de paludisme avec moyennes glissantes")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{pythontip}
+Le param\`etre \texttt{window} d\'efinit le nombre de jours sur lequel moyenner. Une fen\^etre de 7 jours \'elimine les effets jour de la semaine ; une fen\^etre de 14 jours lisse de mani\`ere plus agressive. Choisissez en fonction du niveau de bruit de vos donn\'ees.
+\end{pythontip}
+
+\subsection{D\'ecomposition de tendance}
+
+La biblioth\`eque \texttt{statsmodels} peut d\'ecomposer une s\'erie temporelle en composantes de tendance, saisonnalit\'e et r\'esidus :
+
+\begin{minted}{python}
+from statsmodels.tsa.seasonal import seasonal_decompose
+
+result = seasonal_decompose(df["cases"], model="additive", period=30)
+
+fig, axes = plt.subplots(4, 1, figsize=(12, 10), sharex=True)
+result.observed.plot(ax=axes[0], title="Observe")
+result.trend.plot(ax=axes[1], title="Tendance")
+result.seasonal.plot(ax=axes[2], title="Saisonnalite")
+result.resid.plot(ax=axes[3], title="Residus")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{warningbox}
+Le param\`etre \texttt{period} doit correspondre \`a la longueur de cycle attendue. Pour des donn\'ees quotidiennes avec une saisonnalit\'e mensuelle, utilisez \texttt{period=30}. Pour des donn\'ees hebdomadaires avec une saisonnalit\'e annuelle, utilisez \texttt{period=52}. Une mauvaise p\'eriode produira des d\'ecompositions trompeuses.
+\end{warningbox}
+
+% ============================================================
+\section{Courbes de cas COVID-19}
+
+\subsection{Chargement des donn\'ees JHU}
+
+Le jeu de donn\'ees COVID-19 de l'universit\'e Johns Hopkins (CSSE) est l'un des jeux de donn\'ees de sant\'e publique les plus cit\'es de l'histoire :
+
+\begin{minted}{python}
+# JHU CSSE COVID-19 cas confirmes (mondial, serie temporelle)
+url = ("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/"
+       "master/csse_covid_19_data/csse_covid_19_time_series/"
+       "time_series_covid19_confirmed_global.csv")
+confirmed = pd.read_csv(url)
+print(f"Dimensions : {confirmed.shape}")
+confirmed.head()
+\end{minted}
+
+\subsection{Reformater du format large au format long}
+
+Les donn\'ees JHU sont en format large (une colonne par date). Nous devons les reformater :
+
+\begin{minted}{python}
+# Se concentrer sur 5 pays africains
+countries = ["South Africa", "Nigeria", "Kenya", "Egypt", "Morocco"]
+africa = confirmed[confirmed["Country/Region"].isin(countries)]
+
+# Grouper par pays (certains pays ont des lignes par province)
+africa = africa.groupby("Country/Region").sum(numeric_only=True)
+africa = africa.drop(columns=["Lat", "Long"], errors="ignore")
+
+# Reformater : large -> long
+africa_long = africa.T
+africa_long.index = pd.to_datetime(africa_long.index)
+africa_long.index.name = "date"
+africa_long.head()
+\end{minted}
+
+\subsection{Calcul des cas quotidiens et moyennes sur 7 jours}
+
+\begin{minted}{python}
+# Cumulatif -> nouveaux cas quotidiens
+daily = africa_long.diff().clip(lower=0)  # clip supprime les corrections negatives
+
+# Moyenne glissante sur 7 jours
+daily_7d = daily.rolling(7).mean()
+
+# Tracer
+fig, ax = plt.subplots(figsize=(14, 6))
+for country in countries:
+    ax.plot(daily_7d.index, daily_7d[country], linewidth=2, label=country)
+ax.set_xlabel("Date")
+ax.set_ylabel("Nouveaux cas quotidiens (moyenne 7 jours)")
+ax.set_title("Cas quotidiens de COVID-19 dans 5 pays africains")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{clinicalnote}
+La m\'ethode \texttt{.diff()} convertit les comptages cumulatifs en incr\'ements quotidiens. Des valeurs n\'egatives apparaissent parfois en raison de corrections de donn\'ees (par ex.\ un pays r\'evise son total \`a la baisse). Borner \`a z\'ero est l'approche standard, bien que cela gonfle l\'eg\`erement les jours suivants.
+\end{clinicalnote}
+
+% ============================================================
+\section{Introduction aux donn\'ees g\'eospatiales}
+
+Les donn\'ees g\'eospatiales lient des mesures \`a des localisations sur Terre. Deux formats courants :
+
+\begin{itemize}
+  \item \textbf{Shapefiles} (\texttt{.shp}) --- le format SIG traditionnel. Un shapefile est en r\'ealit\'e un ensemble de fichiers (\texttt{.shp}, \texttt{.shx}, \texttt{.dbf}, \texttt{.prj}) qui d\'efinissent ensemble des g\'eom\'etries de polygones et des attributs.
+  \item \textbf{GeoJSON} (\texttt{.geojson}) --- un seul fichier JSON. Plus facile \`a partager, lire et utiliser sur le web.
+\end{itemize}
+
+Les deux formats stockent des \emph{g\'eom\'etries} (fronti\`eres de pays, limites de districts, emplacements d'h\^opitaux) et des \emph{attributs} (population, nombre de cas, taux de mortalit\'e) dans la m\^eme structure.
+
+% ============================================================
+\section{geopandas pour la cartographie des maladies}
+
+\texttt{geopandas} \'etend pandas avec des capacit\'es spatiales. Un \texttt{GeoDataFrame} est un DataFrame avec une colonne sp\'eciale \texttt{geometry} qui contient les formes.
+
+\subsection{Installation}
+
+\begin{minted}{python}
+# Dans Google Colab ou en local
+!pip install geopandas mapclassify
+\end{minted}
+
+\subsection{Charger une carte du monde}
+
+\begin{minted}{python}
+import geopandas as gpd
+
+# Jeu de donnees Natural Earth (integre dans geopandas)
+world = gpd.read_file(gpd.datasets.get_path("naturalearth_lowres"))
+print(f"Colonnes : {world.columns.tolist()}")
+print(f"SCR : {world.crs}")  # Systeme de coordonnees de reference
+world.head()
+\end{minted}
+
+\subsection{Cartes choropl\`ethes}
+
+Une carte \emph{choropl\`ethe} colorie les r\'egions selon une variable. C'est l'outil standard pour cartographier la charge de morbidité par pays ou district :
+
+\begin{minted}{python}
+# Filtrer l'Afrique
+africa_map = world[world["continent"] == "Africa"].copy()
+
+# Tracer l'estimation de population
+fig, ax = plt.subplots(figsize=(10, 10))
+africa_map.plot(column="pop_est", cmap="YlOrRd", legend=True,
+                legend_kwds={"label": "Population", "shrink": 0.6},
+                edgecolor="black", linewidth=0.5, ax=ax)
+ax.set_title("Estimations de population des pays africains")
+ax.set_axis_off()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{pythontip}
+Bonnes palettes de couleurs pour les donn\'ees de sant\'e : \texttt{"YlOrRd"} (s\'equentielle, de faible \`a forte s\'ev\'erit\'e), \texttt{"RdYlGn\_r"} (divergente, rouge = mauvais, vert = bon), \texttt{"Blues"} (s\'equentielle, neutre). \'Evitez les palettes arc-en-ciel (\texttt{"jet"}) --- elles trompent l'\oe{}il.
+\end{pythontip}
+
+% ============================================================
+\section{Cartographie de la pr\'evalence du paludisme par pays africain}
+
+Combinons des donn\'ees de sant\'e r\'eelles avec la cartographie g\'eospatiale. Nous utiliserons les donn\'ees d'incidence du paludisme du GHO de l'OMS :
+
+\begin{minted}{python}
+# GHO de l'OMS : incidence estimee du paludisme (pour 1000 personnes a risque)
+url = "https://apps.who.int/gho/athena/api/GHO/MALARIA_INCIDENCE?format=csv"
+malaria = pd.read_csv(url)
+print(malaria.columns.tolist())
+malaria.head()
+\end{minted}
+
+\begin{minted}{python}
+# Filtrer l'annee la plus recente et les donnees au niveau pays
+latest_year = malaria["YEAR (DISPLAY)"].max()
+malaria_latest = malaria[malaria["YEAR (DISPLAY)"] == latest_year].copy()
+
+# Garder les colonnes pertinentes
+malaria_latest = malaria_latest[["COUNTRY (DISPLAY)", "Numeric"]].copy()
+malaria_latest.columns = ["country", "incidence_per_1000"]
+malaria_latest.head()
+\end{minted}
+
+\begin{minted}{python}
+# Fusionner avec la carte de l'Afrique
+# Faire correspondre les noms de pays (certains necessitent une correction manuelle)
+name_map = {
+    "United Republic of Tanzania": "Tanzania",
+    "Democratic Republic of the Congo": "Dem. Rep. Congo",
+    "Central African Republic": "Central African Rep.",
+    "South Sudan": "S. Sudan",
+    "Cote d'Ivoire": "Cote d'Ivoire",
+    "Equatorial Guinea": "Eq. Guinea",
+}
+malaria_latest["country"] = malaria_latest["country"].replace(name_map)
+
+africa_malaria = africa_map.merge(malaria_latest, left_on="name",
+                                   right_on="country", how="left")
+\end{minted}
+
+\begin{minted}{python}
+fig, ax = plt.subplots(figsize=(10, 10))
+africa_malaria.plot(column="incidence_per_1000", cmap="YlOrRd",
+                     legend=True, missing_kwds={"color": "lightgrey"},
+                     legend_kwds={"label": "Incidence pour 1 000",
+                                  "shrink": 0.6},
+                     edgecolor="black", linewidth=0.5, ax=ax)
+ax.set_title(f"Incidence du paludisme en Afrique ({latest_year})")
+ax.set_axis_off()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{clinicalnote}
+La charge du paludisme en Afrique subsaharienne repr\'esente environ 95\,\% des d\'ec\`es mondiaux dus au paludisme. Les cartes choropl\`ethes r\'ev\`elent imm\'ediatement la concentration g\'eographique et aident \`a cibler les programmes d'intervention tels que les moustiquaires impr\'egn\'ees d'insecticide (MII) et la pulv\'erisation intradomiciliaire \`a effet r\'emanent (PIR).
+\end{clinicalnote}
+
+% ============================================================
+\section{Combiner analyse temporelle et spatiale}
+
+\subsection{Petits multiples : une carte par p\'eriode}
+
+Une alternative pratique \`a l'animation est l'approche des \emph{petits multiples} --- une carte par p\'eriode c\^ote \`a c\^ote :
+
+\begin{minted}{python}
+# Exemple : cas cumules de COVID-19 par pays a 3 moments
+dates_to_plot = ["2020-06-01", "2021-01-01", "2021-06-01"]
+
+fig, axes = plt.subplots(1, 3, figsize=(18, 7))
+for ax, date_str in zip(axes, dates_to_plot):
+    date_col = pd.to_datetime(date_str).strftime("%-m/%-d/%y")
+    if date_col in africa.columns:
+        data_col = africa[date_col]
+    else:
+        # Trouver la date la plus proche
+        all_dates = pd.to_datetime(africa.columns, errors="coerce")
+        nearest = all_dates[all_dates <= pd.to_datetime(date_str)][-1]
+        data_col = africa[nearest.strftime("%-m/%-d/%y")]
+
+    temp = africa_map.copy()
+    temp = temp.merge(data_col.reset_index(), left_on="name",
+                       right_on="Country/Region", how="left")
+    temp.plot(column=data_col.name, cmap="Reds", legend=True,
+              edgecolor="black", linewidth=0.5, ax=ax,
+              missing_kwds={"color": "lightgrey"})
+    ax.set_title(date_str)
+    ax.set_axis_off()
+
+plt.suptitle("Cas cumules de COVID-19 en Afrique", fontsize=14)
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\subsection{Cartes anim\'ees (option avanc\'ee)}
+
+Pour les pr\'esentations, des GIFs anim\'es peuvent montrer la propagation \'epid\'emique au fil du temps. L'id\'ee : cr\'eer une image par pas de temps, puis combiner avec \texttt{imageio} ou \texttt{matplotlib.animation} :
+
+\begin{minted}{python}
+import matplotlib.animation as animation
+
+fig, ax = plt.subplots(figsize=(10, 10))
+
+def update(frame_date):
+    ax.clear()
+    # Fusionner les donnees de cas pour cette date avec la carte
+    temp = africa_map.copy()
+    # ... logique de fusion similaire a ci-dessus ...
+    temp.plot(column="cases", cmap="Reds", ax=ax, edgecolor="black",
+              linewidth=0.5, missing_kwds={"color": "lightgrey"},
+              vmin=0, vmax=max_cases)
+    ax.set_title(f"Cas COVID-19 - {frame_date}")
+    ax.set_axis_off()
+
+# Creer l'animation (une image par mois)
+# ani = animation.FuncAnimation(fig, update, frames=monthly_dates,
+#                                interval=500)
+# ani.save("covid_africa.gif", writer="pillow")
+\end{minted}
+
+\begin{warningbox}
+Les cartes anim\'ees sont visuellement impressionnantes mais peuvent \^etre difficiles \`a interpr\'eter scientifiquement. Pour les publications, les petits multiples ou les instantan\'es statiques avec un curseur temporel (dans un tableau de bord) sont pr\'ef\'er\'es. Utilisez les animations pour les pr\'esentations et la communication avec le public.
+\end{warningbox}
+
+% ============================================================
+\section{Travaux pratiques : tableau de bord COVID-19 pour 5 pays africains}
+
+\begin{exercise}
+Construisez un tableau de bord COVID-19 multi-panneaux pour l'Afrique du Sud, le Nig\'eria, le Kenya, l'\'Egypte et le Maroc. Votre tableau de bord doit comporter quatre panneaux :
+
+\textbf{Panneau 1 --- Cas confirm\'es au fil du temps.}
+\begin{enumerate}
+  \item Chargez les donn\'ees de s\'eries temporelles JHU CSSE pour les cas confirm\'es :\\
+  \url{https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv}
+  \item Filtrez les 5 pays. Calculez les nouveaux cas quotidiens et les moyennes glissantes sur 7 jours.
+  \item Tracez les 5 pays sur un m\^eme axe avec une l\'egende.
+\end{enumerate}
+
+\textbf{Panneau 2 --- D\'ec\`es au fil du temps.}
+\begin{enumerate}
+  \item Chargez la s\'erie temporelle des d\'ec\`es JHU :\\
+  \url{https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv}
+  \item Calculez les d\'ec\`es quotidiens (moyenne 7 jours) et tracez.
+\end{enumerate}
+
+\textbf{Panneau 3 --- Progression de la vaccination.}
+\begin{enumerate}
+  \item Chargez le jeu de donn\'ees de vaccination de Our World in Data :\\
+  \url{https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/vaccinations/vaccinations.csv}
+  \item Filtrez les 5 pays. Tracez \texttt{people\_fully\_vaccinated\_per\_hundred} au fil du temps.
+\end{enumerate}
+
+\textbf{Panneau 4 --- Carte choropl\`ethe.}
+\begin{enumerate}
+  \item Avec \texttt{geopandas}, cr\'eez une carte choropl\`ethe du total des cas confirm\'es (ou des cas par million) \`a travers tous les pays africains \`a la derni\`ere date disponible.
+  \item Mettez en \'evidence les 5 pays cibles avec des bordures plus \'epaisses.
+\end{enumerate}
+
+\textbf{Mise en page :}
+\begin{minted}{python}
+fig, axes = plt.subplots(2, 2, figsize=(18, 14))
+# axes[0, 0] -> Panneau 1 : Cas
+# axes[0, 1] -> Panneau 2 : Deces
+# axes[1, 0] -> Panneau 3 : Vaccination
+# axes[1, 1] -> Panneau 4 : Carte chorolethe
+\end{minted}
+
+\textbf{Bonus :}
+\begin{itemize}
+  \item Ajoutez un tableau sous la figure avec les statistiques r\'ecapitulatives par pays : total des cas, total des d\'ec\`es, taux de l\'etalit\'e (\%), couverture vaccinale (\%).
+  \item Normalisez les cas et d\'ec\`es pour 100\,000 habitants pour permettre une comparaison \'equitable.
+\end{itemize}
+\end{exercise}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Les s\'eries temporelles de sant\'e ont trois composantes : tendance, saisonnalit\'e et bruit.
+  \item Les moyennes glissantes (\texttt{.rolling()}) lissent les fluctuations quotidiennes ; \texttt{seasonal\_decompose()} s\'epare formellement les composantes.
+  \item Le jeu de donn\'ees JHU CSSE fournit des s\'eries temporelles mondiales de cas, d\'ec\`es et gu\'erisons COVID-19. Utilisez \texttt{.diff()} pour convertir les comptages cumulatifs en nouveaux cas quotidiens.
+  \item Les donn\'ees g\'eospatiales se pr\'esentent sous forme de shapefiles (\texttt{.shp}) ou de GeoJSON (\texttt{.geojson}). \texttt{geopandas} lit les deux.
+  \item Les cartes choropl\`ethes colorient les r\'egions selon une variable de sant\'e --- utilisez \texttt{.plot(column=...)} avec une palette de couleurs appropri\'ee.
+  \item La fusion de donn\'ees de sant\'e avec des donn\'ees cartographiques n\'ecessite de faire correspondre les noms de pays --- v\'erifiez toujours les incoh\'erences.
+  \item Les petits multiples (une carte par p\'eriode) sont plus rigoureux scientifiquement que les animations.
+\end{itemize}

@@ -1,0 +1,187 @@
+\chapter{Donn\'ees de sant\'e avec Pandas}
+\label{ch:pandas}
+
+\begin{quote}
+\emph{<<\,80\,\% de l'analyse de donn\'ees consiste \`a mettre les donn\'ees dans une forme o\`u l'on peut leur poser des questions.\,>>}
+\end{quote}
+
+% ============================================================
+\section{Qu'est-ce qu'un DataFrame ?}
+
+Un DataFrame est un tableau --- les lignes sont des observations (patients, pays, points temporels), les colonnes sont des variables (\'age, diagnostic, valeurs de laboratoire). Si vous avez utilis\'e Excel, vous comprenez d\'ej\`a le concept. Pandas vous donne la puissance d'Excel avec la reproductibilit\'e de Python.
+
+\begin{minted}{python}
+import pandas as pd
+
+# Creer un petit DataFrame clinique
+data = {
+    "patient_id": ["P001", "P002", "P003", "P004", "P005"],
+    "age": [45, 67, 34, 52, 71],
+    "sex": ["M", "F", "F", "M", "F"],
+    "systolic_bp": [128, 158, 112, 145, 162],
+    "hba1c": [5.4, 7.8, 5.1, 6.3, 8.2],
+    "diagnosis": ["None", "T2DM", "None", "Pre-DM", "T2DM"]
+}
+df = pd.DataFrame(data)
+df
+\end{minted}
+
+% ============================================================
+\section{Charger des donn\'ees de sant\'e r\'eelles}
+
+\subsection{Fichiers CSV}
+
+La plupart des jeux de donn\'ees de sant\'e sont fournis sous forme de fichiers CSV (valeurs s\'epar\'ees par des virgules) :
+
+\begin{minted}{python}
+# Donnees d'esperance de vie de l'OMS (Gapminder)
+url = "https://raw.githubusercontent.com/datasets/gapminder/main/data/gapminder.csv"
+gapminder = pd.read_csv(url)
+print(f"Dimensions : {gapminder.shape}")  # (lignes, colonnes)
+gapminder.head()
+\end{minted}
+
+\subsection{Fichiers Excel}
+
+\begin{minted}{python}
+df = pd.read_excel("patient_records.xlsx", sheet_name="Lab Results")
+\end{minted}
+
+\subsection{Depuis l'Observatoire mondial de la sant\'e de l'OMS}
+
+\begin{minted}{python}
+# Ratio de mortalite maternelle par pays
+url = "https://apps.who.int/gho/athena/api/GHO/MDG_0000000026?format=csv"
+mmr = pd.read_csv(url)
+mmr.head()
+\end{minted}
+
+\begin{clinicalnote}
+L'API GHO de l'OMS fournit plus de 1\,000 indicateurs de sant\'e pour 194 \'Etats membres. Vous pouvez parcourir les indicateurs sur \url{https://www.who.int/data/gho/data/indicators}. Chaque indicateur poss\`ede un code (par ex.\ \texttt{MDG\_0000000026} pour le ratio de mortalit\'e maternelle) que vous int\'egrez dans l'URL de l'API.
+\end{clinicalnote}
+
+% ============================================================
+\section{Explorer vos donn\'ees}
+
+La premi\`ere chose \`a faire avec tout jeu de donn\'ees de sant\'e --- avant toute analyse --- est de \emph{le regarder}.
+
+\begin{minted}{python}
+# Exploration de base
+print(gapminder.shape)          # dimensions
+print(gapminder.columns.tolist())  # noms des colonnes
+print(gapminder.dtypes)         # types de donnees
+gapminder.describe()            # statistiques descriptives
+gapminder.info()                # comptage des non-nuls et memoire
+\end{minted}
+
+\subsection{S\'electionner des colonnes}
+
+\begin{minted}{python}
+# Une seule colonne (retourne une Series)
+ages = gapminder["lifeExp"]
+
+# Plusieurs colonnes (retourne un DataFrame)
+subset = gapminder[["country", "year", "lifeExp"]]
+\end{minted}
+
+\subsection{Filtrer des lignes}
+
+\begin{minted}{python}
+# Patients avec HbA1c >= 6.5 (seuil diabetique)
+diabetic = df[df["hba1c"] >= 6.5]
+
+# Pays africains dans Gapminder
+africa = gapminder[gapminder["continent"] == "Africa"]
+
+# Conditions multiples : patientes de plus de 60 ans avec PA elevee
+high_risk = df[(df["sex"] == "F") & (df["age"] > 60) & (df["systolic_bp"] >= 140)]
+\end{minted}
+
+\begin{warningbox}
+Utilisez \texttt{\&} (et), \texttt{|} (ou), \texttt{\textasciitilde} (non) avec des parenth\`eses autour de chaque condition. Les mots-cl\'es Python \texttt{and}/\texttt{or} ne fonctionnent pas avec les DataFrames.
+\end{warningbox}
+
+% ============================================================
+\section{Tri et classement}
+
+\begin{minted}{python}
+# Pays avec l'esperance de vie la plus elevee en 2007
+recent = gapminder[gapminder["year"] == 2007]
+top10 = recent.sort_values("lifeExp", ascending=False).head(10)
+print(top10[["country", "lifeExp"]])
+\end{minted}
+
+% ============================================================
+\section{Regroupement et agr\'egation}
+
+Le regroupement est la fa\c{c}on de r\'epondre \`a des questions comme <<\,quelle est l'esp\'erance de vie moyenne par continent ?\,>> ou <<\,combien de patients dans chaque cat\'egorie de diagnostic ?\,>>
+
+\begin{minted}{python}
+# Esperance de vie moyenne par continent (2007)
+recent.groupby("continent")["lifeExp"].mean().sort_values(ascending=False)
+\end{minted}
+
+\begin{minted}{python}
+# Agregations multiples
+recent.groupby("continent")["lifeExp"].agg(["mean", "median", "std", "count"])
+\end{minted}
+
+\begin{minted}{python}
+# Nombre de patients par diagnostic
+df.groupby("diagnosis")["patient_id"].count()
+\end{minted}
+
+% ============================================================
+\section{Cr\'eer de nouvelles colonnes}
+
+\begin{minted}{python}
+# IMC a partir du poids et de la taille
+df["bmi"] = df["weight_kg"] / (df["height_m"] ** 2)
+
+# Groupe d'age
+df["age_group"] = pd.cut(df["age"],
+                         bins=[0, 18, 40, 60, 100],
+                         labels=["<18", "18-39", "40-59", "60+"])
+
+# Indicateur binaire
+df["hypertensive"] = (df["systolic_bp"] >= 140).astype(int)
+\end{minted}
+
+% ============================================================
+\section{Sauvegarder vos r\'esultats}
+
+\begin{minted}{python}
+# Sauvegarder en CSV
+df.to_csv("cleaned_patients.csv", index=False)
+
+# Sauvegarder en Excel
+df.to_excel("cleaned_patients.xlsx", index=False, sheet_name="Patients")
+\end{minted}
+
+% ============================================================
+\section{Travaux pratiques : analyse de l'esp\'erance de vie (OMS)}
+
+\begin{exercise}
+En utilisant le jeu de donn\'ees Gapminder :
+\begin{enumerate}
+  \item Chargez les donn\'ees et affichez les statistiques de base.
+  \item Filtrez les pays africains uniquement. Combien de pays uniques ?
+  \item Calculez l'esp\'erance de vie moyenne par d\'ecennie (ann\'ees 1950, 1960, ..., 2000) pour l'Afrique par rapport \`a l'Europe.
+  \item Trouvez les 5 pays africains avec l'esp\'erance de vie la plus basse en 2007.
+  \item Cr\'eez une colonne \texttt{life\_exp\_category} : <<\,Basse\,>> ($<55$), <<\,Moyenne\,>> ($55$--$70$), <<\,\'Elev\'ee\,>> ($>70$).
+  \item Regroupez par continent et \texttt{life\_exp\_category}. Combien de pays dans chaque cat\'egorie ?
+  \item Sauvegardez les donn\'ees de l'Afrique uniquement dans un fichier CSV.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Un DataFrame est un tableau. Lignes = observations, colonnes = variables.
+  \item \texttt{pd.read\_csv()} charge les donn\'ees ; \texttt{.head()}, \texttt{.describe()}, \texttt{.info()} les explorent.
+  \item Filtrez avec des conditions bool\'eennes : \texttt{df[df["col"] > valeur]}.
+  \item \texttt{.groupby()} + \texttt{.agg()} r\'epond aux questions <<\,par groupe\,>>.
+  \item \texttt{pd.cut()} cr\'ee des variables cat\'egorielles \`a partir de variables continues.
+  \item Sauvegardez toujours les donn\'ees nettoy\'ees pour la reproductibilit\'e.
+\end{itemize}

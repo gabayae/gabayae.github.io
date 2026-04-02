@@ -1,0 +1,562 @@
+\chapter{Nettoyage des donn\'ees en contexte sanitaire}
+\label{ch:nettoyage-donnees}
+
+\begin{quote}
+\emph{<<\,D\'echets en entr\'ee, d\'echets en sortie. En donn\'ees de sant\'e, des d\'echets en entr\'ee peuvent signifier de mauvais traitements, de mauvaises politiques et de mauvaises conclusions sur des vies humaines.\,>>}
+\end{quote}
+
+% ============================================================
+\section{Pourquoi le nettoyage des donn\'ees est essentiel en sant\'e}
+
+Chaque jeu de donn\'ees de sant\'e comporte des probl\`emes. Des valeurs de laboratoire sont saisies avec de mauvaises unit\'es. Des patients apparaissent deux fois sous des identifiants diff\'erents. Les dates sont enregistr\'ees comme \texttt{03/04/2023} --- est-ce le 3 avril ou le 4 mars ? Une glyc\'emie de 5000~mg/dL est clairement une erreur, mais une glyc\'emie de 500~mg/dL pourrait \^etre une v\'eritable urgence diab\'etique.
+
+Le nettoyage des donn\'ees n'est pas un pr\'etraitement optionnel. C'est une t\^ache de raisonnement clinique. Vous devez d\'ecider :
+\begin{itemize}
+  \item Cette valeur est-elle \emph{erron\'ee} ou simplement \emph{inhabituelle} ?
+  \item Cet enregistrement doit-il \^etre \emph{corrig\'e}, \emph{signal\'e} ou \emph{supprim\'e} ?
+  \item Mes d\'ecisions de nettoyage vont-elles \emph{biaiser} l'analyse ?
+\end{itemize}
+
+\begin{clinicalnote}
+Dans une \'etude de 2019 sur les dossiers m\'edicaux \'electroniques d'un grand r\'eseau hospitalier am\'ericain, les chercheurs ont constat\'e que 18\,\% des valeurs de laboratoire pr\'esentaient au moins un probl\`eme de qualit\'e --- doublons, valeurs physiologiquement impossibles ou unit\'es incoh\'erentes. Les d\'ecisions de nettoyage ont modifi\'e la pr\'evalence estim\'ee de la maladie r\'enale chronique de plus de 3 points de pourcentage.
+\end{clinicalnote}
+
+% ============================================================
+\section{Donn\'ees manquantes : types et m\'ecanismes}
+
+\subsection{Les trois m\'ecanismes}
+
+Toutes les donn\'ees manquantes ne se valent pas. Le m\'ecanisme d\'etermine ce que vous pouvez faire.
+
+\begin{enumerate}
+  \item \textbf{MCAR --- Manquantes compl\`etement au hasard (\emph{Missing Completely At Random}).} Le fait que la donn\'ee manque n'a aucun lien avec les donn\'ees. Exemple : un tube de sang est renvers\'e et l'\'echantillon est perdu. La probabilit\'e de perdre l'\'echantillon est ind\'ependante de l'\'etat de sant\'e du patient.
+  \item \textbf{MAR --- Manquantes au hasard (\emph{Missing At Random}).} Le fait que la donn\'ee manque d\'epend de variables \emph{observ\'ees} mais pas de la valeur manquante elle-m\^eme. Exemple : les patients jeunes ont moins souvent un dosage du cholest\'erol (car les cliniciens le prescrivent moins fr\'equemment pour les jeunes patients). Une fois l'\'age pris en compte, la donn\'ee manquante est al\'eatoire.
+  \item \textbf{MNAR --- Manquantes non au hasard (\emph{Missing Not At Random}).} Le fait que la donn\'ee manque d\'epend de la \emph{valeur non observ\'ee} elle-m\^eme. Exemple : les patients tr\`es malades sont trop souffrants pour se pr\'esenter aux visites de suivi, donc leurs donn\'ees de r\'esultats manquent \emph{parce qu'ils} sont malades. C'est le cas le plus difficile.
+\end{enumerate}
+
+\begin{warningbox}
+Le m\'ecanisme MNAR est fr\'equent dans les donn\'ees de sant\'e et dangereux. Si vous supprimez tous les patients dont les donn\'ees de suivi sont manquantes, vous excluez syst\'ematiquement les patients les plus malades --- votre analyse surestimera le succ\`es du traitement. Il n'existe pas de correction statistique pour le MNAR ; vous avez besoin de connaissances cliniques pour \'evaluer la direction et l'ampleur probables du biais.
+\end{warningbox}
+
+\subsection{Exemples cliniques de chaque m\'ecanisme}
+
+\begin{center}
+\begin{tabular}{lp{5cm}p{5cm}}
+\toprule
+\textbf{Type} & \textbf{Exemple} & \textbf{Cons\'equence de la suppression} \\
+\midrule
+MCAR & \'Echantillon de sang h\'emolys\'e en raison de vibrations lors du transport & Aucun biais, mais taille d'\'echantillon r\'eduite \\
+MAR & HbA1c non prescrite pour les patients non diab\'etiques & Biais si vous \'etudiez l'HbA1c sans tenir compte de l'indication \\
+MNAR & Les patients s\'ev\`erement d\'eprim\'es ne remplissent pas les questionnaires de suivi & Sous-estimation de la s\'ev\'erit\'e de la d\'epression dans les donn\'ees restantes \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ============================================================
+\section{D\'etecter les valeurs manquantes avec pandas}
+
+\subsection{D\'etection de base}
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+
+# Creer un jeu de donnees clinique avec des valeurs manquantes
+data = {
+    "patient_id": ["P001", "P002", "P003", "P004", "P005", "P006"],
+    "age": [45, 67, 34, np.nan, 71, 52],
+    "sex": ["M", "F", "F", "M", np.nan, "F"],
+    "systolic_bp": [128, 158, np.nan, 145, 162, np.nan],
+    "hba1c": [5.4, 7.8, 5.1, np.nan, 8.2, 6.3],
+    "smoking": ["Never", np.nan, "Current", "Former", np.nan, "Never"]
+}
+df = pd.DataFrame(data)
+
+# Compter les valeurs manquantes par colonne
+print(df.isnull().sum())
+
+# Pourcentage de valeurs manquantes par colonne
+print((df.isnull().sum() / len(df) * 100).round(1))
+
+# Lignes avec au moins une valeur manquante
+print(f"Lignes avec donnees manquantes : {df.isnull().any(axis=1).sum()} / {len(df)}")
+\end{minted}
+
+\begin{pythontip}
+\texttt{.isnull()} et \texttt{.isna()} sont identiques dans pandas. Utilisez celui qui vous semble le plus lisible. Les deux d\'etectent \texttt{NaN}, \texttt{None} et \texttt{NaT} (datetime manquant).
+\end{pythontip}
+
+\subsection{Visualiser les donn\'ees manquantes avec msno}
+
+La biblioth\`eque \texttt{missingno} fournit des r\'esum\'es visuels instantan\'es des sch\'emas de donn\'ees manquantes :
+
+\begin{minted}{python}
+import missingno as msno
+import matplotlib.pyplot as plt
+
+# Graphique matriciel : barres blanches = manquant
+msno.matrix(df)
+plt.title("Schema des donnees manquantes")
+plt.tight_layout()
+plt.show()
+
+# Diagramme en barres : nombre de valeurs non nulles par colonne
+msno.bar(df)
+plt.tight_layout()
+plt.show()
+
+# Carte thermique : correlations entre les donnees manquantes de differentes colonnes
+# Si deux colonnes tendent a etre manquantes ensemble, elles afficheront une correlation elevee
+msno.heatmap(df)
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{warningbox}
+Si \texttt{missingno} n'est pas install\'e, ex\'ecutez \texttt{!pip install missingno} dans votre notebook. Dans Google Colab, il n'est pas pr\'einstall\'e.
+\end{warningbox}
+
+\subsection{Sch\'emas de co-absence}
+
+Quand deux variables sont souvent manquantes ensemble, cela sugg\`ere une cause commune. Par exemple, si \texttt{systolic\_bp} et \texttt{diastolic\_bp} sont manquantes pour les m\^emes patients, cela signifie probablement que la mesure de PA n'a pas \'et\'e effectu\'ee du tout --- et non que chaque valeur a \'et\'e perdue ind\'ependamment.
+
+\begin{minted}{python}
+# Verifier quelles colonnes sont manquantes ensemble
+missing_pairs = df.isnull().corr()
+print(missing_pairs)
+\end{minted}
+
+% ============================================================
+\section{Strat\'egies d'imputation}
+
+\subsection{Quand imputer ou quand supprimer}
+
+\begin{itemize}
+  \item \textbf{Supprimer des lignes} si les donn\'ees manquantes sont MCAR et la fraction manquante est faible ($<5\,\%$).
+  \item \textbf{Supprimer des colonnes} si $>50\,\%$ des valeurs sont manquantes et la variable n'est pas critique.
+  \item \textbf{Imputer} lorsque vous devez conserver la taille de l'\'echantillon et que vous disposez d'une strat\'egie raisonnable.
+  \item \textbf{Signaler + analyse de sensibilit\'e} pour les donn\'ees MNAR.
+\end{itemize}
+
+\begin{minted}{python}
+# Supprimer les lignes avec toute valeur manquante
+df_complete = df.dropna()
+print(f"Lignes restantes : {len(df_complete)} / {len(df)}")
+
+# Supprimer les lignes uniquement si des colonnes specifiques sont manquantes
+df_partial = df.dropna(subset=["age", "systolic_bp"])
+\end{minted}
+
+\subsection{Imputation par la moyenne/m\'ediane pour les variables continues}
+
+\begin{minted}{python}
+# Imputation par la mediane pour les valeurs de laboratoire (robuste aux valeurs aberrantes)
+df["systolic_bp"] = df["systolic_bp"].fillna(df["systolic_bp"].median())
+df["hba1c"] = df["hba1c"].fillna(df["hba1c"].median())
+
+# Imputation par la moyenne pour l'age (distribution approximativement symetrique)
+df["age"] = df["age"].fillna(df["age"].mean())
+\end{minted}
+
+\begin{clinicalnote}
+Utilisez la \textbf{m\'ediane} plut\^ot que la moyenne pour les valeurs de laboratoire comme la cr\'eatinine, la glyc\'emie et les triglyc\'erides. Ces distributions sont typiquement asym\'etriques \`a droite --- quelques valeurs tr\`es \'elev\'ees tirent la moyenne vers le haut, ce qui en fait un mauvais repr\'esentant du patient <<\,typique\,>>. La m\'ediane r\'esiste \`a ces valeurs aberrantes.
+\end{clinicalnote}
+
+\subsection{Imputation par le mode pour les variables cat\'egorielles}
+
+\begin{minted}{python}
+# Imputation par le mode pour le sexe et le statut tabagique
+df["sex"] = df["sex"].fillna(df["sex"].mode()[0])
+df["smoking"] = df["smoking"].fillna(df["smoking"].mode()[0])
+\end{minted}
+
+\subsection{Imputation sp\'ecifique par groupe}
+
+Parfois, la bonne valeur d'imputation d\'epend d'un groupe. Imputer la PA systolique avec la m\'ediane globale ignore le fait que les patients \'ag\'es ont une PA plus \'elev\'ee :
+
+\begin{minted}{python}
+# Imputer systolic_bp avec la mediane du groupe d'age du patient
+df["age_group"] = pd.cut(df["age"], bins=[0, 40, 60, 100],
+                         labels=["<40", "40-59", "60+"])
+df["systolic_bp"] = df.groupby("age_group")["systolic_bp"].transform(
+    lambda x: x.fillna(x.median())
+)
+\end{minted}
+
+\subsection{Imputation par KNN}
+
+L'imputation par les $k$ plus proches voisins trouve les $k$ patients les plus similaires (bas\'es sur les autres variables) et utilise leurs valeurs pour combler la valeur manquante :
+
+\begin{minted}{python}
+from sklearn.impute import KNNImputer
+
+# Selectionner les colonnes numeriques pour l'imputation KNN
+numeric_cols = ["age", "systolic_bp", "hba1c"]
+imputer = KNNImputer(n_neighbors=5)
+df[numeric_cols] = imputer.fit_transform(df[numeric_cols])
+\end{minted}
+
+\begin{pythontip}
+L'imputation KNN respecte les relations entre variables. Si un patient avec un IMC \'elev\'e, un \'age avanc\'e et un HbA1c \'elev\'e a une PA systolique manquante, KNN imputera \`a partir de patients similaires --- qui ont probablement aussi une PA \'elev\'ee. C'est plus r\'ealiste que d'utiliser la m\'ediane globale.
+\end{pythontip}
+
+\subsection{Cr\'eer un indicateur de donn\'ee manquante}
+
+Pour les variables importantes, cr\'eez un indicateur afin de pouvoir tester ult\'erieurement si le fait d'\^etre manquant est associ\'e aux r\'esultats :
+
+\begin{minted}{python}
+# Avant d'imputer, creer un indicateur
+df["bp_was_missing"] = df["systolic_bp"].isnull().astype(int)
+
+# Puis imputer
+df["systolic_bp"] = df["systolic_bp"].fillna(df["systolic_bp"].median())
+\end{minted}
+
+% ============================================================
+\section{Gestion des doublons}
+
+\subsection{D\'etecter les doublons}
+
+\begin{minted}{python}
+# Charger un jeu de donnees avec des doublons deliberes
+patients = pd.DataFrame({
+    "patient_id": ["P001", "P002", "P003", "P002", "P004", "P003"],
+    "visit_date": ["2023-01-15", "2023-01-16", "2023-01-17",
+                   "2023-01-16", "2023-01-18", "2023-02-20"],
+    "systolic_bp": [128, 158, 112, 158, 145, 118],
+    "diagnosis": ["HTN", "T2DM", "None", "T2DM", "HTN", "None"]
+})
+
+# Doublons exacts (toutes les colonnes identiques)
+print(f"Doublons exacts : {patients.duplicated().sum()}")
+print(patients[patients.duplicated(keep=False)])  # afficher toutes les copies
+
+# Doublons bases sur patient_id uniquement
+print(f"\nIdentifiants patients en double : {patients.duplicated(subset='patient_id').sum()}")
+\end{minted}
+
+\subsection{D\'ecider ce qui constitue un doublon}
+
+Dans les donn\'ees de sant\'e, <<\,doublon\,>> n'est pas toujours \'evident :
+
+\begin{center}
+\begin{tabular}{lp{8cm}}
+\toprule
+\textbf{Sc\'enario} & \textbf{Action appropri\'ee} \\
+\midrule
+M\^eme patient, m\^eme visite, valeurs identiques & Vrai doublon --- supprimer une copie \\
+M\^eme patient, m\^eme visite, valeurs diff\'erentes & Erreur de saisie --- v\'erifier quelle valeur est correcte \\
+M\^eme patient, dates de visite diff\'erentes & Mesures r\'ep\'et\'ees --- conserver tout (donn\'ees longitudinales) \\
+Identifiants diff\'erents, m\^emes donn\'ees d\'emographiques & Possible double enregistrement --- signaler pour r\'evision manuelle \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{minted}{python}
+# Supprimer les doublons exacts
+patients_clean = patients.drop_duplicates()
+print(f"Apres suppression des doublons exacts : {len(patients_clean)} lignes")
+
+# Ne garder que la premiere visite par patient
+first_visits = patients.drop_duplicates(subset="patient_id", keep="first")
+print(f"Premieres visites uniquement : {len(first_visits)} lignes")
+
+# Ne garder que la derniere visite par patient
+last_visits = patients.drop_duplicates(subset="patient_id", keep="last")
+\end{minted}
+
+\begin{clinicalnote}
+Dans les registres cliniques, les doublons de dossiers patients constituent un probl\`eme de s\'ecurit\'e majeur. Un patient enregistr\'e sous deux identifiants peut recevoir des prescriptions contradictoires. La d\'eduplication dans les syst\`emes de production utilise l'appariement probabiliste sur le nom, la date de naissance et l'adresse --- bien au-del\`a de ce que \texttt{drop\_duplicates()} peut faire.
+\end{clinicalnote}
+
+% ============================================================
+\section{Donn\'ees incoh\'erentes}
+
+\subsection{Formats de codes CIM}
+
+La Classification internationale des maladies utilise des codes comme \texttt{E11.9} (Diab\`ete de type 2 sans complication). Dans des donn\'ees d\'esordonn\'ees, vous trouverez la m\^eme affection enregistr\'ee comme \texttt{E11.9}, \texttt{E119}, \texttt{e11.9}, ou m\^eme \texttt{250.00} (l'ancien code CIM-9).
+
+\begin{minted}{python}
+diagnoses = pd.Series(["E11.9", "e11.9", "E119", "E11.9 ", " e11.9"])
+
+# Standardiser : majuscules, supprimer les espaces, assurer le format avec point
+cleaned = (diagnoses
+           .str.strip()
+           .str.upper()
+           .str.replace(r"^([A-Z]\d{2})(\d+)$", r"\1.\2", regex=True))
+print(cleaned)
+\end{minted}
+
+\subsection{Formats de dates}
+
+\begin{minted}{python}
+dates = pd.Series(["2023-01-15", "01/15/2023", "15-Jan-2023",
+                   "Jan 15, 2023", "20230115"])
+
+# pd.to_datetime gere plusieurs formats automatiquement
+parsed = pd.to_datetime(dates, format="mixed", dayfirst=False)
+print(parsed)
+
+# Standardiser au format ISO
+print(parsed.dt.strftime("%Y-%m-%d"))
+\end{minted}
+
+\begin{warningbox}
+La date \texttt{03/04/2023} correspond au 4 mars aux \'Etats-Unis mais au 3 avril en Europe. V\'erifiez toujours la source. Si votre jeu de donn\'ees m\'elange les conventions, vous obtiendrez des erreurs silencieuses --- la date sera interpr\'et\'ee sans avertissement, mais elle sera \emph{fausse}. Utilisez \texttt{dayfirst=True} pour les dates au format europ\'een.
+\end{warningbox}
+
+\subsection{Conversions d'unit\'es}
+
+Diff\'erents laboratoires rapportent les r\'esultats dans diff\'erentes unit\'es. Les confusions les plus fr\'equentes :
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+\textbf{Analyte} & \textbf{Unit\'e US} & \textbf{Unit\'e SI} & \textbf{Conversion} \\
+\midrule
+Glyc\'emie & mg/dL & mmol/L & diviser par 18,018 \\
+Cholest\'erol & mg/dL & mmol/L & diviser par 38,67 \\
+Cr\'eatinine & mg/dL & \textmu mol/L & multiplier par 88,42 \\
+H\'emoglobine & g/dL & g/L & multiplier par 10 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{minted}{python}
+# Standardiser la glycemie en mmol/L
+# Supposer que les valeurs > 30 sont en mg/dL (la glycemie en mmol/L depasse rarement 30)
+def standardize_glucose(value, unit=None):
+    """Convertir la glycemie en mmol/L. Inferer l'unite si non fournie."""
+    if unit == "mg/dL" or (unit is None and value > 30):
+        return value / 18.018
+    return value  # deja en mmol/L
+
+df["glucose_mmol"] = df["glucose"].apply(
+    lambda x: standardize_glucose(x)
+)
+\end{minted}
+
+\begin{pythontip}
+Quand un jeu de donn\'ees n'a pas de colonne d'unit\'e, utilisez la plage de valeurs pour inf\'erer l'unit\'e. La glyc\'emie \`a jeun en mg/dL est typiquement de 70 \`a 300 ; en mmol/L, de 3,9 \`a 16,7. Si vous voyez une valeur de 126, c'est presque certainement en mg/dL. Si vous voyez 7,0, c'est presque certainement en mmol/L.
+\end{pythontip}
+
+\subsection{Standardiser les champs textuels}
+
+\begin{minted}{python}
+# Champ sexe avec des entrees incoherentes
+sex_col = pd.Series(["Male", "male", "M", "m", "MALE", "Female",
+                     "female", "F", "f", "FEMALE"])
+
+# Mapper vers des valeurs standard
+sex_mapping = {"male": "M", "m": "M", "female": "F", "f": "F"}
+sex_clean = sex_col.str.strip().str.lower().map(sex_mapping)
+print(sex_clean)
+\end{minted}
+
+% ============================================================
+\section{Validation des donn\'ees}
+
+Apr\`es le nettoyage, validez que vos donn\'ees ont un sens clinique.
+
+\subsection{V\'erifications de plage}
+
+\begin{minted}{python}
+# Definir des plages cliniquement plausibles
+ranges = {
+    "age": (0, 120),
+    "systolic_bp": (60, 300),
+    "diastolic_bp": (30, 200),
+    "heart_rate": (20, 300),
+    "hba1c": (2.0, 20.0),
+    "glucose_mgdl": (10, 1500),
+    "bmi": (8, 80),
+    "temperature_c": (25, 45),
+}
+
+def validate_range(df, column, low, high):
+    """Signaler les valeurs en dehors de la plage plausible."""
+    out_of_range = df[(df[column] < low) | (df[column] > high)]
+    if len(out_of_range) > 0:
+        print(f"ATTENTION : {len(out_of_range)} valeurs dans '{column}' "
+              f"en dehors de [{low}, {high}]")
+        print(out_of_range[["patient_id", column]])
+    return out_of_range
+
+# Appliquer les verifications de plage
+for col, (low, high) in ranges.items():
+    if col in df.columns:
+        validate_range(df, col, low, high)
+\end{minted}
+
+\subsection{Validation crois\'ee entre champs}
+
+Certaines erreurs ne deviennent visibles que lorsque vous comparez les colonnes :
+
+\begin{minted}{python}
+# La diastolique doit etre inferieure a la systolique
+bp_errors = df[df["diastolic_bp"] >= df["systolic_bp"]]
+if len(bp_errors) > 0:
+    print(f"ATTENTION : {len(bp_errors)} lignes ou diastolique >= systolique")
+
+# L'indicateur de grossesse ne doit etre a 1 que pour les patientes
+preg_errors = df[(df["pregnant"] == 1) & (df["sex"] == "M")]
+if len(preg_errors) > 0:
+    print(f"ATTENTION : {len(preg_errors)} patients masculins signales comme enceints")
+
+# La date de deces doit etre posterieure a la date d'admission
+date_errors = df[df["death_date"] < df["admission_date"]]
+if len(date_errors) > 0:
+    print(f"ATTENTION : {len(date_errors)} deces enregistres avant l'admission")
+\end{minted}
+
+\begin{clinicalnote}
+Toute valeur <<\,impossible\,>> n'est pas forc\'ement une erreur. Une fr\'equence cardiaque de 250~bpm est physiologiquement extr\^eme mais peut survenir lors d'une tachycardie supraventriculaire. Une glyc\'emie de 800~mg/dL est rare mais r\'eelle en cas d'acidoc\'etose diab\'etique. Les connaissances cliniques vous indiquent s'il faut supprimer, signaler ou conserver.
+\end{clinicalnote}
+
+\subsection{Rapport de validation automatis\'e}
+
+\begin{minted}{python}
+def data_quality_report(df):
+    """Generer un resume des problemes de qualite des donnees."""
+    report = []
+    for col in df.columns:
+        n_missing = df[col].isnull().sum()
+        pct_missing = n_missing / len(df) * 100
+        n_unique = df[col].nunique()
+
+        row = {
+            "column": col,
+            "dtype": str(df[col].dtype),
+            "n_missing": n_missing,
+            "pct_missing": round(pct_missing, 1),
+            "n_unique": n_unique,
+        }
+
+        if df[col].dtype in ["float64", "int64"]:
+            row["min"] = df[col].min()
+            row["max"] = df[col].max()
+            row["mean"] = round(df[col].mean(), 2)
+
+        report.append(row)
+
+    return pd.DataFrame(report)
+
+quality = data_quality_report(df)
+print(quality.to_string(index=False))
+\end{minted}
+
+% ============================================================
+\section{Un pipeline de nettoyage complet}
+
+Voici un pipeline r\'ealiste appliqu\'e \`a des donn\'ees de type NHANES :
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+from sklearn.impute import KNNImputer
+
+# -----------------------------------------------------------
+# Etape 1 : Charger les donnees
+# -----------------------------------------------------------
+url = ("https://raw.githubusercontent.com/datasets/"
+       "gapminder/main/data/gapminder.csv")
+df = pd.read_csv(url)
+print(f"Donnees brutes : {df.shape}")
+
+# -----------------------------------------------------------
+# Etape 2 : Standardiser les noms de colonnes
+# -----------------------------------------------------------
+df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
+
+# -----------------------------------------------------------
+# Etape 3 : Supprimer les doublons exacts
+# -----------------------------------------------------------
+n_before = len(df)
+df = df.drop_duplicates()
+print(f"Doublons supprimes : {n_before - len(df)}")
+
+# -----------------------------------------------------------
+# Etape 4 : Evaluer les donnees manquantes
+# -----------------------------------------------------------
+missing_pct = (df.isnull().sum() / len(df) * 100).round(1)
+print("Pourcentages de valeurs manquantes :")
+print(missing_pct[missing_pct > 0])
+
+# -----------------------------------------------------------
+# Etape 5 : Valider les plages
+# -----------------------------------------------------------
+# L'esperance de vie doit etre entre 20 et 90
+outliers = df[(df["lifeexp"] < 20) | (df["lifeexp"] > 90)]
+print(f"Valeurs aberrantes d'esperance de vie : {len(outliers)}")
+
+# -----------------------------------------------------------
+# Etape 6 : Sauvegarder les donnees nettoyees
+# -----------------------------------------------------------
+df.to_csv("gapminder_cleaned.csv", index=False)
+print(f"Donnees nettoyees sauvegardees : {df.shape}")
+\end{minted}
+
+% ============================================================
+\section{Travaux pratiques : nettoyage d'un jeu de donn\'ees clinique d\'esordonn\'e}
+
+\begin{exercise}
+T\'el\'echargez ou cr\'eez un jeu de donn\'ees clinique d\'esordonn\'e avec les erreurs d\'elib\'er\'ees suivantes, puis nettoyez-le \'etape par \'etape :
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+
+# Donnees cliniques desordonnees avec des erreurs deliberees
+messy = pd.DataFrame({
+    "patient_id": ["P001", "P002", "P003", "P004", "P002",
+                   "P005", "P006", "P007", "P008", "P009"],
+    "age": [45, 67, -3, 52, 67, 200, 38, np.nan, 71, 44],
+    "sex": ["M", "F", "Female", "m", "F",
+            "Male", np.nan, "F", "X", "M"],
+    "systolic_bp": [128, 158, 112, 450, 158,
+                    135, 122, np.nan, 162, 118],
+    "diastolic_bp": [82, 160, 74, 92, 160,
+                     88, 78, np.nan, 98, 76],
+    "glucose_mgdl": [95, 7.2, 110, 180, 95,
+                     88, 102, 6.8, 220, 5.5],
+    "hba1c": [5.4, 7.8, 5.1, 6.3, 7.8,
+              np.nan, 5.8, 6.1, 55, 5.2],
+    "visit_date": ["2023-01-15", "01/16/2023", "2023-01-17",
+                   "2023/01/18", "2023-01-16",
+                   "15-Jan-2023", "2023-01-20", "2023-01-21",
+                   "2023-01-22", "Jan 23, 2023"],
+    "icd_code": ["I10", "E119", "e11.9", "I10 ", " i10",
+                 "E11.9", "I10", "e119", "I10", "E11.9"]
+})
+\end{minted}
+
+T\^aches :
+\begin{enumerate}
+  \item G\'en\'erez un rapport de qualit\'e des donn\'ees : comptez les valeurs manquantes, v\'erifiez les types de donn\'ees, calculez les statistiques descriptives.
+  \item Identifiez et supprimez les doublons exacts (P002 appara\^it deux fois avec des donn\'ees identiques).
+  \item Corrigez la colonne \texttt{sex} : standardisez en <<\,M\,>> et <<\,F\,>>. D\'ecidez quoi faire avec <<\,X\,>> et \texttt{NaN}.
+  \item Validez \texttt{age} : signalez ou corrigez les valeurs impossibles ($-3$ et $200$). Mettez-les \`a \texttt{NaN}.
+  \item Validez \texttt{systolic\_bp} : une valeur de 450 est impossible. Mettez-la \`a \texttt{NaN}.
+  \item V\'erifiez que diastolique $<$ systolique pour tous les patients. Signalez les violations.
+  \item Corrigez \texttt{glucose\_mgdl} : certaines valeurs (7,2 ; 6,8 ; 5,5) sont clairement en mmol/L. Convertissez-les en mg/dL en multipliant par 18,018.
+  \item Corrigez \texttt{hba1c} : la valeur 55 est probablement en mmol/mol (IFCC) plut\^ot qu'en \% (NGSP). Convertissez avec : $\text{NGSP} = 0{,}0915 \times \text{IFCC} + 2{,}15$.
+  \item Standardisez \texttt{visit\_date} au format ISO (AAAA-MM-JJ).
+  \item Standardisez \texttt{icd\_code} : majuscules, sans espaces, avec s\'eparateur point.
+  \item Imputez les valeurs manquantes restantes : m\'ediane pour les variables continues, mode pour les cat\'egorielles.
+  \item G\'en\'erez un rapport final de qualit\'e des donn\'ees et comparez avec le rapport initial.
+  \item Sauvegardez le jeu de donn\'ees nettoy\'e sous \texttt{cleaned\_clinical\_data.csv}.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Les donn\'ees manquantes en sant\'e suivent trois m\'ecanismes : MCAR, MAR et MNAR. Le m\'ecanisme d\'etermine la strat\'egie appropri\'ee.
+  \item Utilisez \texttt{.isnull().sum()} pour des comptages rapides et \texttt{missingno} pour des visualisations des sch\'emas.
+  \item Options d'imputation : moyenne/m\'ediane pour les donn\'ees continues, mode pour les cat\'egorielles, KNN pour l'imputation multivari\'ee.
+  \item Les doublons dans les donn\'ees de sant\'e peuvent \^etre de vrais doublons, des erreurs de saisie ou des visites r\'ep\'et\'ees --- chacun n\'ecessite une r\'eponse diff\'erente.
+  \item Le codage incoh\'erent (formats CIM, formats de dates, unit\'es) est omnipr\'esent et doit \^etre standardis\'e.
+  \item Validez les donn\'ees par rapport \`a des plages cliniquement plausibles \emph{apr\`es} le nettoyage.
+  \item Cr\'eez toujours un rapport de qualit\'e des donn\'ees avant et apr\`es le nettoyage pour documenter chaque d\'ecision.
+\end{itemize}

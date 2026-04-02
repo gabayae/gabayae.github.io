@@ -1,0 +1,265 @@
+\chapter{Missing data}
+\label{ch:missing-data}
+
+\begin{quote}
+\emph{``The data you don't have is often more important than the data you do.''}
+--- Anonymous statistician
+\end{quote}
+
+% ============================================================
+\section{Why data goes missing}
+
+Missing data is not a nuisance --- it is information. The \emph{reason} data is missing determines how you should handle it. Three mechanisms were formalized by Rubin (1976):
+
+\begin{definition}[Missing data mechanisms]
+\begin{itemize}
+  \item \textbf{MCAR} (Missing Completely At Random): missingness is unrelated to any variable, observed or unobserved. Example: a lab sample is accidentally dropped.
+  \item \textbf{MAR} (Missing At Random): missingness depends on observed variables but not on the missing value itself. Example: younger patients skip a depression questionnaire.
+  \item \textbf{MNAR} (Missing Not At Random): missingness depends on the unobserved value. Example: high-income individuals refuse to report income.
+\end{itemize}
+\end{definition}
+
+\begin{warningbox}
+You cannot statistically prove MNAR --- it requires domain knowledge. But the distinction matters enormously: simple imputation works for MCAR, is reasonable for MAR, and can be badly biased for MNAR.
+\end{warningbox}
+
+% ============================================================
+\section{Detecting missing values}
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+
+# Load Titanic data
+url = ("https://raw.githubusercontent.com/datasciencedojo/"
+       "datasets/master/titanic.csv")
+df = pd.read_csv(url)
+
+# Count missing values
+print(df.isnull().sum())
+print()
+print(f"Total missing cells: {df.isnull().sum().sum()}")
+print(f"Percentage missing: {df.isnull().mean().mean() * 100:.1f}%")
+\end{minted}
+
+\begin{minted}{python}
+# Detailed missing report
+def missing_report(df):
+    """Return a DataFrame summarizing missing data."""
+    missing = df.isnull().sum()
+    pct = (missing / len(df)) * 100
+    report = pd.DataFrame({"missing": missing, "pct": pct.round(1)})
+    return report[report["missing"] > 0].sort_values("pct", ascending=False)
+
+print(missing_report(df))
+\end{minted}
+
+\subsection{Hidden missing values}
+
+\begin{minted}{python}
+# Missing values are not always NaN
+# Common disguises: "?", "N/A", "", -1, 999, -999, "unknown"
+df_adult = pd.read_csv(
+    "https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data",
+    header=None,
+    na_values=["?", " ?"],  # Adult dataset uses " ?" for missing
+    names=["age", "workclass", "fnlwgt", "education", "education_num",
+           "marital_status", "occupation", "relationship", "race",
+           "sex", "capital_gain", "capital_loss", "hours_per_week",
+           "native_country", "income"]
+)
+print(missing_report(df_adult))
+\end{minted}
+
+\begin{datatip}
+Always scan for sentinel values: \texttt{-1}, \texttt{999}, \texttt{0} in numeric columns; empty strings, ``unknown'', ``N/A'' in text columns. Replace them with \texttt{np.nan} before any analysis.
+\end{datatip}
+
+% ============================================================
+\section{Visualizing missing data}
+
+\begin{minted}{python}
+import missingno as msno
+import matplotlib.pyplot as plt
+
+# Matrix plot: white lines = missing
+msno.matrix(df, figsize=(10, 5), sparkline=False)
+plt.title("Missing data pattern — Titanic")
+plt.tight_layout()
+plt.savefig("missing_matrix.png", dpi=150)
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Bar chart: count of non-null values per column
+msno.bar(df, figsize=(10, 4))
+plt.tight_layout()
+plt.show()
+
+# Heatmap: correlation of missingness between columns
+# Values near +1 mean columns tend to be missing together
+msno.heatmap(df, figsize=(8, 6))
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Dendrogram: hierarchical clustering of missingness patterns
+msno.dendrogram(df, figsize=(10, 5))
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{preprocesstip}
+The missingness correlation heatmap is extremely useful: if two columns have correlated missingness, they may share a common cause (e.g., both come from the same survey section that some respondents skipped).
+\end{preprocesstip}
+
+% ============================================================
+\section{Deletion strategies}
+
+\subsection{Listwise deletion (dropping rows)}
+
+\begin{minted}{python}
+# Drop rows with ANY missing value
+df_complete = df.dropna()
+print(f"Before: {len(df)}, After: {len(df_complete)}")
+print(f"Lost: {len(df) - len(df_complete)} rows "
+      f"({(len(df) - len(df_complete)) / len(df) * 100:.1f}%)")
+\end{minted}
+
+\subsection{Column deletion}
+
+\begin{minted}{python}
+# Drop columns with more than 50% missing
+threshold = 0.5
+cols_to_drop = df.columns[df.isnull().mean() > threshold].tolist()
+print(f"Dropping columns: {cols_to_drop}")
+df_reduced = df.drop(columns=cols_to_drop)
+\end{minted}
+
+\begin{warningbox}
+Listwise deletion is only safe under MCAR. Under MAR or MNAR, it introduces bias. For the Titanic dataset, older passengers with higher-class tickets are more likely to have recorded ages --- dropping missing ages skews the dataset toward lower-class passengers.
+\end{warningbox}
+
+% ============================================================
+\section{Simple imputation}
+
+\subsection{Mean, median, and mode imputation}
+
+\begin{minted}{python}
+from sklearn.impute import SimpleImputer
+
+# Numerical: median imputation (robust to outliers)
+num_imputer = SimpleImputer(strategy="median")
+df["Age"] = num_imputer.fit_transform(df[["Age"]])
+
+# Categorical: mode (most frequent) imputation
+cat_imputer = SimpleImputer(strategy="most_frequent")
+df["Embarked"] = cat_imputer.fit_transform(df[["Embarked"]]).ravel()
+
+print(df.isnull().sum())
+\end{minted}
+
+\subsection{Constant imputation}
+
+\begin{minted}{python}
+# Fill with a specific value
+df["Cabin"] = df["Cabin"].fillna("Unknown")
+
+# Fill numerical with 0 (use with caution)
+df["some_col"] = df["some_col"].fillna(0)
+\end{minted}
+
+% ============================================================
+\section{Advanced imputation}
+
+\subsection{KNN imputation}
+
+\begin{minted}{python}
+from sklearn.impute import KNNImputer
+
+# KNN uses similar rows to estimate missing values
+# Only works on numerical data
+num_cols = ["Age", "Fare", "SibSp", "Parch"]
+knn_imputer = KNNImputer(n_neighbors=5, weights="distance")
+df[num_cols] = knn_imputer.fit_transform(df[num_cols])
+
+print(f"Missing after KNN: {df[num_cols].isnull().sum().sum()}")
+\end{minted}
+
+\subsection{Iterative imputation (MICE)}
+
+\begin{minted}{python}
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import IterativeImputer
+
+# Iterative imputer models each feature as a function of others
+iter_imputer = IterativeImputer(max_iter=10, random_state=42)
+df[num_cols] = iter_imputer.fit_transform(df[num_cols])
+
+print("Iterative imputation complete.")
+print(df[num_cols].describe())
+\end{minted}
+
+\begin{preprocesstip}
+KNN imputation respects local structure (similar passengers get similar ages). Iterative imputation captures linear relationships across features. Both outperform mean/median imputation when data is MAR.
+\end{preprocesstip}
+
+% ============================================================
+\section{Imputation with an indicator}
+
+\begin{minted}{python}
+# Create a binary indicator BEFORE imputing
+df["Age_was_missing"] = df["Age"].isnull().astype(int)
+
+# Then impute
+df["Age"] = df["Age"].fillna(df["Age"].median())
+
+# The indicator preserves the information that the value was missing
+print(df[["Age", "Age_was_missing"]].head(10))
+\end{minted}
+
+\begin{datatip}
+Adding a missing indicator column is one of the most underused techniques. It lets downstream models learn whether the missingness itself is predictive. In the Titanic dataset, having a missing cabin number correlates with lower survival.
+\end{datatip}
+
+% ============================================================
+\section{Choosing an imputation strategy}
+
+\begin{longtable}{p{3.5cm}p{3cm}p{3cm}p{3.5cm}}
+\toprule
+\textbf{Method} & \textbf{Best for} & \textbf{Weakness} & \textbf{Mechanism} \\
+\midrule
+Drop rows & $<$5\% missing & Loses data & MCAR only \\
+Mean/Median & Quick baseline & Reduces variance & MCAR \\
+Mode & Categorical & Ignores structure & MCAR \\
+KNN & Clustered data & Slow on large data & MAR \\
+Iterative (MICE) & Linear relationships & Assumes linearity & MAR \\
+Domain constant & Known meaning & May introduce bias & Any \\
+\bottomrule
+\end{longtable}
+
+% ============================================================
+\section{Exercises}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Load the Melbourne Housing dataset. Create a missing data report and a \texttt{missingno} matrix plot. Which columns have correlated missingness?
+  \item For the Titanic dataset, compare the distribution of \texttt{Age} before and after mean imputation vs.\ KNN imputation. Plot both distributions on the same histogram.
+  \item Load the Adult Census dataset (with \texttt{na\_values=[" ?"]}) and impute the three categorical columns with missing values using mode imputation. Verify no missing values remain.
+  \item Implement a function \texttt{smart\_impute(df)} that: (a) drops columns with $>$70\% missing, (b) imputes numerical columns with median, (c) imputes categorical columns with mode, (d) adds missing indicators for all originally-missing columns.
+  \item Investigate whether \texttt{Age} in the Titanic dataset is MCAR by comparing the survival rate of passengers with and without a recorded age. What do you conclude?
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Missing data has three mechanisms: MCAR, MAR, and MNAR. The mechanism determines which imputation strategy is valid.
+  \item Always scan for hidden missing values (sentinel values like \texttt{?}, \texttt{-1}, \texttt{999}).
+  \item The \texttt{missingno} library provides matrix, bar, heatmap, and dendrogram visualizations for missing patterns.
+  \item Simple imputation (mean, median, mode) is fast but reduces variance and only works well under MCAR.
+  \item KNN and iterative (MICE) imputation capture relationships between features and work under MAR.
+  \item Adding a missing indicator column preserves the information content of missingness.
+\end{itemize}

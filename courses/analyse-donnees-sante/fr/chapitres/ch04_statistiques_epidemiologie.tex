@@ -1,0 +1,492 @@
+\chapter{Statistiques descriptives et mesures \'epid\'emiologiques}
+\label{ch:statistiques-epi}
+
+\begin{quote}
+\emph{<<\,Avant d'ajuster un mod\`ele, d\'ecrivez les donn\'ees. Avant de d\'ecrire les donn\'ees, regardez les donn\'ees. L'\'epid\'emiologie commence par le d\'enombrement.\,>>}
+\end{quote}
+
+% ============================================================
+\section{Tendance centrale : qu'est-ce qui est <<\,typique\,>> ?}
+
+\subsection{Moyenne, m\'ediane et quand utiliser chacune}
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+
+# Glycemie a jeun de 10 patients (mg/dL)
+glucose = pd.Series([92, 98, 104, 95, 88, 110, 97, 340, 101, 93])
+
+print(f"Moyenne :  {glucose.mean():.1f} mg/dL")
+print(f"Mediane : {glucose.median():.1f} mg/dL")
+\end{minted}
+
+La moyenne est de 121,8~mg/dL. La m\'ediane est de 97,5~mg/dL. Un patient avec une glyc\'emie de 340 (acidoc\'etose diab\'etique) tire la moyenne vers le haut de pr\`es de 25~mg/dL. La m\'ediane n'est pas affect\'ee.
+
+\begin{clinicalnote}
+\textbf{R\`egle g\'en\'erale pour les donn\'ees de sant\'e :} utilisez la \textbf{m\'ediane} lorsque la distribution est asym\'etrique (la plupart des valeurs de laboratoire, dur\'ee de s\'ejour, d\'epenses de sant\'e). Utilisez la \textbf{moyenne} lorsque la distribution est approximativement sym\'etrique (taille, pression art\'erielle diastolique chez les adultes en bonne sant\'e).
+\end{clinicalnote}
+
+\subsection{Mode}
+
+Le mode est la valeur la plus fr\'equente. C'est la seule mesure de tendance centrale pour les donn\'ees cat\'egorielles :
+
+\begin{minted}{python}
+diagnoses = pd.Series(["HTN", "T2DM", "HTN", "None", "HTN",
+                       "T2DM", "None", "HTN", "COPD", "HTN"])
+print(f"Diagnostic le plus frequent : {diagnoses.mode()[0]}")
+print(f"Frequence : {diagnoses.value_counts().iloc[0]}/{len(diagnoses)}")
+\end{minted}
+
+% ============================================================
+\section{Dispersion : quelle est la variabilit\'e des donn\'ees ?}
+
+\subsection{\'Ecart-type et variance}
+
+\begin{minted}{python}
+# Mesures de pression arterielle de deux cliniques
+clinic_a = pd.Series([120, 122, 118, 125, 121, 119, 123, 120])
+clinic_b = pd.Series([98, 145, 110, 155, 102, 160, 115, 135])
+
+print(f"Clinique A : moyenne={clinic_a.mean():.1f}, ET={clinic_a.std():.1f}")
+print(f"Clinique B : moyenne={clinic_b.mean():.1f}, ET={clinic_b.std():.1f}")
+\end{minted}
+
+Les deux cliniques ont des moyennes similaires ($\approx$121), mais la clinique~B pr\'esente une variabilit\'e bien plus \'elev\'ee. Un m\'edecin ne regardant que la moyenne manquerait le fait que la clinique~B a des patients avec une pression art\'erielle dangereusement \'elev\'ee \emph{et} anormalement basse.
+
+\subsection{\'Ecart interquartile et percentiles}
+
+L'\'ecart interquartile (EIQ) est l'intervalle entre le 25\textsuperscript{e} et le 75\textsuperscript{e} percentile. Comme la m\'ediane, il est robuste aux valeurs aberrantes.
+
+\begin{minted}{python}
+# Duree de sejour hospitalier (jours) --- typiquement asymetrique a droite
+los = pd.Series([2, 3, 3, 4, 4, 5, 5, 6, 7, 8, 12, 28, 45])
+
+q25 = los.quantile(0.25)
+q75 = los.quantile(0.75)
+iqr = q75 - q25
+
+print(f"Duree de sejour mediane : {los.median():.0f} jours")
+print(f"EIQ : {q25:.0f}--{q75:.0f} jours (etendue : {iqr:.0f})")
+print(f"Duree de sejour moyenne : {los.mean():.1f} jours")  # gonflee par 28 et 45
+\end{minted}
+
+\begin{pythontip}
+La m\'ethode \texttt{.describe()} de pandas vous donne le nombre, la moyenne, l'\'ecart-type, le minimum, les 25\,\%, 50\,\%, 75\,\% et le maximum en un seul appel. C'est le moyen le plus rapide d'obtenir un aper\c{c}u statistique de chaque colonne num\'erique.
+\end{pythontip}
+
+\subsection{Coefficient de variation}
+
+Le coefficient de variation (CV) exprime l'\'ecart-type en pourcentage de la moyenne. Il est utile pour comparer la variabilit\'e entre des mesures ayant des unit\'es ou des \'echelles diff\'erentes :
+
+\begin{minted}{python}
+# Comparer la variabilite de la glycemie (mg/dL) et de l'hemoglobine (g/dL)
+glucose = pd.Series([95, 102, 88, 110, 97, 105, 92, 98])
+hemoglobin = pd.Series([13.2, 14.1, 12.8, 13.5, 14.0, 13.8, 12.5, 13.9])
+
+cv_glucose = (glucose.std() / glucose.mean()) * 100
+cv_hb = (hemoglobin.std() / hemoglobin.mean()) * 100
+
+print(f"CV glycemie : {cv_glucose:.1f}%")
+print(f"CV hemoglobine : {cv_hb:.1f}%")
+\end{minted}
+
+% ============================================================
+\section{Tableaux de fr\'equences et tableaux crois\'es}
+
+\subsection{Tableaux de fr\'equences simples}
+
+\begin{minted}{python}
+# Charger les donnees Gapminder
+url = ("https://raw.githubusercontent.com/datasets/"
+       "gapminder/main/data/gapminder.csv")
+gapminder = pd.read_csv(url)
+recent = gapminder[gapminder["year"] == 2007]
+
+# Creer des categories d'esperance de vie
+recent = recent.copy()
+recent["le_cat"] = pd.cut(recent["lifeExp"],
+                          bins=[0, 55, 70, 85],
+                          labels=["Basse (<55)", "Moyenne (55-70)",
+                                  "Elevee (>70)"])
+
+# Tableau de frequences
+freq = recent["le_cat"].value_counts().sort_index()
+print(freq)
+
+# Avec proportions
+freq_table = pd.DataFrame({
+    "n": freq,
+    "pct": (freq / freq.sum() * 100).round(1),
+    "cum_pct": (freq.cumsum() / freq.sum() * 100).round(1)
+})
+print(freq_table)
+\end{minted}
+
+\subsection{Tableaux crois\'es}
+
+\begin{minted}{python}
+# Tableau croise : categorie d'esperance de vie par continent
+ct = pd.crosstab(recent["continent"], recent["le_cat"], margins=True)
+print(ct)
+
+# Avec pourcentages en ligne (pourcentage au sein de chaque continent)
+ct_pct = pd.crosstab(recent["continent"], recent["le_cat"],
+                     normalize="index").round(3) * 100
+print(ct_pct)
+\end{minted}
+
+\begin{clinicalnote}
+Les tableaux crois\'es sont l'outil de base de l'\'epid\'emiologie descriptive. Chaque <<\,Tableau~1\,>> dans un article clinique est essentiellement un tableau crois\'e des caract\'eristiques des patients par groupe d'\'etude. Avec pandas, \texttt{pd.crosstab()} les construit en une seule ligne.
+\end{clinicalnote}
+
+% ============================================================
+\section{Mesures \'epid\'emiologiques : d\'enombrer la maladie}
+
+\subsection{Pr\'evalence}
+
+La pr\'evalence est la \emph{proportion} d'une population qui pr\'esente une affection \`a un moment donn\'e :
+
+\[
+\text{Pr\'evalence} = \frac{\text{Nombre de cas existants}}{\text{Population totale}} \times 100
+\]
+
+\begin{minted}{python}
+# Prevalence du diabete a partir d'une enquete de sante
+n_total = 5000
+n_diabetic = 625
+
+prevalence = n_diabetic / n_total * 100
+print(f"Prevalence du diabete : {prevalence:.1f}%")
+
+# Avec intervalle de confiance a 95% (approximation normale)
+from scipy import stats
+
+p = n_diabetic / n_total
+se = np.sqrt(p * (1 - p) / n_total)
+ci_low = (p - 1.96 * se) * 100
+ci_high = (p + 1.96 * se) * 100
+print(f"IC a 95% : [{ci_low:.1f}%, {ci_high:.1f}%]")
+\end{minted}
+
+\subsection{Taux d'incidence}
+
+L'incidence mesure les \emph{nouveaux} cas sur une p\'eriode donn\'ee. Le taux d'incidence utilise les personnes-temps au d\'enominateur :
+
+\[
+\text{Taux d'incidence} = \frac{\text{Nombre de nouveaux cas}}{\text{Total personnes-temps \`a risque}}
+\]
+
+\begin{minted}{python}
+# Cohorte tuberculose : 200 patients suivis pendant des durees variables
+new_tb_cases = 18
+total_person_years = 850  # somme du temps de suivi de tous les patients
+
+incidence_rate = new_tb_cases / total_person_years
+print(f"Taux d'incidence TB : {incidence_rate:.4f} par personne-annee")
+print(f"                    = {incidence_rate * 1000:.1f} pour 1 000 personnes-annees")
+
+# IC a 95% pour le taux d'incidence (approximation de Poisson)
+ir_se = np.sqrt(new_tb_cases) / total_person_years
+ci_low = (incidence_rate - 1.96 * ir_se) * 1000
+ci_high = (incidence_rate + 1.96 * ir_se) * 1000
+print(f"IC a 95% : [{ci_low:.1f}, {ci_high:.1f}] pour 1 000 personnes-annees")
+\end{minted}
+
+\begin{warningbox}
+La pr\'evalence et l'incidence r\'epondent \`a des questions diff\'erentes. La pr\'evalence indique la \emph{charge} de morbidité (combien de personnes sont malades en ce moment). L'incidence indique le \emph{risque} de tomber malade. Une maladie peut avoir une faible incidence mais une pr\'evalence \'elev\'ee si les patients survivent longtemps (par ex.\ le diab\`ete de type~2). Une maladie avec une incidence \'elev\'ee et une faible pr\'evalence tue rapidement (par ex.\ Ebola).
+\end{warningbox}
+
+\subsection{Taux de mortalit\'e}
+
+\begin{minted}{python}
+# Taux de mortalite brut
+deaths = 1250
+population = 500_000
+mortality_rate = deaths / population * 100_000
+print(f"Taux de mortalite brut : {mortality_rate:.1f} pour 100 000")
+
+# Taux de letalite (TL)
+total_cases = 3200
+deaths_among_cases = 128
+cfr = deaths_among_cases / total_cases * 100
+print(f"Taux de letalite : {cfr:.1f}%")
+\end{minted}
+
+\begin{clinicalnote}
+Le taux de l\'etalit\'e (TL) est souvent mal interpr\'et\'e lors des \'epid\'emies. Au d\'ebut d'une \'epid\'emie, le d\'enominateur (nombre total de cas) est sous-estim\'e car de nombreux cas b\'enins ne sont pas test\'es. Cela fait para\^itre le TL plus \'elev\'e que le v\'eritable taux de mortalit\'e par infection (TMI). Au d\'ebut de la COVID-19, le TL rapport\'e \'etait de $\sim$3--4\,\%, mais les \'etudes de s\'eropr\'evalence ont ensuite estim\'e le TMI \`a $\sim$0,5--1\,\%.
+\end{clinicalnote}
+
+% ============================================================
+\section{Mesures d'association}
+
+\subsection{Risque relatif}
+
+Le risque relatif compare la probabilit\'e de maladie entre les groupes expos\'e et non expos\'e :
+
+\[
+\text{RR} = \frac{\text{Risque chez les expos\'es}}{\text{Risque chez les non-expos\'es}} = \frac{a/(a+b)}{c/(c+d)}
+\]
+
+\begin{minted}{python}
+# Tabagisme et cancer du poumon (cohorte hypothetique)
+# Exposes (fumeurs) :      a=80 cancers, b=920 sans cancer
+# Non-exposes (non-fumeurs) : c=10 cancers, d=990 sans cancer
+a, b, c, d = 80, 920, 10, 990
+
+risk_exposed = a / (a + b)
+risk_unexposed = c / (c + d)
+rr = risk_exposed / risk_unexposed
+
+print(f"Risque chez les fumeurs :     {risk_exposed:.3f} ({risk_exposed*100:.1f}%)")
+print(f"Risque chez les non-fumeurs : {risk_unexposed:.3f} ({risk_unexposed*100:.1f}%)")
+print(f"Risque relatif : {rr:.2f}")
+
+# IC a 95% pour log(RR)
+import math
+se_ln_rr = math.sqrt(1/a - 1/(a+b) + 1/c - 1/(c+d))
+ln_rr = math.log(rr)
+ci_low = math.exp(ln_rr - 1.96 * se_ln_rr)
+ci_high = math.exp(ln_rr + 1.96 * se_ln_rr)
+print(f"IC a 95% : [{ci_low:.2f}, {ci_high:.2f}]")
+\end{minted}
+
+\subsection{Rapport des cotes (\emph{odds ratio})}
+
+Le rapport des cotes est utilis\'e dans les \'etudes cas-t\'emoins o\`u l'on ne peut pas calculer directement le risque :
+
+\[
+\text{OR} = \frac{a \times d}{b \times c}
+\]
+
+\begin{minted}{python}
+# Etude cas-temoins : obesite et gonarthrose
+# Cas (arthrose) :     a=120 obeses, c=80 non-obeses
+# Temoins (pas d'arthrose) : b=60 obeses,  d=140 non-obeses
+a, b, c, d = 120, 60, 80, 140
+
+odds_ratio = (a * d) / (b * c)
+print(f"Rapport des cotes : {odds_ratio:.2f}")
+
+# IC a 95%
+se_ln_or = math.sqrt(1/a + 1/b + 1/c + 1/d)
+ln_or = math.log(odds_ratio)
+ci_low = math.exp(ln_or - 1.96 * se_ln_or)
+ci_high = math.exp(ln_or + 1.96 * se_ln_or)
+print(f"IC a 95% : [{ci_low:.2f}, {ci_high:.2f}]")
+\end{minted}
+
+\begin{clinicalnote}
+Le rapport des cotes approxime le risque relatif lorsque la maladie est rare ($<10\,\%$ de pr\'evalence dans les deux groupes). Pour les \'ev\'enements fr\'equents, l'OR exag\`ere l'association. Un OR de 2,0 pour une affection avec 40\,\% de pr\'evalence de base ne signifie pas <<\,deux fois le risque\,>> --- le v\'eritable RR serait plus faible.
+\end{clinicalnote}
+
+\subsection{Fonctions r\'eutilisables}
+
+\begin{minted}{python}
+def risk_ratio(a, b, c, d, alpha=0.05):
+    """Calculer le risque relatif avec intervalle de confiance.
+
+    a = exposes avec maladie
+    b = exposes sans maladie
+    c = non-exposes avec maladie
+    d = non-exposes sans maladie
+    """
+    from scipy.stats import norm
+    z = norm.ppf(1 - alpha / 2)
+
+    rr = (a / (a + b)) / (c / (c + d))
+    se = math.sqrt(1/a - 1/(a+b) + 1/c - 1/(c+d))
+    ci = (math.exp(math.log(rr) - z * se),
+          math.exp(math.log(rr) + z * se))
+
+    return {"RR": round(rr, 3), "CI_low": round(ci[0], 3),
+            "CI_high": round(ci[1], 3)}
+
+
+def odds_ratio(a, b, c, d, alpha=0.05):
+    """Calculer le rapport des cotes avec intervalle de confiance."""
+    from scipy.stats import norm
+    z = norm.ppf(1 - alpha / 2)
+
+    o_r = (a * d) / (b * c)
+    se = math.sqrt(1/a + 1/b + 1/c + 1/d)
+    ci = (math.exp(math.log(o_r) - z * se),
+          math.exp(math.log(o_r) + z * se))
+
+    return {"OR": round(o_r, 3), "CI_low": round(ci[0], 3),
+            "CI_high": round(ci[1], 3)}
+
+
+# Exemple
+print(risk_ratio(80, 920, 10, 990))
+print(odds_ratio(120, 60, 80, 140))
+\end{minted}
+
+% ============================================================
+\section{Taux standardis\'es sur l'\'age}
+
+Les taux bruts peuvent \^etre trompeurs lorsqu'on compare des populations avec des structures d'\'age diff\'erentes. Un pays avec une population plus \'ag\'ee aura un taux de mortalit\'e brut plus \'elev\'e m\^eme s'il est <<\,en meilleure sant\'e\,>> \`a chaque \'age. La standardisation sur l'\'age \'elimine ce facteur de confusion.
+
+\subsection{Standardisation directe}
+
+\begin{minted}{python}
+# Comparer les taux de mortalite bruts et standardises entre deux regions
+# Region A (population jeune), Region B (population agee)
+
+data_a = pd.DataFrame({
+    "age_group": ["0-14", "15-44", "45-64", "65+"],
+    "population": [50000, 80000, 40000, 10000],
+    "deaths": [50, 80, 200, 300]
+})
+data_a["rate"] = data_a["deaths"] / data_a["population"] * 100000
+
+data_b = pd.DataFrame({
+    "age_group": ["0-14", "15-44", "45-64", "65+"],
+    "population": [15000, 40000, 50000, 45000],
+    "deaths": [20, 50, 280, 1500]
+})
+data_b["rate"] = data_b["deaths"] / data_b["population"] * 100000
+
+# Population standard (ex. : population standard mondiale de l'OMS)
+standard_pop = pd.DataFrame({
+    "age_group": ["0-14", "15-44", "45-64", "65+"],
+    "std_weight": [0.26, 0.42, 0.22, 0.10]
+})
+
+# Taux bruts
+crude_a = data_a["deaths"].sum() / data_a["population"].sum() * 100000
+crude_b = data_b["deaths"].sum() / data_b["population"].sum() * 100000
+print(f"Taux brut Region A : {crude_a:.1f} pour 100 000")
+print(f"Taux brut Region B : {crude_b:.1f} pour 100 000")
+
+# Taux standardises sur l'age
+asr_a = (data_a["rate"] * standard_pop["std_weight"]).sum()
+asr_b = (data_b["rate"] * standard_pop["std_weight"]).sum()
+print(f"Taux standardise Region A : {asr_a:.1f} pour 100 000")
+print(f"Taux standardise Region B : {asr_b:.1f} pour 100 000")
+\end{minted}
+
+\begin{warningbox}
+Indiquez toujours quelle population standard vous avez utilis\'ee (population standard mondiale de l'OMS, standard europ\'een, standard US 2000). Des standards diff\'erents donnent des r\'esultats diff\'erents. Si vous comparez vos taux avec des taux publi\'es, vous devez utiliser la m\^eme population standard.
+\end{warningbox}
+
+% ============================================================
+\section{Travaux pratiques : calcul de statistiques descriptives avec des donn\'ees r\'eelles}
+
+\subsection{Statistiques descriptives sur les donn\'ees Gapminder}
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+# Charger Gapminder
+url = ("https://raw.githubusercontent.com/datasets/"
+       "gapminder/main/data/gapminder.csv")
+df = pd.read_csv(url)
+
+# Statistiques descriptives par continent (2007)
+recent = df[df["year"] == 2007].copy()
+summary = recent.groupby("continent")["lifeExp"].agg(
+    ["count", "mean", "median", "std",
+     lambda x: x.quantile(0.25),
+     lambda x: x.quantile(0.75)]
+)
+summary.columns = ["n", "mean", "median", "sd", "Q1", "Q3"]
+print(summary.round(1))
+\end{minted}
+
+\subsection{Calcul de la pr\'evalence du paludisme par r\'egion}
+
+\begin{minted}{python}
+# Cas estimes de paludisme (Our World in Data)
+url = ("https://raw.githubusercontent.com/owid/"
+       "owid-datasets/master/datasets/"
+       "Malaria%20incidence%20-%20IHME/Malaria%20incidence%20-%20IHME.csv")
+# Alternative : utiliser directement les donnees du GHO de l'OMS
+# url = "https://apps.who.int/gho/athena/api/GHO/MALARIA_EST_CASES?format=csv"
+
+# Si l'URL ci-dessus ne fonctionne pas, utiliser le GitHub d'OWID
+url2 = ("https://raw.githubusercontent.com/owid/etl/master/etl/steps/"
+        "data/garden/who/2024-07-30/gho.py")  # metadonnees uniquement
+
+# Pour une source fiable, utiliser le jeu de donnees OWID pretraite sur le paludisme
+owid_url = ("https://raw.githubusercontent.com/owid/"
+            "owid-datasets/master/datasets/"
+            "Estimated%20malaria%20incidence%20rate%20"
+            "(per%201%2C000%20population%20at%20risk)%20-%20WHO/"
+            "Estimated%20malaria%20incidence%20rate%20"
+            "(per%201%2C000%20population%20at%20risk)%20-%20WHO.csv")
+
+# Donnees de paludisme simulees pour la pratique
+np.random.seed(42)
+countries = (["Nigeria", "DRC", "Mozambique", "Uganda", "Ghana"] * 3 +
+             ["India", "Indonesia", "Myanmar", "Pakistan", "Ethiopia"] * 3)
+regions = (["West Africa"] * 5 + ["Central Africa"] * 5 +
+           ["East Africa"] * 5 +
+           ["South Asia"] * 5 + ["Southeast Asia"] * 5 +
+           ["East Africa"] * 5)
+
+malaria = pd.DataFrame({
+    "country": countries,
+    "region": ["West Africa", "Central Africa", "East Africa",
+               "East Africa", "West Africa"] * 6,
+    "year": [2018]*5 + [2019]*5 + [2020]*5 +
+            [2018]*5 + [2019]*5 + [2020]*5,
+    "population_at_risk": np.random.randint(10_000_000, 200_000_000, 30),
+    "estimated_cases": np.random.randint(500_000, 50_000_000, 30)
+})
+
+# Calculer la prevalence pour 1 000 personnes a risque
+malaria["prevalence_per_1000"] = (
+    malaria["estimated_cases"] / malaria["population_at_risk"] * 1000
+)
+
+# Resume par region
+region_summary = malaria.groupby("region").agg(
+    total_cases=("estimated_cases", "sum"),
+    total_pop=("population_at_risk", "sum"),
+    n_countries=("country", "nunique")
+)
+region_summary["prevalence_per_1000"] = (
+    region_summary["total_cases"] / region_summary["total_pop"] * 1000
+)
+print(region_summary.round(1))
+
+# Tendance par annee
+year_trend = malaria.groupby("year").agg(
+    total_cases=("estimated_cases", "sum"),
+    total_pop=("population_at_risk", "sum")
+)
+year_trend["prevalence_per_1000"] = (
+    year_trend["total_cases"] / year_trend["total_pop"] * 1000
+)
+print(year_trend.round(1))
+\end{minted}
+
+\begin{exercise}
+En utilisant le jeu de donn\'ees Gapminder et les fonctions \'epid\'emiologiques d\'efinies ci-dessus :
+\begin{enumerate}
+  \item Calculez les statistiques descriptives (moyenne, m\'ediane, ET, EIQ) pour l'esp\'erance de vie, le PIB par habitant et la population pour chaque continent en 2007.
+  \item Cr\'eez un tableau crois\'e continent / cat\'egorie d'esp\'erance de vie (Basse/Moyenne/\'Elev\'ee). Calculez les pourcentages en ligne.
+  \item Une cohorte de 10\,000 personnes a \'et\'e suivie pendant 5 ans. Durant cette p\'eriode, 450 ont d\'evelopp\'e un diab\`ete de type~2. Calculez l'incidence cumul\'ee et le taux d'incidence (en supposant un suivi moyen de 4,5 ann\'ees par personne).
+  \item Dans une \'etude cas-t\'emoins de 200 cas et 200 t\'emoins, 140 cas et 80 t\'emoins \'etaient expos\'es \`a un facteur de risque. Calculez le rapport des cotes et son IC \`a 95\,\%. Interpr\'etez le r\'esultat.
+  \item Le pays~A a un taux de mortalit\'e brut de 350 pour 100\,000 et le pays~B de 580 pour 100\,000. En utilisant les taux sp\'ecifiques par \'age et la population standard fournis ci-dessus, calculez les taux standardis\'es. Le classement change-t-il apr\`es standardisation ?
+  \item En utilisant les donn\'ees de Our World in Data ou de l'OMS, calculez le taux d'incidence du paludisme pour 5~pays africains sur 3 ans. Quel pays a la charge la plus \'elev\'ee ? La tendance est-elle croissante ou d\'ecroissante ?
+  \item \'Ecrivez une fonction \texttt{prevalence\_ci(cases, total, confidence=0.95)} qui retourne la pr\'evalence et son intervalle de confiance. Testez-la avec : 250 patients diab\'etiques sur 2\,000 d\'epist\'es.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Utilisez la \textbf{m\'ediane} pour les distributions asym\'etriques (valeurs de laboratoire, co\^uts, dur\'ee de s\'ejour) et la \textbf{moyenne} pour les distributions sym\'etriques.
+  \item L'\textbf{EIQ} est une mesure robuste de dispersion ; l'\textbf{\'ecart-type} est sensible aux valeurs aberrantes.
+  \item \textbf{Pr\'evalence} = cas existants / population. \textbf{Taux d'incidence} = nouveaux cas / personnes-temps.
+  \item Le \textbf{risque relatif} compare les risques dans les \'etudes de cohorte ; le \textbf{rapport des cotes} est utilis\'e dans les \'etudes cas-t\'emoins.
+  \item L'OR approxime le RR uniquement lorsque l'\'ev\'enement est rare ($<10\,\%$).
+  \item La \textbf{standardisation sur l'\'age} \'elimine le facteur de confusion li\'e \`a l'\'age lors de la comparaison de populations.
+  \item Rapportez toujours les intervalles de confiance en plus des estimations ponctuelles.
+  \item \texttt{pd.crosstab()} construit les tableaux crois\'es qui forment la base de l'analyse \'epid\'emiologique.
+\end{itemize}

@@ -1,0 +1,187 @@
+\chapter{Health data with Pandas}
+\label{ch:pandas}
+
+\begin{quote}
+\emph{``80\% of data analysis is getting the data into a shape where you can ask it questions.''}
+\end{quote}
+
+% ============================================================
+\section{What is a DataFrame?}
+
+A DataFrame is a table --- rows are observations (patients, countries, time points), columns are variables (age, diagnosis, lab values). If you have used Excel, you already understand the concept. Pandas gives you Excel's power with Python's reproducibility.
+
+\begin{minted}{python}
+import pandas as pd
+
+# Create a small clinical DataFrame
+data = {
+    "patient_id": ["P001", "P002", "P003", "P004", "P005"],
+    "age": [45, 67, 34, 52, 71],
+    "sex": ["M", "F", "F", "M", "F"],
+    "systolic_bp": [128, 158, 112, 145, 162],
+    "hba1c": [5.4, 7.8, 5.1, 6.3, 8.2],
+    "diagnosis": ["None", "T2DM", "None", "Pre-DM", "T2DM"]
+}
+df = pd.DataFrame(data)
+df
+\end{minted}
+
+% ============================================================
+\section{Loading real health data}
+
+\subsection{CSV files}
+
+Most health datasets come as CSV (comma-separated values) files:
+
+\begin{minted}{python}
+# WHO life expectancy data (Gapminder)
+url = "https://raw.githubusercontent.com/datasets/gapminder/main/data/gapminder.csv"
+gapminder = pd.read_csv(url)
+print(f"Shape: {gapminder.shape}")  # (rows, columns)
+gapminder.head()
+\end{minted}
+
+\subsection{Excel files}
+
+\begin{minted}{python}
+df = pd.read_excel("patient_records.xlsx", sheet_name="Lab Results")
+\end{minted}
+
+\subsection{From the WHO Global Health Observatory}
+
+\begin{minted}{python}
+# Maternal mortality ratio by country
+url = "https://apps.who.int/gho/athena/api/GHO/MDG_0000000026?format=csv"
+mmr = pd.read_csv(url)
+mmr.head()
+\end{minted}
+
+\begin{clinicalnote}
+The WHO GHO API provides over 1\,000 health indicators for 194 member states. You can browse indicators at \url{https://www.who.int/data/gho/data/indicators}. Each indicator has a code (e.g., \texttt{MDG\_0000000026} for maternal mortality ratio) that you plug into the API URL.
+\end{clinicalnote}
+
+% ============================================================
+\section{Exploring your data}
+
+The first thing you do with any health dataset --- before any analysis --- is \emph{look at it}.
+
+\begin{minted}{python}
+# Basic exploration
+print(gapminder.shape)          # dimensions
+print(gapminder.columns.tolist())  # column names
+print(gapminder.dtypes)         # data types
+gapminder.describe()            # summary statistics
+gapminder.info()                # non-null counts and memory
+\end{minted}
+
+\subsection{Selecting columns}
+
+\begin{minted}{python}
+# Single column (returns a Series)
+ages = gapminder["lifeExp"]
+
+# Multiple columns (returns a DataFrame)
+subset = gapminder[["country", "year", "lifeExp"]]
+\end{minted}
+
+\subsection{Filtering rows}
+
+\begin{minted}{python}
+# Patients with HbA1c >= 6.5 (diabetic threshold)
+diabetic = df[df["hba1c"] >= 6.5]
+
+# African countries in Gapminder
+africa = gapminder[gapminder["continent"] == "Africa"]
+
+# Multiple conditions: female patients over 60 with high BP
+high_risk = df[(df["sex"] == "F") & (df["age"] > 60) & (df["systolic_bp"] >= 140)]
+\end{minted}
+
+\begin{warningbox}
+Use \texttt{\&} (and), \texttt{|} (or), \texttt{\textasciitilde} (not) with parentheses around each condition. Python's \texttt{and}/\texttt{or} keywords do not work with DataFrames.
+\end{warningbox}
+
+% ============================================================
+\section{Sorting and ranking}
+
+\begin{minted}{python}
+# Countries with highest life expectancy in 2007
+recent = gapminder[gapminder["year"] == 2007]
+top10 = recent.sort_values("lifeExp", ascending=False).head(10)
+print(top10[["country", "lifeExp"]])
+\end{minted}
+
+% ============================================================
+\section{Grouping and aggregation}
+
+Grouping is how you answer questions like ``what is the average life expectancy per continent?'' or ``how many patients in each diagnosis category?''
+
+\begin{minted}{python}
+# Average life expectancy by continent (2007)
+recent.groupby("continent")["lifeExp"].mean().sort_values(ascending=False)
+\end{minted}
+
+\begin{minted}{python}
+# Multiple aggregations
+recent.groupby("continent")["lifeExp"].agg(["mean", "median", "std", "count"])
+\end{minted}
+
+\begin{minted}{python}
+# Patient counts by diagnosis
+df.groupby("diagnosis")["patient_id"].count()
+\end{minted}
+
+% ============================================================
+\section{Creating new columns}
+
+\begin{minted}{python}
+# BMI from weight and height
+df["bmi"] = df["weight_kg"] / (df["height_m"] ** 2)
+
+# Age group
+df["age_group"] = pd.cut(df["age"],
+                         bins=[0, 18, 40, 60, 100],
+                         labels=["<18", "18-39", "40-59", "60+"])
+
+# Binary flag
+df["hypertensive"] = (df["systolic_bp"] >= 140).astype(int)
+\end{minted}
+
+% ============================================================
+\section{Saving your results}
+
+\begin{minted}{python}
+# Save to CSV
+df.to_csv("cleaned_patients.csv", index=False)
+
+# Save to Excel
+df.to_excel("cleaned_patients.xlsx", index=False, sheet_name="Patients")
+\end{minted}
+
+% ============================================================
+\section{Practical: WHO life expectancy analysis}
+
+\begin{exercise}
+Using the Gapminder dataset:
+\begin{enumerate}
+  \item Load the data and display basic statistics.
+  \item Filter to African countries only. How many unique countries?
+  \item Compute mean life expectancy by decade (1950s, 1960s, ..., 2000s) for Africa vs.\ Europe.
+  \item Find the 5 African countries with the lowest life expectancy in 2007.
+  \item Create a column \texttt{life\_exp\_category}: ``Low'' ($<55$), ``Medium'' ($55$--$70$), ``High'' ($>70$).
+  \item Group by continent and \texttt{life\_exp\_category}. How many countries in each?
+  \item Save the Africa-only data to a CSV file.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item A DataFrame is a table. Rows = observations, columns = variables.
+  \item \texttt{pd.read\_csv()} loads data; \texttt{.head()}, \texttt{.describe()}, \texttt{.info()} explore it.
+  \item Filter with boolean conditions: \texttt{df[df["col"] > value]}.
+  \item \texttt{.groupby()} + \texttt{.agg()} answers ``per group'' questions.
+  \item \texttt{pd.cut()} creates categorical variables from continuous ones.
+  \item Always save cleaned data for reproducibility.
+\end{itemize}

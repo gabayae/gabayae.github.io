@@ -1,0 +1,406 @@
+\chapter{R\'egression pour les r\'esultats de sant\'e}
+\label{ch:regression}
+
+\begin{quote}
+\emph{<<\,La corr\'elation vous dit que deux choses \'evoluent ensemble. La r\'egression vous dit de combien --- et vous permet d'ajuster pour les facteurs de confusion.\,>>}
+\end{quote}
+
+% ============================================================
+\section{De la corr\'elation \`a la pr\'ediction}
+
+Au chapitre~6, nous avons demand\'e <<\,y a-t-il une diff\'erence ?\,>>. Maintenant nous demandons <<\,pouvons-nous pr\'edire une variable \`a partir d'une autre ?\,>> La r\'egression est l'outil de base de la recherche clinique : elle appara\^it dans presque chaque \'etude \'epid\'emiologique, chaque analyse d'essai clinique et chaque mod\`ele de pr\'ediction du risque.
+
+\begin{minted}{python}
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy import stats
+\end{minted}
+
+% ============================================================
+\section{R\'egression lin\'eaire simple}
+
+\textbf{Question :} Comment la pression art\'erielle systolique \'evolue-t-elle avec l'\'age ?
+
+\begin{minted}{python}
+# Donnees cliniques simulees
+np.random.seed(42)
+n = 200
+age = np.random.uniform(25, 80, n)
+# Relation reelle : PAS = 90 + 0.7 * age + bruit
+sbp = 90 + 0.7 * age + np.random.normal(0, 12, n)
+
+df = pd.DataFrame({"age": age, "systolic_bp": sbp})
+
+# Ajuster avec scipy
+slope, intercept, r_value, p_value, std_err = stats.linregress(df["age"], df["systolic_bp"])
+print(f"Ordonnee a l'origine : {intercept:.2f}")
+print(f"Pente : {slope:.2f} mmHg par annee d'age")
+print(f"R-carre : {r_value**2:.3f}")
+print(f"Valeur p : {p_value:.2e}")
+\end{minted}
+
+\begin{minted}{python}
+# Visualiser
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.scatter(df["age"], df["systolic_bp"], alpha=0.5, s=20, color="steelblue")
+x_line = np.linspace(25, 80, 100)
+ax.plot(x_line, intercept + slope * x_line, color="red", linewidth=2,
+        label=f"PAS = {intercept:.1f} + {slope:.2f} x Age")
+ax.set_xlabel("Age (annees)")
+ax.set_ylabel("PA systolique (mmHg)")
+ax.set_title("Regression lineaire simple : PAS vs Age")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{clinicalnote}
+La pente de 0,7 signifie qu'en moyenne, la PA systolique augmente de 0,7~mmHg pour chaque ann\'ee d'\'age suppl\'ementaire. Cela ne signifie \emph{pas} que le vieillissement \emph{cause} une PA plus \'elev\'ee --- cela signifie que les deux sont lin\'eairement associ\'es dans cet \'echantillon.
+\end{clinicalnote}
+
+% ============================================================
+\section{R\'egression lin\'eaire multiple}
+
+\textbf{Question :} Pr\'edire la PA systolique \`a partir de l'\'age, de l'IMC et du statut tabagique simultan\'ement.
+
+\begin{minted}{python}
+import statsmodels.api as sm
+
+# Donnees simulees etendues
+np.random.seed(42)
+n = 300
+age = np.random.uniform(25, 80, n)
+bmi = np.random.normal(27, 5, n)
+smoking = np.random.binomial(1, 0.25, n)  # 25% fumeurs
+# Vrai modele : PAS = 70 + 0.6*age + 0.8*IMC + 5*tabac + bruit
+sbp = 70 + 0.6 * age + 0.8 * bmi + 5 * smoking + np.random.normal(0, 10, n)
+
+df = pd.DataFrame({
+    "age": age, "bmi": bmi, "smoking": smoking, "systolic_bp": sbp
+})
+
+# Ajuster la regression multiple avec statsmodels
+X = sm.add_constant(df[["age", "bmi", "smoking"]])
+model = sm.OLS(df["systolic_bp"], X).fit()
+print(model.summary())
+\end{minted}
+
+\subsection{Interpr\'etation des coefficients en contexte clinique}
+
+\begin{minted}{python}
+# Extraire et afficher les coefficients
+coef_df = pd.DataFrame({
+    "Coefficient": model.params,
+    "IC 95% inf": model.conf_int()[0],
+    "IC 95% sup": model.conf_int()[1],
+    "Valeur p": model.pvalues
+}).round(4)
+print(coef_df)
+\end{minted}
+
+Chaque coefficient r\'epond \`a : <<\,toutes les autres variables \'etant constantes, quel est le changement attendu de PAS pour une augmentation d'une unit\'e de ce pr\'edicteur ?\,>>
+
+\begin{itemize}
+  \item \textbf{Coefficient \'age $\approx 0{,}6$} : chaque ann\'ee d'\'age suppl\'ementaire est associ\'ee \`a 0,6~mmHg de PAS en plus, \emph{apr\`es ajustement sur l'IMC et le tabagisme}.
+  \item \textbf{Coefficient IMC $\approx 0{,}8$} : chaque unit\'e d'IMC suppl\'ementaire est associ\'ee \`a 0,8~mmHg de PAS en plus, \emph{apr\`es ajustement sur l'\'age et le tabagisme}.
+  \item \textbf{Coefficient tabagisme $\approx 5$} : les fumeurs ont, en moyenne, 5~mmHg de PAS en plus que les non-fumeurs, \emph{apr\`es ajustement sur l'\'age et l'IMC}.
+\end{itemize}
+
+\begin{pythontip}
+L'expression <<\,apr\`es ajustement sur\,>> (ou <<\,en contr\^olant pour\,>>) est la diff\'erence cl\'e entre la r\'egression simple et la r\'egression multiple. C'est pourquoi les \'epid\'emiologistes utilisent la r\'egression multiple --- pour s\'eparer l'effet d'une variable des facteurs de confusion potentiels.
+\end{pythontip}
+
+% ============================================================
+\section{Facteurs de confusion}
+
+Un facteur de confusion est une variable associ\'ee \`a la fois \`a l'exposition et au r\'esultat, d\'eformant la relation apparente entre eux.
+
+\begin{minted}{python}
+# Exemple : consommation de cafe et maladie cardiaque
+# Les deux sont associes au tabagisme (le facteur de confusion)
+np.random.seed(42)
+n = 500
+smoking = np.random.binomial(1, 0.3, n)
+coffee = 1.5 + 2 * smoking + np.random.normal(0, 1.5, n)  # les fumeurs boivent plus de cafe
+heart_disease_risk = 0.5 * smoking + np.random.normal(0, 0.3, n)  # le tabac cause la MC
+
+# Non ajuste : le cafe semble predire la maladie cardiaque
+r_unadjusted, p_unadjusted = stats.pearsonr(coffee, heart_disease_risk)
+print(f"Correlation non ajustee (cafe vs risque MC) : r = {r_unadjusted:.3f}, p = {p_unadjusted:.4f}")
+
+# Regression ajustee : l'effet du cafe disparait
+df_conf = pd.DataFrame({"coffee": coffee, "smoking": smoking, "hd_risk": heart_disease_risk})
+X = sm.add_constant(df_conf[["coffee", "smoking"]])
+model_adj = sm.OLS(df_conf["hd_risk"], X).fit()
+print(f"\nModele ajuste :")
+print(f"  Coefficient cafe :  {model_adj.params['coffee']:.4f} (p = {model_adj.pvalues['coffee']:.4f})")
+print(f"  Coefficient tabac : {model_adj.params['smoking']:.4f} (p = {model_adj.pvalues['smoking']:.4f})")
+\end{minted}
+
+\begin{warningbox}
+Sans ajustement sur le tabagisme, vous concluriez \`a tort que le caf\'e augmente le risque de maladie cardiaque. C'est l'une des erreurs les plus courantes dans les \'etudes observationnelles. R\'efl\'echissez toujours aux facteurs de confusion qui pourraient se cacher dans vos donn\'ees.
+\end{warningbox}
+
+% ============================================================
+\section{V\'erification des hypoth\`eses de la r\'egression}
+
+\begin{minted}{python}
+# Diagnostics des residus pour notre modele PAS
+residuals = model.resid
+fitted = model.fittedvalues
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+
+# Residus vs valeurs ajustees
+axes[0].scatter(fitted, residuals, alpha=0.4, s=15)
+axes[0].axhline(0, color="red", linestyle="--")
+axes[0].set_xlabel("Valeurs ajustees")
+axes[0].set_ylabel("Residus")
+axes[0].set_title("Residus vs valeurs ajustees")
+
+# Histogramme des residus
+axes[1].hist(residuals, bins=25, edgecolor="black", alpha=0.7)
+axes[1].set_xlabel("Residus")
+axes[1].set_title("Distribution des residus")
+
+# Graphique Q-Q
+stats.probplot(residuals, dist="norm", plot=axes[2])
+axes[2].set_title("Graphique Q-Q")
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{clinicalnote}
+Les quatre hypoth\`eses cl\'es de la r\'egression lin\'eaire : (1)~lin\'earit\'e, (2)~ind\'ependance des r\'esidus, (3)~homosc\'edasticit\'e (variance constante), (4)~normalit\'e des r\'esidus. Les graphiques ci-dessus vous aident \`a v\'erifier les hypoth\`eses 1, 3 et 4. Une violation n'invalide pas toujours les r\'esultats, mais doit vous rendre prudent.
+\end{clinicalnote}
+
+% ============================================================
+\section{R\'egression logistique}
+
+Quand le r\'esultat est binaire (maladie : oui/non), la r\'egression lin\'eaire est inappropri\'ee. La r\'egression logistique mod\'elise la \emph{probabilit\'e} du r\'esultat.
+
+\textbf{Question :} Pr\'edire si un patient a le diab\`ete (oui/non) \`a partir de l'\'age, l'IMC et la glyc\'emie.
+
+\begin{minted}{python}
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, confusion_matrix
+
+# Charger le jeu de donnees Pima Indians Diabetes
+url = ("https://raw.githubusercontent.com/jbrownlee/Datasets/"
+       "master/pima-indians-diabetes.data.csv")
+columns = ["pregnancies", "glucose", "blood_pressure", "skin_thickness",
+           "insulin", "bmi", "diabetes_pedigree", "age", "outcome"]
+pima = pd.read_csv(url, names=columns)
+print(f"Dimensions : {pima.shape}")
+print(f"Prevalence du diabete : {pima['outcome'].mean():.1%}")
+pima.head()
+\end{minted}
+
+\begin{minted}{python}
+# Ajuster la regression logistique avec statsmodels (pour des resultats detailles)
+X = sm.add_constant(pima[["age", "bmi", "glucose"]])
+y = pima["outcome"]
+
+logit_model = sm.Logit(y, X).fit()
+print(logit_model.summary())
+\end{minted}
+
+% ============================================================
+\section{Rapports des cotes issus de la r\'egression logistique}
+
+Les coefficients de la r\'egression logistique sont des log-odds. Exponentionnez-les pour obtenir les \textbf{rapports des cotes} :
+
+\begin{minted}{python}
+# Rapports des cotes avec intervalles de confiance a 95%
+odds_ratios = np.exp(logit_model.params)
+ci = np.exp(logit_model.conf_int())
+
+or_df = pd.DataFrame({
+    "Rapport des cotes": odds_ratios,
+    "IC 95% inf": ci[0],
+    "IC 95% sup": ci[1],
+    "Valeur p": logit_model.pvalues
+}).round(4)
+print(or_df)
+\end{minted}
+
+\begin{clinicalnote}
+Un rapport des cotes de 1,04 pour la glyc\'emie signifie : pour chaque augmentation de 1~mg/dL de glyc\'emie, les cotes de diab\`ete augmentent de 4\,\%, en maintenant l'\'age et l'IMC constants. Un OR $> 1$ signifie un risque accru ; OR $< 1$ un risque r\'eduit ; OR $= 1$ aucune association.
+\end{clinicalnote}
+
+% ============================================================
+\section{\'Evaluation du mod\`ele : matrice de confusion et au-del\`a}
+
+\begin{minted}{python}
+# Ajuster avec scikit-learn pour la prediction
+features = ["age", "bmi", "glucose"]
+X = pima[features]
+y = pima["outcome"]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42, stratify=y
+)
+
+clf = LogisticRegression(max_iter=1000, random_state=42)
+clf.fit(X_train, y_train)
+y_pred = clf.predict(X_test)
+\end{minted}
+
+\begin{minted}{python}
+# Matrice de confusion
+cm = confusion_matrix(y_test, y_pred)
+print("Matrice de confusion :")
+print(cm)
+print()
+
+# Metriques detaillees
+print(classification_report(y_test, y_pred,
+                            target_names=["Pas de diabete", "Diabete"]))
+\end{minted}
+
+\subsection{Sensibilit\'e, sp\'ecificit\'e, VPP, VPN}
+
+\begin{minted}{python}
+tn, fp, fn, tp = cm.ravel()
+sensitivity = tp / (tp + fn)    # taux de vrais positifs (rappel)
+specificity = tn / (tn + fp)    # taux de vrais negatifs
+ppv = tp / (tp + fp)            # valeur predictive positive (precision)
+npv = tn / (tn + fn)            # valeur predictive negative
+
+print(f"Sensibilite (rappel) : {sensitivity:.3f}")
+print(f"  -> Parmi ceux AVEC diabete, {sensitivity:.1%} ont ete correctement identifies")
+print(f"Specificite :          {specificity:.3f}")
+print(f"  -> Parmi ceux SANS diabete, {specificity:.1%} ont ete correctement identifies")
+print(f"VPP (precision) :      {ppv:.3f}")
+print(f"  -> Parmi ceux PREDITS positifs, {ppv:.1%} ont reellement le diabete")
+print(f"VPN :                  {npv:.3f}")
+print(f"  -> Parmi ceux PREDITS negatifs, {npv:.1%} sont reellement indemnes")
+\end{minted}
+
+\begin{minted}{python}
+# Visualiser la matrice de confusion
+fig, ax = plt.subplots(figsize=(6, 5))
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+            xticklabels=["Pas de diabete", "Diabete"],
+            yticklabels=["Pas de diabete", "Diabete"], ax=ax)
+ax.set_xlabel("Predit")
+ax.set_ylabel("Reel")
+ax.set_title("Matrice de confusion")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{warningbox}
+En d\'epistage clinique, manquer une maladie (faux n\'egatif) est souvent plus dangereux qu'une fausse alerte (faux positif). Un test de d\'epistage du cancer doit avoir une \textbf{sensibilit\'e \'elev\'ee} m\^eme si la sp\'ecificit\'e est mod\'er\'ee. Un test de confirmation doit avoir une \textbf{sp\'ecificit\'e \'elev\'ee}.
+\end{warningbox}
+
+% ============================================================
+\section{Introduction \`a l'analyse de survie}
+
+Parfois, le r\'esultat n'est pas <<\,oui/non\,>> mais <<\,temps jusqu'\`a l'\'ev\'enement\,>> --- temps jusqu'au d\'ec\`es, jusqu'\`a la rechute, jusqu'\`a la r\'eadmission hospitali\`ere. C'est l'\textbf{analyse de survie}.
+
+\subsection{Pourquoi ne pas simplement utiliser la r\'egression logistique ?}
+
+Deux raisons :
+\begin{enumerate}
+  \item \textbf{Censure.} Certains patients quittent l'\'etude avant que l'\'ev\'enement ne survienne. On sait qu'ils ont surv\'ecu \emph{au moins} aussi longtemps, mais pas leur v\'eritable temps d'\'ev\'enement.
+  \item \textbf{Le temps compte.} Un m\'edicament qui retarde la rechute de 3 ans est meilleur qu'un m\'edicament qui la retarde de 3 mois, m\^eme si les deux \'echouent finalement.
+\end{enumerate}
+
+\subsection{Courbes de Kaplan-Meier}
+
+\begin{minted}{python}
+# Installer lifelines si necessaire : pip install lifelines
+from lifelines import KaplanMeierFitter, CoxPHFitter
+
+# Donnees de survie simulees
+np.random.seed(42)
+n = 200
+treatment = np.random.binomial(1, 0.5, n)
+# Le groupe traitement survit plus longtemps
+time = np.where(treatment == 1,
+                np.random.exponential(24, n),   # traitement : moyenne 24 mois
+                np.random.exponential(16, n))   # temoin : moyenne 16 mois
+event = np.random.binomial(1, 0.75, n)  # 25% censures
+
+surv_df = pd.DataFrame({
+    "time": time, "event": event, "treatment": treatment
+})
+\end{minted}
+
+\begin{minted}{python}
+# Courbes de Kaplan-Meier
+fig, ax = plt.subplots(figsize=(8, 5))
+
+for label, group_df in surv_df.groupby("treatment"):
+    kmf = KaplanMeierFitter()
+    kmf.fit(group_df["time"], event_observed=group_df["event"],
+            label="Traitement" if label == 1 else "Temoin")
+    kmf.plot_survival_function(ax=ax)
+
+ax.set_xlabel("Temps (mois)")
+ax.set_ylabel("Probabilite de survie")
+ax.set_title("Courbes de survie de Kaplan-Meier")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\subsection{Mod\`ele de Cox \`a risques proportionnels}
+
+Le mod\`ele de Cox est la <<\,r\'egression\,>> de l'analyse de survie. Il estime comment les covariables affectent le risque instantan\'e (hazard) \`a chaque point temporel :
+
+\begin{minted}{python}
+# Modele de Cox a risques proportionnels
+cph = CoxPHFitter()
+cph.fit(surv_df, duration_col="time", event_col="event",
+        formula="treatment")
+cph.print_summary()
+\end{minted}
+
+\begin{minted}{python}
+# Rapport de risque (hazard ratio)
+hr = np.exp(cph.params_["treatment"])
+print(f"Rapport de risque pour le traitement : {hr:.3f}")
+if hr < 1:
+    print(f"Le traitement reduit le risque de {(1-hr)*100:.1f}%")
+else:
+    print(f"Le traitement augmente le risque de {(hr-1)*100:.1f}%")
+\end{minted}
+
+\begin{clinicalnote}
+Un rapport de risque (\emph{hazard ratio}) de 0,65 signifie que le groupe traitement a un risque 35\,\% plus faible de l'\'ev\'enement \`a tout moment donn\'e, par rapport au groupe t\'emoin. Les rapports de risque sont le mode standard de pr\'esentation des r\'esultats dans les essais oncologiques, les \'etudes cardiovasculaires et toute \'etude avec un crit\`ere de jugement de type temps-jusqu'\`a-l'\'ev\'enement.
+\end{clinicalnote}
+
+% ============================================================
+\section{Travaux pratiques : pr\'ediction du risque de diab\`ete}
+
+\begin{exercise}
+En utilisant le jeu de donn\'ees Pima Indians Diabetes (\url{https://raw.githubusercontent.com/jbrownlee/Datasets/master/pima-indians-diabetes.data.csv}) :
+\begin{enumerate}
+  \item \textbf{Pr\'eparation des donn\'ees.} Chargez le jeu de donn\'ees. Remplacez les valeurs z\'ero dans \texttt{glucose}, \texttt{blood\_pressure}, \texttt{bmi}, \texttt{skin\_thickness} et \texttt{insulin} par \texttt{NaN} (ce sont des z\'eros biologiquement impossibles). Supprimez les lignes avec des valeurs manquantes.
+  \item \textbf{R\'egression logistique simple.} Ajustez un mod\`ele pr\'edisant le diab\`ete \`a partir de la glyc\'emie seule. Quel est le rapport des cotes ? Interpr\'etez-le.
+  \item \textbf{R\'egression logistique multiple.} Ajustez un mod\`ele avec l'\'age, l'IMC, la glyc\'emie, la pression art\'erielle et la fonction de p\'edigree du diab\`ete. Quelles variables sont statistiquement significatives ? Rapportez les rapports des cotes avec IC \`a 95\,\%.
+  \item \textbf{Comparaison de mod\`eles.} S\'eparez les donn\'ees 70/30. Ajustez les deux mod\`eles sur l'ensemble d'entra\^inement. Comparez sensibilit\'e, sp\'ecificit\'e et exactitude sur l'ensemble de test. Quel mod\`ele est meilleur pour le \emph{d\'epistage} ?
+  \item \textbf{Confusion.} Ajustez un mod\`ele avec la glyc\'emie seule, puis ajoutez l'\'age. Le coefficient de la glyc\'emie change-t-il ? Qu'est-ce que cela vous dit sur la confusion ?
+  \item \textbf{Seuils cliniques.} Au lieu du seuil par d\'efaut de 0,5, essayez 0,3 et 0,7. Comment la sensibilit\'e et la sp\'ecificit\'e changent-elles ? Quand pr\'ef\'ereriez-vous un seuil plus bas ?
+  \item \textbf{Bonus : analyse de survie.} En utilisant les donn\'ees de survie simul\'ees ci-dessus, ajoutez <<\,\'age\,>> et <<\,tabagisme\,>> comme covariables au mod\`ele de Cox. Lequel a le plus grand rapport de risque ?
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item La r\'egression lin\'eaire simple mod\'elise la relation entre un pr\'edicteur et un r\'esultat continu.
+  \item La r\'egression multiple ajuste pour les facteurs de confusion --- l'expression <<\,apr\`es ajustement sur\,>> refl\`ete cela.
+  \item Les coefficients repr\'esentent le changement attendu du r\'esultat pour une variation d'une unit\'e du pr\'edicteur, les autres variables \'etant constantes.
+  \item La r\'egression logistique pr\'edit les r\'esultats binaires (maladie oui/non) et produit des rapports des cotes.
+  \item L'\'evaluation du mod\`ele n\'ecessite la matrice de confusion : sensibilit\'e, sp\'ecificit\'e, VPP et VPN.
+  \item Une sensibilit\'e \'elev\'ee est essentielle pour le d\'epistage ; une sp\'ecificit\'e \'elev\'ee pour la confirmation.
+  \item L'analyse de survie (Kaplan-Meier, mod\`ele de Cox) traite les donn\'ees de temps-jusqu'\`a-l'\'ev\'enement avec censure.
+  \item V\'erifiez toujours les hypoth\`eses de la r\'egression et rapportez les intervalles de confiance, pas seulement les valeurs $p$.
+\end{itemize}

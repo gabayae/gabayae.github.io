@@ -1,0 +1,251 @@
+\chapter{Getting started with Julia}
+\label{ch:getting-started}
+
+\begin{quote}
+\emph{``We want a language that's open source, with a liberal license. We want the speed of C with the dynamism of Ruby. We want homoiconicity, true macros, and a language that is as usable for general programming as Python.''}
+--- Jeff Bezanson, Stefan Karpinski, Viral B. Shah, Alan Edelman (2012)
+\end{quote}
+
+% ============================================================
+\section{Why Julia?}
+
+Julia was created to solve the \emph{two-language problem}: scientists prototype in a high-level language (Python, Matlab, R) and then rewrite performance-critical code in C or Fortran. Julia eliminates this step. Code that reads like Python runs at speeds comparable to C.
+
+Key features that make Julia distinctive:
+
+\begin{enumerate}
+  \item \textbf{Just-in-time (JIT) compilation.} Julia compiles functions to native machine code using LLVM the first time they are called. Subsequent calls are fast.
+  \item \textbf{Multiple dispatch.} Functions can have many methods, selected based on the types of \emph{all} arguments. This is Julia's central design principle.
+  \item \textbf{Rich type system.} Abstract types, parametric types, and union types let you write generic, reusable code.
+  \item \textbf{Metaprogramming.} Julia code is represented as Julia data structures (expressions), enabling powerful macros.
+  \item \textbf{Package ecosystem.} Over 10,000 registered packages for scientific computing, data science, optimization, and machine learning.
+\end{enumerate}
+
+\begin{juliatip}
+Julia uses 1-based indexing, like Matlab and R, not 0-based like Python and C. The first element of an array \texttt{v} is \texttt{v[1]}.
+\end{juliatip}
+
+% ============================================================
+\section{Installing Julia}
+
+\subsection{Using juliaup (recommended)}
+
+\begin{minted}{bash}
+# macOS / Linux
+curl -fsSL https://install.julialang.org | sh
+
+# Windows (PowerShell)
+winget install julia -s msstore
+\end{minted}
+
+Then verify:
+\begin{minted}{bash}
+julia --version
+# julia version 1.10.x
+\end{minted}
+
+\subsection{VS Code integration}
+
+Install the Julia extension in VS Code. It provides:
+\begin{itemize}
+  \item Syntax highlighting and autocompletion
+  \item Integrated REPL (\texttt{Alt+J, Alt+O} to open)
+  \item Plot pane for inline visualization
+  \item Debugger and profiler integration
+\end{itemize}
+
+% ============================================================
+\section{The Julia REPL}
+
+Launch Julia by typing \texttt{julia} in your terminal. The REPL (Read-Eval-Print Loop) has four modes:
+
+\begin{minted}{julia}
+# Julian mode (default) — execute Julia code
+julia> 2 + 3
+5
+
+julia> sqrt(144)
+12.0
+\end{minted}
+
+\begin{minted}{julia}
+# Package mode — press ]
+(@v1.10) pkg> add DataFrames
+
+# Help mode — press ?
+help?> sqrt
+  sqrt(x)
+  Return the square root of x.
+
+# Shell mode — press ;
+shell> ls
+\end{minted}
+
+\begin{juliatip}
+Press \texttt{Backspace} on an empty line to return to Julian mode from any special mode. Press \texttt{Tab} for autocompletion — it works on function names, file paths, and even Unicode characters.
+\end{juliatip}
+
+% ============================================================
+\section{Package management with Pkg}
+
+Julia's built-in package manager is powerful and reproducible:
+
+\begin{minted}{julia}
+using Pkg
+
+# Install a package
+Pkg.add("DataFrames")
+
+# Install multiple packages at once
+Pkg.add(["CSV", "Plots", "BenchmarkTools"])
+
+# Update all packages
+Pkg.update()
+
+# Check installed packages
+Pkg.status()
+
+# Create a project environment (recommended for reproducibility)
+Pkg.activate("MyProject")
+Pkg.add("DataFrames")
+# This creates Project.toml and Manifest.toml
+\end{minted}
+
+\begin{warningbox}
+Always use project environments for serious work. The default global environment (\texttt{@v1.10}) can develop dependency conflicts if you install too many packages. Run \texttt{Pkg.activate(".")} in your project directory to create a local environment.
+\end{warningbox}
+
+% ============================================================
+\section{Your first Julia program}
+
+\begin{minted}{julia}
+# hello.jl — Your first Julia script
+
+# Variables
+name = "Julia"
+year = 2012
+age = 2026 - year
+
+println("Hello from $name!")
+println("Julia is $age years old and faster than ever.")
+
+# A simple computation
+function fibonacci(n)
+    n <= 1 && return n
+    a, b = 0, 1
+    for _ in 2:n
+        a, b = b, a + b
+    end
+    return b
+end
+
+# Print the first 15 Fibonacci numbers
+for i in 0:14
+    println("F($i) = $(fibonacci(i))")
+end
+\end{minted}
+
+Run this script from the terminal:
+\begin{minted}{bash}
+julia hello.jl
+\end{minted}
+
+Or from the REPL:
+\begin{minted}{julia}
+julia> include("hello.jl")
+\end{minted}
+
+% ============================================================
+\section{Pluto notebooks}
+
+Pluto is Julia's reactive notebook environment. Unlike Jupyter, Pluto notebooks are:
+\begin{itemize}
+  \item \textbf{Reactive:} changing one cell automatically updates all cells that depend on it.
+  \item \textbf{Reproducible:} cells execute in dependency order, not in the order you click.
+  \item \textbf{Pure Julia files:} saved as \texttt{.jl} files, not JSON. Easy to version-control with Git.
+\end{itemize}
+
+\begin{minted}{julia}
+# Install and launch Pluto
+using Pkg
+Pkg.add("Pluto")
+
+using Pluto
+Pluto.run()   # opens a browser tab at localhost:1234
+\end{minted}
+
+Inside a Pluto notebook, each cell contains one expression or \texttt{begin...end} block:
+
+\begin{minted}{julia}
+# Cell 1
+x = 42
+
+# Cell 2 — automatically re-runs when x changes
+y = x^2 + 1
+
+# Cell 3
+md"The value of y is **$(y)**"
+\end{minted}
+
+\begin{juliatip}
+Pluto enforces one assignment per variable per notebook. This prevents hidden state bugs. If you need multiple statements in one cell, wrap them in a \texttt{begin...end} block.
+\end{juliatip}
+
+% ============================================================
+\section{IJulia and Jupyter}
+
+If you prefer Jupyter notebooks (e.g., for sharing with Python colleagues):
+
+\begin{minted}{julia}
+using Pkg
+Pkg.add("IJulia")
+
+using IJulia
+notebook()   # opens Jupyter in the browser with Julia kernel
+\end{minted}
+
+% ============================================================
+\section{Unicode in Julia}
+
+Julia supports Unicode variable names and operators. Type them using LaTeX-like tab completion:
+
+\begin{minted}{julia}
+# Type \alpha then press Tab to get α
+α = 0.05
+β = 1 - α
+
+# Type \sqrt then Tab to get √
+√2 = √(2)    # equivalent to sqrt(2)
+
+# Greek letters in functions
+function Δ(a, b, c)
+    return b^2 - 4a*c
+end
+
+# Matrix operations with Unicode
+A = [1 2; 3 4]
+x⃗ = [5, 6]           # \vec then Tab after x
+result = A * x⃗
+\end{minted}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Install Julia 1.10 on your machine using \texttt{juliaup}. Verify by running \texttt{julia --version}.
+  \item In the REPL, compute $\sqrt{2^{10} + 3^{10}}$ and $\sum_{k=1}^{100} \frac{1}{k^2}$.
+  \item Install Pluto.jl and create a notebook with three cells: (a) define $n = 20$, (b) compute $n!$ using \texttt{factorial(n)}, (c) display the result in a Markdown cell. Change $n$ and observe reactivity.
+  \item Create a project environment called \texttt{JuliaCourse}, add the packages \texttt{DataFrames}, \texttt{CSV}, and \texttt{Plots}. Check the \texttt{Project.toml} file.
+  \item Write a function \texttt{collatz(n)} that returns the number of steps to reach 1 in the Collatz sequence. Test it on $n = 27$.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Julia solves the two-language problem: high-level syntax with compiled speed.
+  \item The REPL has four modes: Julian, Package (\texttt{]}), Help (\texttt{?}), and Shell (\texttt{;}).
+  \item Use \texttt{Pkg.activate(".")} to create reproducible project environments.
+  \item Pluto.jl provides reactive notebooks saved as plain Julia files.
+  \item IJulia integrates Julia with the Jupyter ecosystem.
+  \item Julia supports Unicode natively --- use Greek letters and math symbols freely.
+\end{itemize}

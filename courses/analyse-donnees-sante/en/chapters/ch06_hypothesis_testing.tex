@@ -1,0 +1,457 @@
+\chapter{Hypothesis testing}
+\label{ch:hypothesis-testing}
+
+\begin{quote}
+\emph{``The purpose of a statistical test is not to prove something is true. It is to measure how surprised we should be if nothing is going on.''}
+\end{quote}
+
+% ============================================================
+\section{The logic of hypothesis testing}
+
+Every clinical question can be framed as a test between two competing statements:
+
+\begin{itemize}
+  \item \textbf{Null hypothesis ($H_0$):} There is \emph{no} effect, no difference, no association. The drug does not work. The two groups have the same blood pressure.
+  \item \textbf{Alternative hypothesis ($H_1$):} There \emph{is} an effect, a difference, or an association. The drug lowers cholesterol. The treatment group has lower blood pressure than the control.
+\end{itemize}
+
+We collect data, compute a test statistic, and ask: \emph{if $H_0$ were true, how likely is it that we would see data this extreme?} That probability is the \textbf{p-value}.
+
+\begin{clinicalnote}
+Clinical framing matters. A statistician writes $H_0: \mu_1 = \mu_2$. A clinician writes ``there is no difference in systolic blood pressure between the statin group and the placebo group.'' Both say the same thing --- use whichever makes the research question clear.
+\end{clinicalnote}
+
+\subsection{The steps of a hypothesis test}
+
+\begin{enumerate}
+  \item \textbf{State the hypotheses} ($H_0$ and $H_1$).
+  \item \textbf{Choose the significance level} $\alpha$ (usually 0.05).
+  \item \textbf{Collect data} and compute the \textbf{test statistic}.
+  \item \textbf{Compute the p-value} --- the probability of observing a result at least as extreme as yours, assuming $H_0$ is true.
+  \item \textbf{Decide:} if $p < \alpha$, reject $H_0$. Otherwise, fail to reject $H_0$.
+\end{enumerate}
+
+\begin{minted}{python}
+import numpy as np
+import pandas as pd
+from scipy import stats
+import matplotlib.pyplot as plt
+import seaborn as sns
+\end{minted}
+
+% ============================================================
+\section{p-values: what they mean and what they don't}
+
+\subsection{What a p-value IS}
+
+A p-value is the probability of observing data as extreme as (or more extreme than) what you collected, \emph{assuming} $H_0$ is true. A $p = 0.03$ means: if the drug truly has no effect, there is a 3\% chance of seeing results this extreme by random chance alone.
+
+\subsection{What a p-value is NOT}
+
+\begin{itemize}
+  \item It is \textbf{not} the probability that $H_0$ is true.
+  \item It is \textbf{not} the probability that the result is due to chance.
+  \item It does \textbf{not} measure the size of the effect.
+  \item $p = 0.049$ is not meaningfully different from $p = 0.051$.
+\end{itemize}
+
+\begin{warningbox}
+A small p-value does not mean a \emph{large} or \emph{clinically important} effect. A study with 100\,000 patients can find $p < 0.001$ for a blood pressure difference of 0.5~mmHg --- statistically significant but clinically meaningless. Always report \textbf{effect size} alongside p-values.
+\end{warningbox}
+
+\subsection{Type I and Type II errors}
+
+\begin{itemize}
+  \item \textbf{Type I error (false positive):} You reject $H_0$ when it is actually true. You conclude the drug works when it does not. Controlled by $\alpha$.
+  \item \textbf{Type II error (false negative):} You fail to reject $H_0$ when $H_1$ is actually true. You miss a real effect. Related to \textbf{power} ($1 - \beta$).
+\end{itemize}
+
+\begin{minted}{python}
+# Visualize the logic: sampling distribution under H0
+np.random.seed(42)
+null_distribution = np.random.normal(loc=0, scale=1, size=10000)
+
+fig, ax = plt.subplots(figsize=(9, 4))
+ax.hist(null_distribution, bins=60, density=True, alpha=0.7, color="steelblue")
+ax.axvline(1.96, color="red", linestyle="--", label="Critical value (alpha=0.05)")
+ax.axvline(-1.96, color="red", linestyle="--")
+ax.fill_betweenx([0, 0.45], 1.96, 3.5, alpha=0.3, color="red", label="Rejection region")
+ax.fill_betweenx([0, 0.45], -3.5, -1.96, alpha=0.3, color="red")
+ax.set_xlabel("Test statistic (z)")
+ax.set_ylabel("Density")
+ax.set_title("Two-tailed test: rejection regions under H0")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+% ============================================================
+\section{One-sample t-test}
+
+\textbf{Question:} Is the mean total cholesterol in our clinic patients different from the national average of 200~mg/dL?
+
+\begin{minted}{python}
+# Simulated clinic cholesterol data (mg/dL)
+np.random.seed(42)
+cholesterol = np.random.normal(loc=212, scale=35, size=80)
+
+# One-sample t-test: is the mean different from 200?
+t_stat, p_value = stats.ttest_1samp(cholesterol, popmean=200)
+print(f"Sample mean: {cholesterol.mean():.1f} mg/dL")
+print(f"t-statistic: {t_stat:.3f}")
+print(f"p-value: {p_value:.4f}")
+
+if p_value < 0.05:
+    print("Reject H0: mean cholesterol differs from 200 mg/dL")
+else:
+    print("Fail to reject H0: no evidence mean differs from 200 mg/dL")
+\end{minted}
+
+\begin{clinicalnote}
+The one-sample t-test compares a sample mean to a known reference value. In clinical practice, the reference might be a national average, a guideline threshold, or a pre-treatment baseline.
+\end{clinicalnote}
+
+% ============================================================
+\section{Two-sample t-test}
+
+\textbf{Question:} Is systolic blood pressure different between the treatment group and the control group?
+
+\begin{minted}{python}
+# Simulated clinical trial data
+np.random.seed(42)
+treatment = np.random.normal(loc=128, scale=15, size=60)
+control = np.random.normal(loc=138, scale=16, size=55)
+
+# Independent two-sample t-test
+t_stat, p_value = stats.ttest_ind(treatment, control)
+print(f"Treatment mean: {treatment.mean():.1f} mmHg")
+print(f"Control mean:   {control.mean():.1f} mmHg")
+print(f"Difference:     {control.mean() - treatment.mean():.1f} mmHg")
+print(f"t-statistic:    {t_stat:.3f}")
+print(f"p-value:        {p_value:.4f}")
+\end{minted}
+
+\subsection{Checking assumptions}
+
+The t-test assumes approximate normality and equal variances. Check both:
+
+\begin{minted}{python}
+# Normality: Shapiro-Wilk test (H0: data is normally distributed)
+_, p_treat = stats.shapiro(treatment)
+_, p_ctrl = stats.shapiro(control)
+print(f"Shapiro-Wilk p (treatment): {p_treat:.4f}")
+print(f"Shapiro-Wilk p (control):   {p_ctrl:.4f}")
+
+# Equal variances: Levene's test
+_, p_levene = stats.levene(treatment, control)
+print(f"Levene's test p: {p_levene:.4f}")
+
+# If variances are unequal, use Welch's t-test:
+t_stat, p_value = stats.ttest_ind(treatment, control, equal_var=False)
+print(f"Welch's t-test p-value: {p_value:.4f}")
+\end{minted}
+
+\begin{pythontip}
+Set \texttt{equal\_var=False} in \texttt{ttest\_ind()} to use Welch's t-test. It does not assume equal variances and is often the safer default.
+\end{pythontip}
+
+% ============================================================
+\section{Paired t-test}
+
+\textbf{Question:} Does a 12-week exercise intervention reduce systolic blood pressure?
+
+Each patient is measured \emph{before} and \emph{after}. The paired t-test uses the within-patient differences.
+
+\begin{minted}{python}
+# Simulated before/after intervention data
+np.random.seed(42)
+n_patients = 45
+bp_before = np.random.normal(loc=142, scale=12, size=n_patients)
+# After intervention: mean reduction of ~8 mmHg with individual variation
+bp_after = bp_before - np.random.normal(loc=8, scale=6, size=n_patients)
+
+# Paired t-test
+t_stat, p_value = stats.ttest_rel(bp_before, bp_after)
+differences = bp_before - bp_after
+print(f"Mean BP before:     {bp_before.mean():.1f} mmHg")
+print(f"Mean BP after:      {bp_after.mean():.1f} mmHg")
+print(f"Mean reduction:     {differences.mean():.1f} mmHg")
+print(f"t-statistic:        {t_stat:.3f}")
+print(f"p-value:            {p_value:.6f}")
+\end{minted}
+
+\begin{minted}{python}
+# Visualize before/after
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+# Paired lines
+for i in range(n_patients):
+    axes[0].plot([0, 1], [bp_before[i], bp_after[i]],
+                 color="gray", alpha=0.4)
+axes[0].plot([0, 1], [bp_before.mean(), bp_after.mean()],
+             color="red", linewidth=3, marker="o", markersize=8)
+axes[0].set_xticks([0, 1])
+axes[0].set_xticklabels(["Before", "After"])
+axes[0].set_ylabel("Systolic BP (mmHg)")
+axes[0].set_title("Individual patient trajectories")
+
+# Distribution of differences
+axes[1].hist(differences, bins=15, edgecolor="black", alpha=0.7, color="steelblue")
+axes[1].axvline(0, color="red", linestyle="--", label="No change")
+axes[1].axvline(differences.mean(), color="green", linestyle="--",
+                label=f"Mean = {differences.mean():.1f}")
+axes[1].set_xlabel("BP reduction (mmHg)")
+axes[1].set_ylabel("Frequency")
+axes[1].set_title("Distribution of BP changes")
+axes[1].legend()
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{warningbox}
+A common mistake is using an \emph{independent} two-sample t-test on before/after data. This ignores the pairing and loses statistical power. If the same patients are measured twice, always use a \textbf{paired} t-test.
+\end{warningbox}
+
+% ============================================================
+\section{Chi-square test of independence}
+
+\textbf{Question:} Is diabetes prevalence associated with obesity category?
+
+The chi-square test works with \emph{categorical} variables. It compares observed counts to what we would expect if the variables were independent.
+
+\begin{minted}{python}
+# Simulated cross-tabulation data
+np.random.seed(42)
+n = 500
+bmi_cat = np.random.choice(["Normal", "Overweight", "Obese"],
+                           size=n, p=[0.3, 0.4, 0.3])
+# Diabetes probability increases with obesity
+diabetes_prob = {"Normal": 0.08, "Overweight": 0.18, "Obese": 0.35}
+diabetes = [np.random.binomial(1, diabetes_prob[b]) for b in bmi_cat]
+
+df_chi = pd.DataFrame({"bmi_category": bmi_cat, "diabetes": diabetes})
+df_chi["diabetes_label"] = df_chi["diabetes"].map({0: "No", 1: "Yes"})
+
+# Contingency table
+contingency = pd.crosstab(df_chi["bmi_category"], df_chi["diabetes_label"])
+print(contingency)
+print()
+
+# Chi-square test
+chi2, p_value, dof, expected = stats.chi2_contingency(contingency)
+print(f"Chi-square statistic: {chi2:.2f}")
+print(f"Degrees of freedom:   {dof}")
+print(f"p-value:              {p_value:.4f}")
+print(f"\nExpected frequencies (if independent):")
+print(pd.DataFrame(expected, index=contingency.index,
+                   columns=contingency.columns).round(1))
+\end{minted}
+
+\begin{clinicalnote}
+The chi-square test requires that expected cell counts are at least 5. If you have small cells (e.g., a rare disease), use Fisher's exact test instead: \texttt{stats.fisher\_exact(table)} for $2 \times 2$ tables.
+\end{clinicalnote}
+
+% ============================================================
+\section{Mann-Whitney U test}
+
+When your data is not normally distributed --- common with hospital length-of-stay, cost data, or small samples --- use the Mann-Whitney U test. It compares the \emph{ranks} of observations rather than the means.
+
+\begin{minted}{python}
+# Hospital length of stay: surgical vs non-surgical (right-skewed data)
+np.random.seed(42)
+los_surgical = np.random.exponential(scale=7, size=40)
+los_medical = np.random.exponential(scale=4.5, size=45)
+
+# Mann-Whitney U test
+u_stat, p_value = stats.mannwhitneyu(los_surgical, los_medical,
+                                      alternative="two-sided")
+print(f"Median LOS (surgical): {np.median(los_surgical):.1f} days")
+print(f"Median LOS (medical):  {np.median(los_medical):.1f} days")
+print(f"U statistic:           {u_stat:.0f}")
+print(f"p-value:               {p_value:.4f}")
+\end{minted}
+
+\begin{minted}{python}
+# Visualize the skewed distributions
+fig, ax = plt.subplots(figsize=(8, 4))
+ax.hist(los_surgical, bins=15, alpha=0.6, label="Surgical", color="coral")
+ax.hist(los_medical, bins=15, alpha=0.6, label="Medical", color="steelblue")
+ax.set_xlabel("Length of stay (days)")
+ax.set_ylabel("Frequency")
+ax.set_title("Hospital length of stay by department")
+ax.legend()
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{pythontip}
+Rule of thumb for choosing a test:
+\begin{itemize}
+  \item Normal data, two groups $\rightarrow$ t-test
+  \item Non-normal data, two groups $\rightarrow$ Mann-Whitney U
+  \item Categorical data $\rightarrow$ chi-square
+  \item Paired measurements $\rightarrow$ paired t-test (or Wilcoxon signed-rank if non-normal)
+\end{itemize}
+\end{pythontip}
+
+% ============================================================
+\section{Multiple testing correction}
+
+\subsection{The problem}
+
+If you test 20 hypotheses at $\alpha = 0.05$, you expect $20 \times 0.05 = 1$ false positive \emph{even if nothing is going on}. In genomics, you might test 20\,000 genes simultaneously. Without correction, you would get 1\,000 spurious ``discoveries.''
+
+\begin{minted}{python}
+# Simulation: 1000 tests where H0 is true for all
+np.random.seed(42)
+n_tests = 1000
+p_values = []
+for _ in range(n_tests):
+    # Two random samples from the SAME distribution (H0 is true)
+    a = np.random.normal(0, 1, 30)
+    b = np.random.normal(0, 1, 30)
+    _, p = stats.ttest_ind(a, b)
+    p_values.append(p)
+
+p_values = np.array(p_values)
+false_positives = (p_values < 0.05).sum()
+print(f"Tests performed: {n_tests}")
+print(f"False positives (p < 0.05): {false_positives}")
+print(f"False positive rate: {false_positives/n_tests:.1%}")
+\end{minted}
+
+\subsection{Bonferroni correction}
+
+The simplest fix: divide $\alpha$ by the number of tests.
+
+\begin{minted}{python}
+from statsmodels.stats.multitest import multipletests
+
+# Bonferroni correction
+rejected_bonf, pvals_corrected_bonf, _, _ = multipletests(
+    p_values, alpha=0.05, method="bonferroni"
+)
+print(f"Bonferroni: {rejected_bonf.sum()} significant results")
+\end{minted}
+
+\subsection{Benjamini-Hochberg (FDR)}
+
+Less conservative: controls the \emph{false discovery rate} (the proportion of rejected hypotheses that are false positives).
+
+\begin{minted}{python}
+# Benjamini-Hochberg FDR correction
+rejected_fdr, pvals_corrected_fdr, _, _ = multipletests(
+    p_values, alpha=0.05, method="fdr_bh"
+)
+print(f"FDR (BH): {rejected_fdr.sum()} significant results")
+\end{minted}
+
+\begin{clinicalnote}
+In genomics and proteomics, FDR correction is standard. When you read a paper reporting ``542 differentially expressed genes at FDR $< 0.05$,'' the authors used Benjamini-Hochberg (or a similar method) to control for the thousands of simultaneous tests.
+\end{clinicalnote}
+
+\begin{warningbox}
+Bonferroni is very conservative --- it minimizes false positives but can miss real effects (high Type~II error). FDR is a good middle ground for exploratory analyses. For confirmatory clinical trials, Bonferroni is often preferred because false positives are more costly.
+\end{warningbox}
+
+% ============================================================
+\section{Effect size: clinical vs statistical significance}
+
+\subsection{Cohen's d}
+
+Cohen's $d$ measures the size of the difference in \emph{standard deviation units}:
+$$d = \frac{\bar{x}_1 - \bar{x}_2}{s_{\text{pooled}}}$$
+
+\begin{itemize}
+  \item $|d| < 0.2$: negligible effect
+  \item $0.2 \leq |d| < 0.5$: small effect
+  \item $0.5 \leq |d| < 0.8$: medium effect
+  \item $|d| \geq 0.8$: large effect
+\end{itemize}
+
+\begin{minted}{python}
+def cohens_d(group1, group2):
+    """Compute Cohen's d for two independent groups."""
+    n1, n2 = len(group1), len(group2)
+    var1, var2 = group1.var(ddof=1), group2.var(ddof=1)
+    pooled_std = np.sqrt(((n1 - 1) * var1 + (n2 - 1) * var2) / (n1 + n2 - 2))
+    return (group1.mean() - group2.mean()) / pooled_std
+
+# Using our treatment vs control BP data
+d = cohens_d(treatment, control)
+print(f"Cohen's d: {d:.2f}")
+print(f"Interpretation: {'large' if abs(d) >= 0.8 else 'medium' if abs(d) >= 0.5 else 'small' if abs(d) >= 0.2 else 'negligible'} effect")
+\end{minted}
+
+\subsection{Why effect size matters}
+
+\begin{minted}{python}
+# Large sample + tiny effect = significant p-value
+np.random.seed(42)
+huge_group1 = np.random.normal(120.0, 15, size=50000)
+huge_group2 = np.random.normal(120.5, 15, size=50000)  # only 0.5 mmHg difference
+
+t, p = stats.ttest_ind(huge_group1, huge_group2)
+d = cohens_d(huge_group1, huge_group2)
+print(f"Mean difference: {huge_group2.mean() - huge_group1.mean():.2f} mmHg")
+print(f"p-value: {p:.6f}")
+print(f"Cohen's d: {d:.3f}")
+print("Statistically significant? Yes. Clinically meaningful? No.")
+\end{minted}
+
+\begin{clinicalnote}
+In a clinical trial report, the FDA and EMA expect both p-values \emph{and} confidence intervals for the treatment effect. A drug that lowers HbA1c by 0.01\% with $p < 0.001$ will not get approved. The effect must be \textbf{clinically meaningful}.
+\end{clinicalnote}
+
+% ============================================================
+\section{Practical: hypothesis testing with Framingham-style data}
+
+\begin{minted}{python}
+# Load a Framingham-style cardiovascular dataset
+url = ("https://raw.githubusercontent.com/dsrscientist/"
+       "dataset-for-machine-learning/master/framingham.csv")
+fram = pd.read_csv(url)
+print(f"Shape: {fram.shape}")
+print(f"Columns: {fram.columns.tolist()}")
+fram.head()
+\end{minted}
+
+\begin{minted}{python}
+# Quick exploration
+fram.describe()
+\end{minted}
+
+\begin{minted}{python}
+# Drop rows with missing values for simplicity
+fram_clean = fram.dropna()
+print(f"Clean dataset: {fram_clean.shape[0]} patients")
+\end{minted}
+
+\begin{exercise}
+Using the Framingham dataset:
+\begin{enumerate}
+  \item \textbf{One-sample t-test.} Is the mean total cholesterol in this cohort different from the US national average of 200~mg/dL?
+  \item \textbf{Two-sample t-test.} Compare systolic blood pressure between patients who developed CHD (\texttt{TenYearCHD = 1}) and those who did not. Report the p-value, mean difference, and Cohen's $d$.
+  \item \textbf{Chi-square test.} Create a $2 \times 2$ contingency table of \texttt{currentSmoker} vs \texttt{TenYearCHD}. Is smoking associated with 10-year CHD risk?
+  \item \textbf{Mann-Whitney U.} Compare \texttt{cigsPerDay} between CHD and non-CHD groups. Why is Mann-Whitney more appropriate than a t-test here?
+  \item \textbf{Multiple testing.} Run t-tests comparing CHD vs non-CHD for all continuous variables (age, totChol, sysBP, diaBP, BMI, heartRate, glucose). Apply Bonferroni and FDR correction. Which variables remain significant after each correction?
+  \item \textbf{Clinical interpretation.} For the variable with the largest effect size (Cohen's $d$), discuss whether the difference is clinically meaningful.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item A hypothesis test measures how surprising the data would be if $H_0$ were true.
+  \item The p-value is \emph{not} the probability that $H_0$ is true.
+  \item One-sample t-test: compare a sample mean to a reference value.
+  \item Two-sample t-test: compare means between two independent groups.
+  \item Paired t-test: compare means from the same subjects measured twice.
+  \item Chi-square test: test association between two categorical variables.
+  \item Mann-Whitney U: non-parametric alternative when data is not normal.
+  \item Multiple testing correction (Bonferroni, FDR) prevents false discoveries.
+  \item Effect size (Cohen's $d$) distinguishes statistical from clinical significance.
+  \item Always report both p-values and effect sizes in clinical research.
+\end{itemize}

@@ -1,0 +1,324 @@
+\chapter{Functions and multiple dispatch}
+\label{ch:functions-dispatch}
+
+\begin{quote}
+\emph{``Multiple dispatch is to Julia what objects are to Java: the organizing principle around which everything else revolves.''}
+\end{quote}
+
+% ============================================================
+\section{Defining functions}
+
+Julia offers three syntactic forms for functions:
+
+\begin{minted}{julia}
+# Standard form
+function greet(name)
+    return "Hello, $name!"
+end
+
+# Short form (for one-liners)
+square(x) = x^2
+
+# Anonymous (lambda) function
+double = x -> 2x
+\end{minted}
+
+Functions are first-class objects:
+\begin{minted}{julia}
+# Pass functions as arguments
+map(square, [1, 2, 3, 4])    # [1, 4, 9, 16]
+filter(isodd, 1:10)          # [1, 3, 5, 7, 9]
+
+# Apply with do-block syntax
+map(1:5) do x
+    x^2 + 1
+end
+# [2, 5, 10, 17, 26]
+\end{minted}
+
+% ============================================================
+\section{Arguments and return values}
+
+\begin{minted}{julia}
+# Positional arguments
+function power(base, exponent)
+    return base^exponent
+end
+power(2, 10)    # 1024
+
+# Default values
+function power(base, exponent=2)
+    return base^exponent
+end
+power(5)        # 25
+power(5, 3)     # 125
+
+# Keyword arguments (after semicolon)
+function create_grid(; rows=10, cols=10, fill_value=0.0)
+    return fill(fill_value, rows, cols)
+end
+create_grid(rows=3, cols=4, fill_value=1.0)
+
+# Varargs (variable number of arguments)
+function mysum(args...)
+    total = 0
+    for a in args
+        total += a
+    end
+    return total
+end
+mysum(1, 2, 3, 4, 5)    # 15
+
+# Multiple return values (as tuple)
+function minmax(v)
+    return minimum(v), maximum(v)
+end
+lo, hi = minmax([3, 1, 4, 1, 5, 9])
+\end{minted}
+
+\begin{juliatip}
+Julia convention: functions that modify their arguments end with \texttt{!}. For example, \texttt{sort(v)} returns a sorted copy, while \texttt{sort!(v)} sorts in place. Always name your mutating functions with \texttt{!}.
+\end{juliatip}
+
+% ============================================================
+\section{Type annotations}
+
+Type annotations constrain what a function accepts:
+
+\begin{minted}{julia}
+# Annotate argument types
+function add(x::Number, y::Number)
+    return x + y
+end
+
+add(3, 4.5)        # 7.5 — works (Int64 <: Number, Float64 <: Number)
+add("a", "b")      # MethodError — String is not a Number
+
+# Annotate return type (mainly for documentation)
+function safe_sqrt(x::Real)::Float64
+    x < 0 && error("Cannot take sqrt of negative number")
+    return sqrt(x)
+end
+
+# Parametric type annotations
+function first_element(v::Vector{T}) where T
+    return v[1]::T
+end
+\end{minted}
+
+\begin{warningbox}
+Do not over-annotate types. Writing \texttt{f(x::Float64)} prevents the function from working with \texttt{Int64}, \texttt{Float32}, or \texttt{BigFloat}. Prefer abstract types like \texttt{Real}, \texttt{Number}, or \texttt{AbstractVector} unless you need to restrict dispatch.
+\end{warningbox}
+
+% ============================================================
+\section{Multiple dispatch}
+
+Multiple dispatch is Julia's defining feature. A single function can have many \emph{methods}, and Julia selects the most specific one based on the types of \emph{all} arguments:
+
+\begin{minted}{julia}
+# Define an abstract type and concrete subtypes
+abstract type Shape end
+
+struct Circle <: Shape
+    radius::Float64
+end
+
+struct Rectangle <: Shape
+    width::Float64
+    height::Float64
+end
+
+struct Triangle <: Shape
+    base::Float64
+    height::Float64
+end
+
+# Define area() with multiple methods
+area(c::Circle) = π * c.radius^2
+area(r::Rectangle) = r.width * r.height
+area(t::Triangle) = 0.5 * t.base * t.height
+
+# Julia dispatches based on the argument type
+area(Circle(5.0))           # 78.539...
+area(Rectangle(3.0, 4.0))  # 12.0
+area(Triangle(6.0, 3.0))   # 9.0
+
+# Check all methods of a function
+methods(area)   # 3 methods
+\end{minted}
+
+Dispatch on multiple arguments:
+\begin{minted}{julia}
+# Collision detection between shapes
+collides(a::Circle, b::Circle) =
+    sqrt((a.x - b.x)^2 + (a.y - b.y)^2) < a.radius + b.radius
+
+collides(a::Circle, b::Rectangle) = # ... different algorithm
+collides(a::Rectangle, b::Rectangle) = # ... yet another algorithm
+
+# This is why it's called MULTIPLE dispatch:
+# the method is chosen based on BOTH argument types
+\end{minted}
+
+\begin{juliatip}
+Compare with single dispatch (Python, Java): in \texttt{a.collides(b)}, only the type of \texttt{a} determines which method runs. In Julia, \texttt{collides(a, b)} considers the types of both \texttt{a} and \texttt{b}. This is far more expressive for mathematical and scientific code.
+\end{juliatip}
+
+% ============================================================
+\section{Closures}
+
+A closure captures variables from its enclosing scope:
+
+\begin{minted}{julia}
+function make_counter(start=0)
+    count = start
+    increment() = (count += 1; count)
+    reset() = (count = start; count)
+    return (increment=increment, reset=reset)
+end
+
+c = make_counter(10)
+c.increment()    # 11
+c.increment()    # 12
+c.increment()    # 13
+c.reset()        # 10
+
+# Closures are common with map/filter
+threshold = 0.5
+data = rand(10)
+filtered = filter(x -> x > threshold, data)
+
+# Adder factory
+make_adder(n) = x -> x + n
+add5 = make_adder(5)
+add5(10)         # 15
+\end{minted}
+
+% ============================================================
+\section{Function composition and piping}
+
+\begin{minted}{julia}
+# Composition operator ∘ (\circ + Tab)
+f = sqrt ∘ abs
+f(-16)            # 4.0
+
+# Pipe operator |>
+-16 |> abs |> sqrt    # 4.0
+
+# Chain operations on data
+result = [3, 1, 4, 1, 5, 9, 2, 6] |>
+    sort |>
+    unique |>
+    reverse
+# [9, 6, 5, 4, 3, 2, 1]
+
+# With anonymous functions in the pipe
+[1, 2, 3, 4, 5] |>
+    xs -> filter(isodd, xs) |>
+    xs -> map(x -> x^2, xs) |>
+    sum
+# 35 (= 1 + 9 + 25)
+\end{minted}
+
+% ============================================================
+\section{Metaprogramming basics}
+
+Julia code is represented as data structures called \emph{expressions}:
+
+\begin{minted}{julia}
+# An expression is a Julia data structure
+ex = :(2 + 3 * x)
+typeof(ex)         # Expr
+dump(ex)           # shows the AST
+
+# Evaluate an expression
+x = 10
+eval(ex)           # 32
+
+# Macros transform code at parse time
+macro sayhello(name)
+    return :(println("Hello, ", $name, "!"))
+end
+
+@sayhello "Julia"  # prints: Hello, Julia!
+
+# Useful built-in macros
+@show 2 + 3        # prints: 2 + 3 = 5, returns 5
+@time sum(rand(10^7))  # prints elapsed time and allocations
+@assert 1 + 1 == 2 "Math is broken!"
+\end{minted}
+
+\begin{minted}{julia}
+# String macros
+r"pattern"    # Regex
+v"1.10"       # VersionNumber
+raw"no \n escaping"  # raw string
+
+# A practical macro: @elapsed
+t = @elapsed begin
+    A = rand(1000, 1000)
+    B = A * A'
+end
+println("Matrix multiply took $t seconds")
+\end{minted}
+
+\begin{warningbox}
+Metaprogramming is powerful but can make code hard to read. Use macros sparingly and only when normal functions cannot achieve the same result. Most Julia code should be plain functions with multiple dispatch.
+\end{warningbox}
+
+% ============================================================
+\section{Scope rules}
+
+\begin{minted}{julia}
+# Global scope
+x = 10
+
+# Local scope (functions, for loops, let blocks)
+function demo()
+    y = 20        # local to demo
+    println(x)    # can read global x
+    # x += 1      # ERROR in Julia 1.10 — use 'global x' first
+    return y
+end
+
+# let blocks create a fresh scope
+let
+    temp = 42
+    println(temp)
+end
+# temp is not defined here
+
+# for loops have local scope
+for i in 1:3
+    local_var = i^2
+end
+# local_var is not defined here
+
+# But in the REPL (soft scope), for loops CAN access globals:
+# julia> total = 0
+# julia> for i in 1:10; total += i; end  # works in REPL
+\end{minted}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Define a struct \texttt{Point2D} with fields \texttt{x::Float64} and \texttt{y::Float64}. Write a multi-dispatch \texttt{distance} function that computes: (a) distance from origin for one point, (b) distance between two points.
+  \item Implement a simple linked list using parametric types: \texttt{struct Cons\{T\}} with \texttt{head::T} and \texttt{tail}. Write \texttt{mymap(f, list)} using recursion.
+  \item Write a function \texttt{make\_polynomial(coeffs)} that returns a closure evaluating the polynomial. For example, \texttt{make\_polynomial([1, 2, 3])} returns $f(x) = 1 + 2x + 3x^2$.
+  \item Use the pipe operator to take the vector \texttt{1:100}, filter multiples of 3, square them, and compute their sum.
+  \item Write a macro \texttt{@repeat n expr} that expands to a loop executing \texttt{expr} exactly \texttt{n} times.
+  \item Define an abstract type \texttt{Animal} with subtypes \texttt{Dog} and \texttt{Cat}. Write a multi-dispatch \texttt{interact(a, b)} function with four methods (Dog-Dog, Dog-Cat, Cat-Dog, Cat-Cat) that each return a different string.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Julia has three function forms: standard, short, and anonymous.
+  \item Functions support default values, keyword arguments, and varargs.
+  \item Multiple dispatch selects the most specific method based on all argument types.
+  \item Closures capture variables from enclosing scopes.
+  \item The pipe operator \texttt{|>} and composition \texttt{$\circ$} enable functional-style code.
+  \item Metaprogramming (expressions, macros) transforms code at parse time.
+  \item Convention: mutating functions end with \texttt{!}.
+\end{itemize}

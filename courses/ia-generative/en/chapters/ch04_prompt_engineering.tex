@@ -1,0 +1,275 @@
+\chapter{Prompt engineering}
+\label{ch:prompt-engineering}
+
+\begin{quote}
+\emph{``Prompt engineering is the art of communicating with a language model. The model's capabilities are fixed; your prompt determines how much of that capability you unlock.''}
+\end{quote}
+
+% ============================================================
+\section{Why prompts matter}
+
+A large language model is a general-purpose text predictor. The prompt frames the task, provides context, and constrains the output format. The same model can be a translator, a code generator, or a medical assistant --- depending entirely on the prompt.
+
+% ============================================================
+\section{Setup: free API access}
+
+We use the Groq free API (fast inference on Llama 3 and Mixtral) and Google Gemini free tier:
+
+\begin{minted}{python}
+# Install clients
+# !pip install groq google-generativeai
+
+import os
+# Set your API keys (get free keys from console.groq.com and aistudio.google.com)
+os.environ["GROQ_API_KEY"] = "your-groq-key"
+os.environ["GOOGLE_API_KEY"] = "your-google-key"
+\end{minted}
+
+\begin{minted}{python}
+from groq import Groq
+
+client = Groq()
+
+def ask_groq(prompt, model="llama-3.1-8b-instant", temperature=0.7):
+    """Send a prompt to Groq and return the response."""
+    response = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=temperature,
+        max_tokens=1024,
+    )
+    return response.choices[0].message.content
+
+print(ask_groq("What is the capital of Benin?"))
+\end{minted}
+
+\begin{minted}{python}
+import google.generativeai as genai
+
+genai.configure()
+gemini = genai.GenerativeModel("gemini-2.0-flash")
+
+def ask_gemini(prompt, temperature=0.7):
+    """Send a prompt to Gemini and return the response."""
+    response = gemini.generate_content(
+        prompt,
+        generation_config=genai.GenerationConfig(temperature=temperature),
+    )
+    return response.text
+
+print(ask_gemini("What is the capital of Benin?"))
+\end{minted}
+
+% ============================================================
+\section{Zero-shot prompting}
+
+Give the model a task with no examples:
+
+\begin{minted}{python}
+prompt = """Classify the following movie review as POSITIVE or NEGATIVE.
+
+Review: "The cinematography was breathtaking, but the plot was
+completely incoherent and the acting felt wooden."
+
+Classification:"""
+
+print(ask_groq(prompt, temperature=0))
+\end{minted}
+
+% ============================================================
+\section{Few-shot prompting}
+
+Provide examples to guide the model's behavior:
+
+\begin{minted}{python}
+prompt = """Translate English to French.
+
+English: The weather is beautiful today.
+French: Le temps est magnifique aujourd'hui.
+
+English: I would like a cup of coffee, please.
+French: Je voudrais une tasse de cafe, s'il vous plait.
+
+English: Where is the nearest hospital?
+French:"""
+
+print(ask_groq(prompt, temperature=0.2))
+\end{minted}
+
+\begin{aitip}
+Few-shot examples should be diverse, high-quality, and representative of the expected input. 3--5 examples is usually sufficient. More examples can improve accuracy on structured tasks.
+\end{aitip}
+
+% ============================================================
+\section{Chain-of-thought (CoT) prompting}
+
+Ask the model to reason step by step before giving a final answer:
+
+\begin{minted}{python}
+# Without CoT
+prompt_direct = "If a train travels 120 km in 1.5 hours, and then 80 km in 1 hour, what is the average speed for the entire trip?"
+
+# With CoT
+prompt_cot = """If a train travels 120 km in 1.5 hours, and then 80 km in 1 hour, what is the average speed for the entire trip?
+
+Let's think step by step:"""
+
+print("=== Direct ===")
+print(ask_groq(prompt_direct, temperature=0))
+print("\n=== Chain-of-Thought ===")
+print(ask_groq(prompt_cot, temperature=0))
+\end{minted}
+
+Chain-of-thought improves accuracy on math, logic, and multi-step reasoning tasks dramatically.
+
+% ============================================================
+\section{Role prompting}
+
+Assign a role to the model using the system message:
+
+\begin{minted}{python}
+from groq import Groq
+client = Groq()
+
+response = client.chat.completions.create(
+    model="llama-3.1-8b-instant",
+    messages=[
+        {"role": "system", "content": (
+            "You are an expert data scientist. You explain concepts "
+            "clearly using analogies. You always provide Python code "
+            "examples. You never use jargon without defining it first."
+        )},
+        {"role": "user", "content": "Explain overfitting to a beginner."},
+    ],
+    temperature=0.7,
+)
+print(response.choices[0].message.content)
+\end{minted}
+
+% ============================================================
+\section{Structured output}
+
+Force the model to produce JSON, CSV, or other structured formats:
+
+\begin{minted}{python}
+prompt = """Extract the following information from the text and return
+it as a JSON object with keys: name, age, condition, medication.
+
+Text: "Mrs. Fatou Diallo, 67 years old, was diagnosed with
+Type 2 diabetes last year. She takes Metformin 500mg twice daily."
+
+JSON:"""
+
+import json
+result = ask_groq(prompt, temperature=0)
+print(result)
+data = json.loads(result)
+print(f"Patient: {data['name']}, Age: {data['age']}")
+\end{minted}
+
+\begin{minted}{python}
+# Using Gemini with structured output config
+import google.generativeai as genai
+import typing_extensions as typing
+
+class PatientInfo(typing.TypedDict):
+    name: str
+    age: int
+    condition: str
+    medication: str
+
+model = genai.GenerativeModel("gemini-2.0-flash")
+result = model.generate_content(
+    "Extract patient info: Mrs. Fatou Diallo, 67, Type 2 diabetes, Metformin 500mg",
+    generation_config=genai.GenerationConfig(
+        response_mime_type="application/json",
+        response_schema=PatientInfo,
+    ),
+)
+print(result.text)
+\end{minted}
+
+% ============================================================
+\section{Prompt templates}
+
+Build reusable prompts with variables:
+
+\begin{minted}{python}
+from string import Template
+
+summarizer = Template("""Summarize the following $doc_type in $num_sentences sentences.
+Focus on: $focus_area
+
+Text:
+$text
+
+Summary:""")
+
+prompt = summarizer.substitute(
+    doc_type="research paper abstract",
+    num_sentences="3",
+    focus_area="methodology and key findings",
+    text="We propose LoRA, a method for adapting large language models..."
+)
+print(ask_groq(prompt))
+\end{minted}
+
+\begin{minted}{python}
+# With LangChain prompt templates
+from langchain_core.prompts import ChatPromptTemplate
+
+template = ChatPromptTemplate.from_messages([
+    ("system", "You are a {role}. Respond in {language}."),
+    ("human", "{question}"),
+])
+
+prompt = template.invoke({
+    "role": "medical doctor",
+    "language": "French",
+    "question": "What are the symptoms of malaria?",
+})
+print(prompt.to_string())
+\end{minted}
+
+% ============================================================
+\section{Common prompt patterns}
+
+\begin{longtable}{p{3.5cm}p{9cm}}
+\toprule
+\textbf{Pattern} & \textbf{Example} \\
+\midrule
+Persona & ``You are a senior Python developer...'' \\
+Task framing & ``Your task is to classify emails as spam or not-spam.'' \\
+Output format & ``Return your answer as a JSON array.'' \\
+Constraints & ``Use only information from the provided text.'' \\
+Step-by-step & ``Think step by step before answering.'' \\
+Self-consistency & Run 3 CoT paths, take the majority answer. \\
+\bottomrule
+\end{longtable}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Write a zero-shot prompt that classifies customer support tickets into categories: billing, technical, account, general. Test on 5 example tickets.
+  \item Create a few-shot prompt (3 examples) for named entity recognition. The model should extract person names, organizations, and locations from a text.
+  \item Use chain-of-thought prompting to solve: ``A store sells apples at \$1.50 each. A customer buys 3 apples and pays with a \$10 bill. They also have a 20\% discount coupon. How much change do they receive?''
+  \item Build a reusable prompt template for code review. The template should accept: language, code snippet, and review focus (security, performance, readability).
+  \item Compare the same prompt on Groq (Llama 3) and Gemini. Note differences in format, verbosity, and accuracy.
+\end{enumerate}
+\end{exercise}
+
+\begin{ethicsbox}
+Prompt engineering can be used to bypass safety guardrails (``jailbreaking''). As AI practitioners, we have a responsibility not to develop or share jailbreak prompts. When testing model safety, use controlled environments and report vulnerabilities to model providers through responsible disclosure.
+\end{ethicsbox}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item The prompt is the interface between human intent and model behavior.
+  \item Zero-shot works for simple tasks; few-shot adds examples for harder tasks.
+  \item Chain-of-thought prompting dramatically improves reasoning by asking the model to show its work.
+  \item Role prompting via system messages controls tone, expertise, and format.
+  \item Structured output (JSON, schemas) makes LLM responses machine-readable.
+  \item Prompt templates make prompts reusable and parameterizable.
+  \item Free APIs (Groq, Gemini) provide access to state-of-the-art models at no cost.
+\end{itemize}

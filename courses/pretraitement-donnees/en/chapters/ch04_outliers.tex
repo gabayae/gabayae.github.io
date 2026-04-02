@@ -1,0 +1,265 @@
+\chapter{Outlier detection and treatment}
+\label{ch:outliers}
+
+\begin{quote}
+\emph{``An outlier is not noise until you have proven it is noise.''}
+\end{quote}
+
+% ============================================================
+\section{What is an outlier?}
+
+An outlier is an observation that deviates substantially from the pattern established by the majority of the data. Outliers can be:
+
+\begin{itemize}
+  \item \textbf{Data entry errors}: a patient weight of 800\,kg (meant 80).
+  \item \textbf{Measurement artifacts}: a sensor returning $-999$ during calibration.
+  \item \textbf{Genuine extreme values}: a house selling for \$10 million in a suburb where the median is \$500k.
+\end{itemize}
+
+\begin{warningbox}
+Never remove outliers automatically. Each outlier must be investigated. Removing genuine extreme values because they ``look wrong'' corrupts your analysis. Removing data errors because they ``look unusual'' is correct and necessary.
+\end{warningbox}
+
+% ============================================================
+\section{Visual detection}
+
+\begin{minted}{python}
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# FIFA 21 dataset has many messy, extreme values
+df = pd.read_csv("fifa21_raw.csv")
+
+# Box plots reveal outliers immediately
+fig, axes = plt.subplots(1, 3, figsize=(14, 5))
+
+sns.boxplot(y=df["Age"], ax=axes[0])
+axes[0].set_title("Age distribution")
+
+sns.boxplot(y=df["Overall"], ax=axes[1])
+axes[1].set_title("Overall rating")
+
+sns.boxplot(y=df["Value(in Euro)"], ax=axes[2])
+axes[2].set_title("Market value (Euro)")
+
+plt.tight_layout()
+plt.savefig("outlier_boxplots.png", dpi=150)
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Scatter plot: outliers in 2D space
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.scatter(df["Age"], df["Overall"], alpha=0.3, s=10)
+ax.set_xlabel("Age")
+ax.set_ylabel("Overall Rating")
+ax.set_title("Age vs Overall — look for isolated points")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+% ============================================================
+\section{Statistical methods}
+
+\subsection{Z-score method}
+
+\begin{minted}{python}
+import numpy as np
+from scipy import stats
+
+# Z-score: number of standard deviations from the mean
+z_scores = np.abs(stats.zscore(df["Overall"].dropna()))
+threshold = 3
+outliers_z = (z_scores > threshold)
+print(f"Outliers by z-score (|z| > {threshold}): {outliers_z.sum()}")
+\end{minted}
+
+\begin{minted}{python}
+# Apply z-score to multiple columns
+def detect_zscore_outliers(df, columns, threshold=3):
+    """Return a boolean mask of rows with any z-score outlier."""
+    mask = pd.Series(False, index=df.index)
+    for col in columns:
+        z = np.abs(stats.zscore(df[col].dropna()))
+        col_mask = pd.Series(False, index=df.index)
+        col_mask.iloc[:len(z)] = z > threshold
+        mask = mask | col_mask
+    return mask
+
+num_cols = ["Age", "Overall", "Potential"]
+outlier_mask = detect_zscore_outliers(df, num_cols)
+print(f"Rows with at least one outlier: {outlier_mask.sum()}")
+\end{minted}
+
+\begin{datatip}
+The z-score method assumes a roughly normal distribution. For skewed data (income, house prices, player market values), use the IQR method or log-transform first.
+\end{datatip}
+
+\subsection{IQR method}
+
+\begin{minted}{python}
+def iqr_bounds(series):
+    """Return lower and upper IQR bounds."""
+    Q1 = series.quantile(0.25)
+    Q3 = series.quantile(0.75)
+    IQR = Q3 - Q1
+    lower = Q1 - 1.5 * IQR
+    upper = Q3 + 1.5 * IQR
+    return lower, upper
+
+lower, upper = iqr_bounds(df["Overall"])
+outliers_iqr = df[(df["Overall"] < lower) | (df["Overall"] > upper)]
+print(f"IQR bounds: [{lower:.1f}, {upper:.1f}]")
+print(f"Outliers: {len(outliers_iqr)}")
+\end{minted}
+
+\begin{minted}{python}
+# IQR report for all numerical columns
+def iqr_outlier_report(df, columns):
+    """Generate an IQR outlier report."""
+    rows = []
+    for col in columns:
+        lo, hi = iqr_bounds(df[col].dropna())
+        n_out = ((df[col] < lo) | (df[col] > hi)).sum()
+        rows.append({"column": col, "lower": lo, "upper": hi,
+                      "n_outliers": n_out,
+                      "pct": round(n_out / len(df) * 100, 1)})
+    return pd.DataFrame(rows)
+
+report = iqr_outlier_report(df, ["Age", "Overall", "Potential"])
+print(report)
+\end{minted}
+
+% ============================================================
+\section{Multivariate outlier detection}
+
+\subsection{Mahalanobis distance}
+
+\begin{minted}{python}
+from scipy.spatial.distance import mahalanobis
+from numpy.linalg import inv
+
+def mahalanobis_outliers(df, columns, threshold=3):
+    """Detect multivariate outliers using Mahalanobis distance."""
+    data = df[columns].dropna()
+    mean = data.mean().values
+    cov_matrix = data.cov().values
+    cov_inv = inv(cov_matrix)
+
+    distances = data.apply(
+        lambda row: mahalanobis(row.values, mean, cov_inv), axis=1
+    )
+    return distances, distances > threshold
+
+cols = ["Age", "Overall", "Potential"]
+distances, mask = mahalanobis_outliers(df, cols)
+print(f"Multivariate outliers: {mask.sum()}")
+\end{minted}
+
+\begin{preprocesstip}
+Mahalanobis distance detects points that are not outliers in any single dimension but are unusual in the \emph{combination} of dimensions. A 40-year-old player is normal. A 95-rated player is normal. A 40-year-old with a 95 rating might be an outlier in the joint space.
+\end{preprocesstip}
+
+\subsection{Isolation Forest}
+
+\begin{minted}{python}
+from sklearn.ensemble import IsolationForest
+
+# Isolation Forest: tree-based anomaly detection
+iso = IsolationForest(contamination=0.05, random_state=42)
+num_data = df[["Age", "Overall", "Potential"]].dropna()
+labels = iso.fit_predict(num_data)
+
+# -1 = outlier, 1 = inlier
+n_outliers = (labels == -1).sum()
+print(f"Isolation Forest outliers: {n_outliers} "
+      f"({n_outliers / len(num_data) * 100:.1f}%)")
+\end{minted}
+
+% ============================================================
+\section{Domain-specific rules}
+
+\begin{minted}{python}
+# Air Quality dataset: domain knowledge matters
+df_air = pd.read_csv("AirQualityUCI.csv", sep=";", decimal=",")
+
+# The dataset uses -200 as a sentinel for missing sensor data
+print(f"Values == -200: {(df_air == -200).sum().sum()}")
+
+# Replace sentinel with NaN
+df_air = df_air.replace(-200, np.nan)
+
+# Domain rule: CO concentration > 20 mg/m3 is physically implausible
+# at urban monitoring stations
+co_col = "CO(GT)"
+implausible = df_air[co_col] > 20
+print(f"Implausible CO readings: {implausible.sum()}")
+df_air.loc[implausible, co_col] = np.nan
+\end{minted}
+
+\begin{datatip}
+Domain rules are the most reliable outlier detection method. A z-score does not know that a human cannot weigh 800\,kg. Always consult domain experts or reference ranges when available.
+\end{datatip}
+
+% ============================================================
+\section{Treatment strategies}
+
+\begin{minted}{python}
+# Strategy 1: Remove outlier rows
+df_clean = df[~outlier_mask].copy()
+
+# Strategy 2: Cap (winsorize) at bounds
+from scipy.stats import mstats
+df["Overall_winsorized"] = mstats.winsorize(df["Overall"], limits=[0.01, 0.01])
+
+# Strategy 3: Replace with NaN and impute later
+df.loc[outlier_mask, "Overall"] = np.nan
+
+# Strategy 4: Log transform to reduce skew
+df["Value_log"] = np.log1p(df["Value(in Euro)"].clip(lower=0))
+
+# Strategy 5: Robust scaling (less sensitive to outliers)
+from sklearn.preprocessing import RobustScaler
+scaler = RobustScaler()  # uses median and IQR instead of mean and std
+df[["Overall_robust"]] = scaler.fit_transform(df[["Overall"]])
+\end{minted}
+
+\begin{minted}{python}
+# Compare distributions before and after winsorization
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+df["Overall"].hist(bins=50, ax=axes[0], alpha=0.7)
+axes[0].set_title("Original")
+
+df["Overall_winsorized"].hist(bins=50, ax=axes[1], alpha=0.7, color="green")
+axes[1].set_title("Winsorized (1% each tail)")
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+% ============================================================
+\section{Exercises}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Load the FIFA 21 dataset. Create box plots for five numerical columns. Identify which columns have the most outliers using the IQR method.
+  \item For the Air Quality UCI dataset, replace all $-200$ sentinel values with NaN. Then apply domain-specific rules to flag implausible values for at least two pollutant columns.
+  \item Compare z-score and IQR outlier counts for a skewed column (e.g., player market value). Which method is more appropriate and why?
+  \item Use Isolation Forest on the Melbourne Housing dataset (Price, Rooms, Distance, Landsize). Visualize the detected outliers on a scatter plot of Price vs.\ Landsize.
+  \item Implement a function \texttt{treat\_outliers(series, method)} that supports three methods: ``remove'', ``cap'', and ``log''. Test it on a column with known outliers.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Outliers can be errors, artifacts, or genuine extremes --- investigation is mandatory.
+  \item Visual methods (box plots, scatter plots) provide immediate intuition about outlier presence.
+  \item Z-score works for normally distributed data; IQR is robust to skewed distributions.
+  \item Mahalanobis distance and Isolation Forest detect multivariate outliers invisible to univariate methods.
+  \item Domain-specific rules (physical limits, sentinel values) are the most reliable detection method.
+  \item Treatment options include removal, capping (winsorization), log transformation, and robust scaling.
+\end{itemize}

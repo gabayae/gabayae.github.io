@@ -1,0 +1,286 @@
+\chapter{Time series and temporal data}
+\label{ch:temporal-data}
+
+\begin{quote}
+\emph{``Time is the most important feature in a time series --- and the most often mishandled.''}
+\end{quote}
+
+% ============================================================
+\section{Datetime parsing}
+
+The first step with temporal data is converting strings to proper datetime objects. Pandas provides robust parsing, but real-world date formats are surprisingly inconsistent.
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+
+# Jena Climate dataset: 10-minute weather measurements
+# Download from: https://www.kaggle.com/datasets/mnassrib/jena-climate
+df = pd.read_csv("jena_climate_2009_2016.csv")
+print(df.head())
+print(f"\nDate column dtype: {df['Date Time'].dtype}")
+\end{minted}
+
+\begin{minted}{python}
+# Parse datetime
+df["datetime"] = pd.to_datetime(df["Date Time"], format="%d.%m.%Y %H:%M:%S")
+df = df.set_index("datetime").drop(columns=["Date Time"])
+
+print(f"Date range: {df.index.min()} to {df.index.max()}")
+print(f"Frequency: ~{(df.index[1] - df.index[0])}")
+print(f"Total records: {len(df):,}")
+\end{minted}
+
+\begin{warningbox}
+Date parsing ambiguity: is ``01/02/2024'' January 2 (US) or February 1 (Europe)? Always specify the format explicitly with the \texttt{format} parameter. Never rely on automatic inference for production code.
+\end{warningbox}
+
+\subsection{Handling multiple date formats}
+
+\begin{minted}{python}
+# When a column has mixed date formats
+messy_dates = pd.Series(["2024-01-15", "15/01/2024", "Jan 15, 2024",
+                         "15-Jan-2024", "20240115"])
+
+# pd.to_datetime with infer_datetime_format handles many cases
+parsed = pd.to_datetime(messy_dates, format="mixed", dayfirst=True)
+print(parsed)
+
+# For truly messy data, use a custom parser
+def parse_flexible(date_str):
+    """Try multiple date formats."""
+    formats = ["%Y-%m-%d", "%d/%m/%Y", "%b %d, %Y",
+               "%d-%b-%Y", "%Y%m%d"]
+    for fmt in formats:
+        try:
+            return pd.to_datetime(date_str, format=fmt)
+        except (ValueError, TypeError):
+            continue
+    return pd.NaT
+\end{minted}
+
+% ============================================================
+\section{Resampling}
+
+\begin{minted}{python}
+# Downsample: 10-minute data to hourly
+hourly = df.resample("h").mean()
+print(f"10-min records: {len(df):,}")
+print(f"Hourly records: {len(hourly):,}")
+
+# Downsample to daily
+daily = df.resample("D").agg({
+    "T (degC)": ["mean", "min", "max"],
+    "p (mbar)": "mean",
+    "rh (%)": "mean",
+})
+daily.columns = ["temp_mean", "temp_min", "temp_max",
+                 "pressure_mean", "humidity_mean"]
+print(daily.head())
+\end{minted}
+
+\begin{minted}{python}
+# Upsample: daily to hourly (with interpolation)
+daily_sample = daily.head(30)
+hourly_upsampled = daily_sample.resample("h").interpolate(method="linear")
+print(f"Daily records: {len(daily_sample)}")
+print(f"Hourly (upsampled): {len(hourly_upsampled)}")
+\end{minted}
+
+\begin{preprocesstip}
+When downsampling, think carefully about the aggregation function. Temperature should use mean, precipitation should use sum, and minimum/maximum readings should use min/max respectively. Using the wrong aggregation produces meaningless results.
+\end{preprocesstip}
+
+% ============================================================
+\section{Lag features}
+
+\begin{minted}{python}
+# Lag features: use past values as predictors
+daily["temp_lag1"] = daily["temp_mean"].shift(1)   # yesterday
+daily["temp_lag7"] = daily["temp_mean"].shift(7)   # last week
+daily["temp_lag30"] = daily["temp_mean"].shift(30)  # last month
+
+# Change features
+daily["temp_change_1d"] = daily["temp_mean"].diff(1)
+daily["temp_change_7d"] = daily["temp_mean"].diff(7)
+
+# Percentage change
+daily["temp_pct_change"] = daily["temp_mean"].pct_change()
+
+print(daily[["temp_mean", "temp_lag1", "temp_lag7",
+             "temp_change_1d"]].head(10))
+\end{minted}
+
+\begin{minted}{python}
+# Autocorrelation: check if lag features are useful
+import matplotlib.pyplot as plt
+from pandas.plotting import autocorrelation_plot
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+# Autocorrelation plot
+autocorrelation_plot(daily["temp_mean"].dropna(), ax=axes[0])
+axes[0].set_title("Temperature autocorrelation")
+axes[0].set_xlim(0, 400)
+
+# Partial autocorrelation (useful for determining lag order)
+from statsmodels.graphics.tsaplots import plot_pacf
+plot_pacf(daily["temp_mean"].dropna(), lags=50, ax=axes[1])
+axes[1].set_title("Partial autocorrelation")
+
+plt.tight_layout()
+plt.savefig("autocorrelation.png", dpi=150)
+plt.show()
+\end{minted}
+
+\begin{warningbox}
+Lag features introduce NaN values at the beginning of the series. A lag-30 feature has 30 missing values. Always account for this by either dropping the initial rows or using forward-fill imputation.
+\end{warningbox}
+
+% ============================================================
+\section{Rolling statistics}
+
+\begin{minted}{python}
+# Rolling (moving) statistics smooth out noise
+daily["temp_rolling7"] = daily["temp_mean"].rolling(window=7).mean()
+daily["temp_rolling30"] = daily["temp_mean"].rolling(window=30).mean()
+daily["temp_rolling_std7"] = daily["temp_mean"].rolling(window=7).std()
+
+# Exponentially weighted moving average (more recent = more weight)
+daily["temp_ewm7"] = daily["temp_mean"].ewm(span=7).mean()
+
+print(daily[["temp_mean", "temp_rolling7", "temp_rolling30",
+             "temp_ewm7"]].tail(10))
+\end{minted}
+
+\begin{minted}{python}
+# Visualize rolling statistics
+fig, ax = plt.subplots(figsize=(14, 6))
+
+daily["temp_mean"].plot(ax=ax, alpha=0.3, label="Daily mean")
+daily["temp_rolling7"].plot(ax=ax, label="7-day rolling mean")
+daily["temp_rolling30"].plot(ax=ax, label="30-day rolling mean",
+                             linewidth=2)
+
+ax.set_ylabel("Temperature (degC)")
+ax.set_title("Jena Climate: Temperature with rolling averages")
+ax.legend()
+plt.tight_layout()
+plt.savefig("rolling_stats.png", dpi=150)
+plt.show()
+\end{minted}
+
+% ============================================================
+\section{Trend and seasonality decomposition}
+
+\begin{minted}{python}
+from statsmodels.tsa.seasonal import seasonal_decompose
+
+# Decompose into trend + seasonal + residual
+# Use monthly data for cleaner decomposition
+monthly = daily["temp_mean"].resample("ME").mean()
+
+decomposition = seasonal_decompose(monthly, model="additive", period=12)
+
+fig = decomposition.plot()
+fig.set_size_inches(14, 10)
+plt.tight_layout()
+plt.savefig("decomposition.png", dpi=150)
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Extract components as features
+monthly_df = pd.DataFrame({
+    "observed": decomposition.observed,
+    "trend": decomposition.trend,
+    "seasonal": decomposition.seasonal,
+    "residual": decomposition.resid,
+})
+print(monthly_df.head(15))
+\end{minted}
+
+\begin{preprocesstip}
+The decomposition residual is what remains after removing trend and seasonality. A large residual indicates an unusual observation --- it can serve as an outlier detection mechanism for time series.
+\end{preprocesstip}
+
+% ============================================================
+\section{Air Quality case study}
+
+\begin{minted}{python}
+# Air Quality UCI dataset: hourly pollutant measurements
+df_air = pd.read_csv("AirQualityUCI.csv", sep=";", decimal=",",
+                      parse_dates={"datetime": ["Date", "Time"]},
+                      dayfirst=True)
+
+# Replace sentinel values
+df_air = df_air.replace(-200, np.nan)
+
+# Select key columns
+cols = ["datetime", "CO(GT)", "NO2(GT)", "T", "RH"]
+df_air = df_air[cols].set_index("datetime").dropna(how="all")
+
+# Resample to daily
+air_daily = df_air.resample("D").mean()
+
+# Create temporal features
+air_daily["hour_of_day_peak"] = df_air["CO(GT)"].resample("D").idxmax().dt.hour
+air_daily["co_lag1"] = air_daily["CO(GT)"].shift(1)
+air_daily["co_rolling7"] = air_daily["CO(GT)"].rolling(7).mean()
+air_daily["co_weekend"] = air_daily.index.dayofweek.isin([5, 6]).astype(int)
+
+print(air_daily.head(10))
+\end{minted}
+
+% ============================================================
+\section{Datetime feature extraction summary}
+
+\begin{minted}{python}
+def extract_datetime_features(df, date_col):
+    """Extract a comprehensive set of datetime features."""
+    dt = df[date_col] if date_col in df.columns else df.index
+    features = pd.DataFrame(index=df.index)
+
+    features["year"] = dt.year
+    features["month"] = dt.month
+    features["day"] = dt.day
+    features["dayofweek"] = dt.dayofweek
+    features["hour"] = dt.hour if hasattr(dt, "hour") else 0
+    features["quarter"] = dt.quarter
+    features["is_weekend"] = dt.dayofweek.isin([5, 6]).astype(int)
+    features["day_of_year"] = dt.dayofyear
+    features["week_of_year"] = dt.isocalendar().week.astype(int)
+
+    # Cyclical encoding
+    features["month_sin"] = np.sin(2 * np.pi * dt.month / 12)
+    features["month_cos"] = np.cos(2 * np.pi * dt.month / 12)
+    features["dow_sin"] = np.sin(2 * np.pi * dt.dayofweek / 7)
+    features["dow_cos"] = np.cos(2 * np.pi * dt.dayofweek / 7)
+
+    return features
+\end{minted}
+
+% ============================================================
+\section{Exercises}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Load the Jena Climate dataset. Parse the datetime column and resample to daily frequency. Plot the daily mean temperature for 2015.
+  \item Create lag features (1, 7, 14, 30 days) for temperature. Compute the correlation of each lag feature with the current temperature. Which lag has the highest correlation?
+  \item Apply seasonal decomposition to the Air Quality CO data. Is there a clear seasonal pattern? What does the trend tell you?
+  \item Build a comprehensive feature extraction function for the Jena Climate dataset that creates: lag features, rolling statistics, cyclical time encodings, and trend indicators. Apply it and report the resulting number of features.
+  \item Using the Air Quality dataset, investigate whether CO levels are significantly different on weekdays vs.\ weekends. Create appropriate visualizations.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item Always parse dates explicitly with a known format; never rely on automatic inference in production.
+  \item Resampling changes temporal resolution: downsampling aggregates, upsampling interpolates.
+  \item Lag features capture temporal dependencies: yesterday's temperature predicts today's.
+  \item Rolling statistics (moving average, moving std) smooth noise and reveal trends.
+  \item Seasonal decomposition separates trend, seasonality, and residuals --- each can serve as a feature.
+  \item Cyclical encoding (sine/cosine) ensures that December is close to January in feature space.
+\end{itemize}

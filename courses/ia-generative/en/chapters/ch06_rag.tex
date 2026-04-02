@@ -1,0 +1,277 @@
+\chapter{Retrieval-augmented generation (RAG)}
+\label{ch:rag}
+
+\begin{quote}
+\emph{``RAG lets an LLM answer questions from your documents instead of making things up. It is the most practical generative AI pattern in production today.''}
+\end{quote}
+
+% ============================================================
+\section{Why RAG?}
+
+LLMs have two fundamental limitations:
+\begin{enumerate}
+  \item \textbf{Knowledge cutoff.} They know nothing after their training date.
+  \item \textbf{Hallucination.} They confidently generate plausible but false information.
+\end{enumerate}
+
+RAG solves both: retrieve relevant documents, then generate an answer grounded in those documents.
+
+\begin{center}
+\begin{tikzpicture}[
+  block/.style={rectangle, draw, fill=aiblue!15, minimum width=2.8cm, minimum height=1cm, rounded corners, align=center},
+  arrow/.style={-{Stealth}, thick}
+]
+  \node[block] (query) at (0,0) {User\\query};
+  \node[block] (embed) at (3.5,0) {Embed\\query};
+  \node[block] (search) at (7,0) {Vector\\search};
+  \node[block] (docs) at (7,-2) {Document\\chunks};
+  \node[block] (prompt) at (10.5,0) {Build\\prompt};
+  \node[block] (llm) at (10.5,-2) {LLM\\generate};
+
+  \draw[arrow] (query) -- (embed);
+  \draw[arrow] (embed) -- (search);
+  \draw[arrow] (search) -- (prompt);
+  \draw[arrow] (docs) -- (search);
+  \draw[arrow] (prompt) -- (llm);
+\end{tikzpicture}
+\end{center}
+
+% ============================================================
+\section{Embeddings for retrieval}
+
+We use \textbf{sentence-transformers} to convert text into dense vectors. Similar texts have similar vectors (high cosine similarity).
+
+\begin{minted}{python}
+from sentence_transformers import SentenceTransformer
+import numpy as np
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+sentences = [
+    "The patient has a high fever and cough.",
+    "Machine learning is a subset of artificial intelligence.",
+    "The patient presents with elevated temperature and respiratory symptoms.",
+]
+
+embeddings = model.encode(sentences)
+print(f"Embedding shape: {embeddings.shape}")  # (3, 384)
+
+# Cosine similarity
+from sklearn.metrics.pairwise import cosine_similarity
+sim_matrix = cosine_similarity(embeddings)
+print("Similarity matrix:")
+print(np.round(sim_matrix, 3))
+# sentences 0 and 2 should have high similarity
+\end{minted}
+
+\begin{aitip}
+\texttt{all-MiniLM-L6-v2} is a lightweight embedding model (80 MB) that runs fast on CPU. For higher quality, consider \texttt{BAAI/bge-small-en-v1.5} or \texttt{nomic-ai/nomic-embed-text-v1.5}.
+\end{aitip}
+
+% ============================================================
+\section{Vector databases: ChromaDB}
+
+ChromaDB is an open-source vector database that runs locally with zero configuration:
+
+\begin{minted}{python}
+import chromadb
+from chromadb.utils import embedding_functions
+
+# Create a persistent client
+client = chromadb.PersistentClient(path="./chroma_db")
+
+# Use sentence-transformers for embeddings
+ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+    model_name="all-MiniLM-L6-v2"
+)
+
+# Create a collection
+collection = client.get_or_create_collection(
+    name="course_notes",
+    embedding_function=ef,
+)
+
+# Add documents
+documents = [
+    "The Transformer architecture uses self-attention mechanisms.",
+    "LoRA reduces fine-tuning costs by training low-rank adapters.",
+    "RAG retrieves relevant documents before generating answers.",
+    "Diffusion models generate images by reversing a noise process.",
+    "RLHF aligns language models with human preferences.",
+]
+
+collection.add(
+    documents=documents,
+    ids=[f"doc_{i}" for i in range(len(documents))],
+    metadatas=[{"chapter": i+1} for i in range(len(documents))],
+)
+
+# Query
+results = collection.query(query_texts=["How does fine-tuning work?"], n_results=2)
+print("Top results:")
+for doc, dist in zip(results["documents"][0], results["distances"][0]):
+    print(f"  [{dist:.4f}] {doc}")
+\end{minted}
+
+% ============================================================
+\section{Vector databases: FAISS}
+
+FAISS (Facebook AI Similarity Search) is optimized for large-scale similarity search:
+
+\begin{minted}{python}
+import faiss
+import numpy as np
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+documents = [
+    "Python is a high-level programming language.",
+    "PyTorch is a deep learning framework.",
+    "LangChain helps build LLM applications.",
+    "ChromaDB stores vector embeddings.",
+    "Transformers use attention mechanisms.",
+]
+
+# Encode and build index
+embeddings = model.encode(documents).astype("float32")
+dimension = embeddings.shape[1]
+
+index = faiss.IndexFlatL2(dimension)  # L2 (Euclidean) distance
+index.add(embeddings)
+print(f"Index contains {index.ntotal} vectors")
+
+# Search
+query = model.encode(["How do I build an LLM app?"]).astype("float32")
+distances, indices = index.search(query, k=2)
+for idx, dist in zip(indices[0], distances[0]):
+    print(f"  [{dist:.4f}] {documents[idx]}")
+\end{minted}
+
+% ============================================================
+\section{Document chunking}
+
+Real documents are too long for a single embedding. We split them into overlapping chunks:
+
+\begin{minted}{python}
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+text = open("my_document.txt").read()  # or any long text
+
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=500,       # characters per chunk
+    chunk_overlap=50,     # overlap between chunks
+    separators=["\n\n", "\n", ". ", " ", ""],
+)
+
+chunks = splitter.split_text(text)
+print(f"Number of chunks: {len(chunks)}")
+print(f"First chunk ({len(chunks[0])} chars):\n{chunks[0][:200]}...")
+\end{minted}
+
+\begin{warningbox}
+Chunk size is critical. Too small: lost context. Too large: diluted relevance. Start with 500--1000 characters and adjust based on your retrieval quality.
+\end{warningbox}
+
+% ============================================================
+\section{Complete RAG pipeline with LangChain}
+
+\begin{minted}{python}
+# !pip install langchain langchain-community langchain-google-genai chromadb
+
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+
+# 1. Load PDF
+loader = PyPDFLoader("research_paper.pdf")
+pages = loader.load()
+print(f"Loaded {len(pages)} pages")
+
+# 2. Split into chunks
+splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
+chunks = splitter.split_documents(pages)
+print(f"Created {len(chunks)} chunks")
+
+# 3. Create vector store
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+vectorstore = Chroma.from_documents(chunks, embeddings, persist_directory="./rag_db")
+retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
+
+# 4. Create RAG chain
+llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.3)
+
+template = ChatPromptTemplate.from_template("""Answer the question based only on the following context. If you cannot answer from the context, say "I don't have enough information."
+
+Context:
+{context}
+
+Question: {question}
+
+Answer:""")
+
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+
+rag_chain = (
+    {"context": retriever | format_docs, "question": RunnablePassthrough()}
+    | template
+    | llm
+    | StrOutputParser()
+)
+
+# 5. Query
+answer = rag_chain.invoke("What is the main contribution of the paper?")
+print(answer)
+\end{minted}
+
+% ============================================================
+\section{Evaluating RAG quality}
+
+\begin{minted}{python}
+# Simple retrieval evaluation: check if the correct document is retrieved
+test_questions = [
+    {"question": "What is LoRA?", "expected_doc_id": 1},
+    {"question": "How does RAG work?", "expected_doc_id": 2},
+]
+
+correct = 0
+for test in test_questions:
+    results = collection.query(query_texts=[test["question"]], n_results=1)
+    retrieved_id = int(results["ids"][0][0].split("_")[1])
+    if retrieved_id == test["expected_doc_id"]:
+        correct += 1
+
+print(f"Retrieval accuracy: {correct}/{len(test_questions)}")
+\end{minted}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Build a RAG application over 3 PDF files of your choice. Use ChromaDB for storage and Gemini for generation. Test with 5 questions.
+  \item Compare retrieval quality between \texttt{all-MiniLM-L6-v2} and \texttt{BAAI/bge-small-en-v1.5} on the same document corpus.
+  \item Experiment with chunk sizes (200, 500, 1000, 2000 characters). Measure retrieval accuracy for 10 test questions at each size.
+  \item Add metadata filtering to your RAG chain: retrieve only from specific chapters or document types.
+  \item Implement a ``sources'' feature: after generating an answer, show the user which document chunks were used.
+\end{enumerate}
+\end{exercise}
+
+\begin{ethicsbox}
+RAG reduces hallucination but does not eliminate it. The LLM can still misinterpret retrieved context, combine information incorrectly, or add information not in the documents. Always provide source citations so users can verify answers. In high-stakes domains (medical, legal, financial), RAG output should be reviewed by a qualified human.
+\end{ethicsbox}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item RAG combines retrieval (finding relevant documents) with generation (answering based on those documents).
+  \item Sentence-transformers convert text to dense vectors for semantic search.
+  \item ChromaDB and FAISS are vector databases for storing and searching embeddings.
+  \item Document chunking splits long texts into overlapping segments for embedding.
+  \item LangChain provides a complete RAG pipeline: load, split, embed, store, retrieve, generate.
+  \item Chunk size, embedding model quality, and retrieval count ($k$) are the key parameters to tune.
+  \item RAG reduces hallucination but requires source citations for trustworthiness.
+\end{itemize}

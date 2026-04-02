@@ -1,0 +1,210 @@
+\chapter{Foundations of language models}
+\label{ch:foundations}
+
+\begin{quote}
+\emph{``A language model is a probability distribution over sequences of tokens. Everything else --- chatbots, code generation, summarization --- is a consequence of that single idea.''}
+\end{quote}
+
+% ============================================================
+\section{What is a language model?}
+
+A language model assigns a probability to a sequence of tokens $w_1, w_2, \ldots, w_n$:
+\[
+P(w_1, w_2, \ldots, w_n) = \prod_{i=1}^{n} P(w_i \mid w_1, \ldots, w_{i-1})
+\]
+
+This factorization says: predict each token given everything that came before it. A model that does this well can generate coherent text, translate languages, answer questions, and write code --- because all of these tasks reduce to ``what token comes next?''
+
+\begin{definition}[Language model]
+A function $P_\theta$ parameterized by $\theta$ that maps a sequence of tokens to a probability. Training adjusts $\theta$ to maximize the likelihood of observed text.
+\end{definition}
+
+\begin{aitip}
+You can interact with a language model right now. Open a Colab notebook and run the GPT-2 example in Section~\ref{sec:first-generation}. The model will complete any text you give it.
+\end{aitip}
+
+% ============================================================
+\section{Tokenization}
+
+Language models do not process raw characters or whole words. They process \emph{tokens} --- sub-word units learned from data.
+
+\subsection{Why sub-words?}
+
+\begin{itemize}
+  \item Character-level: vocabulary is tiny (< 300), but sequences are extremely long.
+  \item Word-level: vocabulary is enormous (100\,000+), and unseen words cause failures.
+  \item Sub-word: vocabulary is moderate (32\,000--100\,000), handles any word, and keeps sequences short.
+\end{itemize}
+
+\subsection{Byte Pair Encoding (BPE)}
+
+BPE starts with individual characters and iteratively merges the most frequent adjacent pair:
+
+\begin{enumerate}
+  \item Start: \texttt{["l", "o", "w", "e", "r"]}
+  \item Most frequent pair: \texttt{("l", "o")} $\rightarrow$ merge to \texttt{"lo"}
+  \item Continue until vocabulary size is reached.
+\end{enumerate}
+
+\begin{minted}{python}
+# Tokenization with tiktoken (GPT tokenizer)
+import tiktoken
+
+enc = tiktoken.get_encoding("cl100k_base")  # GPT-4 tokenizer
+text = "Generative AI transforms how we create content."
+tokens = enc.encode(text)
+print(f"Text: {text}")
+print(f"Token IDs: {tokens}")
+print(f"Tokens: {[enc.decode([t]) for t in tokens]}")
+print(f"Number of tokens: {len(tokens)}")
+\end{minted}
+
+\subsection{WordPiece tokenization}
+
+WordPiece (used by BERT) is similar to BPE but uses a likelihood-based criterion to select merges. The HuggingFace \texttt{tokenizers} library supports both:
+
+\begin{minted}{python}
+from transformers import AutoTokenizer
+
+# BPE tokenizer (GPT-2)
+gpt2_tok = AutoTokenizer.from_pretrained("gpt2")
+print(gpt2_tok.tokenize("Generative AI is transforming research."))
+
+# WordPiece tokenizer (BERT)
+bert_tok = AutoTokenizer.from_pretrained("distilbert-base-uncased")
+print(bert_tok.tokenize("Generative AI is transforming research."))
+\end{minted}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Tokenize the sentence ``Pneumonoultramicroscopicsilicovolcanoconiosis is a lung disease'' with both GPT-2 and DistilBERT tokenizers. Compare the number of tokens and the sub-word splits.
+  \item Using \texttt{tiktoken}, tokenize a paragraph in English, French, and Chinese. Which language produces more tokens for roughly the same content? Why?
+  \item Count the tokens in the first 1000 characters of any Wikipedia article. How does token count relate to character count?
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Embeddings}
+
+Tokens are integers. Neural networks need continuous vectors. An \emph{embedding} maps each token ID to a dense vector in $\mathbb{R}^d$:
+
+\[
+\text{Embedding}: \{0, 1, \ldots, V-1\} \rightarrow \mathbb{R}^d
+\]
+
+where $V$ is the vocabulary size and $d$ is the embedding dimension (typically 768 or higher).
+
+\begin{minted}{python}
+import torch
+from transformers import AutoModel, AutoTokenizer
+
+model_name = "distilbert-base-uncased"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModel.from_pretrained(model_name)
+
+text = "The patient has a fever."
+inputs = tokenizer(text, return_tensors="pt")
+with torch.no_grad():
+    outputs = model(**inputs)
+
+# outputs.last_hidden_state shape: (batch, seq_len, hidden_dim)
+print(f"Shape: {outputs.last_hidden_state.shape}")
+print(f"Embedding dim: {outputs.last_hidden_state.shape[-1]}")
+\end{minted}
+
+\begin{aitip}
+Embeddings are not just lookup tables in modern models. After passing through Transformer layers, the output embeddings are \emph{contextual} --- the vector for ``bank'' differs depending on whether the context is finance or a river.
+\end{aitip}
+
+% ============================================================
+\section{The softmax function}
+
+The final layer of a language model produces a vector of \emph{logits} $z \in \mathbb{R}^V$ (one score per vocabulary token). The softmax converts logits to probabilities:
+
+\[
+\text{softmax}(z_i) = \frac{e^{z_i}}{\sum_{j=1}^{V} e^{z_j}}
+\]
+
+\begin{minted}{python}
+import torch
+import torch.nn.functional as F
+
+# Simulated logits for a vocabulary of 5 tokens
+logits = torch.tensor([2.0, 1.0, 0.5, -1.0, 3.0])
+probs = F.softmax(logits, dim=0)
+print("Logits:", logits.tolist())
+print("Probabilities:", [f"{p:.4f}" for p in probs.tolist()])
+print("Sum:", f"{probs.sum().item():.4f}")  # always 1.0
+\end{minted}
+
+% ============================================================
+\section{Perplexity}
+\label{sec:perplexity}
+
+Perplexity measures how well a language model predicts a test set. Lower is better.
+
+\[
+\text{PPL} = \exp\left(-\frac{1}{N}\sum_{i=1}^{N} \log P(w_i \mid w_{<i})\right)
+\]
+
+Intuition: if perplexity is 50, the model is ``as uncertain as if it were choosing uniformly among 50 tokens'' at each step.
+
+\begin{minted}{python}
+import torch
+from transformers import GPT2LMHeadModel, GPT2Tokenizer
+
+model = GPT2LMHeadModel.from_pretrained("gpt2")
+tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+model.eval()
+
+text = "The Transformer architecture revolutionized natural language processing."
+inputs = tokenizer(text, return_tensors="pt")
+
+with torch.no_grad():
+    outputs = model(**inputs, labels=inputs["input_ids"])
+    loss = outputs.loss  # cross-entropy loss
+    perplexity = torch.exp(loss)
+
+print(f"Loss: {loss.item():.4f}")
+print(f"Perplexity: {perplexity.item():.2f}")
+\end{minted}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Compute the perplexity of GPT-2 on three sentences: one grammatical English sentence, one scrambled version, and one sentence in French. Explain the differences.
+  \item Write a function \texttt{compute\_perplexity(model, tokenizer, text)} that returns the perplexity for any input text.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Your first text generation}
+\label{sec:first-generation}
+
+\begin{minted}{python}
+from transformers import pipeline
+
+generator = pipeline("text-generation", model="gpt2")
+result = generator(
+    "Artificial intelligence will",
+    max_new_tokens=50,
+    do_sample=True,
+    temperature=0.8,
+)
+print(result[0]["generated_text"])
+\end{minted}
+
+\begin{ethicsbox}
+Language models learn from internet text, which contains biases, misinformation, and harmful content. GPT-2 can generate racist, sexist, or factually wrong text. \textbf{Never deploy a base model without safety filters.} We will cover evaluation and safety in Chapter~\ref{ch:eval-safety}.
+\end{ethicsbox}
+
+% ============================================================
+\section{Chapter summary}
+
+\begin{itemize}
+  \item A language model predicts the probability of the next token given previous tokens.
+  \item Tokenization (BPE, WordPiece) converts text to sub-word integer sequences.
+  \item Embeddings map token IDs to continuous vectors; Transformer embeddings are contextual.
+  \item The softmax function converts logits to a probability distribution over the vocabulary.
+  \item Perplexity measures model quality: lower perplexity means better predictions.
+  \item HuggingFace \texttt{transformers} provides tokenizers, models, and generation pipelines out of the box.
+\end{itemize}
