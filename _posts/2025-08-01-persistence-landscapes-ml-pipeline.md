@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Persistence Landscapes as ML Features: A Complete Pipeline"
+title: "Persistence landscapes as ML features: a complete pipeline"
 date: 2025-08-01
 description: "A step-by-step guide to computing persistence landscapes and using them as features in machine learning pipelines."
 tags: [TDA, topology, machine-learning, Python, tutorial]

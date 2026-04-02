@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Why Topology Matters for Machine Learning"
+title: "Why topology matters for machine learning"
 date: 2025-01-15
 description: "An introduction to how topological ideas are reshaping modern machine learning — from persistent homology to geometric deep learning."
 tags: [topology, TDA, machine-learning]

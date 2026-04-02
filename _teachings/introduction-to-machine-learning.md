@@ -1,6 +1,6 @@
 ---
 layout: course
-title: "Machine Learning for Beginners"
+title: "Machine learning for beginners"
 description: "An accessible introduction to machine learning concepts and Python tools, designed for African graduate students and early-career researchers."
 instructor: Dr. Yae Ulrich Gaba
 year: 2024

@@ -1,6 +1,6 @@
 ---
 layout: page
-title: Topological Foundations of Reinforcement Learning
+title: Topological foundations of reinforcement learning
 description: Applying algebraic topology to understand the structure of RL state, action, and policy spaces.
 img: assets/img/publication_preview/topo-rl.svg
 importance: 1

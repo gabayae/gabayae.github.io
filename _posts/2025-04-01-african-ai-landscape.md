@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "The African AI Landscape: Opportunities and Challenges"
+title: "The African AI landscape: opportunities and challenges"
 date: 2025-04-01
 description: "Reflections on building AI research capacity across Africa — from AIMS to Data Science Africa and beyond."
 tags: [data-science, Africa, machine-learning]
