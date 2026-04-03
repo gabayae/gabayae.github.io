@@ -121,8 +121,8 @@ Organizer of the <span class="kw"><a href="https://wocomtoqc.github.io/" target=
 I advise research teams, startups, and organizations on how to apply topological and geometric methods to real problems — and serve as a fractional R&D partner for teams building at the frontier.
 
 - <span class="kw">AI strategy & architecture</span> — roadmaps, ML pipelines, cloud deployment (Azure, AWS), reproducible model evaluation and monitoring
-- <span class="kw">TDA-powered analytics</span> — shape analysis, anomaly detection, persistent homology, data mining
-- <span class="kw">Advanced analytics & modeling</span> — stochastic modeling, NLP, discrete event simulation, optimization, predictive models with Power BI dashboards
+- <span class="kw">TDA-powered analytics</span> — shape analysis, anomaly detection, persistent homology, data mining, segmentation
+- <span class="kw">Advanced analytics & modeling</span> — stochastic modeling, NLP, discrete event simulation, optimization, predictive analytics, recommendation systems, dashboards (Power BI, Tableau)
 - <span class="kw">Deep reinforcement learning</span> — resource allocation, optimization, decision systems
 - <span class="kw">ML workshops & training</span> — custom programmes for universities, research centres, and companies
 
