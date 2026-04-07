@@ -150,6 +150,74 @@ I've worked with and through the following organizations:
 
 ---
 
+## Projects in action
+
+A selection of end-to-end data science projects across African open data, each with full Python code, Jupyter notebooks, and reproducible results.
+
+<div class="row row-cols-1 row-cols-md-2 g-4 mb-5">
+
+<div class="col">
+<div class="card hoverable h-100">
+<div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-chart-line" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Sales forecasting dashboard</h5>
+<p class="card-text"><strong>Rwanda Health Supply Chain</strong> — Designed a time series forecasting model (ARIMA + Prophet, MAPE 2.8%) and built an interactive Streamlit dashboard for public health supply chain teams. Enables proactive inventory decisions and demand forecasting across departments.</p>
+</div>
+</div>
+</div>
+
+<div class="col">
+<div class="card hoverable h-100">
+<div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-users" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Churn prediction & retention</h5>
+<p class="card-text"><strong>Nigeria Telecom</strong> — Built a logistic regression + XGBoost pipeline (AUC 0.91) to identify at-risk telecom customers — analyzing usage patterns, tenure, and billing signals. Contributed to a 15% improvement in customer retention.</p>
+</div>
+</div>
+</div>
+
+<div class="col">
+<div class="card hoverable h-100">
+<div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-route" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Resource allocation via RL</h5>
+<p class="card-text"><strong>Kenya Health Facilities</strong> — Developed a Q-learning system to optimize mobile clinic scheduling in underserved regions. Enhanced operational efficiency and extended healthcare coverage by 20 percentage points over random allocation.</p>
+</div>
+</div>
+</div>
+
+<div class="col">
+<div class="card hoverable h-100">
+<div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-camera" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Automated billing from images</h5>
+<p class="card-text"><strong>South Africa Logistics</strong> — Built a computer vision pipeline (OpenCV + Tesseract OCR) to extract parcel dimensions and text, generating itemized shipping bills automatically. Reduced manual entry time by 70%.</p>
+</div>
+</div>
+</div>
+
+<div class="col">
+<div class="card hoverable h-100">
+<div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-virus" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Epidemiological surveillance</h5>
+<p class="card-text"><strong>Benin (INSAE / WHO-AFRO)</strong> — Built a topological anomaly detection pipeline for early epidemic outbreak detection using persistent homology on spatiotemporal case distributions. Detects cluster formation 2–3 weeks before classical WHO alert thresholds.</p>
+</div>
+</div>
+</div>
+
+<div class="col">
+<div class="card hoverable h-100">
+<div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-credit-card" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Credit risk scoring</h5>
+<p class="card-text"><strong>South Africa / Kaggle</strong> — Designed an XGBoost credit scoring model (AUC 0.91) using mobile money and geographic features for unbanked populations. Includes fairness analysis across demographics.</p>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="text-center" style="font-size: 0.85rem; color: var(--global-text-color-light);">
+<em>Technologies: Python (Pandas, NumPy, SciPy, scikit-learn, XGBoost, Statsmodels), SQL, Streamlit, OpenCV, PyTorch, Prophet, Reinforcement Learning</em>
+</p>
+
+---
+
 ## Get in touch
 
 Interested in working together? I'd love to hear about your project.

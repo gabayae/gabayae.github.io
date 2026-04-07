@@ -150,6 +150,74 @@ J'ai travaillé avec et à travers les organisations suivantes :
 
 ---
 
+## Projets en action
+
+Une sélection de projets de data science de bout en bout sur des données ouvertes africaines, chacun avec du code Python complet, des notebooks Jupyter et des résultats reproductibles.
+
+<div class="row row-cols-1 row-cols-md-2 g-4 mb-5">
+
+<div class="col">
+<div class="card hoverable h-100">
+<div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-chart-line" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Tableau de bord de prévision des ventes</h5>
+<p class="card-text"><strong>Chaîne d'approvisionnement sanitaire du Rwanda</strong> — Conception d'un modèle de prévision de séries temporelles (ARIMA + Prophet, MAPE 2,8 %) et développement d'un tableau de bord interactif Streamlit pour les équipes de santé publique. Permet des décisions proactives d'inventaire et de prévision de la demande.</p>
+</div>
+</div>
+</div>
+
+<div class="col">
+<div class="card hoverable h-100">
+<div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-users" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Prédiction du churn & rétention</h5>
+<p class="card-text"><strong>Télécom Nigeria</strong> — Construction d'un pipeline régression logistique + XGBoost (AUC 0,91) pour identifier les clients à risque — analyse des comportements d'usage, ancienneté et signaux de facturation. Contribution à une amélioration de 15 % de la rétention client.</p>
+</div>
+</div>
+</div>
+
+<div class="col">
+<div class="card hoverable h-100">
+<div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-route" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Allocation de ressources par RL</h5>
+<p class="card-text"><strong>Établissements de santé au Kenya</strong> — Développement d'un système Q-learning pour optimiser la planification des cliniques mobiles dans les régions mal desservies. Amélioration de l'efficacité opérationnelle et extension de la couverture sanitaire de 20 points de pourcentage.</p>
+</div>
+</div>
+</div>
+
+<div class="col">
+<div class="card hoverable h-100">
+<div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-camera" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Facturation automatisée par imagerie</h5>
+<p class="card-text"><strong>Logistique Afrique du Sud</strong> — Construction d'un pipeline de vision par ordinateur (OpenCV + Tesseract OCR) pour extraire les dimensions et le texte des colis. Réduction de 70 % du temps de saisie manuelle.</p>
+</div>
+</div>
+</div>
+
+<div class="col">
+<div class="card hoverable h-100">
+<div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-virus" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Surveillance épidémiologique</h5>
+<p class="card-text"><strong>Bénin (INSAE / OMS-AFRO)</strong> — Construction d'un pipeline de détection d'anomalies topologiques pour la détection précoce d'épidémies par homologie persistante. Détection de clusters 2 à 3 semaines avant les seuils classiques de l'OMS.</p>
+</div>
+</div>
+</div>
+
+<div class="col">
+<div class="card hoverable h-100">
+<div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-credit-card" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Scoring de crédit alternatif</h5>
+<p class="card-text"><strong>Afrique du Sud / Kaggle</strong> — Conception d'un modèle de scoring XGBoost (AUC 0,91) utilisant les données de mobile money et les indicateurs géographiques pour les populations non bancarisées. Inclut une analyse d'équité démographique.</p>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="text-center" style="font-size: 0.85rem; color: var(--global-text-color-light);">
+<em>Technologies : Python (Pandas, NumPy, SciPy, scikit-learn, XGBoost, Statsmodels), SQL, Streamlit, OpenCV, PyTorch, Prophet, Apprentissage par renforcement</em>
+</p>
+
+---
+
 ## Me contacter
 
 Intéressé par une collaboration ? J'aimerais en savoir plus sur votre projet.
