@@ -177,7 +177,7 @@ Une sélection de projets de data science de bout en bout sur des données ouver
 <div class="col">
 <div class="card hoverable h-100">
 <div class="card-body">
-<h5 class="card-title"><i class="fa-solid fa-route" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Allocation de ressources par RL</h5>
+<h5 class="card-title"><i class="fa-solid fa-truck-medical" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Allocation de ressources par RL</h5>
 <p class="card-text"><strong>Établissements de santé au Kenya</strong> — Développement d'un système Q-learning pour optimiser la planification des cliniques mobiles dans les régions mal desservies. Amélioration de l'efficacité opérationnelle et extension de la couverture sanitaire de 20 points de pourcentage.</p>
 </div>
 </div>
@@ -186,7 +186,7 @@ Une sélection de projets de data science de bout en bout sur des données ouver
 <div class="col">
 <div class="card hoverable h-100">
 <div class="card-body">
-<h5 class="card-title"><i class="fa-solid fa-camera" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Facturation automatisée par imagerie</h5>
+<h5 class="card-title"><i class="fa-solid fa-box" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Facturation automatisée par imagerie</h5>
 <p class="card-text"><strong>Logistique Afrique du Sud</strong> — Construction d'un pipeline de vision par ordinateur (OpenCV + Tesseract OCR) pour extraire les dimensions et le texte des colis. Réduction de 70 % du temps de saisie manuelle.</p>
 </div>
 </div>
@@ -195,7 +195,7 @@ Une sélection de projets de data science de bout en bout sur des données ouver
 <div class="col">
 <div class="card hoverable h-100">
 <div class="card-body">
-<h5 class="card-title"><i class="fa-solid fa-virus" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Surveillance épidémiologique</h5>
+<h5 class="card-title"><i class="fa-solid fa-biohazard" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Surveillance épidémiologique</h5>
 <p class="card-text"><strong>Bénin (INSAE / OMS-AFRO)</strong> — Construction d'un pipeline de détection d'anomalies topologiques pour la détection précoce d'épidémies par homologie persistante. Détection de clusters 2 à 3 semaines avant les seuils classiques de l'OMS.</p>
 </div>
 </div>

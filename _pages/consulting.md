@@ -177,7 +177,7 @@ A selection of end-to-end data science projects across African open data, each w
 <div class="col">
 <div class="card hoverable h-100">
 <div class="card-body">
-<h5 class="card-title"><i class="fa-solid fa-route" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Resource allocation via RL</h5>
+<h5 class="card-title"><i class="fa-solid fa-truck-medical" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Resource allocation via RL</h5>
 <p class="card-text"><strong>Kenya Health Facilities</strong> — Developed a Q-learning system to optimize mobile clinic scheduling in underserved regions. Enhanced operational efficiency and extended healthcare coverage by 20 percentage points over random allocation.</p>
 </div>
 </div>
@@ -186,7 +186,7 @@ A selection of end-to-end data science projects across African open data, each w
 <div class="col">
 <div class="card hoverable h-100">
 <div class="card-body">
-<h5 class="card-title"><i class="fa-solid fa-camera" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Automated billing from images</h5>
+<h5 class="card-title"><i class="fa-solid fa-box" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Automated billing from images</h5>
 <p class="card-text"><strong>South Africa Logistics</strong> — Built a computer vision pipeline (OpenCV + Tesseract OCR) to extract parcel dimensions and text, generating itemized shipping bills automatically. Reduced manual entry time by 70%.</p>
 </div>
 </div>
@@ -195,7 +195,7 @@ A selection of end-to-end data science projects across African open data, each w
 <div class="col">
 <div class="card hoverable h-100">
 <div class="card-body">
-<h5 class="card-title"><i class="fa-solid fa-virus" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Epidemiological surveillance</h5>
+<h5 class="card-title"><i class="fa-solid fa-biohazard" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Epidemiological surveillance</h5>
 <p class="card-text"><strong>Benin (INSAE / WHO-AFRO)</strong> — Built a topological anomaly detection pipeline for early epidemic outbreak detection using persistent homology on spatiotemporal case distributions. Detects cluster formation 2–3 weeks before classical WHO alert thresholds.</p>
 </div>
 </div>
