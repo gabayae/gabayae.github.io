@@ -82,8 +82,8 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
-<h5 class="card-title"><i class="fa-solid fa-calculator" style="margin-right: 6px; color: var(--global-theme-color);"></i> Numerical analysis with Python</h5>
-<p class="card-text">Root finding, interpolation, numerical integration, linear systems, ODE solvers. Error analysis and convergence. All implementations in Python with NumPy and SciPy.</p>
+<h5 class="card-title"><i class="fa-solid fa-calculator" style="margin-right: 6px; color: var(--global-theme-color);"></i> Numerical methods with Python</h5>
+<p class="card-text">Root finding, interpolation, numerical integration, linear systems, ODE solvers. Error analysis and convergence. All methods implemented from scratch and with NumPy/SciPy, with Jupyter notebooks.</p>
 <p><span class="badge bg-success">AIMS Senegal</span> <span class="badge bg-warning text-dark">AIMS Rwanda</span></p>
 <a href="/courses/analyse-numerique/index.html" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 4px;"></i> Course materials</a>
 </div></div></div>

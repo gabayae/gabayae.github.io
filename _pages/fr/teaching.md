@@ -82,8 +82,8 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
-<h5 class="card-title"><i class="fa-solid fa-calculator" style="margin-right: 6px; color: var(--global-theme-color);"></i> Analyse numérique avec Python</h5>
-<p class="card-text">Recherche de racines, interpolation, intégration numérique, systèmes linéaires, résolution d'EDO. Analyse d'erreurs et convergence. Toutes les implémentations en Python avec NumPy et SciPy.</p>
+<h5 class="card-title"><i class="fa-solid fa-calculator" style="margin-right: 6px; color: var(--global-theme-color);"></i> Méthodes numériques avec Python</h5>
+<p class="card-text">Recherche de racines, interpolation, intégration numérique, systèmes linéaires, résolution d'EDO. Analyse d'erreurs et convergence. Toutes les méthodes implémentées de zéro et avec NumPy/SciPy, avec calepins Jupyter.</p>
 <p><span class="badge bg-success">AIMS Sénégal</span> <span class="badge bg-warning text-dark">AIMS Rwanda</span></p>
 <a href="/courses/analyse-numerique/index.html" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 4px;"></i> Supports de cours</a>
 </div></div></div>
