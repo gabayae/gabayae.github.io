@@ -47,6 +47,49 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 </div>
 </div>
 
+<h2 class="teaching-section-header"><i class="fa-solid fa-graduation-cap"></i> Courses at AIMS — African Institute for Mathematical Sciences</h2>
+
+<p>Selected courses taught at AIMS centres (Rwanda, Senegal, South Africa). Each course has a dedicated interactive Jupyter Book with lecture notes, exercises, and code.</p>
+
+<div class="row row-cols-1 row-cols-md-2 g-3 mb-4">
+
+<div class="col"><div class="card hoverable h-100"><div class="card-body">
+<h5 class="card-title"><i class="fa-brands fa-python" style="margin-right: 6px; color: var(--global-theme-color);"></i> Python programming for scientists</h5>
+<p class="card-text">An introduction to Python for scientific computing and data science. Variables, data structures, flow control, functions, NumPy, Matplotlib. Hands-on labs and programming challenges.</p>
+<p><span class="badge bg-primary">AIMS South Africa</span> <span class="badge bg-success">AIMS Senegal</span> <span class="badge bg-warning text-dark">AIMS Rwanda</span></p>
+<a href="https://ai-technipreneurs.github.io/python_website/intro.html" class="btn btn-sm btn-outline-primary" target="_blank"><i class="fa-solid fa-book-open" style="margin-right: 4px;"></i> Jupyter Book</a>
+</div></div></div>
+
+<div class="col"><div class="card hoverable h-100"><div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-flask" style="margin-right: 6px; color: var(--global-theme-color);"></i> Experimental mathematics with SageMath</h5>
+<p class="card-text">Computational problem-solving through experimentation. Discrete mathematics, number theory, linear algebra, graph theory, combinatorics. Building SageMath notebooks for mathematical exploration.</p>
+<p><span class="badge bg-primary">AIMS South Africa</span></p>
+<a href="https://evansdoe.github.io/aims-za/ems/" class="btn btn-sm btn-outline-primary" target="_blank"><i class="fa-solid fa-book-open" style="margin-right: 4px;"></i> Course site</a>
+</div></div></div>
+
+<div class="col"><div class="card hoverable h-100"><div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-wave-square" style="margin-right: 6px; color: var(--global-theme-color);"></i> Ordinary differential equations</h5>
+<p class="card-text">Existence and uniqueness theorems, first and second order equations, systems of ODEs, stability analysis, Laplace transforms. Applications to population dynamics and epidemiological models.</p>
+<p><span class="badge bg-success">AIMS Senegal</span> <span class="badge bg-warning text-dark">AIMS Rwanda</span></p>
+<a href="/courses/edo/index.html" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 4px;"></i> Course materials</a>
+</div></div></div>
+
+<div class="col"><div class="card hoverable h-100"><div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-circle-nodes" style="margin-right: 6px; color: var(--global-theme-color);"></i> Topological data analysis</h5>
+<p class="card-text">Persistent homology, simplicial complexes, Vietoris-Rips filtrations, Mapper algorithm, stability theorems. Implementation with GUDHI and Ripser in Python. Applications to health and financial data.</p>
+<p><span class="badge bg-primary">AIMS South Africa</span> <span class="badge bg-success">AIMS Senegal</span></p>
+<a href="/courses/tda/index.html" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 4px;"></i> Course materials</a>
+</div></div></div>
+
+<div class="col"><div class="card hoverable h-100"><div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-calculator" style="margin-right: 6px; color: var(--global-theme-color);"></i> Numerical analysis with Python</h5>
+<p class="card-text">Root finding, interpolation, numerical integration, linear systems, ODE solvers. Error analysis and convergence. All implementations in Python with NumPy and SciPy.</p>
+<p><span class="badge bg-success">AIMS Senegal</span> <span class="badge bg-warning text-dark">AIMS Rwanda</span></p>
+<a href="/courses/analyse-numerique/index.html" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 4px;"></i> Course materials</a>
+</div></div></div>
+
+</div>
+
 <h2 class="teaching-section-header"><i class="fa-solid fa-shapes"></i> Pure mathematics</h2>
 
 <div class="row row-cols-1 row-cols-md-2 g-3 mb-4">

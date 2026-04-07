@@ -47,6 +47,49 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 </div>
 </div>
 
+<h2 class="teaching-section-header"><i class="fa-solid fa-graduation-cap"></i> Cours dispensés à l'AIMS — African Institute for Mathematical Sciences</h2>
+
+<p>Cours sélectionnés dispensés dans les centres AIMS (Rwanda, Sénégal, Afrique du Sud). Chaque cours dispose d'un Jupyter Book interactif dédié avec notes de cours, exercices et code.</p>
+
+<div class="row row-cols-1 row-cols-md-2 g-3 mb-4">
+
+<div class="col"><div class="card hoverable h-100"><div class="card-body">
+<h5 class="card-title"><i class="fa-brands fa-python" style="margin-right: 6px; color: var(--global-theme-color);"></i> Programmation Python pour scientifiques</h5>
+<p class="card-text">Introduction à Python pour le calcul scientifique et la science des données. Variables, structures de données, contrôle de flux, fonctions, NumPy, Matplotlib. Travaux pratiques et défis de programmation.</p>
+<p><span class="badge bg-primary">AIMS Afrique du Sud</span> <span class="badge bg-success">AIMS Sénégal</span> <span class="badge bg-warning text-dark">AIMS Rwanda</span></p>
+<a href="https://ai-technipreneurs.github.io/python_website/intro.html" class="btn btn-sm btn-outline-primary" target="_blank"><i class="fa-solid fa-book-open" style="margin-right: 4px;"></i> Jupyter Book</a>
+</div></div></div>
+
+<div class="col"><div class="card hoverable h-100"><div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-flask" style="margin-right: 6px; color: var(--global-theme-color);"></i> Mathématiques expérimentales avec SageMath</h5>
+<p class="card-text">Résolution de problèmes par l'expérimentation computationnelle. Mathématiques discrètes, théorie des nombres, algèbre linéaire, théorie des graphes, combinatoire. Construction de notebooks SageMath pour l'exploration mathématique.</p>
+<p><span class="badge bg-primary">AIMS Afrique du Sud</span></p>
+<a href="https://evansdoe.github.io/aims-za/ems/" class="btn btn-sm btn-outline-primary" target="_blank"><i class="fa-solid fa-book-open" style="margin-right: 4px;"></i> Site du cours</a>
+</div></div></div>
+
+<div class="col"><div class="card hoverable h-100"><div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-wave-square" style="margin-right: 6px; color: var(--global-theme-color);"></i> Équations différentielles ordinaires</h5>
+<p class="card-text">Théorèmes d'existence et d'unicité, équations du premier et second ordre, systèmes d'EDO, analyse de stabilité, transformées de Laplace. Applications à la dynamique des populations et aux modèles épidémiologiques.</p>
+<p><span class="badge bg-success">AIMS Sénégal</span> <span class="badge bg-warning text-dark">AIMS Rwanda</span></p>
+<a href="/courses/edo/index.html" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 4px;"></i> Supports de cours</a>
+</div></div></div>
+
+<div class="col"><div class="card hoverable h-100"><div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-circle-nodes" style="margin-right: 6px; color: var(--global-theme-color);"></i> Analyse topologique des données</h5>
+<p class="card-text">Homologie persistante, complexes simpliciaux, filtrations de Vietoris-Rips, algorithme Mapper, théorèmes de stabilité. Implémentation avec GUDHI et Ripser en Python. Applications aux données de santé et financières.</p>
+<p><span class="badge bg-primary">AIMS Afrique du Sud</span> <span class="badge bg-success">AIMS Sénégal</span></p>
+<a href="/courses/tda/index.html" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 4px;"></i> Supports de cours</a>
+</div></div></div>
+
+<div class="col"><div class="card hoverable h-100"><div class="card-body">
+<h5 class="card-title"><i class="fa-solid fa-calculator" style="margin-right: 6px; color: var(--global-theme-color);"></i> Analyse numérique avec Python</h5>
+<p class="card-text">Recherche de racines, interpolation, intégration numérique, systèmes linéaires, résolution d'EDO. Analyse d'erreurs et convergence. Toutes les implémentations en Python avec NumPy et SciPy.</p>
+<p><span class="badge bg-success">AIMS Sénégal</span> <span class="badge bg-warning text-dark">AIMS Rwanda</span></p>
+<a href="/courses/analyse-numerique/index.html" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 4px;"></i> Supports de cours</a>
+</div></div></div>
+
+</div>
+
 <h2 class="teaching-section-header"><i class="fa-solid fa-shapes"></i> Mathématiques pures</h2>
 
 <div class="row row-cols-1 row-cols-md-2 g-3 mb-4">
