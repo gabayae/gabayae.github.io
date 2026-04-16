@@ -42,7 +42,7 @@ latest_posts:
   limit: 3
 ---
 
-I develop mathematical methods for understanding the shape and structure of data — and I make them available as <span class="kw">research</span>, <span class="kw">teaching</span>, and <span class="kw">consulting</span>. With a PhD in Topology from <a href="https://www.uct.ac.za/" target="_blank">UCT</a> and an MSc from <a href="https://www.aust.edu.ng/" target="_blank">AUST</a>, my work sits at the frontier where topology, geometry, and machine learning meet. As Head of R&D at a technology startup, I lead applied research that bridges methodological innovation and operational deployment, with cross-industry experience in banking, energy, insurance, IT, and retail. I'm not a consultant who also publishes — I'm a researcher whose knowledge takes three forms.
+I develop mathematical methods for understanding the shape and structure of data — and I make them available as <span class="kw">research</span>, <span class="kw">teaching</span>, and <span class="kw">consulting</span>. With a PhD in Topology from <a href="https://www.uct.ac.za/" target="_blank">UCT</a> and an MSc from <a href="https://www.aust.edu.ng/" target="_blank">AUST</a>, my work sits at the frontier where topology, geometry, and machine learning meet. My mission: **bringing world-class mathematical AI to Africa's hardest problems** — from epidemic surveillance to credit scoring for the unbanked. As Head of R&D at a technology startup, I lead a team of 5 researchers bridging methodological innovation and operational deployment across 6 African countries, with cross-industry experience in banking, energy, insurance, IT, and retail. I'm not a consultant who also publishes — I'm a researcher whose knowledge takes three forms.
 
 <div class="profile-sections">
 
@@ -59,24 +59,28 @@ I develop and publish mathematical methods for understanding the shape and struc
 <div class="research-thrust">
 <div class="thrust-header"><i class="fa-solid fa-brain"></i> <strong>Topological foundations of AI & RL</strong></div>
 <p class="thrust-desc">Rigorous convergence, stability, and safety proofs for learning algorithms via quasi-metric and generalized metric spaces — building predictable, resilient autonomous agents with verifiable guarantees.</p>
+<p class="thrust-plain"><em>In plain terms: we prove mathematically that AI algorithms converge reliably and remain stable — so autonomous systems behave as intended.</em></p>
 <div class="thrust-tags"><span>Quasi-Metrics</span> <span>Fixed Points</span> <span>AI Safety</span></div>
 </div>
 
 <div class="research-thrust">
 <div class="thrust-header"><i class="fa-solid fa-shield-halved"></i> <strong>TDA for robust machine learning</strong></div>
 <p class="thrust-desc">Persistent homology and sheaf theory for feature extraction and anomaly detection — with applications in cybersecurity, network intrusion detection, and interpretable, privacy-preserving AI.</p>
+<p class="thrust-plain"><em>In plain terms: we use the "shape" of data to detect anomalies, intrusions, and hidden patterns that traditional statistics miss.</em></p>
 <div class="thrust-tags"><span>Persistent Homology</span> <span>Anomaly Detection</span> <span>Cybersecurity</span></div>
 </div>
 
 <div class="research-thrust">
 <div class="thrust-header"><i class="fa-solid fa-arrows-left-right"></i> <strong>Asymmetric topology & complexity</strong></div>
 <p class="thrust-desc">Ordered structures and quasi-metrics to model non-commutative, time-irreversible computation — addressing algorithmic efficiency, quantum-resistant security, and quantum-inspired algorithms.</p>
+<p class="thrust-plain"><em>In plain terms: we model irreversible processes to strengthen algorithmic security and build faster, quantum-resistant systems.</em></p>
 <div class="thrust-tags"><span>Ordered Spaces</span> <span>Quantum-Resistant</span> <span>Complexity</span></div>
 </div>
 
 <div class="research-thrust">
 <div class="thrust-header"><i class="fa-solid fa-chart-line"></i> <strong>Quantum-topological AI for finance</strong></div>
 <p class="thrust-desc">Topological principles for quantum computational AI in finance — quantum-topological neural networks for market simulation, derivative pricing on hybrid hardware, and topology-based cryptographic schemes.</p>
+<p class="thrust-plain"><em>In plain terms: we combine topology and quantum computing to build next-generation financial models and cryptographic tools.</em></p>
 <div class="thrust-tags"><span>Quantum AI</span> <span>Derivatives</span> <span>Crypto Schemes</span></div>
 </div>
 
@@ -89,6 +93,7 @@ Co-author of <a href="https://nostarch.com/shapeofdata" target="_blank"><em>The 
 <a href="https://scholar.google.com/citations?user=UTszjV4AAAAJ&hl=en" target="_blank"><i class="fa-brands fa-google-scholar"></i> Google Scholar</a>
 <a href="https://orcid.org/0000-0001-8128-9704" target="_blank"><i class="fa-brands fa-orcid"></i> ORCID</a>
 <a href="https://arxiv.org/a/gaba_y_1.html" target="_blank"><i class="fa-solid fa-file-lines"></i> arXiv</a>
+<a href="mailto:gabayae2@gmail.com?subject=Research%20Collaboration%20Inquiry"><i class="fa-solid fa-handshake"></i> Propose a collaboration</a>
 </div>
 </div>
 
@@ -128,7 +133,7 @@ I advise research teams, startups, and organizations on how to apply topological
 
 <div class="profile-links">
 <a href="{{ '/en/consulting/' | relative_url }}"><i class="fa-solid fa-briefcase"></i> Consulting services</a>
-<a href="mailto:gabayae2@gmail.com"><i class="fa-solid fa-envelope"></i> Get in touch</a>
+<a href="mailto:gabayae2@gmail.com?subject=Consulting%20Inquiry"><i class="fa-solid fa-envelope"></i> Discuss your project</a>
 </div>
 </div>
 

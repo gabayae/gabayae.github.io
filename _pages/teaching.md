@@ -90,6 +90,17 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 
 </div>
 
+<h2 class="teaching-section-header"><i class="fa-solid fa-route"></i> Recommended learning paths</h2>
+
+<div class="card hoverable mb-4">
+<div class="card-body">
+<p><strong><i class="fa-solid fa-shapes" style="color: var(--global-theme-color); margin-right: 6px;"></i> Pure Mathematics track:</strong> Linear Algebra &rarr; Real Analysis &rarr; General Topology &rarr; Algebraic Topology &rarr; Fixed Point Theory &rarr; TDA</p>
+<p><strong><i class="fa-solid fa-square-root-variable" style="color: var(--global-theme-color); margin-right: 6px;"></i> Applied Mathematics track:</strong> Probability &rarr; Statistics &rarr; Stochastic Processes &rarr; Time Series &rarr; Bayesian Statistics &rarr; Quantitative Finance</p>
+<p><strong><i class="fa-solid fa-laptop-code" style="color: var(--global-theme-color); margin-right: 6px;"></i> Data Science & ML track:</strong> Programming &rarr; Intro to Data Science &rarr; Machine Learning &rarr; Deep Learning &rarr; NLP / Geometric DL / Reinforcement Learning &rarr; MLOps</p>
+<p style="font-size: 0.85rem; color: var(--global-text-color-light);"><em>Each arrow represents a suggested prerequisite. Students can enter at any point matching their background.</em></p>
+</div>
+</div>
+
 <h2 class="teaching-section-header"><i class="fa-solid fa-shapes"></i> Pure mathematics</h2>
 
 <div class="row row-cols-1 row-cols-md-2 g-3 mb-4">

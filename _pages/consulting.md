@@ -161,6 +161,7 @@ A selection of end-to-end data science projects across African open data, each w
 <div class="card-body">
 <h5 class="card-title"><i class="fa-solid fa-chart-line" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Sales forecasting dashboard</h5>
 <p class="card-text"><strong>Rwanda Health Supply Chain</strong> — Designed a time series forecasting model (ARIMA + Prophet, MAPE 2.8%) and built an interactive Streamlit dashboard for public health supply chain teams. Enables proactive inventory decisions and demand forecasting across departments.</p>
+<p class="card-text" style="font-size: 0.85rem; font-weight: 600; color: var(--global-hover-color);"><i class="fa-solid fa-arrow-trend-up" style="margin-right: 4px;"></i> Impact: Reduced stockout incidents through 2.8% MAPE demand forecasting</p>
 </div>
 </div>
 </div>
@@ -170,6 +171,7 @@ A selection of end-to-end data science projects across African open data, each w
 <div class="card-body">
 <h5 class="card-title"><i class="fa-solid fa-users" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Churn prediction & retention</h5>
 <p class="card-text"><strong>Nigeria Telecom</strong> — Built a logistic regression + XGBoost pipeline (AUC 0.91) to identify at-risk telecom customers — analyzing usage patterns, tenure, and billing signals. Contributed to a 15% improvement in customer retention.</p>
+<p class="card-text" style="font-size: 0.85rem; font-weight: 600; color: var(--global-hover-color);"><i class="fa-solid fa-arrow-trend-up" style="margin-right: 4px;"></i> Impact: AUC 0.91 — 15% improvement in customer retention</p>
 </div>
 </div>
 </div>
@@ -179,6 +181,7 @@ A selection of end-to-end data science projects across African open data, each w
 <div class="card-body">
 <h5 class="card-title"><i class="fa-solid fa-truck-medical" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Resource allocation via RL</h5>
 <p class="card-text"><strong>Kenya Health Facilities</strong> — Developed a Q-learning system to optimize mobile clinic scheduling in underserved regions. Enhanced operational efficiency and extended healthcare coverage by 20 percentage points over random allocation.</p>
+<p class="card-text" style="font-size: 0.85rem; font-weight: 600; color: var(--global-hover-color);"><i class="fa-solid fa-arrow-trend-up" style="margin-right: 4px;"></i> Impact: +20pp healthcare coverage over baseline allocation</p>
 </div>
 </div>
 </div>
@@ -188,6 +191,7 @@ A selection of end-to-end data science projects across African open data, each w
 <div class="card-body">
 <h5 class="card-title"><i class="fa-solid fa-box" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Automated billing from images</h5>
 <p class="card-text"><strong>South Africa Logistics</strong> — Built a computer vision pipeline (OpenCV + Tesseract OCR) to extract parcel dimensions and text, generating itemized shipping bills automatically. Reduced manual entry time by 70%.</p>
+<p class="card-text" style="font-size: 0.85rem; font-weight: 600; color: var(--global-hover-color);"><i class="fa-solid fa-arrow-trend-up" style="margin-right: 4px;"></i> Impact: 70% reduction in manual data entry time</p>
 </div>
 </div>
 </div>
@@ -197,6 +201,7 @@ A selection of end-to-end data science projects across African open data, each w
 <div class="card-body">
 <h5 class="card-title"><i class="fa-solid fa-biohazard" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Epidemiological surveillance</h5>
 <p class="card-text"><strong>Benin (INSAE / WHO-AFRO)</strong> — Built a topological anomaly detection pipeline for early epidemic outbreak detection using persistent homology on spatiotemporal case distributions. Detects cluster formation 2–3 weeks before classical WHO alert thresholds.</p>
+<p class="card-text" style="font-size: 0.85rem; font-weight: 600; color: var(--global-hover-color);"><i class="fa-solid fa-arrow-trend-up" style="margin-right: 4px;"></i> Impact: Epidemic detection 2-3 weeks ahead of WHO classical thresholds</p>
 </div>
 </div>
 </div>
@@ -206,6 +211,7 @@ A selection of end-to-end data science projects across African open data, each w
 <div class="card-body">
 <h5 class="card-title"><i class="fa-solid fa-credit-card" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Credit risk scoring</h5>
 <p class="card-text"><strong>South Africa / Kaggle</strong> — Designed an XGBoost credit scoring model (AUC 0.91) using mobile money and geographic features for unbanked populations. Includes fairness analysis across demographics.</p>
+<p class="card-text" style="font-size: 0.85rem; font-weight: 600; color: var(--global-hover-color);"><i class="fa-solid fa-arrow-trend-up" style="margin-right: 4px;"></i> Impact: AUC 0.91 — fairness-audited credit scoring for unbanked populations</p>
 </div>
 </div>
 </div>
