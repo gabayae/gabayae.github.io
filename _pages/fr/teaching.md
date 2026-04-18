@@ -284,10 +284,10 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 <p>Une sélection de supports de cours, notebooks et slides sont disponibles en ligne :</p>
 <ul class="course-list">
 <li><a href="https://github.com/AI-Technipreneurs">AI-Technipreneurs GitHub</a> — Matériel de formation en science des données & ML</li>
-<li><strong>Topologie Générale — Notes de cours</strong> <em>(à venir)</em></li>
-<li><strong>TDA avec Python — Notebooks</strong> <em>(à venir)</em></li>
-<li><strong>Apprentissage par Renforcement Profond — Slides & Code</strong> <em>(à venir)</em></li>
-<li><strong>Fondements de l'Apprentissage Automatique — Pack de cours</strong> <em>(à venir)</em></li>
+<li><a href="{{ '/courses/topologie-generale/' | relative_url }}">Topologie Générale — Notes de cours</a></li>
+<li><a href="{{ '/courses/tda/' | relative_url }}">TDA avec Python — Notebooks</a></li>
+<li><a href="{{ '/courses/apprentissage-renforcement/' | relative_url }}">Apprentissage par Renforcement Profond — Slides & Code</a></li>
+<li><a href="{{ '/courses/apprentissage-automatique/' | relative_url }}">Fondements de l'Apprentissage Automatique — Pack de cours</a></li>
 </ul>
 </div>
 </div>
