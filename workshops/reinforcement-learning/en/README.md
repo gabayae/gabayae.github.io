@@ -1,4 +1,10 @@
-# Reinforcement Learning: From Theory to Practice — 5-Day Workshop
+---
+layout: page
+permalink: /workshops/reinforcement-learning/en/
+title: "Reinforcement Learning: From Theory to Practice — 5-Day Workshop"
+description: "5-day workshop: MDPs, Q-learning, DQN, policy gradients, actor-critic methods."
+lang: en
+---
 
 **Instructor:** Dr. Yaé Ulrich Gaba
 **Duration:** 5 days (30 hours)

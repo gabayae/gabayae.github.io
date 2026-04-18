@@ -1,4 +1,10 @@
-# MLOps in Practice — 4-Day Workshop
+---
+layout: page
+permalink: /workshops/mlops-in-practice/en/
+title: "MLOps in Practice — 4-Day Workshop"
+description: "4-day workshop: Docker, CI/CD, monitoring, MLflow, DVC — from notebook to production."
+lang: en
+---
 
 **Instructor:** Dr. Yaé Ulrich Gaba
 **Duration:** 4 days (24 hours)

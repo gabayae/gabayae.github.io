@@ -1,4 +1,10 @@
-# Rédaction Scientifique avec LaTeX, Overleaf & OpenAI Prism — Atelier de 3 jours
+---
+layout: page
+permalink: /workshops/scientific-writing/fr/
+title: "Rédaction Scientifique avec LaTeX, Overleaf & OpenAI Prism — Atelier de 3 jours"
+description: "Atelier de 3 jours : rédaction LaTeX, Overleaf, rédaction assistée par IA (Prism)."
+lang: fr
+---
 
 **Formateur :** Dr. Yaé Ulrich Gaba
 **Durée :** 3 jours (18 heures)

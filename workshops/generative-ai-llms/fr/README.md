@@ -1,4 +1,10 @@
-# Introduction à l'IA Générative & aux LLMs — Atelier de 3 jours
+---
+layout: page
+permalink: /workshops/generative-ai-llms/fr/
+title: "Introduction à l'IA Générative & aux LLMs — Atelier de 3 jours"
+description: "Atelier de 3 jours : LLMs, prompt engineering, fine-tuning (LoRA), RAG, déploiement."
+lang: fr
+---
 
 **Formateur :** Dr. Yaé Ulrich Gaba
 **Durée :** 3 jours (18 heures)

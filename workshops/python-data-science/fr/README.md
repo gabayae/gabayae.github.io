@@ -1,4 +1,10 @@
-# Python pour la Science des Données — Atelier de 5 jours
+---
+layout: page
+permalink: /workshops/python-data-science/fr/
+title: "Python pour la Science des Données — Atelier de 5 jours"
+description: "Atelier de 5 jours : Pandas, visualisation, ML avec scikit-learn."
+lang: fr
+---
 
 **Formateur :** Dr. Yaé Ulrich Gaba
 **Durée :** 5 jours (30 heures)

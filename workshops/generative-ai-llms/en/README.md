@@ -1,4 +1,10 @@
-# Introduction to Generative AI & LLMs — 3-Day Workshop
+---
+layout: page
+permalink: /workshops/generative-ai-llms/en/
+title: "Introduction to Generative AI & LLMs — 3-Day Workshop"
+description: "3-day workshop: LLMs, prompt engineering, fine-tuning (LoRA), RAG, deployment."
+lang: en
+---
 
 **Instructor:** Dr. Yaé Ulrich Gaba
 **Duration:** 3 days (18 hours)

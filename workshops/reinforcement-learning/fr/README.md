@@ -1,4 +1,10 @@
-# Apprentissage par Renforcement : de la Théorie à la Pratique — Atelier de 5 jours
+---
+layout: page
+permalink: /workshops/reinforcement-learning/fr/
+title: "Apprentissage par Renforcement : de la Théorie à la Pratique — Atelier de 5 jours"
+description: "Atelier de 5 jours : MDPs, Q-learning, DQN, policy gradients, acteur-critique."
+lang: fr
+---
 
 **Formateur :** Dr. Yaé Ulrich Gaba
 **Durée :** 5 jours (30 heures)

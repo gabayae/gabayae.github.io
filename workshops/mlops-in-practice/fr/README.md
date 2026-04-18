@@ -1,4 +1,10 @@
-# MLOps en Pratique — Atelier de 4 jours
+---
+layout: page
+permalink: /workshops/mlops-in-practice/fr/
+title: "MLOps en Pratique — Atelier de 4 jours"
+description: "Atelier de 4 jours : Docker, CI/CD, monitoring, MLflow, DVC — du notebook à la production."
+lang: fr
+---
 
 **Formateur :** Dr. Yaé Ulrich Gaba
 **Durée :** 4 jours (24 heures)

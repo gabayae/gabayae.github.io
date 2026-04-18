@@ -1,4 +1,10 @@
-# Scientific Writing with LaTeX, Overleaf & OpenAI Prism — 3-Day Workshop
+---
+layout: page
+permalink: /workshops/scientific-writing/en/
+title: "Scientific Writing with LaTeX, Overleaf & OpenAI Prism — 3-Day Workshop"
+description: "3-day workshop: LaTeX writing, Overleaf, AI-assisted writing (Prism)."
+lang: en
+---
 
 **Instructor:** Dr. Yaé Ulrich Gaba
 **Duration:** 3 days (18 hours)

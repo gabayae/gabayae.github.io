@@ -1,4 +1,10 @@
-# Geometric Deep Learning — 4-Day Workshop
+---
+layout: page
+permalink: /workshops/geometric-deep-learning/en/
+title: "Geometric Deep Learning — 4-Day Workshop"
+description: "4-day workshop: GNNs, manifold learning, equivariant architectures."
+lang: en
+---
 
 **Instructor:** Dr. Yaé Ulrich Gaba
 **Duration:** 4 days (24 hours)

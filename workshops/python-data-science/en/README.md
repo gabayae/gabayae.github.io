@@ -1,4 +1,10 @@
-# Python for Data Science — 5-Day Workshop
+---
+layout: page
+permalink: /workshops/python-data-science/en/
+title: "Python for Data Science — 5-Day Workshop"
+description: "5-day workshop: Pandas, visualization, ML with scikit-learn."
+lang: en
+---
 
 **Instructor:** Dr. Yaé Ulrich Gaba
 **Duration:** 5 days (30 hours)

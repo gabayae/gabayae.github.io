@@ -1,4 +1,10 @@
-# R pour l'Analyse Statistique — Atelier de 4 jours
+---
+layout: page
+permalink: /workshops/r-statistical-analysis/fr/
+title: "R pour l'Analyse Statistique — Atelier de 4 jours"
+description: "Atelier de 4 jours : Tidyverse, ggplot2, modélisation statistique, R Markdown."
+lang: fr
+---
 
 **Formateur :** Dr. Yaé Ulrich Gaba
 **Durée :** 4 jours (24 heures)

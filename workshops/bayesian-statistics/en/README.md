@@ -1,4 +1,10 @@
-# Applied Bayesian Statistics — 4-Day Workshop
+---
+layout: page
+permalink: /workshops/bayesian-statistics/en/
+title: "Applied Bayesian Statistics — 4-Day Workshop"
+description: "4-day workshop on applied Bayesian statistics: PyMC, MCMC, hierarchical models."
+lang: en
+---
 
 **Instructor:** Dr. Yaé Ulrich Gaba
 **Duration:** 4 days (24 hours)

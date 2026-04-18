@@ -1,4 +1,10 @@
-# Apprentissage Géométrique Profond — Atelier de 4 jours
+---
+layout: page
+permalink: /workshops/geometric-deep-learning/fr/
+title: "Apprentissage Géométrique Profond — Atelier de 4 jours"
+description: "Atelier de 4 jours : GNNs, apprentissage sur variétés, architectures équivariantes."
+lang: fr
+---
 
 **Formateur :** Dr. Yaé Ulrich Gaba
 **Durée :** 4 jours (24 heures)

@@ -1,4 +1,10 @@
-# R for Statistical Analysis — 4-Day Workshop
+---
+layout: page
+permalink: /workshops/r-statistical-analysis/en/
+title: "R for Statistical Analysis — 4-Day Workshop"
+description: "4-day workshop: Tidyverse, ggplot2, statistical modelling, R Markdown."
+lang: en
+---
 
 **Instructor:** Dr. Yaé Ulrich Gaba
 **Duration:** 4 days (24 hours)

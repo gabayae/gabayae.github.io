@@ -1,4 +1,10 @@
-# Data Science for Decision-Makers — 3-Day Workshop
+---
+layout: page
+permalink: /workshops/data-science-decision-makers/en/
+title: "Data Science for Decision-Makers — 3-Day Workshop"
+description: "3-day executive training: understanding AI, use cases, ROI, steering data projects."
+lang: en
+---
 
 **Instructor:** Dr. Yaé Ulrich Gaba
 **Duration:** 3 days (18 hours)

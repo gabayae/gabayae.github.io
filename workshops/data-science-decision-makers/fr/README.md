@@ -1,4 +1,10 @@
-# Data Science pour Décideurs — Atelier de 3 jours
+---
+layout: page
+permalink: /workshops/data-science-decision-makers/fr/
+title: "Data Science pour Décideurs — Atelier de 3 jours"
+description: "Formation de 3 jours pour managers : comprendre l'IA, cas d'usage, ROI, pilotage de projet data."
+lang: fr
+---
 
 **Formateur :** Dr. Yaé Ulrich Gaba
 **Durée :** 3 jours (18 heures)

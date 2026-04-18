@@ -1,4 +1,10 @@
-# Statistique Bayésienne Appliquée — Atelier de 4 jours
+---
+layout: page
+permalink: /workshops/bayesian-statistics/fr/
+title: "Statistique Bayésienne Appliquée — Atelier de 4 jours"
+description: "Atelier de 4 jours sur la statistique bayésienne appliquée : PyMC, MCMC, modèles hiérarchiques."
+lang: fr
+---
 
 **Formateur :** Dr. Yaé Ulrich Gaba
 **Durée :** 4 jours (24 heures)

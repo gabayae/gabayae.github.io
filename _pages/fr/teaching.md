@@ -209,21 +209,21 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Introduction à l'IA générative & aux LLMs</h5>
 <p class="card-text"><strong>3 jours</strong> — Prompt engineering, fine-tuning, Retrieval-Augmented Generation (RAG), déploiement. Pratique avec l'API OpenAI et les modèles open-source.</p>
-<a href="https://github.com/AI-Technipreneurs/workshops/tree/main/generative-ai-llms" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Matériel</a>
-<a href="https://github.com/AI-Technipreneurs/workshops/tree/main/generative-ai-llms" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
+<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/generative-ai-llms" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Matériel</a>
+<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/generative-ai-llms" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Data science pour décideurs</h5>
 <p class="card-text"><strong>3 jours</strong> — Formation non-technique pour managers et dirigeants : comprendre l'IA, identifier les cas d'usage, piloter un projet data, évaluer le ROI.</p>
-<a href="https://github.com/AI-Technipreneurs/workshops/tree/main/data-science-decision-makers" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Matériel</a>
+<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/data-science-decision-makers" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Matériel</a>
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">MLOps en pratique</h5>
 <p class="card-text"><strong>4 jours</strong> — Du notebook à la production : Docker, pipelines CI/CD, monitoring de modèles, suivi d'expériences (MLflow), versioning (DVC).</p>
-<a href="https://github.com/AI-Technipreneurs/workshops/tree/main/mlops-in-practice" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Matériel</a>
-<a href="https://github.com/AI-Technipreneurs/workshops/tree/main/mlops-in-practice" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
+<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/mlops-in-practice" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Matériel</a>
+<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/mlops-in-practice" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
 </div></div></div>
 </div>
 
@@ -233,22 +233,22 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Apprentissage par renforcement : de la théorie à la pratique</h5>
 <p class="card-text"><strong>5 jours</strong> — MDP, Q-learning, DQN, gradients de politique, méthodes acteur-critique. Applications en allocation de ressources, jeux et optimisation.</p>
-<a href="https://github.com/AI-Technipreneurs/workshops/tree/main/reinforcement-learning" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Matériel</a>
-<a href="https://github.com/AI-Technipreneurs/workshops/tree/main/reinforcement-learning" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
+<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/reinforcement-learning" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Matériel</a>
+<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/reinforcement-learning" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Apprentissage géométrique profond</h5>
 <p class="card-text"><strong>4 jours</strong> — Réseaux de neurones sur graphes, apprentissage sur variétés, architectures équivariantes. Applications en sciences moléculaires, réseaux sociaux et nuages de points.</p>
 <a href="/workshops/geometric-deep-learning/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Syllabus</a>
-<a href="https://github.com/AI-Technipreneurs/workshops/tree/main/geometric-deep-learning" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
+<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/geometric-deep-learning" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Statistique bayésienne appliquée</h5>
 <p class="card-text"><strong>4 jours</strong> — Modélisation bayésienne, MCMC, Stan/PyMC, modèles hiérarchiques. Applications en santé, finance et sciences sociales.</p>
 <a href="/workshops/bayesian-statistics/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Syllabus</a>
-<a href="https://github.com/AI-Technipreneurs/workshops/tree/main/bayesian-statistics" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
+<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/bayesian-statistics" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
 </div></div></div>
 </div>
 
@@ -259,21 +259,21 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 <h5 class="card-title">Python pour la science des données</h5>
 <p class="card-text"><strong>5 jours</strong> — De zéro à l'analyse : Pandas, visualisation, nettoyage de données, analyse exploratoire et premiers modèles ML avec scikit-learn.</p>
 <a href="/workshops/python-data-science/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Syllabus</a>
-<a href="https://github.com/AI-Technipreneurs/workshops/tree/main/python-data-science" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
+<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/python-data-science" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">R pour l'analyse statistique</h5>
 <p class="card-text"><strong>4 jours</strong> — Tidyverse, ggplot2, modélisation statistique, rapports reproductibles avec R Markdown. Compagnon de <a href="https://nostarch.com/shapeofdata"><em>The Shape of Data</em></a>.</p>
 <a href="/workshops/r-statistical-analysis/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Syllabus</a>
-<a href="https://github.com/AI-Technipreneurs/workshops/tree/main/r-statistical-analysis" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
+<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/r-statistical-analysis" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Rédaction scientifique avec LaTeX, Overleaf & Prism</h5>
 <p class="card-text"><strong>3 jours</strong> — Rédiger articles, mémoires et thèses avec LaTeX. Édition collaborative sur <a href="https://www.overleaf.com/">Overleaf</a> et rédaction scientifique assistée par IA avec <a href="https://openai.com/prism/">OpenAI Prism</a>.</p>
 <a href="/workshops/scientific-writing/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Syllabus</a>
-<a href="https://github.com/AI-Technipreneurs/workshops/tree/main/scientific-writing" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Templates</a>
+<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/scientific-writing" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Templates</a>
 </div></div></div>
 </div>
 
@@ -284,10 +284,10 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 <p>Une sélection de supports de cours, notebooks et slides sont disponibles en ligne :</p>
 <ul class="course-list">
 <li><a href="https://github.com/AI-Technipreneurs">AI-Technipreneurs GitHub</a> — Matériel de formation en science des données & ML</li>
-<li><a href="https://github.com/gabayae">Topologie Generale — Notes de cours</a></li>
-<li><a href="https://github.com/gabayae">TDA avec Python — Notebooks</a></li>
-<li><a href="https://github.com/gabayae">Apprentissage par Renforcement Profond — Slides & Code</a></li>
-<li><a href="https://github.com/AI-Technipreneurs">Fondements de l'Apprentissage Automatique — Pack de cours</a></li>
+<li><strong>Topologie Générale — Notes de cours</strong> <em>(à venir)</em></li>
+<li><strong>TDA avec Python — Notebooks</strong> <em>(à venir)</em></li>
+<li><strong>Apprentissage par Renforcement Profond — Slides & Code</strong> <em>(à venir)</em></li>
+<li><strong>Fondements de l'Apprentissage Automatique — Pack de cours</strong> <em>(à venir)</em></li>
 </ul>
 </div>
 </div>
