@@ -1,7 +1,7 @@
 ---
 layout: about
 title: about
-permalink: /
+permalink: /en/
 lang: en
 subtitle: >
   Researcher · Educator · Consultant —
