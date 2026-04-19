@@ -4,25 +4,19 @@ title: à propos
 permalink: /fr/
 lang: fr
 subtitle: >
+  Chercheur · Enseignant · Consultant —
   <a href='https://github.com/AI-Technipreneurs'>AIRINA Labs</a> ·
   <a href='https://acas-yde.org/'>Centre Africain d'Études Avancées (ACAS)</a>
 
-typing_roles:
-  - Chercheur
-  - Enseignant
-  - Consultant
-
 stats:
   - icon: fa-graduation-cap
-    text: Doctorat en Topologie
-  - icon: fa-file-lines
-    text: 18+ Publications
+    text: Doctorat en Topologie — University of Cape Town
   - icon: fa-building-columns
-    text: "h-Index: 12 · Citations: 584"
+    text: Directeur R&D · AIRINA Labs
 
 profile:
   align: right
-  image: ola--image.jpg
+  image: yae-gaba.jpg
   image_circular: false
   more_info: >
     <p>Recherche · Enseignement · Conseil</p>
@@ -34,7 +28,7 @@ social: true
 announcements:
   enabled: true
   scrollable: true
-  limit: 5
+  limit: 3
 
 latest_posts:
   enabled: true
