@@ -10,16 +10,11 @@ lang: en
 
 <div class="publications">
 
-<!-- Google Scholar Stats Banner -->
+<!-- Google Scholar Link (live metrics on Scholar itself) -->
 <div class="scholar-stats-banner">
   <a href="https://scholar.google.com/citations?user=UTszjV4AAAAJ&hl=en" target="_blank">
-    <i class="fa-brands fa-google-scholar"></i> Google Scholar
+    <i class="fa-brands fa-google-scholar"></i> View live citation metrics on Google Scholar
   </a>
-  <span class="stat">h-Index = <strong>12</strong></span>
-  <span class="divider">&middot;</span>
-  <span class="stat">i10-Index = <strong>17</strong></span>
-  <span class="divider">&middot;</span>
-  <span class="stat">Citations = <strong>584</strong></span>
 </div>
 
 <h2 class="pub-section-header"><i class="fa-solid fa-star"></i> Selected Publications</h2>
@@ -52,26 +47,6 @@ lang: en
 </ol>
 
 <p class="pub-full-link"><i class="fa-brands fa-orcid"></i> <a href="https://orcid.org/0000-0001-8128-9704" target="_blank">View full publication list on ORCID</a></p>
-
-<h2 class="pub-section-header"><i class="fa-solid fa-file-lines"></i> Top 5 arXiv Preprints</h2>
-
-<ol class="selected-papers">
-  <li>
-    Gaba, Y.U. (2026). <strong>Expansive homeomorphisms on complexity quasi-metric spaces.</strong> <a href="https://arxiv.org/abs/2602.07685" target="_blank">arXiv:2602.07685</a>
-  </li>
-  <li>
-    Iradukunda, M.D., El&eacute;gb&eacute;d&eacute;, C.F., &amp; Gaba, Y.U. (2026). <strong>Intelligent resource allocation in wireless networks via deep reinforcement learning.</strong> <a href="https://arxiv.org/abs/2601.04842" target="_blank">arXiv:2601.04842</a>
-  </li>
-  <li>
-    Hounwanou, C.D., &amp; Gaba, Y.U. (2025). <strong>Deep Generative Models for Synthetic Financial Data: Applications to Portfolio and Risk Modeling.</strong> <a href="https://arxiv.org/abs/2512.21798" target="_blank">arXiv:2512.21798</a>
-  </li>
-  <li>
-    Hounwanou, C.D., Gaba, Y.U., &amp; Ntakirutimana, P. (2025). <strong>Synthetic Financial Data Generation for Enhanced Financial Modelling.</strong> <a href="https://arxiv.org/abs/2512.21791" target="_blank">arXiv:2512.21791</a>
-  </li>
-  <li>
-    Janardhanan, G., Mani, G., Kennedy, N.D.J., &amp; Gaba, Y.U. (2025). <strong>On Fixed Point Theorems in Bipolar Metric Spaces Involving Polynomial-Type Contractions.</strong> <a href="https://arxiv.org/abs/2508.05566" target="_blank">arXiv:2508.05566</a>
-  </li>
-</ol>
 
 <div class="arxiv-section">
   <a href="https://arxiv.org/a/gaba_y_1.html" target="_blank" class="arxiv-logo-link">

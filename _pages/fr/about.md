@@ -17,6 +17,7 @@ stats:
 profile:
   align: right
   image: yae-gaba.jpg
+  image_alt: "Yaé Ulrich Gaba, docteur en topologie et chercheur en IA, Cotonou, Bénin"
   image_circular: false
   more_info: >
     <p>Recherche · Enseignement · Conseil</p>
