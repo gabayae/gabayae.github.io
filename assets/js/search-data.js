@@ -306,6 +306,13 @@ ninja.data = [{
           window.open("https://orcid.org/0000-0001-8128-9704", "_blank");
         },
       },{
+        id: 'social-researchgate',
+        title: 'ResearchGate',
+        section: 'Socials',
+        handler: () => {
+          window.open("https://www.researchgate.net/profile/Yae-Ulrich-Gaba/", "_blank");
+        },
+      },{
         id: 'social-github',
         title: 'GitHub',
         section: 'Socials',
