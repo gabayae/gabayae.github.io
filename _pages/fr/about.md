@@ -37,7 +37,7 @@ latest_posts:
   limit: 3
 ---
 
-Je développe des méthodes mathématiques pour comprendre la forme et la structure des données — et je les rends disponibles sous forme de <span class="kw">recherche</span>, d'<span class="kw">enseignement</span> et de <span class="kw">conseil</span>. Mon objectif : rendre les methodes mathematiques de pointe accessibles aux chercheurs et organisations africaines. Titulaire d'un Doctorat en Topologie de l'<a href="https://www.uct.ac.za/" target="_blank">UCT</a> et d'un Master de l'<a href="https://www.aust.edu.ng/" target="_blank">AUST</a>, mon travail se situe à la frontière où topologie, géométrie et apprentissage automatique se rencontrent. En tant que Directeur R&D dans une startup technologique, je dirige des initiatives de recherche appliquée reliant innovation méthodologique et déploiement opérationnel, avec une expérience transversale dans la banque, l'énergie, l'assurance, l'IT et le retail. Je ne suis pas un consultant qui publie aussi — je suis un chercheur dont le savoir prend trois formes.
+Je développe des méthodes mathématiques pour comprendre la forme et la structure des données — et je les rends disponibles sous forme de <span class="kw">recherche</span>, d'<span class="kw">enseignement</span> et de <span class="kw">conseil</span>. Mon objectif : rendre les méthodes mathématiques de pointe accessibles aux chercheurs et organisations africaines. Titulaire d'un Doctorat en Topologie de l'<a href="https://www.uct.ac.za/" target="_blank">UCT</a> et d'un Master de l'<a href="https://www.aust.edu.ng/" target="_blank">AUST</a>, mon travail se situe à la frontière où topologie, géométrie et apprentissage automatique se rencontrent. En tant que Directeur R&D dans une startup technologique, je dirige des initiatives de recherche appliquée reliant innovation méthodologique et déploiement opérationnel, avec une expérience transversale dans la banque, l'énergie, l'assurance, l'IT et le retail. Je ne suis pas un consultant qui publie aussi — je suis un chercheur dont le savoir prend trois formes.
 
 <div class="profile-sections">
 
@@ -54,28 +54,28 @@ Je développe et publie des méthodes mathématiques pour comprendre la forme et
 <div class="research-thrust">
 <div class="thrust-header"><i class="fa-solid fa-brain"></i> <strong>Fondements topologiques de l'IA & du RL</strong></div>
 <p class="thrust-desc">Preuves rigoureuses de convergence, stabilité et sûreté pour les algorithmes d'apprentissage via les espaces quasi-métriques et métriques généralisés — construire des agents autonomes prédictibles avec des garanties vérifiables.</p>
-<p class="thrust-plain"><em>En clair : nous prouvons mathematiquement que les algorithmes d'IA convergent et restent stables.</em></p>
+<p class="thrust-plain"><em>En clair : nous prouvons mathématiquement que les algorithmes d'IA convergent et restent stables.</em></p>
 <div class="thrust-tags"><span>Quasi-Métriques</span> <span>Points Fixes</span> <span>Sûreté IA</span></div>
 </div>
 
 <div class="research-thrust">
 <div class="thrust-header"><i class="fa-solid fa-shield-halved"></i> <strong>TDA pour un ML robuste</strong></div>
 <p class="thrust-desc">Homologie persistante et théorie des faisceaux pour l'extraction de caractéristiques et la détection d'anomalies — avec des applications en cybersécurité, détection d'intrusions réseau et IA interprétable.</p>
-<p class="thrust-plain"><em>En clair : nous utilisons la forme des donnees pour detecter des anomalies et des intrusions.</em></p>
+<p class="thrust-plain"><em>En clair : nous utilisons la forme des données pour détecter des anomalies et des intrusions.</em></p>
 <div class="thrust-tags"><span>Homologie Persistante</span> <span>Anomalies</span> <span>Cybersécurité</span></div>
 </div>
 
 <div class="research-thrust">
 <div class="thrust-header"><i class="fa-solid fa-arrows-left-right"></i> <strong>Topologie asymétrique & complexité</strong></div>
 <p class="thrust-desc">Structures ordonnées et quasi-métriques pour modéliser les processus non commutatifs et irréversibles du calcul — efficacité algorithmique, sécurité post-quantique et algorithmes d'inspiration quantique.</p>
-<p class="thrust-plain"><em>En clair : nous modelisons les processus irreversibles pour renforcer la securite algorithmique.</em></p>
+<p class="thrust-plain"><em>En clair : nous modélisons les processus irréversibles pour renforcer la sécurité algorithmique.</em></p>
 <div class="thrust-tags"><span>Espaces Ordonnés</span> <span>Post-Quantique</span> <span>Complexité</span></div>
 </div>
 
 <div class="research-thrust">
 <div class="thrust-header"><i class="fa-solid fa-chart-line"></i> <strong>IA quantique-topologique pour la finance</strong></div>
 <p class="thrust-desc">Principes topologiques pour l'IA computationnelle quantique en finance — réseaux neuronaux quantique-topologiques pour la simulation de marchés, tarification de dérivés sur matériel hybride et schémas cryptographiques topologiques.</p>
-<p class="thrust-plain"><em>En clair : nous combinons topologie et calcul quantique pour la modelisation financiere.</em></p>
+<p class="thrust-plain"><em>En clair : nous combinons topologie et calcul quantique pour la modélisation financière.</em></p>
 <div class="thrust-tags"><span>IA Quantique</span> <span>Dérivés</span> <span>Cryptographie</span></div>
 </div>
 
