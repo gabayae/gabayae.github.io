@@ -22,6 +22,7 @@ profile:
   more_info: >
     <p>Recherche · Enseignement · Conseil</p>
     <p>Cotonou, Bénin</p>
+    <p><a href="https://gabayae.github.io/data-portfolio/fr/" target="_blank"><i class="fa-solid fa-laptop-code"></i> Portfolio data science</a></p>
 
 selected_papers: true
 social: true
