@@ -100,9 +100,9 @@ Co-auteur de <a href="https://nostarch.com/shapeofdata" target="_blank"><em>The 
 
 J'enseigne des cours de master, des formations courtes et des ateliers qui rendent les idées mathématiques rigoureuses accessibles aux scientifiques, ingénieurs et praticiens du ML — de la topologie abstraite au deep learning appliqué.
 
-- <span class="kw">Mathématiques pures</span> — Topologie, Analyse réelle, Algèbre abstraite, Analyse fonctionnelle, Théorie des points fixes
-- <span class="kw">Mathématiques appliquées</span> — Probabilités, Modélisation stochastique, Finance quantitative, Programmation mathématique, Simulation
-- <span class="kw">Science des données & ML</span> — TDA, Apprentissage géométrique profond, RL profond, TAL, MLOps, Analytique cloud (Azure)
+- <span class="kw">Mathématiques pures</span>: Topologie, Analyse réelle, Algèbre abstraite, Analyse fonctionnelle, Théorie des points fixes
+- <span class="kw">Mathématiques appliquées</span>: Probabilités, Modélisation stochastique, Finance quantitative, Programmation mathématique, Simulation
+- <span class="kw">Science des données & ML</span>: TDA, Apprentissage géométrique profond, RL profond, TAL, MLOps, Analytique cloud (Azure)
 
 Organisateur du <span class="kw"><a href="https://wocomtoqc.github.io/" target="_blank">Workshop on Computational Topology & Quantum Computing (WoComToQC)</a></span>. Formateur régulier pour <a href="https://www.datascienceafrica.org/" target="_blank">Data Science Africa</a> et <a href="https://github.com/AI-Technipreneurs" target="_blank">Data Science Makers</a>. Engagé dans le mentorat de la prochaine génération de scientifiques africains.
 
@@ -120,11 +120,11 @@ Organisateur du <span class="kw"><a href="https://wocomtoqc.github.io/" target="
 
 Je conseille des équipes de recherche, des startups et des organisations sur l'application des méthodes topologiques et géométriques à des problèmes concrets — et j'interviens comme partenaire R&D pour les équipes qui construisent à la frontière.
 
-- <span class="kw">Stratégie & Architecture IA</span> — feuilles de route, pipelines ML, déploiement cloud (Azure, AWS), évaluation et monitoring de modèles reproductibles
-- <span class="kw">Analytique par TDA</span> — analyse de forme, détection d'anomalies, homologie persistante, fouille de données, segmentation
-- <span class="kw">Analytique avancée & modélisation</span> — modélisation stochastique, TAL, simulation à événements discrets, optimisation, analytique prédictive, systèmes de recommandation, tableaux de bord (Power BI, Tableau)
-- <span class="kw">Apprentissage par renforcement profond</span> — allocation de ressources, optimisation, systèmes de décision
-- <span class="kw">Ateliers & Formations ML</span> — programmes sur mesure pour universités, centres de recherche et entreprises
+- <span class="kw">Stratégie & Architecture IA</span>: feuilles de route, pipelines ML, déploiement cloud (Azure, AWS), évaluation et monitoring de modèles reproductibles
+- <span class="kw">Analytique par TDA</span>: analyse de forme, détection d'anomalies, homologie persistante, fouille de données, segmentation
+- <span class="kw">Analytique avancée & modélisation</span>: modélisation stochastique, TAL, simulation à événements discrets, optimisation, analytique prédictive, systèmes de recommandation, tableaux de bord (Power BI, Tableau)
+- <span class="kw">Apprentissage par renforcement profond</span>: allocation de ressources, optimisation, systèmes de décision
+- <span class="kw">Ateliers & Formations ML</span>: programmes sur mesure pour universités, centres de recherche et entreprises
 
 <div class="profile-links">
 <a href="{{ '/fr/consulting/' | relative_url }}"><i class="fa-solid fa-briefcase"></i> Services de conseil</a>
