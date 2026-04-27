@@ -44,7 +44,7 @@ No programming experience required. Basic statistics helpful but not mandatory.
 
 ## Languages
 
-- `en/` — English lecture notes (LaTeX + PDF)
-- `fr/` — French lecture notes (LaTeX + PDF)
-- `code/python/` — Python scripts per chapter
-- `code/notebooks/` — Jupyter notebooks per chapter (bilingual)
+- `en/`: English lecture notes (LaTeX + PDF)
+- `fr/`: French lecture notes (LaTeX + PDF)
+- `code/python/`: Python scripts per chapter
+- `code/notebooks/`: Jupyter notebooks per chapter (bilingual)

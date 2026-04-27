@@ -208,10 +208,10 @@ ninja.data = [{
           section: "Books",handler: () => {
               window.location.href = "/books/the_shape_of_data/";
             },},{id: "news-the-shape-of-data-our-book-on-geometry-based-machine-learning-and-data-analysis-in-r-is-now-available-from-no-starch-press-co-authored-with-colleen-m-farrelly",
-          title: 'The Shape of Data — our book on geometry-based machine learning and data...',
+          title: 'The Shape of Data: our book on geometry-based machine learning and data analysis...',
           description: "",
           section: "News",},{id: "news-the-shape-of-data-notre-livre-sur-l-apprentissage-automatique-géométrique-et-l-analyse-de-données-en-r-est-disponible-chez-no-starch-press-co-écrit-avec-colleen-m-farrelly",
-          title: 'The Shape of Data — notre livre sur l’apprentissage automatique géométrique et l’analyse...',
+          title: 'The Shape of Data: notre livre sur l’apprentissage automatique géométrique et l’analyse de...',
           description: "",
           section: "News",},{id: "news-new-preprint-topological-foundations-of-reinforcement-learning-is-now-available-on-arxiv-we-explore-how-algebraic-topology-illuminates-the-structure-of-rl-state-action-and-policy-spaces",
           title: 'New preprint: Topological Foundations of Reinforcement Learning is now available on arXiv. We...',
