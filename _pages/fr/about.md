@@ -128,6 +128,7 @@ Je conseille des équipes de recherche, des startups et des organisations sur l'
 
 <div class="profile-links">
 <a href="{{ '/fr/consulting/' | relative_url }}"><i class="fa-solid fa-briefcase"></i> Services de conseil</a>
+<a href="https://gabayae.github.io/data-portfolio/fr/" target="_blank"><i class="fa-solid fa-laptop-code"></i> Portfolio data science (13 projets)</a>
 <a href="mailto:gabayae2@gmail.com"><i class="fa-solid fa-envelope"></i> Discuter de votre projet</a>
 </div>
 </div>

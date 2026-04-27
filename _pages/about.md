@@ -128,6 +128,7 @@ I advise research teams, startups, and organizations on how to apply topological
 
 <div class="profile-links">
 <a href="{{ '/en/consulting/' | relative_url }}"><i class="fa-solid fa-briefcase"></i> Consulting services</a>
+<a href="https://gabayae.github.io/data-portfolio/" target="_blank"><i class="fa-solid fa-laptop-code"></i> Data-science portfolio (13 projects)</a>
 <a href="mailto:gabayae2@gmail.com?subject=Consulting%20Inquiry"><i class="fa-solid fa-envelope"></i> Discuss your project</a>
 </div>
 </div>
