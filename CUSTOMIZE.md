@@ -572,19 +572,19 @@ Additional course content, information, or resources can be added here as markdo
 
 #### Required fields
 
-- `layout: course` — Must be set to use the course layout
-- `title` — The course title
-- `year` — The year the course was/will be taught (used for sorting)
-- `course_id` — A unique identifier for the course
+- `layout: course`: Must be set to use the course layout
+- `title`: The course title
+- `year`: The year the course was/will be taught (used for sorting)
+- `course_id`: A unique identifier for the course
 
 #### Optional fields
 
-- `description` — A brief description of the course
-- `instructor` — The course instructor's name
-- `term` — The academic term (e.g., Fall, Spring, Summer)
-- `location` — The course location
-- `time` — The course meeting time
-- `schedule` — A list of course sessions with details
+- `description`: A brief description of the course
+- `instructor`: The course instructor's name
+- `term`: The academic term (e.g., Fall, Spring, Summer)
+- `location`: The course location
+- `time`: The course meeting time
+- `schedule`: A list of course sessions with details
 
 ### Collections with categories and tags
 

@@ -21,9 +21,9 @@ Building an AI research lab in Africa is not just about importing frameworks fro
 
 AIRINA Labs focuses on applied AI research that bridges mathematical foundations with real-world impact. Our core areas include:
 
-- **Topological and geometric methods for data analysis** — leveraging the mathematical strengths that exist across African institutions
-- **Data-efficient AI** — developing methods that work well with limited, noisy, or incomplete data, a common reality in many African contexts
-- **Responsible AI** — ensuring that the systems we build are transparent, fair, and aligned with local values
+- **Topological and geometric methods for data analysis**: leveraging the mathematical strengths that exist across African institutions
+- **Data-efficient AI**: developing methods that work well with limited, noisy, or incomplete data, a common reality in many African contexts
+- **Responsible AI**: ensuring that the systems we build are transparent, fair, and aligned with local values
 
 ## Lessons Learned
 

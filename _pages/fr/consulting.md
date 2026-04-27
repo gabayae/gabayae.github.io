@@ -145,8 +145,8 @@ J'ai une expérience transversale dans l'application de la modélisation statist
 
 J'ai travaillé avec et à travers les organisations suivantes :
 
-- **[AI.Technipreneurs / AIRINA Labs](https://github.com/AI-Technipreneurs)** — Recherche et innovation en IA pour l'Afrique
-- **[Centre Africain d'Études Avancées (ACAS)](https://acas-yde.org/)** — Recherche et mentorat pour les chercheurs africains
+- **[AI.Technipreneurs / AIRINA Labs](https://github.com/AI-Technipreneurs)**: Recherche et innovation en IA pour l'Afrique
+- **[Centre Africain d'Études Avancées (ACAS)](https://acas-yde.org/)**: Recherche et mentorat pour les chercheurs africains
 
 ---
 

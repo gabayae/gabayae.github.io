@@ -57,8 +57,8 @@ bundle exec jekyll serve
 ### Theme colors
 
 Colors are defined in:
-- `_sass/_variables.scss` — SCSS color variables (amber/gold accent)
-- `_sass/_themes.scss` — CSS custom properties for light/dark modes
+- `_sass/_variables.scss`: SCSS color variables (amber/gold accent)
+- `_sass/_themes.scss`: CSS custom properties for light/dark modes
 
 ### Navigation
 

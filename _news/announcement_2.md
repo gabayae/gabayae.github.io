@@ -6,5 +6,5 @@ related_posts: false
 lang: en
 ---
 
-**The Shape of Data** — our book on geometry-based machine learning and data analysis in R — is now available from [No Starch Press](https://nostarch.com/shapeofdata)! Co-authored with Colleen M. Farrelly.
+**The Shape of Data**: our book on geometry-based machine learning and data analysis in R — is now available from [No Starch Press](https://nostarch.com/shapeofdata)! Co-authored with Colleen M. Farrelly.
 
