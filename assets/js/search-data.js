@@ -267,6 +267,11 @@ ninja.data = [{
           description: "Tools and notebooks for geometric and topological machine learning in R and Python.",
           section: "Projects",handler: () => {
               window.location.href = "/projects/6_geometric_ml/";
+            },},{id: "projects-data-science-portfolio",
+          title: 'Data-Science Portfolio',
+          description: "13 end-to-end data-science projects on real public data, with 5 long-form bilingual case studies. Bilingual EN/FR.",
+          section: "Projects",handler: () => {
+              window.location.href = "/projects/7_data_portfolio/";
             },},{id: "teachings-introduction-to-topological-data-analysis",
           title: 'Introduction to Topological Data Analysis',
           description: "A workshop-style course introducing the foundations of TDA — persistent homology, filtrations, and applications to data science. Designed for graduate students and researchers at AIMS and partner institutions.",
