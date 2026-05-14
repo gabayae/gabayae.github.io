@@ -18,7 +18,7 @@ collection: books
 
 ## Recommended reading
 
-Books that have shaped my thinking at the intersection of topology, data science, and machine learning.
+Books I keep going back to, at the intersection of topology, data science, and machine learning.
 
 <div class="row row-cols-1 row-cols-md-2 g-3 mb-4">
 <div class="col"><div class="card hoverable h-100"><div class="card-body">

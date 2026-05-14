@@ -9,19 +9,19 @@ giscus_comments: true
 related_posts: true
 ---
 
-I am thrilled to announce that **The Shape of Data: Geometry-Based Machine Learning and Data Analysis in R**, co-authored with [Colleen M. Farrelly](https://scholar.google.com/), is now available from [No Starch Press](https://nostarch.com/shapeofdata).
+**The Shape of Data: Geometry-Based Machine Learning and Data Analysis in R**, co-authored with [Colleen M. Farrelly](https://scholar.google.com/), is out from [No Starch Press](https://nostarch.com/shapeofdata). I've been working on this for a long time and I'm glad it's finally in print.
 
-This book represents several years of work distilling the mathematical ideas I care most about — topology, geometry, metric spaces — into a practical guide that data scientists and ML practitioners can use immediately. It is the book I wish I had when I first started thinking about how topological ideas could improve machine learning.
+Several years went into distilling the mathematical ideas I care most about (topology, geometry, metric spaces) into something a working data scientist can use on Monday morning. It's the book I wish I had when I first started thinking about how topological ideas could improve machine learning.
 
 ## What's Inside
 
 The book covers four major themes, each building on the last:
 
-**Topological Data Analysis (TDA).** We introduce persistent homology from the ground up, starting with simplicial complexes and filtrations, and building to persistence diagrams, barcodes, and persistence landscapes. The Mapper algorithm gets its own treatment, with worked examples showing how to use it for exploratory data analysis on real datasets.
+**Topological Data Analysis (TDA).** Persistent homology from first principles: simplicial complexes and filtrations, then persistence diagrams, barcodes, and persistence landscapes. Mapper gets its own chapter, with worked examples on real datasets.
 
 **Metric geometry.** Distance-based methods are the backbone of much of ML, but most practitioners never look beyond Euclidean distance. We cover alternative metrics, embeddings into metric spaces, and curvature-based features that capture local and global geometry. For readers familiar with my research on quasi-metric spaces, this chapter connects those abstract ideas to concrete data analysis tasks.
 
-**Network science.** Graph-based representations are everywhere — social networks, molecular structures, citation graphs. We show how topological and geometric tools apply to graph data, including community detection, graph filtrations, and persistent homology on networks.
+**Network science.** Graph-based representations show up everywhere: social networks, molecular structures, citation graphs. We work through community detection, graph filtrations, and persistent homology on networks.
 
 **Practical R implementations.** Every method in the book comes with runnable R code. We chose R for its strong statistical ecosystem and its excellent TDA packages (the TDA package, GUDHI bindings, and others). Here is a taste of what a TDA pipeline looks like:
 
@@ -40,11 +40,11 @@ diag <- ripsDiag(X, maxdimension = 1, maxscale = 2)
 plot(diag[["diagram"]])
 ```
 
-## Who It's For
+## Who it's for
 
-Whether you are a data scientist looking to add geometric tools to your toolkit, a mathematician curious about ML applications, or a graduate student exploring the intersection of topology and data — this book has something for you. We deliberately wrote it at a level accessible to someone with undergraduate mathematics and basic programming experience, while including enough depth to be useful for researchers.
+Three audiences in mind: data scientists who want geometric tools beyond Euclidean distance, mathematicians curious about ML applications, and graduate students working at the intersection of topology and data. The level assumes undergraduate math and basic programming; there's enough depth for working researchers too.
 
-For my students at AIMS and in the Data Science Makers community, this book is also a statement about the kind of mathematics that matters for modern data analysis. The abstract spaces I studied during my PhD — quasi-metrics, generalized metric spaces, asymmetric topologies — are not disconnected from practice. They are the mathematical substrate on which data analysis rests.
+For my students at AIMS and in the Data Science Makers community, the book is also an argument. The abstract spaces I worked on during my PhD (quasi-metrics, generalized metric spaces, asymmetric topologies) aren't disconnected from applied work. They're the substrate the applied work sits on.
 
 ## Get the Book
 
@@ -52,4 +52,4 @@ For my students at AIMS and in the Data Science Makers community, this book is a
 - **Amazon:** [ISBN 9781718503083](https://www.amazon.com/dp/1718503083)
 - **ISBN:** 9781718503083
 
-I hope this book helps bridge the gap between the beautiful mathematics of topology and geometry, and the practical challenges of modern data analysis. If you read it and find it useful — or if you have suggestions for a second edition — I would love to hear from you.
+If the book helps connect the topology and geometry side of the math to the data-analysis side for you, that's the goal. If you read it and have suggestions for a second edition, send them — I read everything.

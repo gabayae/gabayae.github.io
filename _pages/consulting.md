@@ -10,9 +10,9 @@ lang: en
 
 ## Senior consultant in artificial intelligence, data science & digital transformation
 
-I offer consulting services at the intersection of **topology**, **data science**, and **artificial intelligence**, with a particular focus on African academic and industry contexts.
+I take consulting engagements at the intersection of **topology**, **data science**, and **artificial intelligence**, with most of my work anchored in African academic and industry contexts.
 
-With a background spanning pure mathematics (PhD in Topology) and applied machine learning, I bring a unique perspective to data-driven challenges — combining rigorous mathematical foundations with practical engineering to help organizations navigate their **digital transformation**.
+My background is pure mathematics (PhD in topology) plus applied machine learning, which means I can sit on either side of a project: writing the theory and writing the production code. The engagements I take usually involve a team that has data and a real question, and either no clear method, the wrong one, or a method nobody has audited.
 
 ---
 
@@ -60,7 +60,7 @@ With a background spanning pure mathematics (PhD in Topology) and applied machin
 
 ## Industry focus
 
-I have cross-industry experience applying statistical modeling and machine learning to complex problems, with a consistent focus on interpretability, robustness, and validation. Sectors I work with:
+I work across sectors. The constant: I care more about whether the model is right than whether it's impressive. Sectors I take projects in:
 
 <div class="row row-cols-2 row-cols-md-4 g-3 mb-5 text-center">
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
@@ -130,7 +130,7 @@ I have cross-industry experience applying statistical modeling and machine learn
 <div class="col-md-3">
 <span class="step-number">3</span>
 <h5>Execution</h5>
-<p>Build, iterate, and validate — with regular check-ins and transparent communication.</p>
+<p>Build, iterate, validate. Weekly check-ins; code and notebooks shared as they're written.</p>
 </div>
 <div class="col-md-3">
 <span class="step-number">4</span>
@@ -180,7 +180,7 @@ A selection of end-to-end data science projects across African open data, each w
 <div class="card hoverable h-100">
 <div class="card-body">
 <h5 class="card-title"><i class="fa-solid fa-truck-medical" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Resource allocation via RL</h5>
-<p class="card-text"><strong>Kenya Health Facilities</strong> — Developed a Q-learning system to optimize mobile clinic scheduling in underserved regions. Enhanced operational efficiency and extended healthcare coverage by 20 percentage points over random allocation.</p>
+<p class="card-text"><strong>Kenya Health Facilities</strong> — Q-learning system for mobile clinic scheduling in underserved regions. Extended healthcare coverage by 20 percentage points over random allocation.</p>
 <p class="card-text" style="font-size: 0.85rem; font-weight: 600; color: var(--global-hover-color);"><i class="fa-solid fa-arrow-trend-up" style="margin-right: 4px;"></i> Impact: +20pp healthcare coverage over baseline allocation</p>
 </div>
 </div>
@@ -226,7 +226,7 @@ A selection of end-to-end data science projects across African open data, each w
 
 ## Get in touch
 
-Interested in working together? I'd love to hear about your project.
+If you have a project that needs the kind of work described above, send me an email. I'm happy to have a short call to see whether it's a fit before either of us commits anything.
 
 <div class="text-center my-4">
 <a href="mailto:gabayae2@gmail.com" class="btn-gold"><i class="fa-solid fa-envelope" style="margin-right: 0.5rem;"></i>Discuss your project</a>

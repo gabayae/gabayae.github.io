@@ -9,41 +9,44 @@ giscus_comments: true
 related_posts: true
 ---
 
-## A Continent of Opportunity
+## What's actually happening on the continent
 
-Africa is experiencing a remarkable surge in AI and data science activity. From Lagos to Nairobi, Cape Town to Kigali, a new generation of researchers and engineers is building AI solutions tailored to African contexts and challenges.
+AI and data science activity in Africa is no longer marginal. Labs in Lagos, Nairobi, Cape Town, Kigali, and elsewhere are producing research and shipped systems at a pace that did not exist five years ago.
 
-Having worked across institutions in **Benin**, **South Africa**, and **Rwanda**, I have witnessed this transformation firsthand. Organizations like [AIMS](https://www.nexteinstein.org/) (African Institute for Mathematical Sciences), [Data Science Africa](https://www.datascienceafrica.org/), and [Quantum Leap Africa](https://quantumleapafrica.org/) are creating ecosystems where world-class research can flourish.
+I've worked at institutions in **Benin**, **South Africa**, and **Rwanda**, and the change I see most directly: organizations like [AIMS](https://www.nexteinstein.org/), [Data Science Africa](https://www.datascienceafrica.org/), and [Quantum Leap Africa](https://quantumleapafrica.org/) used to be promising. Now they're producing graduates and research that hold their own against any global benchmark.
 
-## Key Strengths
+## What works
 
-**Mathematical talent.** Africa has deep mathematical traditions and strong training programs. AIMS alone has trained thousands of graduates across its centers in South Africa, Senegal, Ghana, Cameroon, Tanzania, and Rwanda. Many of these graduates go on to pursue PhDs and postdoctoral work at leading institutions worldwide — and increasingly, they are choosing to stay on the continent and build local research capacity.
+**Mathematical training.** AIMS has trained thousands of graduates across its centres (South Africa, Senegal, Ghana, Cameroon, Tanzania, Rwanda), with deep coursework in analysis, algebra, and topology. Many alumni move to PhDs and postdocs abroad; a growing share now come back, and a growing share stay in the first place.
 
-**Real-world problems.** From healthcare and agriculture to financial inclusion and climate monitoring, African researchers work on problems with immediate societal impact. This is not a weakness — it is a superpower. The best research is often motivated by genuine need, and African ML researchers are embedded in communities where the impact of their work is tangible and measurable. Disease surveillance systems in East Africa, crop yield prediction in West Africa, mobile money fraud detection across the continent — these are not toy problems but pressing challenges that demand sophisticated solutions.
+**Problems that bite.** Healthcare, agriculture, financial inclusion, climate monitoring. The work happens close to people whose lives depend on whether the model is right or wrong, which is a different research environment than benchmark-chasing. Disease surveillance in East Africa, crop yield prediction in West Africa, mobile money fraud detection across the continent: the cost of being wrong is operational, not just a number in a results table.
 
-**Community-driven collaboration.** Initiatives like [Data Science Makers](https://github.com/AI-Technipreneurs), Data Science Africa, and the broader AI4Africa movement foster collaboration and knowledge sharing across borders. I have been involved in organizing workshops and training sessions through these networks, and the level of enthusiasm and talent I encounter is extraordinary. The open-source ethos is strong: researchers share code, notebooks, and datasets freely, building on each other's work in a way that accelerates the entire community.
+**Open-source as default.** Through [Data Science Makers](https://github.com/AI-Technipreneurs), Data Science Africa, and the broader AI4Africa networks, researchers publish code, notebooks, and datasets early, and other people actually build on them. That habit isn't universal globally and it matters more than people realize — it compresses the gap between a paper and someone else's working pipeline.
 
-## Challenges
+## What doesn't
 
-**Infrastructure.** Computing resources, internet connectivity, and access to GPU clusters remain uneven across the continent. A researcher in Kigali may have reliable cloud access, while a colleague in a smaller city struggles with intermittent connectivity. This infrastructure gap constrains the kind of research that can be done locally and creates dependencies on international cloud providers.
+**Infrastructure.** Compute, connectivity, and access to GPU clusters are uneven. A researcher in Kigali can have reliable cloud access while a colleague two countries over fights intermittent connectivity. This constrains the kind of research that's locally feasible and produces real dependencies on US and EU cloud providers.
 
-**Brain drain.** Retaining talented researchers requires competitive funding, vibrant research communities, and a vision for local impact. The pull of well-funded labs in North America and Europe is real. But I am cautiously optimistic: organizations like AIMS, QLA, and ACAS are creating environments where researchers can do meaningful work without leaving the continent.
+**Brain drain.** Keeping good researchers requires competitive funding, a research community worth being in, and a credible link from the work to local impact. The pull of well-funded labs in North America and Europe is real and it's not going away. I'm cautiously optimistic anyway: AIMS, QLA, and ACAS are showing that a meaningful research career on the continent is possible, not just notional.
 
-**Data scarcity.** High-quality, representative datasets for African contexts are still scarce in many domains. Medical imaging datasets predominantly feature lighter skin tones; NLP models are trained overwhelmingly on English and other European languages; economic datasets reflect the measurement infrastructure of wealthier nations. Building representative African datasets is a research agenda in its own right.
+**Data scarcity.** Representative datasets for African contexts are missing in many domains. Medical imaging skews to lighter skin tones, NLP is overwhelmingly English-and-Romance, economic datasets reflect the measurement infrastructure of wealthier countries. Building the datasets is itself a research agenda — and one with a long horizon.
 
-## The Role of Topological and Geometric Methods
+## Why topology and geometry, specifically
 
-I believe that **topological and geometric methods** have a unique role to play in African AI development. These methods are:
+This isn't a generic case for African researchers to do all of AI. It's specifically about topological and geometric methods, and there are four reasons.
 
-- **Data-efficient:** Persistent homology and TDA extract meaningful structural features from small datasets, which is critical when data is scarce.
-- **Theory-rich:** They build on strong mathematical foundations where African researchers — particularly those trained through AIMS and its network — have deep expertise.
-- **Interpretable:** Topological features provide geometric insight into model behavior, which matters for trust and accountability in high-stakes applications like healthcare and finance.
-- **Hardware-light:** Many TDA computations can run on modest hardware, reducing the barrier to entry for researchers without GPU cluster access.
+They're data-efficient: persistent homology and TDA pull structural features out of small samples, which matters when collecting more data isn't the answer.
 
-Through workshops like the [Workshop on Computational Topology and Quantum Computing (WoComToQC)](https://wocomtoqc.github.io/), teaching materials for [AI.Technipreneurs](https://github.com/AI-Technipreneurs), and ongoing research at AIRINA Labs and ACAS, I am working to build bridges between mathematical theory and practical AI applications on the continent.
+They sit on mathematics where the local training is unusually deep — particularly via the AIMS network. Building on what's already there is faster than importing what's missing.
 
-## The Path Forward
+They produce interpretable features: a topological signal has a geometric reading you can explain to a clinician or a regulator, which matters in healthcare and finance where black-box outputs cost trust.
 
-The future of AI is global, and Africa is not just participating — it is contributing uniquely to its foundations. The combination of strong mathematical training, real-world motivation, and growing institutional support creates conditions for a distinctive African contribution to the field. My hope is that the mathematical methods I work on — topology, geometry, fixed point theory — can be part of that contribution, providing rigorous tools for the challenges that matter most.
+They're hardware-light. A TDA pipeline runs on a workstation. The compute gap is real, but it's a smaller obstacle here than in foundation-model work.
 
-If you are a researcher, student, or practitioner interested in these questions, I encourage you to connect with the communities mentioned above. The work is just beginning, and there is room for everyone.
+The [WoComToQC workshop](https://wocomtoqc.github.io/), the teaching materials for [AI.Technipreneurs](https://github.com/AI-Technipreneurs), and the research at AIRINA Labs and ACAS are all pushing on this — translating the mathematical training that already exists into applied AI work.
+
+## What I'm watching for
+
+The interesting question isn't whether African researchers will participate in AI globally; they already do. It's whether the work coming out of the continent starts to have a distinctive shape, defined by the problems in front of it and the mathematical training behind it. My bet is yes, and I'd like the topology, geometry, and fixed-point thread to be a recognizable part of that shape.
+
+If you're working in this space and want to compare notes, the communities linked above are where I'd start.

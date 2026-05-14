@@ -13,7 +13,7 @@ stars: 5
 status: Published
 ---
 
-**The Shape of Data** is a practical guide to geometry-based machine learning and data analysis. Co-authored with Colleen M. Farrelly and published by [No Starch Press](https://nostarch.com/shapeofdata), the book introduces readers to the powerful geometric and topological tools reshaping modern data science.
+**The Shape of Data** is a practical guide to geometry-based machine learning, co-authored with Colleen M. Farrelly and published by [No Starch Press](https://nostarch.com/shapeofdata). It works through persistent homology, the Mapper algorithm, metric geometry, and graph methods using R, aimed at people who want to use these tools on actual datasets rather than read about them in survey papers.
 
 ## What you'll learn
 
@@ -24,7 +24,7 @@ status: Published
 
 ## Who this book is for
 
-Whether you're a data scientist looking to expand your toolkit, a mathematician exploring applications, or a student at the intersection of topology and data — this book bridges the gap between abstract mathematical concepts and practical data analysis.
+It's aimed at data scientists who want geometric tools beyond Euclidean distance, mathematicians curious about ML applications, and graduate students working at the intersection of topology and data. Assumed background: undergraduate math and basic R or Python.
 
 ## Get the book
 

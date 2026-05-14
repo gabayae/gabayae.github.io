@@ -2,7 +2,7 @@
 layout: post
 title: "Why topology matters for machine learning"
 date: 2025-01-15
-description: "An introduction to how topological ideas are reshaping modern machine learning — from persistent homology to geometric deep learning."
+description: "What persistent homology and geometric deep learning bring to machine learning, written from the perspective of a working topologist."
 tags: [topology, TDA, machine-learning]
 categories: [research]
 giscus_comments: true
@@ -13,11 +13,11 @@ toc:
 
 ## The Shape of Data
 
-Machine learning algorithms work with data, but data has **shape**. When we collect measurements from the real world — sensor readings, images, molecular structures, social networks — the resulting datasets often possess rich geometric and topological structure that standard ML methods ignore.
+Machine learning algorithms work with data, but data has **shape**. Sensor readings, images, molecular structures, social networks — none of these are just bags of feature vectors. They sit on manifolds, in graphs, with topology that standard ML pipelines flatten before they ever see it.
 
-**Topological Data Analysis (TDA)** provides a mathematical framework for detecting and leveraging this structure. At its core, TDA uses tools from algebraic topology to identify features like connected components, loops, and voids in data at multiple scales.
+**Topological Data Analysis (TDA)** is the mathematical framework for detecting and using that structure. TDA borrows from algebraic topology to identify features like connected components, loops, and voids in data, at multiple scales simultaneously.
 
-I have spent much of my career thinking about the geometry and topology of spaces — first in the context of pure mathematics (quasi-metric spaces, fixed point theory), and now increasingly in the context of data. The transition is less dramatic than it sounds: the same mathematical structures that govern convergence in generalized metric spaces also govern the behavior of learning algorithms.
+I have spent most of my career thinking about the geometry and topology of spaces, first in pure mathematics (quasi-metric spaces, fixed-point theory) and now in data. The transition is less dramatic than it sounds: the same mathematical structures that govern convergence in generalized metric spaces also govern the behavior of learning algorithms.
 
 ## Persistent Homology
 
@@ -56,28 +56,20 @@ plot_diagrams(result['dgms'], show=True)
 
 The single persistent $$H_1$$ feature captures the fact that our data lies on a circle, regardless of the coordinate system or the noise level. This coordinate-free, multi-scale summary is exactly what makes TDA compelling for machine learning.
 
-## Why It Matters
+## Why these features earn their place
 
-Topological features are:
-- **Coordinate-free:** invariant under rotations, translations, and continuous deformations
-- **Multi-scale:** capture structure at all resolutions simultaneously
-- **Robust:** stable under small perturbations of the data (stability theorem)
-- **Complementary:** provide information orthogonal to standard geometric features
+Topological features have four properties that make them useful as ML inputs. They're coordinate-free (invariant under rotations, translations, and continuous deformations). They're multi-scale, capturing structure across resolutions in one pass. They're stable under small data perturbations — this is what the stability theorem buys you, and it's why moderate noise doesn't destroy the signal. And they provide information that's largely orthogonal to standard geometric features, so they compose with PCA, kernels, and the rest of the usual pipeline rather than competing with it.
 
-These properties make TDA particularly powerful for applications where the intrinsic shape of data carries meaningful information. In my own work with Colleen Farrelly on [*The Shape of Data*](https://nostarch.com/shapeofdata), we explored how these topological summaries can be integrated into standard ML pipelines — from persistence landscapes as feature vectors to the Mapper algorithm for exploratory data analysis.
+In *The Shape of Data*, Colleen Farrelly and I show how persistence landscapes plug in as feature vectors, how Mapper supports exploratory data analysis, and where each method earns its keep against the standard baselines.
 
-## Beyond Persistence: Geometric Deep Learning
+## Beyond persistence: geometric deep learning
 
-TDA is part of a broader movement toward **geometry-aware machine learning**. Graph neural networks, equivariant networks, and manifold learning methods all exploit the geometric structure of their input domains. The emerging field of geometric deep learning, as articulated by Bronstein et al., unifies these approaches under a common mathematical umbrella — one in which topology plays a foundational role.
+TDA is part of a wider shift toward geometry-aware ML. Graph neural networks, equivariant networks, and manifold-learning methods all use the geometric structure of their input domains rather than treating inputs as opaque vectors. Bronstein et al.'s geometric deep learning program organizes these approaches into a single framework, with topology sitting at the bottom of the stack.
 
-From my perspective as a topologist, this convergence is deeply satisfying. The abstract structures I studied during my PhD at UCT — quasi-metrics, asymmetric distances, generalized fixed point theorems — are finding concrete applications in understanding when and why learning algorithms converge, and what shape the learned representations take.
+Watching this happen from a pure-topology background is satisfying. The quasi-metrics, asymmetric distances, and generalized fixed-point theorems I worked on during my PhD at UCT now have concrete uses: understanding when learning algorithms converge, and what shape the representations they learn actually have.
 
-## Looking Ahead
+## What's coming in the next posts
 
-In upcoming posts, I will explore:
-- How fixed point theory connects to reinforcement learning convergence
-- Practical TDA workflows in Python using Ripser and GUDHI
-- Geometric deep learning on graphs and manifolds
-- The role of asymmetric topology in modeling irreversible processes
+I'll work through fixed-point theory and reinforcement-learning convergence, practical TDA workflows in Python (Ripser, GUDHI), geometric deep learning on graphs and manifolds, and what asymmetric topology contributes to modeling irreversible processes.
 
-The boundary between pure mathematics and applied machine learning is thinner than most people realize. Topology provides a language for describing that boundary — and for crossing it productively.
+The pure-math / applied-ML boundary is real but porous, and topology happens to be one of the places where the two sides share vocabulary. That's the through-line of the series.

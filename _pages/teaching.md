@@ -29,8 +29,8 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 
 <div class="card hoverable mb-4">
 <div class="card-body">
-<p>I believe mathematics is best learned by <strong>doing</strong>. My teaching blends rigorous theory with hands-on projects, guiding students from abstract definitions to concrete implementations. Whether it's proving a fixed point theorem or building a TDA pipeline in Python, I aim to show that deep understanding and practical skill reinforce each other.</p>
-<p>I emphasize <strong>active learning</strong> (problem sessions, coding labs, and collaborative projects) over passive lectures. I also invest in <strong>mentorship</strong>: helping students find research questions, develop mathematical maturity, and build confidence in their ability to contribute to the field.</p>
+<p>Mathematics is best learned by <strong>doing</strong>. My teaching reflects that: rigorous theory paired with hands-on projects, where students prove a fixed-point theorem one week and build a TDA pipeline in Python the next. Theory and practice end up checking each other.</p>
+<p>I emphasize <strong>active learning</strong> — problem sessions, coding labs, collaborative projects — over passive lectures. The other half of the job is <strong>mentorship</strong>: helping students figure out what research question is theirs, building the mathematical maturity to answer it, and making the path from student to contributor as concrete as I can.</p>
 </div>
 </div>
 

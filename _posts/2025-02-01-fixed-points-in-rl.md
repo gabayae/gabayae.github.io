@@ -13,9 +13,9 @@ toc:
 
 ## From Banach to Bellman
 
-One of the most elegant connections between pure mathematics and artificial intelligence lies in the relationship between the **Banach fixed point theorem** and the convergence of **reinforcement learning (RL) algorithms**. This connection is not merely a formal analogy — it is the actual mathematical mechanism that guarantees RL algorithms find optimal policies.
+The link between the **Banach fixed point theorem** and the convergence of **reinforcement learning** is not a loose analogy. It's the mechanism: value iteration converges because the Bellman operator is a contraction in the right space, and Banach gives you the rest.
 
-I have been thinking about this bridge for years, starting from my PhD work on fixed point theory in generalized metric spaces. With David Krame Kadurha, we recently formalized these ideas in our paper [Topological Foundations of Reinforcement Learning](https://arxiv.org/abs/2410.03706) and its follow-up on [Bellman Operator Convergence Enhancements](https://arxiv.org/abs/2505.14564).
+I've been working on this connection for years, starting from my PhD on fixed-point theory in generalized metric spaces. With David Krame Kadurha, we recently wrote it up in two papers: [Topological Foundations of Reinforcement Learning](https://arxiv.org/abs/2410.03706) and the follow-up on [Bellman Operator Convergence Enhancements](https://arxiv.org/abs/2505.14564).
 
 ## The Banach Contraction Principle
 
@@ -88,7 +88,7 @@ If you are building RL systems, the topological perspective offers practical ben
 3. **Stability guarantees:** Fixed point theory provides rigorous stability bounds that complement empirical testing.
 4. **Asymmetric environments:** When transitions are irreversible, quasi-metric-based analysis provides tighter guarantees than symmetric methods.
 
-The mathematics of fixed points is not just a theoretical curiosity — it is the engine that makes reinforcement learning work.
+Fixed-point theory isn't decorative here. It's the thing doing the work — the reason value iteration converges at all, and the reason your RL algorithm reaches anything in finite time.
 
 ## Further Reading
 

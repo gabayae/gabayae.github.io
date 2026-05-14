@@ -11,17 +11,13 @@ toc:
   sidebar: left
 ---
 
-## The Interpretability Problem
+## The interpretability problem
 
-Large language models are powerful but opaque. As models like GPT-4, Claude, and LLaMA grow in capability, understanding *why* they produce specific outputs becomes increasingly important — for safety, trust, and scientific understanding.
+Most LLM interpretability work uses linear probes, attention visualization, or the mechanistic interpretability toolkit. Each treats hidden states as roughly linear, or focuses on individual circuits. The nonlinear, multi-scale structure of representation space (the part TDA was designed for) usually goes unstudied.
 
-Most interpretability methods rely on **linear probes**, **attention visualization**, or **mechanistic interpretability** techniques. But these approaches often miss the **nonlinear, multi-scale structure** that defines how information flows through a deep network.
+## Topology of representations
 
-This is precisely where **topological data analysis** can contribute.
-
-## Topology of Representations
-
-Neural network layers map inputs through a sequence of high-dimensional representation spaces. At each layer, the data lives on some complex manifold. TDA gives us tools to study the *shape* of these manifolds without assuming linearity.
+Each layer of a network maps inputs into a different high-dimensional space. The points live on a manifold of unknown shape. TDA characterizes that shape without assuming linearity.
 
 Consider the hidden states $$\mathbf{h}_1, \ldots, \mathbf{h}_n \in \mathbb{R}^d$$ at a given layer. Using persistent homology, we can compute:
 
@@ -29,24 +25,17 @@ Consider the hidden states $$\mathbf{h}_1, \ldots, \mathbf{h}_n \in \mathbb{R}^d
 - **$$H_1$$ (loops):** Are there circular structures in representation space? These can indicate periodic or cyclical relationships the model has learned.
 - **$$H_2$$ (voids):** Higher-dimensional cavities may reveal complex organizational principles.
 
-## Attention as a Geometric Object
+## Attention as a geometric object
 
-Attention matrices define a weighted graph over tokens. The resulting **attention simplicial complex** — built by connecting tokens with strong mutual attention — has topological features that correlate with linguistic structure.
+Build a simplicial complex from attention by connecting tokens with strong mutual attention. The resulting object has topology, and several 2024–25 preprints argue that this topology tracks linguistic structure: persistent 1-cycles correspond to syntactic dependencies, persistent connected components across layers correspond to coreference chains, and the topological complexity of attention patterns rises with model capability. The evidence is still thin enough that I'd treat these as testable hypotheses rather than established results.
 
-Recent work has shown that:
-- **Syntactic dependencies** create persistent 1-cycles in attention graphs
-- **Coreference chains** appear as connected components that persist across layers
-- The **topological complexity** of attention patterns increases with model capability
+## Detecting distribution shift
 
-## Detecting Distribution Shift
+One practical application: persistence diagrams as an OOD detector. The topological signature of in-distribution representations sits in a characteristic region of diagram space. Anomalous text moves it. The signal is coordinate-free and scale-invariant, so it composes with standard uncertainty estimation rather than competing with it.
 
-One practical application: using persistence diagrams to detect when an LLM encounters out-of-distribution inputs. The topological signature of in-distribution representations has a characteristic persistence profile. When the model processes anomalous text, this profile changes measurably.
+## Open questions
 
-This gives us a **coordinate-free, scale-invariant** detector — complementing existing uncertainty estimation methods.
-
-## Open Questions
-
-Several exciting research directions lie at this intersection:
+Four directions I think are worth pursuing:
 
 1. **Can TDA features predict hallucination?** If the topological structure of internal representations differs when a model confabulates vs. retrieves factual information, persistence-based features could serve as a hallucination detector.
 
@@ -56,8 +45,8 @@ Several exciting research directions lie at this intersection:
 
 4. **Cross-model comparison.** Do models with similar capabilities share topological signatures, even if trained differently?
 
-## Why This Matters
+## Why I think this matters
 
-The intersection of TDA and LLM interpretability is still young, but it offers something unique: a **mathematical framework** for studying structure that is invariant to the particular coordinate system of any given model. As someone who has spent years studying topological structures in both pure mathematics and applied data science, I believe this is one of the most promising directions for making AI systems more transparent.
+TDA gives interpretability research a coordinate-free vocabulary. That matters because most current methods are bound to the geometry of a specific model: linear probes are linear in this model's basis, attention patterns are this model's attention patterns. Persistent homology talks about shape in a way that survives a basis change. If a topological feature shows up in GPT-4, LLaMA, and Claude at the same point in the network, that's an architectural fact about transformers, not an artifact of one training run.
 
-The tools already exist — persistent homology, Mapper, persistence landscapes — and they are ready to be applied to the most important AI systems of our time.
+The tools (persistent homology, Mapper, persistence landscapes) are in place. The application work on real models is the bottleneck.
