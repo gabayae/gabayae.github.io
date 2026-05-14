@@ -29,8 +29,8 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 
 <div class="card hoverable mb-4">
 <div class="card-body">
-<p>Je crois que les mathématiques s'apprennent avant tout en <strong>pratiquant</strong>. Mon enseignement allie théorie rigoureuse et projets concrets, guidant les étudiants des définitions abstraites aux implémentations pratiques. Qu'il s'agisse de démontrer un théorème de point fixe ou de construire un pipeline TDA en Python, je cherche à montrer que compréhension profonde et compétences pratiques se renforcent mutuellement.</p>
-<p>Je privilégie l'<strong>apprentissage actif</strong> (séances de problèmes, ateliers de code et projets collaboratifs) plutôt que les cours magistraux passifs. J'investis également dans le <strong>mentorat</strong> : aider les étudiants à trouver des questions de recherche, développer leur maturité mathématique et acquérir confiance en leur capacité à contribuer au domaine.</p>
+<p>Les mathématiques s'apprennent en <strong>pratiquant</strong>. Mon enseignement en est le reflet : théorie rigoureuse et projets concrets en parallèle, où les étudiants démontrent un théorème de point fixe une semaine et construisent un pipeline TDA en Python la semaine suivante. La théorie et la pratique finissent par se vérifier l'une l'autre.</p>
+<p>Je privilégie l'<strong>apprentissage actif</strong> — séances de problèmes, ateliers de code, projets collaboratifs — plutôt que les cours magistraux passifs. L'autre moitié du travail, c'est le <strong>mentorat</strong> : aider les étudiants à identifier quelle question de recherche est la leur, construire la maturité mathématique pour y répondre, et rendre le chemin de l'étudiant au contributeur aussi concret que possible.</p>
 </div>
 </div>
 

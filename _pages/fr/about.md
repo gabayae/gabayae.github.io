@@ -38,7 +38,7 @@ latest_posts:
   limit: 3
 ---
 
-Je développe des méthodes mathématiques pour comprendre la forme et la structure des données — et je les rends disponibles sous forme de <span class="kw">recherche</span>, d'<span class="kw">enseignement</span> et de <span class="kw">conseil</span>. Mon objectif : rendre les méthodes mathématiques de pointe accessibles aux chercheurs et organisations africaines. Titulaire d'un Doctorat en Topologie de l'<a href="https://www.uct.ac.za/" target="_blank">UCT</a> et d'un Master de l'<a href="https://www.aust.edu.ng/" target="_blank">AUST</a>, mon travail se situe à la frontière où topologie, géométrie et apprentissage automatique se rencontrent. En tant que Directeur R&D dans une startup technologique, je dirige des initiatives de recherche appliquée reliant innovation méthodologique et déploiement opérationnel, avec une expérience transversale dans la banque, l'énergie, l'assurance, l'IT et le retail. Je ne suis pas un consultant qui publie aussi — je suis un chercheur dont le savoir prend trois formes.
+Je développe des méthodes mathématiques pour la forme et la structure des données, dans trois modes : <span class="kw">recherche</span>, <span class="kw">enseignement</span> et <span class="kw">conseil</span>. Doctorat en topologie (<a href="https://www.uct.ac.za/" target="_blank">UCT</a>), Master de l'<a href="https://www.aust.edu.ng/" target="_blank">AUST</a>. Mes travaux actuels appliquent les méthodes topologiques et géométriques à l'apprentissage automatique, à la sûreté de l'IA et au calcul quantique-classique, sur des problèmes qui se posent dans des contextes africains — surveillance épidémiologique, scoring de crédit pour les populations non bancarisées, prévision de la demande énergétique. En tant que Directeur R&D d'<a href="https://github.com/AI-Technipreneurs" target="_blank">AIRINA Labs</a>, je dirige une équipe de cinq chercheurs répartie sur six pays africains ; les secteurs couverts incluent banque, énergie, assurance, IT et retail. La recherche et le conseil se nourrissent l'un l'autre ; aucun des deux n'est une activité annexe.
 
 <div class="profile-sections">
 
@@ -48,35 +48,35 @@ Je développe des méthodes mathématiques pour comprendre la forme et la struct
 <h3>Chercheur</h3>
 </div>
 
-Je développe et publie des méthodes mathématiques pour comprendre la forme et la structure des données. Mes fondements sont en <span class="kw">topologie asymétrique</span> et en <span class="kw">théorie des points fixes dans les espaces métriques généralisés</span> ; mes travaux actuels appliquent ces idées à l'apprentissage automatique, la sûreté de l'IA et le calcul quantique-classique.
+Mes fondements mathématiques sont en <span class="kw">topologie asymétrique</span> et en <span class="kw">théorie des points fixes dans les espaces métriques généralisés</span>. Les travaux appliqués ci-dessous prolongent ces idées vers l'apprentissage automatique, la sûreté de l'IA et le calcul quantique-classique.
 
 <div class="research-thrusts">
 
 <div class="research-thrust">
 <div class="thrust-header"><i class="fa-solid fa-brain"></i> <strong>Fondements topologiques de l'IA & du RL</strong></div>
-<p class="thrust-desc">Preuves rigoureuses de convergence, stabilité et sûreté pour les algorithmes d'apprentissage via les espaces quasi-métriques et métriques généralisés — construire des agents autonomes prédictibles avec des garanties vérifiables.</p>
-<p class="thrust-plain"><em>En clair : nous prouvons mathématiquement que les algorithmes d'IA convergent et restent stables.</em></p>
+<p class="thrust-desc">Preuves de convergence et de stabilité pour les algorithmes d'apprentissage dans les espaces quasi-métriques et métriques généralisés. Objectif : des garanties par contraction qui résistent quand le cadre standard de Banach cesse de s'appliquer — distances asymétriques, transitions irréversibles, structure non euclidienne.</p>
+<p class="thrust-plain"><em>Version concrète : quand un algorithme de RL converge-t-il de façon prouvable, et qu'est-ce qui change si l'environnement n'est pas réversible ?</em></p>
 <div class="thrust-tags"><span>Quasi-Métriques</span> <span>Points Fixes</span> <span>Sûreté IA</span></div>
 </div>
 
 <div class="research-thrust">
 <div class="thrust-header"><i class="fa-solid fa-shield-halved"></i> <strong>TDA pour un ML robuste</strong></div>
-<p class="thrust-desc">Homologie persistante et théorie des faisceaux pour l'extraction de caractéristiques et la détection d'anomalies — avec des applications en cybersécurité, détection d'intrusions réseau et IA interprétable.</p>
-<p class="thrust-plain"><em>En clair : nous utilisons la forme des données pour détecter des anomalies et des intrusions.</em></p>
+<p class="thrust-desc">Homologie persistante et caractéristiques tirées de la théorie des faisceaux pour la détection d'anomalies et le ML interprétable. Deux domaines sur lesquels je travaille : cybersécurité (intrusion réseau comme signal topologique) et pipelines cliniques où la structure géométrique des données porte une information diagnostique que les baselines statistiques ratent.</p>
+<p class="thrust-plain"><em>Version concrète : quand les méthodes statistiques ne voient pas le motif, la forme des données le voit parfois.</em></p>
 <div class="thrust-tags"><span>Homologie Persistante</span> <span>Anomalies</span> <span>Cybersécurité</span></div>
 </div>
 
 <div class="research-thrust">
 <div class="thrust-header"><i class="fa-solid fa-arrows-left-right"></i> <strong>Topologie asymétrique & complexité</strong></div>
-<p class="thrust-desc">Structures ordonnées et quasi-métriques pour modéliser les processus non commutatifs et irréversibles du calcul — efficacité algorithmique, sécurité post-quantique et algorithmes d'inspiration quantique.</p>
-<p class="thrust-plain"><em>En clair : nous modélisons les processus irréversibles pour renforcer la sécurité algorithmique.</em></p>
+<p class="thrust-desc">Structures ordonnées et quasi-métriques comme modèles de calcul où le coût d'aller vers l'avant diffère du coût d'aller vers l'arrière. Les applications qui m'intéressent : arguments de complexité où la rupture de symétrie achète de l'efficacité, et primitives cryptographiques où elle achète une dureté post-quantique.</p>
+<p class="thrust-plain"><em>Version concrète : avant et arrière ne sont pas la même chose — cette asymétrie est une ressource, à la fois pour les algorithmes et pour la cryptographie.</em></p>
 <div class="thrust-tags"><span>Espaces Ordonnés</span> <span>Post-Quantique</span> <span>Complexité</span></div>
 </div>
 
 <div class="research-thrust">
 <div class="thrust-header"><i class="fa-solid fa-chart-line"></i> <strong>IA quantique-topologique pour la finance</strong></div>
-<p class="thrust-desc">Principes topologiques pour l'IA computationnelle quantique en finance — réseaux neuronaux quantique-topologiques pour la simulation de marchés, tarification de dérivés sur matériel hybride et schémas cryptographiques topologiques.</p>
-<p class="thrust-plain"><em>En clair : nous combinons topologie et calcul quantique pour la modélisation financière.</em></p>
+<p class="thrust-desc">Méthodes topologiques à l'interface du calcul quantique et de la finance quantitative : simulation de marchés sur matériel hybride classique-quantique, tarification de dérivés avec ansätze conscients de la topologie, et cryptographie post-quantique fondée sur des primitives topologiques.</p>
+<p class="thrust-plain"><em>Version concrète : appliquer le versant topologique des travaux du laboratoire à la tarification de dérivés, la simulation de marchés et la crypto post-quantique.</em></p>
 <div class="thrust-tags"><span>IA Quantique</span> <span>Dérivés</span> <span>Cryptographie</span></div>
 </div>
 
@@ -99,13 +99,13 @@ Co-auteur de <a href="https://nostarch.com/shapeofdata" target="_blank"><em>The 
 <h3>Enseignant</h3>
 </div>
 
-J'enseigne des cours de master, des formations courtes et des ateliers qui rendent les idées mathématiques rigoureuses accessibles aux scientifiques, ingénieurs et praticiens du ML — de la topologie abstraite au deep learning appliqué.
+J'enseigne des cours de master, des formations courtes et des ateliers industriels dans les centres AIMS, à l'IMSP et dans des institutions partenaires. Le champ va de la topologie abstraite au deep learning appliqué. Le fil conducteur : faire en sorte que les mathématiques fassent un vrai travail dans les propres problèmes des étudiants, et ne restent pas au tableau.
 
 - <span class="kw">Mathématiques pures</span>: Topologie, Analyse réelle, Algèbre abstraite, Analyse fonctionnelle, Théorie des points fixes
 - <span class="kw">Mathématiques appliquées</span>: Probabilités, Modélisation stochastique, Finance quantitative, Programmation mathématique, Simulation
 - <span class="kw">Science des données & ML</span>: TDA, Apprentissage géométrique profond, RL profond, TAL, MLOps, Analytique cloud (Azure)
 
-Organisateur du <span class="kw"><a href="https://wocomtoqc.github.io/" target="_blank">Workshop on Computational Topology & Quantum Computing (WoComToQC)</a></span>. Formateur régulier pour <a href="https://www.datascienceafrica.org/" target="_blank">Data Science Africa</a> et <a href="https://github.com/AI-Technipreneurs" target="_blank">Data Science Makers</a>. Engagé dans le mentorat de la prochaine génération de scientifiques africains.
+Organisateur du <span class="kw"><a href="https://wocomtoqc.github.io/" target="_blank">Workshop on Computational Topology & Quantum Computing (WoComToQC)</a></span>. Formateur régulier pour <a href="https://www.datascienceafrica.org/" target="_blank">Data Science Africa</a> et <a href="https://github.com/AI-Technipreneurs" target="_blank">Data Science Makers</a>. La plupart de mes encadrés sont des scientifiques africains en début de carrière ; je traite cette partie du métier comme essentielle, pas comme extra-scolaire.
 
 <div class="profile-links">
 <a href="{{ '/fr/teaching/' | relative_url }}"><i class="fa-solid fa-book-open"></i> Catalogue complet des cours</a>
@@ -119,7 +119,7 @@ Organisateur du <span class="kw"><a href="https://wocomtoqc.github.io/" target="
 <h3>Consultant</h3>
 </div>
 
-Je conseille des équipes de recherche, des startups et des organisations sur l'application des méthodes topologiques et géométriques à des problèmes concrets — et j'interviens comme partenaire R&D pour les équipes qui construisent à la frontière.
+Je conseille des équipes de recherche et des startups sur l'application de méthodes topologiques et géométriques à de vrais problèmes de données, et j'interviens comme partenaire R&D à temps partiel quand une équipe a besoin d'une capacité mathématique forte qu'elle n'a pas en interne.
 
 - <span class="kw">Stratégie & Architecture IA</span>: feuilles de route, pipelines ML, déploiement cloud (Azure, AWS), évaluation et monitoring de modèles reproductibles
 - <span class="kw">Analytique par TDA</span>: analyse de forme, détection d'anomalies, homologie persistante, fouille de données, segmentation

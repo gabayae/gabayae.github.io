@@ -10,9 +10,9 @@ lang: fr
 
 ## Consultant senior en intelligence artificielle, science des données & transformation digitale
 
-Je propose des services de conseil à l'intersection de la **topologie**, de la **science des données** et de l'**intelligence artificielle**, avec un accent particulier sur les contextes académiques et industriels africains.
+Je prends des missions de conseil à l'intersection de la **topologie**, de la **science des données** et de l'**intelligence artificielle**, la plupart de mon travail étant ancrée dans des contextes académiques et industriels africains.
 
-Avec une formation allant des mathématiques pures (Doctorat en Topologie) à l'apprentissage automatique appliqué, j'apporte une perspective unique aux défis basés sur les données — combinant des fondements mathématiques rigoureux avec une ingénierie pratique pour accompagner les organisations dans leur **transformation digitale**.
+Ma formation est en mathématiques pures (Doctorat en topologie), prolongée par l'apprentissage automatique appliqué. Concrètement, je peux être des deux côtés d'un projet : écrire la théorie et écrire le code de production. Les missions que je prends impliquent généralement une équipe qui a des données et une vraie question, mais soit aucune méthode claire, soit la mauvaise méthode, soit une méthode que personne n'a auditée.
 
 ---
 
@@ -60,7 +60,7 @@ Avec une formation allant des mathématiques pures (Doctorat en Topologie) à l'
 
 ## Secteurs d'intervention
 
-J'ai une expérience transversale dans l'application de la modélisation statistique et de l'apprentissage automatique à des problèmes complexes, avec un accent constant sur l'interprétabilité, la robustesse et la validation. Secteurs dans lesquels j'interviens :
+Je travaille dans plusieurs secteurs. La constante : je me soucie davantage de savoir si le modèle est juste que de savoir s'il impressionne. Secteurs dans lesquels je prends des missions :
 
 <div class="row row-cols-2 row-cols-md-4 g-3 mb-5 text-center">
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
@@ -130,7 +130,7 @@ J'ai une expérience transversale dans l'application de la modélisation statist
 <div class="col-md-3">
 <span class="step-number">3</span>
 <h5>Exécution</h5>
-<p>Construire, itérer et valider — avec des points réguliers et une communication transparente.</p>
+<p>Construire, itérer, valider. Points hebdomadaires ; code et notebooks partagés au fil de leur écriture.</p>
 </div>
 <div class="col-md-3">
 <span class="step-number">4</span>
@@ -180,7 +180,7 @@ Une sélection de projets de data science de bout en bout sur des données ouver
 <div class="card hoverable h-100">
 <div class="card-body">
 <h5 class="card-title"><i class="fa-solid fa-truck-medical" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Allocation de ressources par RL</h5>
-<p class="card-text"><strong>Établissements de santé au Kenya</strong> — Développement d'un système Q-learning pour optimiser la planification des cliniques mobiles dans les régions mal desservies. Amélioration de l'efficacité opérationnelle et extension de la couverture sanitaire de 20 points de pourcentage.</p>
+<p class="card-text"><strong>Établissements de santé au Kenya</strong> — Système Q-learning pour la planification des cliniques mobiles dans des régions mal desservies. Couverture sanitaire étendue de 20 points de pourcentage par rapport à une allocation aléatoire.</p>
 <p class="card-text"><strong>Impact :</strong> Couverture sanitaire étendue de 20 points</p>
 </div>
 </div>
@@ -226,7 +226,7 @@ Une sélection de projets de data science de bout en bout sur des données ouver
 
 ## Me contacter
 
-Intéressé par une collaboration ? J'aimerais en savoir plus sur votre projet.
+Si vous avez un projet qui correspond au type de travail décrit plus haut, écrivez-moi. Je suis volontiers disponible pour un court appel avant que l'un ou l'autre s'engage.
 
 <div class="text-center my-4">
 <a href="mailto:gabayae2@gmail.com" class="btn-gold"><i class="fa-solid fa-envelope" style="margin-right: 0.5rem;"></i>Discuter de votre projet</a>
