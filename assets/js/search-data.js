@@ -195,7 +195,7 @@ ninja.data = [{
         
           title: "Why topology matters for machine learning",
         
-        description: "An introduction to how topological ideas are reshaping modern machine learning — from persistent homology to geometric deep learning.",
+        description: "What persistent homology and geometric deep learning bring to machine learning, written from the perspective of a working topologist.",
         section: "Posts",
         handler: () => {
           
