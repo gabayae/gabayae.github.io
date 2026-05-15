@@ -1,40 +1,42 @@
-# Generative AI: From Foundations to Production
+# IA Générative : des fondements à la production / Generative AI: from foundations to production
 
-A 30-hour practical course covering modern generative AI --- large language models, diffusion models, prompt engineering, fine-tuning, RAG, agents, and responsible deployment. Designed for students and practitioners with basic Python and machine learning knowledge.
+Cours pratique de 30 heures couvrant l'IA générative moderne — grands modèles de langage, modèles de diffusion, prompt engineering, fine-tuning, RAG, agents, et déploiement responsable. Conçu pour étudiants et praticiens connaissant déjà Python et l'apprentissage automatique de base.
+
+A 30-hour practical course covering modern generative AI — large language models, diffusion models, prompt engineering, fine-tuning, RAG, agents, and responsible deployment. Designed for students and practitioners with basic Python and machine learning knowledge.
 
 ## Structure
 
-| Chapter | Topic | Hours | Key models / tools |
-|---------|-------|-------|--------------------|
-| 1 | Foundations of language models | 3h | GPT-2, BPE tokenizer, tiktoken |
-| 2 | The Transformer architecture | 3h | DistilBERT, attention visualization |
-| 3 | GPT and text generation | 3h | GPT-2, TinyLlama, HuggingFace generate() |
-| 4 | Prompt engineering | 3h | Gemini API, Groq API, structured output |
-| 5 | Fine-tuning LLMs | 3h | LoRA, QLoRA, TinyLlama, HuggingFace Trainer |
-| 6 | Retrieval-augmented generation (RAG) | 3h | ChromaDB, FAISS, LangChain, all-MiniLM-L6-v2 |
-| 7 | Diffusion models and image generation | 3h | Stable Diffusion, diffusers, ControlNet |
-| 8 | Evaluation, safety, and alignment | 3h | BLEU, ROUGE, RLHF, red-teaming |
-| 9 | LLM agents and tool use | 3h | LangChain agents, ReAct, LangGraph |
-| 10 | Capstone projects | 3h | 5 end-to-end projects |
+| Chapitre / Chapter | Sujet / Topic | Heures / Hours | Modèles / outils clés |
+|---|---|---|---|
+| 1 | Fondements des modèles de langage | 3h | GPT-2, tokeniseur BPE, tiktoken |
+| 2 | L'architecture Transformer | 3h | DistilBERT, visualisation d'attention |
+| 3 | GPT et génération de texte | 3h | GPT-2, TinyLlama, HuggingFace generate() |
+| 4 | Prompt engineering | 3h | API Gemini, API Groq, sortie structurée |
+| 5 | Fine-tuning des LLM | 3h | LoRA, QLoRA, TinyLlama, HuggingFace Trainer |
+| 6 | Génération augmentée par récupération (RAG) | 3h | ChromaDB, FAISS, LangChain, all-MiniLM-L6-v2 |
+| 7 | Modèles de diffusion et génération d'images | 3h | Stable Diffusion, diffusers, ControlNet |
+| 8 | Évaluation, sûreté et alignement | 3h | BLEU, ROUGE, RLHF, red-teaming |
+| 9 | Agents LLM et utilisation d'outils | 3h | LangChain agents, ReAct, LangGraph |
+| 10 | Projets de fin de cours | 3h | 5 projets de bout en bout |
 
-## Prerequisites
+## Prérequis / Prerequisites
 
-- Python 3.10+ (comfortable with functions, classes, pip)
-- Basic machine learning (what is a loss function, gradient descent, train/test split)
-- Linear algebra basics (vectors, matrices, dot products)
-- No prior NLP or deep learning experience required
+- Python 3.10+ (à l'aise avec fonctions, classes, pip)
+- Bases d'apprentissage automatique (fonction de perte, descente de gradient, division train/test)
+- Bases d'algèbre linéaire (vecteurs, matrices, produits scalaires)
+- Aucune expérience préalable en TAL ou deep learning requise
 
-## Tools and libraries
+## Outils et bibliothèques / Tools and libraries
 
-- **Python 3.10+** with pip
-- **Google Colab** (free tier with GPU) --- recommended for all exercises
-- **HuggingFace** ecosystem: transformers, datasets, peft, diffusers, accelerate
-- **LangChain** and **LangGraph** for RAG and agents
-- **ChromaDB** and **FAISS** for vector search
-- **Groq** free API (fast LLM inference)
-- **Google Gemini** free API
+- **Python 3.10+** avec pip
+- **Google Colab** (offre gratuite avec GPU) — recommandé pour tous les exercices
+- Écosystème **HuggingFace** : transformers, datasets, peft, diffusers, accelerate
+- **LangChain** et **LangGraph** pour RAG et agents
+- **ChromaDB** et **FAISS** pour la recherche vectorielle
+- API gratuite **Groq** (inférence LLM rapide)
+- API gratuite **Google Gemini**
 
-## Key free resources
+## Ressources gratuites clés / Key free resources
 
 - HuggingFace NLP Course: https://huggingface.co/learn/nlp-course
 - Andrej Karpathy, "Let's build GPT": https://www.youtube.com/watch?v=kCc8FmEb1nY
@@ -46,8 +48,19 @@ A 30-hour practical course covering modern generative AI --- large language mode
 - Sebastian Raschka, "Build a Large Language Model From Scratch" (2024)
 - Jay Alammar, "The Illustrated Transformer": https://jalammar.github.io/illustrated-transformer/
 
-## Languages
+## Structure du dépôt / Repository structure
 
-- `en/` --- English lecture notes (LaTeX + PDF)
-- `code/python/` --- Python scripts per chapter
-- `code/notebooks/` --- Jupyter notebooks per chapter
+- `fr/` — Notes de cours en français (LaTeX + PDF)
+- `en/` — English lecture notes (LaTeX + PDF)
+- `code/python/` — Scripts Python par chapitre / Python scripts per chapter
+- `code/notebooks/` — Notebooks Jupyter par chapitre / Jupyter notebooks per chapter
+
+## Compilation
+
+```bash
+# Version française
+cd fr && xelatex -shell-escape cours.tex && xelatex -shell-escape cours.tex
+
+# English version
+cd en && xelatex -shell-escape notes.tex && xelatex -shell-escape notes.tex
+```
