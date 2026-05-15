@@ -287,12 +287,21 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 
 <p class="card-text"><strong>10 semaines à temps plein</strong> ou <strong>20 semaines à temps partiel</strong>. Dix modules : de Python au ML classique, au deep learning, au TAL, aux LLM et à l'IA générative, jusqu'au MLOps — avec un projet capstone sur un jeu de données réel et un portfolio déployable.</p>
 
+<div style="display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 12px 0 16px; font-size: 0.87rem; color: var(--global-text-color-light);">
+<span><strong style="color: var(--global-theme-color);">60+</strong> sessions en direct</span>
+<span><strong style="color: var(--global-theme-color);">1</strong> projet capstone</span>
+<span><strong style="color: var(--global-theme-color);">8</strong> intervenants industriels</span>
+<span><strong style="color: var(--global-theme-color);">200</strong> heures de cours</span>
+<span><strong style="color: var(--global-theme-color);">20</strong> h d'étude perso/sem (TP) <span style="opacity:.7;">· 10 h/sem (TPart.)</span></span>
+</div>
+
 <p class="card-text" style="font-size: 0.92rem;"><strong>Modules :</strong> Python · Introduction au ML · ML classique (classification, régression, clustering) · Systèmes de recommandation · TAL · ANN/CNN/RNN · LLM &amp; IA générative · MLOps &amp; déploiement · Projet capstone · Portfolio</p>
 
 <p class="card-text" style="font-size: 0.92rem;"><strong>Public :</strong> professionnels en reconversion vers des rôles ML/IA, étudiants de L3 à M2 cherchant un parcours intensif, et équipes d'entreprise organisant une montée en compétences interne.</p>
 
-<p class="card-text" style="font-size: 0.92rem;"><strong>Format :</strong> sessions de cohorte en direct, ateliers Python pratiques, permanences hebdomadaires, projet capstone évalué par des praticiens du ML.</p>
+<p class="card-text" style="font-size: 0.92rem;"><strong>Format :</strong> 100 % en ligne, synchrone. Sessions de cohorte en direct, ateliers Python pratiques, permanences hebdomadaires, projet capstone évalué par des praticiens du ML.</p>
 
+<a href="/workshops/ml-ai-bootcamp/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Syllabus</a>
 <a href="mailto:gabayae2@gmail.com?subject=Bootcamp%20ML%20%26%20IA%20%E2%80%94%20renseignements%20cohorte" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-envelope" style="margin-right: 0.3rem;"></i>Renseignements cohorte</a>
 </div>
 </div>

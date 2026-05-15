@@ -339,12 +339,21 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 
 <p class="card-text"><strong>10 weeks full-time</strong> or <strong>20 weeks part-time</strong>. Ten modules from Python through classical ML, deep learning, NLP, LLMs and generative AI, MLOps — closing with a capstone project on a real dataset and a deployable portfolio piece.</p>
 
+<div style="display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 12px 0 16px; font-size: 0.87rem; color: var(--global-text-color-light);">
+<span><strong style="color: var(--global-theme-color);">60+</strong> live sessions</span>
+<span><strong style="color: var(--global-theme-color);">1</strong> capstone project</span>
+<span><strong style="color: var(--global-theme-color);">8</strong> industry speakers</span>
+<span><strong style="color: var(--global-theme-color);">200</strong> course hours</span>
+<span><strong style="color: var(--global-theme-color);">20</strong> self-study hrs/wk (FT) <span style="opacity:.7;">· 10 hrs/wk (PT)</span></span>
+</div>
+
 <p class="card-text" style="font-size: 0.92rem;"><strong>Modules:</strong> Python · Introduction to ML · Classical ML (classification, regression, clustering) · Recommender systems · NLP · ANN/CNN/RNN · LLMs &amp; generative AI · MLOps &amp; deployment · Capstone project · Portfolio</p>
 
 <p class="card-text" style="font-size: 0.92rem;"><strong>For:</strong> working professionals moving into ML/AI roles, upper-undergraduate and masters students looking for an intensive route, and corporate teams running an internal upskilling cohort.</p>
 
-<p class="card-text" style="font-size: 0.92rem;"><strong>Format:</strong> live cohort sessions, hands-on Python labs, weekly office hours, capstone reviewed by working ML practitioners.</p>
+<p class="card-text" style="font-size: 0.92rem;"><strong>Format:</strong> 100% online, synchronous. Live cohort sessions, hands-on Python labs, weekly office hours, capstone reviewed by working ML practitioners.</p>
 
+<a href="/workshops/ml-ai-bootcamp/en/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Syllabus</a>
 <a href="mailto:gabayae2@gmail.com?subject=ML%20%26%20AI%20Bootcamp%20%E2%80%94%20cohort%20inquiry" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-envelope" style="margin-right: 0.3rem;"></i>Inquire about a cohort</a>
 </div>
 </div>
