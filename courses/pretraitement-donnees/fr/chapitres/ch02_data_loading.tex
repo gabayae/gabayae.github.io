@@ -1,0 +1,267 @@
+\chapter{Chargement des donn\'ees}
+\label{ch:data-loading}
+
+\begin{quote}
+\emph{<< On ne peut pas analyser ce qu'on ne peut pas charger. >>}
+\end{quote}
+
+% ============================================================
+\section{Charger des fichiers CSV}
+
+CSV (comma-separated values) est le format d'\'echange de donn\'ees le plus courant. Pandas le g\`ere avec \texttt{read\_csv}, qui a plus de 50 param\`etres pour traiter les particularit\'es du monde r\'eel.
+
+\begin{minted}{python}
+import pandas as pd
+
+# Chargement basique
+df = pd.read_csv("titanic.csv")
+print(df.shape)
+print(df.head())
+\end{minted}
+
+\subsection{Probl\`emes CSV courants}
+
+\begin{minted}{python}
+# Probl\`eme 1 : mauvais d\'elimiteur
+# Certains CSV europ\'eens utilisent des points-virgules
+df_euro = pd.read_csv("data_eu.csv", sep=";", decimal=",")
+
+# Probl\`eme 2 : encodages
+df_fr = pd.read_csv("french_data.csv", encoding="latin-1")
+
+# Probl\`eme 3 : ent\^etes d\'esordonn\'ees
+df = pd.read_csv("messy.csv", header=0, skiprows=[1, 2])
+df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
+print(df.columns.tolist())
+\end{minted}
+
+\begin{preprocesstip}
+Standardisez toujours les noms de colonnes imm\'ediatement apr\`es chargement : minuscules, underscores, pas d'espaces. \c{C}a \'evite des bugs subtils dus \`a une capitalisation incoh\'erente.
+\end{preprocesstip}
+
+\subsection{Optimiser le chargement CSV}
+
+\begin{minted}{python}
+# Charger uniquement les colonnes n\'ecessaires (\'economie m\'emoire)
+cols = ["PassengerId", "Survived", "Pclass", "Sex", "Age", "Fare"]
+df = pd.read_csv("titanic.csv", usecols=cols)
+
+# Sp\'ecifier les dtypes pour \'economiser la m\'emoire
+dtypes = {"Survived": "int8", "Pclass": "int8", "Sex": "category"}
+df = pd.read_csv("titanic.csv", usecols=cols, dtype=dtypes)
+print(df.memory_usage(deep=True))
+
+# Charger par morceaux pour les gros fichiers
+chunks = pd.read_csv("large_file.csv", chunksize=50_000)
+result = pd.concat([chunk[chunk["Age"] > 30] for chunk in chunks])
+\end{minted}
+
+\begin{warningbox}
+Ne chargez jamais un CSV de plusieurs gigaoctets enti\`erement en m\'emoire d'un coup. Utilisez \texttt{chunksize}, ou passez \`a Parquet/Feather. Un CSV de 2\,Go fait g\'en\'eralement 400\,Mo en Parquet avec des temps de chargement bien plus courts.
+\end{warningbox}
+
+% ============================================================
+\section{Charger des fichiers Excel}
+
+\begin{minted}{python}
+# Chargement Excel basique (n\'ecessite openpyxl)
+df = pd.read_excel("survey_results.xlsx", sheet_name="Sheet1")
+
+# Charger toutes les feuilles dans un dictionnaire
+all_sheets = pd.read_excel("multi_sheet.xlsx", sheet_name=None)
+for name, sheet_df in all_sheets.items():
+    print(f"Sheet '{name}': {sheet_df.shape}")
+
+# Sauter ent\^etes et pieds de page
+df = pd.read_excel("report.xlsx", skiprows=3, skipfooter=2,
+                    engine="openpyxl")
+\end{minted}
+
+\begin{datatip}
+Les fichiers Excel pr\'eservent le formatage mais perdent la pr\'ecision de type. Les dates peuvent \^etre charg\'ees comme cha\^ines, les pourcentages comme floats entre 0 et 1, les devises comme nombres bruts. V\'erifiez toujours les dtypes apr\`es chargement Excel.
+\end{datatip}
+
+% ============================================================
+\section{Charger des donn\'ees JSON}
+
+\begin{minted}{python}
+import json
+
+# JSON plat
+df = pd.read_json("flat_data.json")
+
+# JSON imbriqu\'e (courant depuis les API)
+with open("nested_data.json") as f:
+    raw = json.load(f)
+
+# Utiliser json_normalize pour aplatir
+from pandas import json_normalize
+
+df = json_normalize(raw["results"],
+                    record_path="measurements",
+                    meta=["station_id", "station_name"])
+print(df.head())
+\end{minted}
+
+\begin{minted}{python}
+# Exemple r\'eel : charger un JSON de type Gapminder
+import requests
+
+url = "https://api.worldbank.org/v2/country/BEN/indicator/SP.POP.TOTL?format=json&per_page=60"
+response = requests.get(url)
+data = response.json()
+
+# Les vraies donn\'ees sont dans data[1]
+df_wb = pd.DataFrame(data[1])
+print(df_wb[["date", "value"]].head(10))
+\end{minted}
+
+% ============================================================
+\section{Charger depuis des bases SQL}
+
+\begin{minted}{python}
+from sqlalchemy import create_engine
+
+# SQLite (fichier, pas de serveur)
+engine = create_engine("sqlite:///local_data.db")
+
+# Charger toute la table
+df = pd.read_sql("SELECT * FROM patients", engine)
+
+# Charger avec filtrage (pousser le calcul en base)
+query = """
+SELECT patient_id, age, diagnosis, lab_value
+FROM patients
+WHERE age > 40
+  AND diagnosis IS NOT NULL
+ORDER BY lab_value DESC
+LIMIT 10000
+"""
+df = pd.read_sql(query, engine)
+print(df.shape)
+\end{minted}
+
+\begin{preprocesstip}
+En chargeant depuis SQL, poussez autant de filtrage que possible dans la requ\^ete. Charger 10 millions de lignes dans pandas puis filtrer est bien plus lent que laisser la base filtrer d'abord.
+\end{preprocesstip}
+
+% ============================================================
+\section{Charger depuis des API}
+
+\begin{minted}{python}
+import requests
+import pandas as pd
+
+# Exemple d'API REST : Open Meteo (m\'et\'eo)
+url = "https://archive-api.open-meteo.com/v1/archive"
+params = {
+    "latitude": 6.36,    # Cotonou
+    "longitude": 2.43,
+    "start_date": "2024-01-01",
+    "end_date": "2024-12-31",
+    "daily": "temperature_2m_mean,precipitation_sum",
+}
+
+response = requests.get(url, params=params)
+data = response.json()
+
+df_weather = pd.DataFrame({
+    "date": data["daily"]["time"],
+    "temp_mean": data["daily"]["temperature_2m_mean"],
+    "precip_mm": data["daily"]["precipitation_sum"],
+})
+df_weather["date"] = pd.to_datetime(df_weather["date"])
+print(df_weather.head())
+\end{minted}
+
+\begin{minted}{python}
+# Pagination : beaucoup d'API renvoient les donn\'ees par pages
+all_records = []
+page = 1
+
+while True:
+    resp = requests.get(f"{base_url}?page={page}&per_page=100")
+    records = resp.json()["results"]
+    if not records:
+        break
+    all_records.extend(records)
+    page += 1
+
+df = pd.DataFrame(all_records)
+print(f"Total records: {len(df)}")
+\end{minted}
+
+% ============================================================
+\section{Bases du web scraping}
+
+\begin{minted}{python}
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+
+# Scraper un tableau HTML
+url = "https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)"
+response = requests.get(url)
+soup = BeautifulSoup(response.content, "html.parser")
+
+# pandas peut lire les tableaux HTML directement
+tables = pd.read_html(url)
+print(f"Found {len(tables)} tables on the page")
+gdp_df = tables[2]  # choisir le bon tableau par index
+print(gdp_df.head())
+\end{minted}
+
+\begin{warningbox}
+Le web scraping peut violer les conditions d'utilisation d'un site. V\'erifiez toujours \texttt{robots.txt} et les ToS avant de scraper. Pour la recherche, pr\'ef\'erez les API officielles et les portails de donn\'ees ouvertes.
+\end{warningbox}
+
+% ============================================================
+\section{Comparer les formats : performance}
+
+\begin{minted}{python}
+import time
+
+# Comparer les temps de chargement CSV vs Parquet
+# D'abord, cr\'eer une version Parquet
+df = pd.read_csv("large_dataset.csv")
+df.to_parquet("large_dataset.parquet")
+
+# Chronom\'etrer le chargement CSV
+start = time.time()
+df_csv = pd.read_csv("large_dataset.csv")
+csv_time = time.time() - start
+
+# Chronom\'etrer le chargement Parquet
+start = time.time()
+df_pq = pd.read_parquet("large_dataset.parquet")
+pq_time = time.time() - start
+
+print(f"CSV load:     {csv_time:.2f}s")
+print(f"Parquet load: {pq_time:.2f}s")
+print(f"Speedup:      {csv_time / pq_time:.1f}x")
+\end{minted}
+
+% ============================================================
+\section{Exercices}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Chargez le CSV Titanic avec des dtypes optimis\'es. Comparez l'usage m\'emoire avant et apr\`es optimisation.
+  \item Chargez des donn\'ees depuis l'API Banque Mondiale pour trois pays africains (B\'enin, Nigeria, Ghana) sur l'indicateur \texttt{SP.POP.TOTL} (population totale). Combinez en un seul DataFrame.
+  \item Chargez un fichier Excel \`a plusieurs feuilles. \'Ecrivez une fonction qui renvoie un dictionnaire associant le nom de feuille \`a sa shape.
+  \item Scrapez un tableau HTML depuis Wikipedia et nettoyez les noms de colonnes (minuscules, underscores, pas de caract\`eres sp\'eciaux).
+  \item Convertissez le dataset Adult Census UCI de CSV vers Parquet. Comparez tailles de fichiers et temps de chargement.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Pandas fournit des lecteurs pour CSV, Excel, JSON, SQL, Parquet, HTML, et plus.
+  \item Le chargement CSV demande attention aux d\'elimiteurs, encodages, ent\^etes et dtypes.
+  \item Le JSON issu d'API a souvent besoin de \texttt{json\_normalize} pour aplatir les structures imbriqu\'ees.
+  \item Les chargements SQL devraient pousser le filtrage dans la requ\^ete, pas dans pandas.
+  \item Les API demandent de g\'erer pagination, rate limits, et authentification.
+  \item Parquet est 3 \`a 5 fois plus rapide que CSV au chargement et utilise 5 fois moins d'espace disque.
+\end{itemize}

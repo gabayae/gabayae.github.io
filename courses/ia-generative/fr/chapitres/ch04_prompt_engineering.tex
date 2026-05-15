@@ -1,0 +1,275 @@
+\chapter{Prompt engineering}
+\label{ch:prompt-engineering}
+
+\begin{quote}
+\emph{<< Le prompt engineering est l'art de communiquer avec un mod\`ele de langage. Les capacit\'es du mod\`ele sont fix\'ees ; votre prompt d\'etermine combien de ces capacit\'es vous d\'everrouillez. >>}
+\end{quote}
+
+% ============================================================
+\section{Pourquoi le prompt compte}
+
+Un grand mod\`ele de langage est un pr\'edicteur de texte g\'en\'eraliste. Le prompt cadre la t\^ache, fournit le contexte et contraint le format de sortie. Le m\^eme mod\`ele peut \^etre traducteur, g\'en\'erateur de code ou assistant m\'edical --- enti\`erement selon le prompt.
+
+% ============================================================
+\section{Mise en place : acc\`es API gratuit}
+
+Nous utilisons l'API gratuite Groq (inf\'erence rapide sur Llama 3 et Mixtral) et le palier gratuit de Google Gemini :
+
+\begin{minted}{python}
+# Installation des clients
+# !pip install groq google-generativeai
+
+import os
+# D\'efinir vos cl\'es API (cl\'es gratuites depuis console.groq.com et aistudio.google.com)
+os.environ["GROQ_API_KEY"] = "your-groq-key"
+os.environ["GOOGLE_API_KEY"] = "your-google-key"
+\end{minted}
+
+\begin{minted}{python}
+from groq import Groq
+
+client = Groq()
+
+def ask_groq(prompt, model="llama-3.1-8b-instant", temperature=0.7):
+    """Envoie un prompt \`a Groq et renvoie la r\'eponse."""
+    response = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=temperature,
+        max_tokens=1024,
+    )
+    return response.choices[0].message.content
+
+print(ask_groq("What is the capital of Benin?"))
+\end{minted}
+
+\begin{minted}{python}
+import google.generativeai as genai
+
+genai.configure()
+gemini = genai.GenerativeModel("gemini-2.0-flash")
+
+def ask_gemini(prompt, temperature=0.7):
+    """Envoie un prompt \`a Gemini et renvoie la r\'eponse."""
+    response = gemini.generate_content(
+        prompt,
+        generation_config=genai.GenerationConfig(temperature=temperature),
+    )
+    return response.text
+
+print(ask_gemini("What is the capital of Benin?"))
+\end{minted}
+
+% ============================================================
+\section{Prompt zero-shot}
+
+Donner au mod\`ele une t\^ache sans aucun exemple :
+
+\begin{minted}{python}
+prompt = """Classify the following movie review as POSITIVE or NEGATIVE.
+
+Review: "The cinematography was breathtaking, but the plot was
+completely incoherent and the acting felt wooden."
+
+Classification:"""
+
+print(ask_groq(prompt, temperature=0))
+\end{minted}
+
+% ============================================================
+\section{Prompt few-shot}
+
+Fournir des exemples pour guider le comportement du mod\`ele :
+
+\begin{minted}{python}
+prompt = """Translate English to French.
+
+English: The weather is beautiful today.
+French: Le temps est magnifique aujourd'hui.
+
+English: I would like a cup of coffee, please.
+French: Je voudrais une tasse de cafe, s'il vous plait.
+
+English: Where is the nearest hospital?
+French:"""
+
+print(ask_groq(prompt, temperature=0.2))
+\end{minted}
+
+\begin{aitip}
+Les exemples few-shot doivent \^etre vari\'es, de haute qualit\'e, et repr\'esentatifs des entr\'ees attendues. 3 \`a 5 exemples suffisent g\'en\'eralement. Plus d'exemples peut am\'eliorer la pr\'ecision sur des t\^aches structur\'ees.
+\end{aitip}
+
+% ============================================================
+\section{Chain-of-thought (CoT)}
+
+Demander au mod\`ele de raisonner \'etape par \'etape avant de donner une r\'eponse finale :
+
+\begin{minted}{python}
+# Sans CoT
+prompt_direct = "If a train travels 120 km in 1.5 hours, and then 80 km in 1 hour, what is the average speed for the entire trip?"
+
+# Avec CoT
+prompt_cot = """If a train travels 120 km in 1.5 hours, and then 80 km in 1 hour, what is the average speed for the entire trip?
+
+Let's think step by step:"""
+
+print("=== Direct ===")
+print(ask_groq(prompt_direct, temperature=0))
+print("\n=== Chain-of-Thought ===")
+print(ask_groq(prompt_cot, temperature=0))
+\end{minted}
+
+Le chain-of-thought am\'eliore consid\'erablement la pr\'ecision sur les t\^aches math\'ematiques, de logique et de raisonnement multi-\'etapes.
+
+% ============================================================
+\section{Prompt par r\^ole}
+
+Assigner un r\^ole au mod\`ele via le message syst\`eme :
+
+\begin{minted}{python}
+from groq import Groq
+client = Groq()
+
+response = client.chat.completions.create(
+    model="llama-3.1-8b-instant",
+    messages=[
+        {"role": "system", "content": (
+            "You are an expert data scientist. You explain concepts "
+            "clearly using analogies. You always provide Python code "
+            "examples. You never use jargon without defining it first."
+        )},
+        {"role": "user", "content": "Explain overfitting to a beginner."},
+    ],
+    temperature=0.7,
+)
+print(response.choices[0].message.content)
+\end{minted}
+
+% ============================================================
+\section{Sortie structur\'ee}
+
+Forcer le mod\`ele \`a produire du JSON, CSV ou d'autres formats structur\'es :
+
+\begin{minted}{python}
+prompt = """Extract the following information from the text and return
+it as a JSON object with keys: name, age, condition, medication.
+
+Text: "Mrs. Fatou Diallo, 67 years old, was diagnosed with
+Type 2 diabetes last year. She takes Metformin 500mg twice daily."
+
+JSON:"""
+
+import json
+result = ask_groq(prompt, temperature=0)
+print(result)
+data = json.loads(result)
+print(f"Patient: {data['name']}, Age: {data['age']}")
+\end{minted}
+
+\begin{minted}{python}
+# Avec Gemini et la configuration de sortie structur\'ee
+import google.generativeai as genai
+import typing_extensions as typing
+
+class PatientInfo(typing.TypedDict):
+    name: str
+    age: int
+    condition: str
+    medication: str
+
+model = genai.GenerativeModel("gemini-2.0-flash")
+result = model.generate_content(
+    "Extract patient info: Mrs. Fatou Diallo, 67, Type 2 diabetes, Metformin 500mg",
+    generation_config=genai.GenerationConfig(
+        response_mime_type="application/json",
+        response_schema=PatientInfo,
+    ),
+)
+print(result.text)
+\end{minted}
+
+% ============================================================
+\section{Templates de prompts}
+
+Construire des prompts r\'eutilisables avec variables :
+
+\begin{minted}{python}
+from string import Template
+
+summarizer = Template("""Summarize the following $doc_type in $num_sentences sentences.
+Focus on: $focus_area
+
+Text:
+$text
+
+Summary:""")
+
+prompt = summarizer.substitute(
+    doc_type="research paper abstract",
+    num_sentences="3",
+    focus_area="methodology and key findings",
+    text="We propose LoRA, a method for adapting large language models..."
+)
+print(ask_groq(prompt))
+\end{minted}
+
+\begin{minted}{python}
+# Avec les templates de prompts LangChain
+from langchain_core.prompts import ChatPromptTemplate
+
+template = ChatPromptTemplate.from_messages([
+    ("system", "You are a {role}. Respond in {language}."),
+    ("human", "{question}"),
+])
+
+prompt = template.invoke({
+    "role": "medical doctor",
+    "language": "French",
+    "question": "What are the symptoms of malaria?",
+})
+print(prompt.to_string())
+\end{minted}
+
+% ============================================================
+\section{Patterns de prompts courants}
+
+\begin{longtable}{p{3.5cm}p{9cm}}
+\toprule
+\textbf{Pattern} & \textbf{Exemple} \\
+\midrule
+Persona & << You are a senior Python developer... >> \\
+Cadrage de t\^ache & << Your task is to classify emails as spam or not-spam. >> \\
+Format de sortie & << Return your answer as a JSON array. >> \\
+Contraintes & << Use only information from the provided text. >> \\
+\'Etape par \'etape & << Think step by step before answering. >> \\
+Self-consistency & Ex\'ecuter 3 chemins CoT, prendre la r\'eponse majoritaire. \\
+\bottomrule
+\end{longtable}
+
+\begin{exercise}
+\begin{enumerate}
+  \item \'Ecrivez un prompt zero-shot qui classe des tickets de support client en cat\'egories : facturation, technique, compte, g\'en\'eral. Testez sur 5 exemples.
+  \item Cr\'eez un prompt few-shot (3 exemples) pour la reconnaissance d'entit\'es nomm\'ees. Le mod\`ele doit extraire noms de personnes, organisations et lieux d'un texte.
+  \item Utilisez le chain-of-thought pour r\'esoudre : << Un magasin vend des pommes \`a 1,50\$ chacune. Un client en ach\`ete 3 et paie avec un billet de 10\$. Il a aussi un coupon de 20\% de remise. Quelle est sa monnaie ? >>
+  \item Construisez un template de prompt r\'eutilisable pour la revue de code. Le template prend en entr\'ee : langage, extrait de code, et focus de revue (s\'ecurit\'e, performance, lisibilit\'e).
+  \item Comparez le m\^eme prompt sur Groq (Llama 3) et Gemini. Notez les diff\'erences de format, verbosit\'e et pr\'ecision.
+\end{enumerate}
+\end{exercise}
+
+\begin{ethicsbox}
+Le prompt engineering peut servir \`a contourner les garde-fous de s\^uret\'e (<< jailbreaking >>). En tant que praticiens de l'IA, nous avons la responsabilit\'e de ne pas d\'evelopper ni partager de prompts de jailbreak. Pour tester la s\^uret\'e d'un mod\`ele, utilisez des environnements contr\^ol\'es et signalez les vuln\'erabilit\'es aux fournisseurs via une divulgation responsable.
+\end{ethicsbox}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Le prompt est l'interface entre l'intention humaine et le comportement du mod\`ele.
+  \item Le zero-shot fonctionne pour les t\^aches simples ; le few-shot ajoute des exemples pour les t\^aches plus difficiles.
+  \item Le chain-of-thought am\'eliore consid\'erablement le raisonnement en demandant au mod\`ele de montrer son travail.
+  \item Le prompt par r\^ole via les messages syst\`eme contr\^ole ton, expertise et format.
+  \item La sortie structur\'ee (JSON, sch\'emas) rend les r\'eponses LLM exploitables par machine.
+  \item Les templates de prompts rendent les prompts r\'eutilisables et param\'etrables.
+  \item Les API gratuites (Groq, Gemini) donnent acc\`es \`a des mod\`eles de pointe sans co\^ut.
+\end{itemize}

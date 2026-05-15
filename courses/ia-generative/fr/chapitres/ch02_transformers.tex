@@ -1,0 +1,244 @@
+\chapter{L'architecture Transformer}
+\label{ch:transformers}
+
+\begin{quote}
+\emph{<< Attention is all you need. >> --- Vaswani et al., 2017}
+\end{quote}
+
+% ============================================================
+\section{Des RNN aux Transformers}
+
+Les r\'eseaux r\'ecurrents (RNN, LSTM) traitent les s\'equences token par token, de gauche \`a droite. Cela cr\'ee deux probl\`emes :
+\begin{enumerate}
+  \item \textbf{Goulet d'\'etranglement s\'equentiel.} Le token $t$ doit attendre que les tokens $1, \ldots, t-1$ soient trait\'es. Pas de parall\'elisme.
+  \item \textbf{Contexte qui s'estompe.} L'information des premiers tokens s'efface \`a mesure que la s\'equence grandit.
+\end{enumerate}
+
+Le Transformer r\'esout les deux probl\`emes avec l'\emph{attention} : chaque token peut regarder chaque autre token directement, en parall\`ele.
+
+% ============================================================
+\section{Attention par produit scalaire \`a l'\'echelle}
+
+\'Etant donn\'ee une s\'equence de $n$ tokens, chacun repr\'esent\'e par un vecteur, on calcule trois matrices :
+\begin{itemize}
+  \item $\mathbf{Q}$ (queries), $\mathbf{K}$ (keys), $\mathbf{V}$ (values), chacune de forme $(n \times d_k)$.
+\end{itemize}
+
+\[
+\text{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \text{softmax}\!\left(\frac{\mathbf{Q}\mathbf{K}^\top}{\sqrt{d_k}}\right)\mathbf{V}
+\]
+
+Le facteur $\sqrt{d_k}$ emp\^eche les produits scalaires de devenir trop grands, ce qui pousserait le softmax dans des r\'egions \`a gradients qui s'\'evanouissent.
+
+\begin{minted}{python}
+import torch
+import torch.nn.functional as F
+
+def scaled_dot_product_attention(Q, K, V, mask=None):
+    """Compute scaled dot-product attention."""
+    d_k = Q.size(-1)
+    scores = torch.matmul(Q, K.transpose(-2, -1)) / (d_k ** 0.5)
+    if mask is not None:
+        scores = scores.masked_fill(mask == 0, float("-inf"))
+    weights = F.softmax(scores, dim=-1)
+    return torch.matmul(weights, V), weights
+
+# Exemple : 1 batch, 4 tokens, dimension de plongement 8
+Q = torch.randn(1, 4, 8)
+K = torch.randn(1, 4, 8)
+V = torch.randn(1, 4, 8)
+output, attn_weights = scaled_dot_product_attention(Q, K, V)
+print(f"Output shape: {output.shape}")       # (1, 4, 8)
+print(f"Attention weights shape: {attn_weights.shape}")  # (1, 4, 4)
+\end{minted}
+
+\begin{aitip}
+La matrice de poids d'attention est $(n \times n)$. L'entr\'ee $(i, j)$ vous dit \`a quel point le token $i$ << regarde >> le token $j$. Visualiser cette matrice r\'ev\`ele ce sur quoi le mod\`ele se concentre.
+\end{aitip}
+
+% ============================================================
+\section{Attention multi-t\^etes}
+
+Au lieu d'une seule fonction d'attention, les Transformers utilisent $h$ << t\^etes >> parall\`eles, chacune avec ses propres projections apprises $W_Q^{(i)}, W_K^{(i)}, W_V^{(i)}$ :
+
+\[
+\text{MultiHead}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \text{Concat}(\text{head}_1, \ldots, \text{head}_h)\,\mathbf{W}^O
+\]
+
+Chaque t\^ete peut apprendre un type de relation diff\'erent : syntaxique, s\'emantique, positionnel, etc.
+
+\begin{minted}{python}
+import torch.nn as nn
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, d_model=512, num_heads=8):
+        super().__init__()
+        assert d_model % num_heads == 0
+        self.d_k = d_model // num_heads
+        self.num_heads = num_heads
+        self.W_q = nn.Linear(d_model, d_model)
+        self.W_k = nn.Linear(d_model, d_model)
+        self.W_v = nn.Linear(d_model, d_model)
+        self.W_o = nn.Linear(d_model, d_model)
+
+    def forward(self, Q, K, V, mask=None):
+        batch = Q.size(0)
+        # Projection puis reshape : (batch, seq, d_model) -> (batch, heads, seq, d_k)
+        Q = self.W_q(Q).view(batch, -1, self.num_heads, self.d_k).transpose(1, 2)
+        K = self.W_k(K).view(batch, -1, self.num_heads, self.d_k).transpose(1, 2)
+        V = self.W_v(V).view(batch, -1, self.num_heads, self.d_k).transpose(1, 2)
+        # Attention par t\^ete
+        out, weights = scaled_dot_product_attention(Q, K, V, mask)
+        # Concat\'enation des t\^etes
+        out = out.transpose(1, 2).contiguous().view(batch, -1, self.num_heads * self.d_k)
+        return self.W_o(out)
+
+mha = MultiHeadAttention(d_model=64, num_heads=4)
+x = torch.randn(2, 10, 64)  # batch=2, seq=10, dim=64
+print(f"Output: {mha(x, x, x).shape}")  # (2, 10, 64)
+\end{minted}
+
+% ============================================================
+\section{Encodage positionnel}
+
+L'attention est invariante par permutation --- elle ne conna\^it pas l'ordre des tokens. Les encodages positionnels injectent l'information de position :
+
+\[
+PE_{(pos, 2i)} = \sin\!\left(\frac{pos}{10000^{2i/d}}\right), \quad
+PE_{(pos, 2i+1)} = \cos\!\left(\frac{pos}{10000^{2i/d}}\right)
+\]
+
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+def positional_encoding(max_len, d_model):
+    pe = np.zeros((max_len, d_model))
+    position = np.arange(max_len)[:, np.newaxis]
+    div_term = np.exp(np.arange(0, d_model, 2) * -(np.log(10000.0) / d_model))
+    pe[:, 0::2] = np.sin(position * div_term)
+    pe[:, 1::2] = np.cos(position * div_term)
+    return pe
+
+pe = positional_encoding(100, 64)
+plt.figure(figsize=(10, 4))
+plt.imshow(pe, aspect="auto", cmap="RdBu")
+plt.xlabel("Embedding dimension")
+plt.ylabel("Position")
+plt.title("Sinusoidal positional encoding")
+plt.colorbar()
+plt.tight_layout()
+plt.savefig("positional_encoding.png", dpi=150)
+plt.show()
+\end{minted}
+
+\begin{aitip}
+Les mod\`eles modernes (GPT, Llama) utilisent les \emph{Rotary Position Embeddings} (RoPE) plut\^ot que les encodages sinuso\"idaux. RoPE code la position relative en faisant tourner les vecteurs query et key, ce qui passe mieux \`a l'\'echelle des contextes longs.
+\end{aitip}
+
+% ============================================================
+\section{Architecture encodeur-d\'ecodeur}
+
+Le Transformer original a deux piles :
+\begin{itemize}
+  \item \textbf{Encodeur :} traite la s\'equence d'entr\'ee avec auto-attention bidirectionnelle. Chaque token peut voir tous les autres tokens.
+  \item \textbf{D\'ecodeur :} g\'en\`ere la s\'equence de sortie avec auto-attention causale (masqu\'ee). Chaque token ne peut voir que les tokens pr\'ec\'edents. Il attribue \'egalement de l'attention \`a la sortie de l'encodeur via la cross-attention.
+\end{itemize}
+
+\begin{center}
+\begin{tikzpicture}[
+  block/.style={rectangle, draw, fill=aiblue!15, minimum width=3cm, minimum height=0.8cm, rounded corners},
+  arrow/.style={-{Stealth}, thick}
+]
+  \node[block] (emb_enc) at (0, 0) {Plongement entr\'ee + PE};
+  \node[block] (sa_enc) at (0, 1.2) {Auto-attention multi-t\^etes};
+  \node[block] (ff_enc) at (0, 2.4) {R\'eseau Feed-Forward};
+  \node[above] at (0, 3.1) {\textbf{Encodeur} ($\times N$)};
+
+  \node[block] (emb_dec) at (5.5, 0) {Plongement sortie + PE};
+  \node[block] (sa_dec) at (5.5, 1.2) {Auto-attention masqu\'ee};
+  \node[block] (ca_dec) at (5.5, 2.4) {Cross-attention};
+  \node[block] (ff_dec) at (5.5, 3.6) {R\'eseau Feed-Forward};
+  \node[block] (linear) at (5.5, 4.8) {Lin\'eaire + Softmax};
+  \node[above] at (5.5, 5.5) {\textbf{D\'ecodeur} ($\times N$)};
+
+  \draw[arrow] (emb_enc) -- (sa_enc);
+  \draw[arrow] (sa_enc) -- (ff_enc);
+  \draw[arrow] (emb_dec) -- (sa_dec);
+  \draw[arrow] (sa_dec) -- (ca_dec);
+  \draw[arrow] (ca_dec) -- (ff_dec);
+  \draw[arrow] (ff_dec) -- (linear);
+  \draw[arrow, dashed] (ff_enc.east) -- ++(1,0) |- (ca_dec.west);
+\end{tikzpicture}
+\end{center}
+
+% ============================================================
+\section{Variantes en pratique}
+
+\begin{longtable}{p{3.5cm}p{3.5cm}p{5cm}}
+\toprule
+\textbf{Architecture} & \textbf{Mod\`eles} & \textbf{Cas d'usage} \\
+\midrule
+Encodeur seul & BERT, DistilBERT, RoBERTa & Classification, NER, plongements \\
+D\'ecodeur seul & GPT-2, GPT-4, Llama, Phi & G\'en\'eration de texte, chatbots, code \\
+Encodeur-d\'ecodeur & T5, BART, Flan-T5 & Traduction, r\'esum\'e \\
+\bottomrule
+\end{longtable}
+
+% ============================================================
+\section{Visualiser l'attention avec DistilBERT}
+
+\begin{minted}{python}
+from transformers import AutoTokenizer, AutoModel
+import torch
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+model_name = "distilbert-base-uncased"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModel.from_pretrained(model_name, output_attentions=True)
+
+text = "The cat sat on the mat because it was tired"
+inputs = tokenizer(text, return_tensors="pt")
+with torch.no_grad():
+    outputs = model(**inputs)
+
+# outputs.attentions est un tuple : un tenseur par couche
+# Forme de chaque tenseur : (batch, heads, seq_len, seq_len)
+attn = outputs.attentions[-1][0]  # derni\`ere couche, premier batch
+tokens_list = tokenizer.convert_ids_to_tokens(inputs["input_ids"][0])
+
+fig, axes = plt.subplots(1, 4, figsize=(20, 5))
+for i, ax in enumerate(axes):
+    sns.heatmap(attn[i].numpy(), xticklabels=tokens_list,
+                yticklabels=tokens_list, ax=ax, cmap="Blues")
+    ax.set_title(f"Head {i}")
+plt.tight_layout()
+plt.savefig("attention_heads.png", dpi=150)
+plt.show()
+\end{minted}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Impl\'ementez la fonction \texttt{scaled\_dot\_product\_attention} \`a partir de z\'ero (sans l'API d'attention PyTorch). V\'erifiez qu'elle reproduit la sortie de \texttt{torch.nn.functional.scaled\_dot\_product\_attention}.
+  \item Visualisez les t\^etes d'attention pour la phrase << The bank by the river was steep. >>. Quelles t\^etes attribuent leur attention \`a quels mots ? Y a-t-il des t\^etes qui capturent le lien entre << bank >> et << river >> ?
+  \item Modifiez la fonction d'encodage positionnel pour utiliser des plongements appris plut\^ot que sinuso\"idaux. Entra\^inez un petit mod\`ele et comparez.
+  \item Calculez le nombre de param\`etres d'une couche d'encodeur Transformer avec $d_{\text{model}}=512$ et $h=8$. D\'etaillez votre calcul.
+\end{enumerate}
+\end{exercise}
+
+\begin{ethicsbox}
+Les poids d'attention sont parfois interpr\'et\'es comme des << explications >> du comportement du mod\`ele. C'est trompeur. L'attention montre o\`u le mod\`ele \emph{regarde}, pas n\'ecessairement ce qu'il \emph{utilise} pour la pr\'ediction finale. La visualisation d'attention est un outil de diagnostic, pas une explication fid\`ele.
+\end{ethicsbox}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Le Transformer remplace la r\'ecurrence par l'auto-attention, ce qui permet le parall\'elisme complet.
+  \item L'attention par produit scalaire \`a l'\'echelle calcule une somme pond\'er\'ee des valeurs, avec des poids issus de la similarit\'e query-key.
+  \item L'attention multi-t\^etes permet au mod\`ele d'attribuer son attention \`a diff\'erents types de relations simultan\'ement.
+  \item Les encodages positionnels (sinuso\"idaux ou appris) injectent l'ordre s\'equentiel dans le m\'ecanisme d'attention.
+  \item Encodeur seul (BERT), d\'ecodeur seul (GPT), et encodeur-d\'ecodeur (T5) sont les trois principales variantes de Transformer.
+  \item La visualisation d'attention est utile pour le d\'ebogage, mais ne doit pas \^etre sur-interpr\'et\'ee comme une explication du mod\`ele.
+\end{itemize}

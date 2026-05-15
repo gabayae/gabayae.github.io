@@ -1,0 +1,210 @@
+\chapter{Fondements des mod\`eles de langage}
+\label{ch:foundations}
+
+\begin{quote}
+\emph{<< Un mod\`ele de langage est une distribution de probabilit\'e sur des s\'equences de tokens. Tout le reste --- chatbots, g\'en\'eration de code, r\'esum\'e --- d\'ecoule de cette unique id\'ee. >>}
+\end{quote}
+
+% ============================================================
+\section{Qu'est-ce qu'un mod\`ele de langage ?}
+
+Un mod\`ele de langage attribue une probabilit\'e \`a une s\'equence de tokens $w_1, w_2, \ldots, w_n$ :
+\[
+P(w_1, w_2, \ldots, w_n) = \prod_{i=1}^{n} P(w_i \mid w_1, \ldots, w_{i-1})
+\]
+
+Cette factorisation dit : pr\'edire chaque token \'etant donn\'e tout ce qui pr\'ec\`ede. Un mod\`ele qui fait cela correctement peut g\'en\'erer du texte coh\'erent, traduire des langues, r\'epondre \`a des questions et \'ecrire du code --- parce que toutes ces t\^aches se ram\`enent \`a << quel est le token suivant ? >>.
+
+\begin{definition}[Mod\`ele de langage]
+Une fonction $P_\theta$ param\'etr\'ee par $\theta$ qui associe \`a une s\'equence de tokens une probabilit\'e. L'entra\^inement ajuste $\theta$ pour maximiser la vraisemblance des textes observ\'es.
+\end{definition}
+
+\begin{aitip}
+Vous pouvez interagir avec un mod\`ele de langage d\`es maintenant. Ouvrez un notebook Colab et ex\'ecutez l'exemple GPT-2 de la Section~\ref{sec:first-generation}. Le mod\`ele compl\'etera n'importe quel texte que vous lui donnerez.
+\end{aitip}
+
+% ============================================================
+\section{Tokenisation}
+
+Les mod\`eles de langage ne traitent ni des caract\`eres bruts, ni des mots entiers. Ils traitent des \emph{tokens} --- des unit\'es de sous-mots apprises sur les donn\'ees.
+
+\subsection{Pourquoi des sous-mots ?}
+
+\begin{itemize}
+  \item Niveau caract\`ere : vocabulaire min\'eral (< 300), mais s\'equences extr\^emement longues.
+  \item Niveau mot : vocabulaire \'enorme (100\,000+), et les mots inconnus provoquent des \'echecs.
+  \item Niveau sous-mot : vocabulaire mod\'er\'e (32\,000--100\,000), g\`ere n'importe quel mot, garde les s\'equences courtes.
+\end{itemize}
+
+\subsection{Byte Pair Encoding (BPE)}
+
+BPE part des caract\`eres individuels et fusionne it\'erativement la paire adjacente la plus fr\'equente :
+
+\begin{enumerate}
+  \item D\'epart : \texttt{["l", "o", "w", "e", "r"]}
+  \item Paire la plus fr\'equente : \texttt{("l", "o")} $\rightarrow$ fusion en \texttt{"lo"}
+  \item Continuer jusqu'\`a atteindre la taille de vocabulaire vis\'ee.
+\end{enumerate}
+
+\begin{minted}{python}
+# Tokenisation avec tiktoken (tokeniseur GPT)
+import tiktoken
+
+enc = tiktoken.get_encoding("cl100k_base")  # tokeniseur GPT-4
+text = "Generative AI transforms how we create content."
+tokens = enc.encode(text)
+print(f"Text: {text}")
+print(f"Token IDs: {tokens}")
+print(f"Tokens: {[enc.decode([t]) for t in tokens]}")
+print(f"Number of tokens: {len(tokens)}")
+\end{minted}
+
+\subsection{Tokenisation WordPiece}
+
+WordPiece (utilis\'e par BERT) ressemble \`a BPE mais s\'electionne les fusions selon un crit\`ere de vraisemblance. La biblioth\`eque \texttt{tokenizers} de HuggingFace prend en charge les deux :
+
+\begin{minted}{python}
+from transformers import AutoTokenizer
+
+# Tokeniseur BPE (GPT-2)
+gpt2_tok = AutoTokenizer.from_pretrained("gpt2")
+print(gpt2_tok.tokenize("Generative AI is transforming research."))
+
+# Tokeniseur WordPiece (BERT)
+bert_tok = AutoTokenizer.from_pretrained("distilbert-base-uncased")
+print(bert_tok.tokenize("Generative AI is transforming research."))
+\end{minted}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Tokenisez la phrase << Pneumonoultramicroscopicsilicovolcanoconiosis is a lung disease >> avec les tokeniseurs GPT-2 et DistilBERT. Comparez le nombre de tokens et les d\'ecoupages en sous-mots.
+  \item Avec \texttt{tiktoken}, tokenisez un paragraphe en anglais, en fran\c{c}ais et en chinois. Quelle langue produit le plus de tokens pour un contenu \'equivalent ? Pourquoi ?
+  \item Comptez les tokens dans les 1000 premiers caract\`eres d'un article Wikip\'edia. Quelle est la relation entre nombre de tokens et nombre de caract\`eres ?
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Plongements (embeddings)}
+
+Les tokens sont des entiers. Les r\'eseaux de neurones ont besoin de vecteurs continus. Un \emph{plongement} (embedding) associe \`a chaque identifiant de token un vecteur dense dans $\mathbb{R}^d$ :
+
+\[
+\text{Plongement} : \{0, 1, \ldots, V-1\} \rightarrow \mathbb{R}^d
+\]
+
+o\`u $V$ est la taille du vocabulaire et $d$ la dimension du plongement (typiquement 768 ou plus).
+
+\begin{minted}{python}
+import torch
+from transformers import AutoModel, AutoTokenizer
+
+model_name = "distilbert-base-uncased"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModel.from_pretrained(model_name)
+
+text = "The patient has a fever."
+inputs = tokenizer(text, return_tensors="pt")
+with torch.no_grad():
+    outputs = model(**inputs)
+
+# outputs.last_hidden_state shape: (batch, seq_len, hidden_dim)
+print(f"Shape: {outputs.last_hidden_state.shape}")
+print(f"Embedding dim: {outputs.last_hidden_state.shape[-1]}")
+\end{minted}
+
+\begin{aitip}
+Dans les mod\`eles modernes, les plongements ne sont pas de simples tables de consultation. Apr\`es passage par les couches Transformer, les plongements de sortie sont \emph{contextuels} --- le vecteur pour << bank >> diff\`ere selon que le contexte est financier ou riverain.
+\end{aitip}
+
+% ============================================================
+\section{La fonction softmax}
+
+La derni\`ere couche d'un mod\`ele de langage produit un vecteur de \emph{logits} $z \in \mathbb{R}^V$ (un score par token de vocabulaire). Le softmax convertit les logits en probabilit\'es :
+
+\[
+\text{softmax}(z_i) = \frac{e^{z_i}}{\sum_{j=1}^{V} e^{z_j}}
+\]
+
+\begin{minted}{python}
+import torch
+import torch.nn.functional as F
+
+# Logits simul\'es pour un vocabulaire de 5 tokens
+logits = torch.tensor([2.0, 1.0, 0.5, -1.0, 3.0])
+probs = F.softmax(logits, dim=0)
+print("Logits:", logits.tolist())
+print("Probabilities:", [f"{p:.4f}" for p in probs.tolist()])
+print("Sum:", f"{probs.sum().item():.4f}")  # toujours 1.0
+\end{minted}
+
+% ============================================================
+\section{Perplexit\'e}
+\label{sec:perplexity}
+
+La perplexit\'e mesure \`a quel point un mod\`ele de langage pr\'edit bien un ensemble de test. Plus c'est bas, mieux c'est.
+
+\[
+\text{PPL} = \exp\left(-\frac{1}{N}\sum_{i=1}^{N} \log P(w_i \mid w_{<i})\right)
+\]
+
+Intuition : si la perplexit\'e est 50, le mod\`ele est << aussi incertain que s'il choisissait uniform\'ement parmi 50 tokens >> \`a chaque \'etape.
+
+\begin{minted}{python}
+import torch
+from transformers import GPT2LMHeadModel, GPT2Tokenizer
+
+model = GPT2LMHeadModel.from_pretrained("gpt2")
+tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+model.eval()
+
+text = "The Transformer architecture revolutionized natural language processing."
+inputs = tokenizer(text, return_tensors="pt")
+
+with torch.no_grad():
+    outputs = model(**inputs, labels=inputs["input_ids"])
+    loss = outputs.loss  # perte de cross-entropy
+    perplexity = torch.exp(loss)
+
+print(f"Loss: {loss.item():.4f}")
+print(f"Perplexity: {perplexity.item():.2f}")
+\end{minted}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Calculez la perplexit\'e de GPT-2 sur trois phrases : une phrase anglaise grammaticale, une version brouill\'ee, et une phrase en fran\c{c}ais. Expliquez les diff\'erences.
+  \item \'Ecrivez une fonction \texttt{compute\_perplexity(model, tokenizer, text)} qui renvoie la perplexit\'e pour n'importe quel texte d'entr\'ee.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{Votre premi\`ere g\'en\'eration de texte}
+\label{sec:first-generation}
+
+\begin{minted}{python}
+from transformers import pipeline
+
+generator = pipeline("text-generation", model="gpt2")
+result = generator(
+    "Artificial intelligence will",
+    max_new_tokens=50,
+    do_sample=True,
+    temperature=0.8,
+)
+print(result[0]["generated_text"])
+\end{minted}
+
+\begin{ethicsbox}
+Les mod\`eles de langage apprennent sur des textes du web, qui contiennent biais, d\'esinformation et contenus nocifs. GPT-2 peut produire du texte raciste, sexiste, ou factuellement faux. \textbf{Ne d\'eployez jamais un mod\`ele de base sans filtres de s\'ecurit\'e.} Nous traiterons \'evaluation et s\^uret\'e au Chapitre~\ref{ch:eval-safety}.
+\end{ethicsbox}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Un mod\`ele de langage pr\'edit la probabilit\'e du token suivant \'etant donn\'e les tokens pr\'ec\'edents.
+  \item La tokenisation (BPE, WordPiece) convertit le texte en s\'equences enti\`eres de sous-mots.
+  \item Les plongements associent aux identifiants de tokens des vecteurs continus ; dans un Transformer, les plongements sont contextuels.
+  \item Le softmax convertit les logits en une distribution de probabilit\'e sur le vocabulaire.
+  \item La perplexit\'e mesure la qualit\'e d'un mod\`ele : plus la perplexit\'e est basse, meilleures sont les pr\'edictions.
+  \item HuggingFace \texttt{transformers} fournit tokeniseurs, mod\`eles, et pipelines de g\'en\'eration pr\^ets \`a l'emploi.
+\end{itemize}

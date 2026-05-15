@@ -1,0 +1,263 @@
+\chapter{Ing\'enierie de variables (feature engineering)}
+\label{ch:feature-engineering}
+
+\begin{quote}
+\emph{<< Trouver de bonnes variables est difficile, chronophage, demande de l'expertise. Le machine learning appliqu\'e, c'est essentiellement du feature engineering. >>}
+--- Andrew Ng
+\end{quote}
+
+% ============================================================
+\section{Qu'est-ce que le feature engineering ?}
+
+Le feature engineering est le processus de cr\'eation de nouvelles variables d'entr\'ee \`a partir des donn\'ees existantes pour am\'eliorer la performance du mod\`ele. Alors que l'encodage et la mise \`a l'\'echelle (Chapitre~5) transforment les variables existantes, le feature engineering \emph{cr\'ee} de nouvelles variables qui capturent des motifs que les donn\'ees brutes ne repr\'esentent pas explicitement.
+
+\begin{datatip}
+Une variable bien construite peut valoir plus qu'un mod\`ele complexe. Une simple r\'egression lin\'eaire avec les bonnes variables surpasse souvent un r\'eseau profond avec des variables brutes.
+\end{datatip}
+
+% ============================================================
+\section{Variables polynomiales et d'interaction}
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import PolynomialFeatures
+
+# Melbourne Housing
+df = pd.read_csv("melb_data.csv")
+df = df.dropna(subset=["Price", "Rooms", "Distance", "Landsize"])
+
+# Variables polynomiales : capturer des relations non lin\'eaires
+poly = PolynomialFeatures(degree=2, interaction_only=False,
+                          include_bias=False)
+features = df[["Rooms", "Distance"]]
+poly_features = poly.fit_transform(features)
+poly_names = poly.get_feature_names_out(["Rooms", "Distance"])
+
+poly_df = pd.DataFrame(poly_features, columns=poly_names)
+print(poly_df.head())
+print(f"Original features: {features.shape[1]}")
+print(f"Polynomial features: {poly_df.shape[1]}")
+\end{minted}
+
+\begin{minted}{python}
+# Interactions seules : pas de termes au carr\'e, seulement les produits crois\'es
+poly_inter = PolynomialFeatures(degree=2, interaction_only=True,
+                                 include_bias=False)
+inter_features = poly_inter.fit_transform(features)
+inter_names = poly_inter.get_feature_names_out(["Rooms", "Distance"])
+print(f"Interaction features: {inter_names}")
+\end{minted}
+
+\begin{warningbox}
+Les variables polynomiales croissent combinatoirement : $n$ variables au degr\'e $d$ produisent $\binom{n+d}{d} - 1$ variables. Avec 20 variables au degr\'e 3, on obtient 1770 variables. \`A utiliser s\'electivement, pas sur tout le jeu de variables.
+\end{warningbox}
+
+% ============================================================
+\section{Transformations math\'ematiques}
+
+\begin{minted}{python}
+# Variables de ratio : souvent plus informatives que les valeurs brutes
+df["price_per_room"] = df["Price"] / df["Rooms"]
+df["price_per_sqm"] = df["Price"] / df["Landsize"].replace(0, np.nan)
+df["rooms_per_bathroom"] = df["Rooms"] / df["Bathroom"].replace(0, 1)
+
+print(df[["Price", "Rooms", "price_per_room",
+          "price_per_sqm"]].describe())
+\end{minted}
+
+\begin{minted}{python}
+# Transformation log pour les variables asym\'etriques
+df["log_price"] = np.log1p(df["Price"])
+df["log_landsize"] = np.log1p(df["Landsize"])
+
+# Racine carr\'ee : plus douce que log
+df["sqrt_distance"] = np.sqrt(df["Distance"])
+
+# Comparer la corr\'elation avec la cible
+for col in ["Distance", "sqrt_distance", "log_price"]:
+    if col in df.columns and df[col].notnull().sum() > 0:
+        corr = df[col].corr(df["Price"])
+        print(f"Corr({col}, Price) = {corr:.3f}")
+\end{minted}
+
+\begin{preprocesstip}
+Les variables de ratio encodent de la \emph{connaissance m\'etier} en un seul nombre. << Prix au m\`etre carr\'e >> est une m\'etrique immobili\`ere standard qui capture mieux la densit\'e de valeur que prix ou surface seuls.
+\end{preprocesstip}
+
+% ============================================================
+\section{Variables de date et d'heure}
+
+\begin{minted}{python}
+# Melbourne Housing : extraire des composantes de date
+df["Date"] = pd.to_datetime(df["Date"], dayfirst=True)
+
+df["sale_year"] = df["Date"].dt.year
+df["sale_month"] = df["Date"].dt.month
+df["sale_dayofweek"] = df["Date"].dt.dayofweek  # 0 = lundi
+df["sale_quarter"] = df["Date"].dt.quarter
+df["sale_is_weekend"] = df["Date"].dt.dayofweek.isin([5, 6]).astype(int)
+
+print(df[["Date", "sale_year", "sale_month",
+          "sale_dayofweek", "sale_quarter"]].head())
+\end{minted}
+
+\begin{minted}{python}
+# Encodage cyclique du mois (pour que d\'ecembre et janvier soient proches)
+df["month_sin"] = np.sin(2 * np.pi * df["sale_month"] / 12)
+df["month_cos"] = np.cos(2 * np.pi * df["sale_month"] / 12)
+
+# Jours depuis une date de r\'ef\'erence
+reference = pd.Timestamp("2016-01-01")
+df["days_since_ref"] = (df["Date"] - reference).dt.days
+
+print(df[["sale_month", "month_sin", "month_cos"]].head(12))
+\end{minted}
+
+% ============================================================
+\section{Variables d'agr\'egation}
+
+\begin{minted}{python}
+# Statistiques au niveau du quartier
+suburb_stats = df.groupby("Suburb")["Price"].agg(
+    suburb_mean_price="mean",
+    suburb_median_price="median",
+    suburb_price_std="std",
+    suburb_n_sales="count"
+).reset_index()
+
+df = df.merge(suburb_stats, on="Suburb", how="left")
+
+# Comment ce bien se compare-t-il \`a la moyenne du quartier ?
+df["price_vs_suburb"] = df["Price"] / df["suburb_mean_price"]
+
+print(df[["Suburb", "Price", "suburb_mean_price",
+          "price_vs_suburb"]].head(10))
+\end{minted}
+
+\begin{minted}{python}
+# Gapminder : variables par pays dans le temps
+gap = pd.read_csv("gapminder.csv")
+
+# Taux de croissance ann\'ee sur ann\'ee
+gap = gap.sort_values(["country", "year"])
+gap["gdp_growth"] = gap.groupby("country")["gdpPercap"].pct_change()
+gap["pop_growth"] = gap.groupby("country")["pop"].pct_change()
+
+# Moyenne mobile (tendance liss\'ee)
+gap["lifeExp_rolling3"] = (gap.groupby("country")["lifeExp"]
+                               .transform(lambda x: x.rolling(3).mean()))
+
+print(gap[gap["country"] == "Benin"][
+    ["year", "lifeExp", "lifeExp_rolling3", "gdp_growth"]].tail(6))
+\end{minted}
+
+% ============================================================
+\section{Variables d\'eriv\'ees du texte}
+
+\begin{minted}{python}
+# Extraire des variables de colonnes texte sans NLP complet
+# Sur les noms de quartiers et adresses Melbourne
+
+# Longueur de l'adresse
+df["address_length"] = df["Address"].str.len()
+df["address_word_count"] = df["Address"].str.split().str.len()
+
+# Contient des mots-cl\'es sp\'ecifiques
+df["is_street"] = df["Address"].str.contains("St$", regex=True).astype(int)
+df["is_road"] = df["Address"].str.contains("Rd$", regex=True).astype(int)
+df["is_avenue"] = df["Address"].str.contains("Av", regex=False).astype(int)
+
+print(df[["Address", "address_length", "is_street",
+          "is_road"]].head(10))
+\end{minted}
+
+% ============================================================
+\section{Variables m\'etier}
+
+\begin{minted}{python}
+# Connaissance m\'etier immobilier
+df["total_rooms"] = df["Rooms"] + df["Bathroom"] + df["Car"]
+df["has_multiple_bathrooms"] = (df["Bathroom"] > 1).astype(int)
+df["is_new_build"] = (df["YearBuilt"] > 2010).astype(int)
+df["building_age"] = df["sale_year"] - df["YearBuilt"]
+df["is_close_to_cbd"] = (df["Distance"] < 10).astype(int)
+
+# Indicateurs de type de bien
+df["is_house"] = (df["Type"] == "h").astype(int)
+df["is_unit"] = (df["Type"] == "u").astype(int)
+
+# Interaction : grande maison proche du centre
+df["large_close"] = df["is_house"] * df["is_close_to_cbd"] * df["Rooms"]
+
+print(df[["Suburb", "Type", "Rooms", "Distance",
+          "building_age", "large_close"]].head(10))
+\end{minted}
+
+\begin{datatip}
+Les meilleures variables viennent de la compr\'ehension du domaine. Passez du temps avec les experts m\'etier. Demandez : << Quels facteurs les professionnels du domaine consid\`erent-ils dans leurs d\'ecisions ? >> Encodez ces facteurs en variables.
+\end{datatip}
+
+% ============================================================
+\section{S\'election de variables apr\`es engineering}
+
+\begin{minted}{python}
+from sklearn.feature_selection import mutual_info_regression
+
+# S\'electionner les variables num\'eriques
+feature_cols = ["Rooms", "Distance", "Landsize", "building_age",
+                "price_per_room", "suburb_mean_price", "large_close",
+                "days_since_ref", "Bathroom", "Car"]
+target = "Price"
+
+# Supprimer les NaN pour cette analyse
+subset = df[feature_cols + [target]].dropna()
+
+mi = mutual_info_regression(subset[feature_cols], subset[target],
+                            random_state=42)
+mi_series = pd.Series(mi, index=feature_cols).sort_values(ascending=False)
+
+print("Mutual information with Price:")
+print(mi_series)
+\end{minted}
+
+\begin{minted}{python}
+# Matrice de corr\'elation des variables construites
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+corr = subset[feature_cols].corr()
+fig, ax = plt.subplots(figsize=(10, 8))
+sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm",
+            center=0, ax=ax)
+plt.title("Feature correlation matrix")
+plt.tight_layout()
+plt.savefig("feature_correlation.png", dpi=150)
+plt.show()
+\end{minted}
+
+% ============================================================
+\section{Exercices}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Pour Melbourne Housing, cr\'eez au moins 5 nouvelles variables avec connaissance m\'etier. Classez-les par information mutuelle avec Price.
+  \item Cr\'eez un encodage cyclique du mois de vente. V\'erifiez que d\'ecembre et janvier sont proches dans l'espace encod\'e en calculant leur distance euclidienne.
+  \item Avec Gapminder, cr\'eez des taux de croissance ann\'ee sur ann\'ee pour GDP per capita et esp\'erance de vie. Quel pays a connu la plus forte croissance de PIB sur une p\'eriode ?
+  \item Construisez des variables polynomiales (degr\'e 2) pour \texttt{Rooms}, \texttt{Distance}, et \texttt{Landsize}. Entra\^inez une r\'egression lin\'eaire avec et sans variables polynomiales et comparez le $R^2$.
+  \item Cr\'eez une fonction d'engineering \texttt{engineer\_melb(df)} qui prend le dataset Melbourne brut et renvoie un DataFrame avec au moins 10 nouvelles variables, pr\^et pour la mod\'elisation.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Le feature engineering cr\'ee de nouvelles variables qui capturent des motifs invisibles dans les donn\'ees brutes.
+  \item Les variables polynomiales et d'interaction capturent les relations non lin\'eaires et inter-variables.
+  \item Les variables de ratio (prix par pi\`ece, prix au m\`etre carr\'e) encodent la connaissance m\'etier de fa\c{c}on compacte.
+  \item Les variables de date (ann\'ee, mois, jour de semaine, encodage cyclique) d\'everrouillent les motifs temporels.
+  \item Les variables d'agr\'egation (moyennes de groupe, moyennes mobiles) ajoutent du contexte.
+  \item La connaissance m\'etier est la source la plus pr\'ecieuse d'id\'ees de variables --- consultez les experts.
+  \item Apr\`es l'engineering, utilisez l'information mutuelle ou la corr\'elation pour s\'electionner les variables les plus pr\'edictives.
+\end{itemize}

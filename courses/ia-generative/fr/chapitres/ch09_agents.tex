@@ -1,0 +1,323 @@
+\chapter{Agents LLM et utilisation d'outils}
+\label{ch:agents}
+
+\begin{quote}
+\emph{<< Un agent est un LLM qui peut prendre des actions, pas seulement g\'en\'erer du texte. Il raisonne sur ce qu'il faut faire, utilise des outils, et it\`ere jusqu'\`a r\'esoudre la t\^ache. >>}
+\end{quote}
+
+% ============================================================
+\section{Qu'est-ce qu'un agent LLM ?}
+
+Un LLM standard prend un prompt et renvoie du texte. Un \textbf{agent} ajoute :
+\begin{itemize}
+  \item \textbf{Outils} : fonctions que le LLM peut appeler (recherche, calculatrice, ex\'ecution de code, API).
+  \item \textbf{Raisonnement} : le LLM d\'ecide quel outil utiliser et dans quel ordre.
+  \item \textbf{M\'emoire} : l'agent maintient le contexte \`a travers plusieurs \'etapes.
+  \item \textbf{It\'eration} : l'agent boucle jusqu'\`a r\'esoudre la t\^ache ou atteindre une condition d'arr\^et.
+\end{itemize}
+
+% ============================================================
+\section{Le pattern ReAct}
+
+ReAct (Reasoning + Acting) entrelace les traces de raisonnement avec les actions sur outils :
+
+\begin{enumerate}
+  \item \textbf{Thought} : le LLM raisonne sur l'\'etat courant et la prochaine \'etape.
+  \item \textbf{Action} : le LLM appelle un outil avec des entr\'ees sp\'ecifiques.
+  \item \textbf{Observation} : l'outil renvoie un r\'esultat.
+  \item R\'ep\'eter jusqu'\`a ce que le LLM ait assez d'information pour r\'epondre.
+\end{enumerate}
+
+\begin{minted}{python}
+# Prompt de style ReAct (conceptuel)
+react_prompt = """Answer the question using the available tools.
+
+Tools:
+- search(query): search the web for information
+- calculator(expression): evaluate a math expression
+
+Question: What is the population of Benin multiplied by 3?
+
+Thought: I need to find the population of Benin first.
+Action: search("population of Benin 2025")
+Observation: The population of Benin is approximately 14.4 million.
+Thought: Now I need to multiply 14.4 million by 3.
+Action: calculator("14400000 * 3")
+Observation: 43200000
+Thought: I have the answer.
+Answer: The population of Benin multiplied by 3 is approximately 43,200,000."""
+
+print(react_prompt)
+\end{minted}
+
+% ============================================================
+\section{Function calling avec Groq}
+
+Les API LLM modernes prennent en charge des appels d'outils/fonctions structur\'es :
+
+\begin{minted}{python}
+from groq import Groq
+import json
+
+client = Groq()
+
+# D\'efinir les outils
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get the current weather for a city",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "city": {"type": "string", "description": "City name"},
+                    "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
+                },
+                "required": ["city"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "calculate",
+            "description": "Evaluate a mathematical expression",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "expression": {"type": "string", "description": "Math expression"},
+                },
+                "required": ["expression"],
+            },
+        },
+    },
+]
+
+# Impl\'ementations effectives des outils
+def get_weather(city, unit="celsius"):
+    # En production, appeler une vraie API m\'et\'eo
+    return {"city": city, "temperature": 28, "unit": unit, "condition": "sunny"}
+
+def calculate(expression):
+    return {"result": eval(expression)}  # attention : eval est dangereux en production
+
+tool_map = {"get_weather": get_weather, "calculate": calculate}
+
+# Boucle de l'agent
+messages = [{"role": "user", "content": "What is the temperature in Cotonou in Fahrenheit?"}]
+
+response = client.chat.completions.create(
+    model="llama-3.1-8b-instant",
+    messages=messages,
+    tools=tools,
+    tool_choice="auto",
+)
+
+# Traiter les appels d'outils
+msg = response.choices[0].message
+if msg.tool_calls:
+    messages.append(msg)
+    for tc in msg.tool_calls:
+        func_name = tc.function.name
+        args = json.loads(tc.function.arguments)
+        result = tool_map[func_name](**args)
+        messages.append({
+            "role": "tool",
+            "tool_call_id": tc.id,
+            "content": json.dumps(result),
+        })
+    # Obtenir la r\'eponse finale
+    final = client.chat.completions.create(
+        model="llama-3.1-8b-instant", messages=messages
+    )
+    print(final.choices[0].message.content)
+\end{minted}
+
+% ============================================================
+\section{Agents LangChain}
+
+LangChain fournit un cadre d'agent de plus haut niveau :
+
+\begin{minted}{python}
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.tools import tool
+from langchain.agents import create_tool_calling_agent, AgentExecutor
+from langchain_core.prompts import ChatPromptTemplate
+
+# D\'efinir les outils
+@tool
+def search_arxiv(query: str) -> str:
+    """Search arxiv.org for recent papers. Returns titles and abstracts."""
+    import urllib.request, json
+    url = f"http://export.arxiv.org/api/query?search_query=all:{query}&max_results=3"
+    response = urllib.request.urlopen(url).read().decode()
+    # Parsing simplifi\'e
+    return response[:2000]
+
+@tool
+def python_calculator(expression: str) -> str:
+    """Evaluate a Python math expression. Example: '2**10 + 3*4'"""
+    try:
+        result = eval(expression)
+        return str(result)
+    except Exception as e:
+        return f"Error: {e}"
+
+# Cr\'eer l'agent
+llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0)
+tools_list = [search_arxiv, python_calculator]
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are a helpful research assistant. Use tools when needed."),
+    ("human", "{input}"),
+    ("placeholder", "{agent_scratchpad}"),
+])
+
+agent = create_tool_calling_agent(llm, tools_list, prompt)
+executor = AgentExecutor(agent=agent, tools=tools_list, verbose=True)
+
+result = executor.invoke({"input": "Find recent papers about LoRA fine-tuning and tell me how many authors the first paper has."})
+print(result["output"])
+\end{minted}
+
+% ============================================================
+\section{Agents \`a raisonnement multi-\'etapes}
+
+Les agents peuvent encha\^iner plusieurs appels d'outils pour r\'esoudre des t\^aches complexes :
+
+\begin{minted}{python}
+@tool
+def read_file(path: str) -> str:
+    """Read the contents of a text file."""
+    with open(path) as f:
+        return f.read()[:5000]
+
+@tool
+def summarize_text(text: str) -> str:
+    """Summarize a long text into 3 bullet points."""
+    llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.3)
+    response = llm.invoke(f"Summarize in 3 bullet points:\n{text}")
+    return response.content
+
+@tool
+def write_file(path: str, content: str) -> str:
+    """Write content to a file."""
+    with open(path, "w") as f:
+        f.write(content)
+    return f"Written to {path}"
+
+tools_list = [read_file, summarize_text, write_file]
+agent = create_tool_calling_agent(llm, tools_list, prompt)
+executor = AgentExecutor(agent=agent, tools=tools_list, verbose=True)
+
+result = executor.invoke({
+    "input": "Read notes.txt, summarize it, and save the summary to summary.txt"
+})
+\end{minted}
+
+% ============================================================
+\section{Bases de LangGraph}
+
+LangGraph permet de construire des flux de travail d'agents stateful et multi-\'etapes comme des graphes :
+
+\begin{minted}{python}
+from langgraph.graph import StateGraph, END
+from typing import TypedDict, Annotated
+
+class AgentState(TypedDict):
+    question: str
+    research: str
+    draft: str
+    review: str
+    final_answer: str
+
+def research_step(state: AgentState) -> AgentState:
+    """Research the question using the LLM."""
+    llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
+    result = llm.invoke(f"Research this topic thoroughly: {state['question']}")
+    return {"research": result.content}
+
+def draft_step(state: AgentState) -> AgentState:
+    """Write a draft answer based on research."""
+    llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
+    result = llm.invoke(
+        f"Based on this research:\n{state['research']}\n\n"
+        f"Write a clear, concise answer to: {state['question']}"
+    )
+    return {"draft": result.content}
+
+def review_step(state: AgentState) -> AgentState:
+    """Review and improve the draft."""
+    llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
+    result = llm.invoke(
+        f"Review this draft for accuracy and clarity. Suggest improvements:\n"
+        f"{state['draft']}"
+    )
+    return {"review": result.content}
+
+def finalize_step(state: AgentState) -> AgentState:
+    """Produce the final answer incorporating review feedback."""
+    llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
+    result = llm.invoke(
+        f"Original draft:\n{state['draft']}\n\n"
+        f"Review feedback:\n{state['review']}\n\n"
+        f"Write the final polished answer."
+    )
+    return {"final_answer": result.content}
+
+# Construire le graphe
+workflow = StateGraph(AgentState)
+workflow.add_node("research", research_step)
+workflow.add_node("draft", draft_step)
+workflow.add_node("review", review_step)
+workflow.add_node("finalize", finalize_step)
+
+workflow.set_entry_point("research")
+workflow.add_edge("research", "draft")
+workflow.add_edge("draft", "review")
+workflow.add_edge("review", "finalize")
+workflow.add_edge("finalize", END)
+
+app = workflow.compile()
+
+result = app.invoke({"question": "What are the key differences between LoRA and QLoRA?"})
+print(result["final_answer"])
+\end{minted}
+
+\begin{aitip}
+LangGraph est plus puissant que les agents LangChain simples pour les flux qui demandent du branchement conditionnel, des boucles, ou des points de contr\^ole human-in-the-loop. Utilisez les agents LangChain pour de simples appels d'outils ; utilisez LangGraph pour des workflows multi-\'etapes complexes.
+\end{aitip}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Construisez un agent LangChain avec 3 outils : recherche web, calculatrice, date/heure courante. Testez-le sur 5 requ\^etes qui demandent des combinaisons d'outils diff\'erentes.
+  \item Impl\'ementez le function calling avec l'API Groq. Cr\'eez un outil qui interroge des informations sur un pays (capitale, population, PIB) et un agent qui r\'epond \`a des questions de g\'eographie.
+  \item Construisez un workflow LangGraph avec 4 \'etapes : (1) recherche, (2) plan, (3) r\'edaction, (4) revue. Utilisez-le pour g\'en\'erer un court article sur n'importe quel sujet.
+  \item Cr\'eez un agent << assistant de code >> qui peut \'ecrire du Python, l'ex\'ecuter, et d\'eboguer les erreurs automatiquement.
+  \item Comparez le comportement d'un agent LangChain simple vs d'un workflow LangGraph sur la m\^eme t\^ache complexe. Lequel produit de meilleurs r\'esultats ?
+\end{enumerate}
+\end{exercise}
+
+\begin{ethicsbox}
+Les agents peuvent prendre des actions r\'eelles : envoyer des e-mails, modifier des fichiers, ex\'ecuter du code, appeler des API. Cela amplifie autant les b\'en\'efices que les risques de l'IA. Mettez en place ces garde-fous :
+\begin{itemize}
+  \item \textbf{Moindre privil\`ege :} ne donner aux agents que les outils dont ils ont besoin.
+  \item \textbf{Approbation humaine :} exiger une confirmation humaine pour les actions \`a fort enjeu (envoyer un e-mail, supprimer des donn\'ees).
+  \item \textbf{Sandboxing :} ex\'ecuter le code dans des environnements isol\'es.
+  \item \textbf{Rate limiting :} emp\^echer les agents de faire un nombre illimit\'e d'appels API ou d'actions.
+  \item \textbf{Journalisation d'audit :} consigner chaque action de l'agent pour revue.
+\end{itemize}
+\end{ethicsbox}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Un agent LLM combine raisonnement, utilisation d'outils, m\'emoire et it\'eration.
+  \item Le pattern ReAct entrelace pens\'ee et action dans une boucle.
+  \item Le function calling permet aux LLM d'invoquer des outils structur\'es via API.
+  \item Les agents LangChain fournissent un cadre de haut niveau pour les LLM utilisateurs d'outils.
+  \item LangGraph permet des workflows stateful multi-\'etapes avec branchement conditionnel.
+  \item La s\^uret\'e des agents demande moindre privil\`ege, supervision humaine, sandboxing et journalisation d'audit.
+\end{itemize}

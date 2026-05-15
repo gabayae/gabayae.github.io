@@ -1,0 +1,212 @@
+\chapter{Projet de fin de cours}
+\label{ch:capstone}
+
+\begin{quote}
+\emph{<< La meilleure fa\c{c}on d'apprendre le pr\'etraitement, c'est de pr\'etraiter des donn\'ees. >>}
+\end{quote}
+
+% ============================================================
+\section{Vue d'ensemble}
+
+Dans ce dernier chapitre, vous appliquerez tout ce des Chapitres~1--9 \`a un projet complet de pr\'etraitement de bout en bout. Vous choisirez l'un des cinq projets propos\'es, chacun utilisant un vrai dataset d\'esordonn\'e qui demande un nettoyage et une transformation substantiels avant l'analyse.
+
+\begin{datatip}
+Chaque projet est dimensionn\'e pour environ 3 heures. Vous devez livrer : (1)~un notebook Jupyter avec code document\'e, (2)~un dataset propre, pr\^et pour l'analyse, sauvegard\'e en Parquet, et (3)~un court rapport \'ecrit (1--2 pages) r\'esumant vos choix de pr\'etraitement et leur justification.
+\end{datatip}
+
+% ============================================================
+\section{Crit\`eres d'\'evaluation}
+
+Votre projet sera \'evalu\'e sur cinq crit\`eres :
+
+\begin{longtable}{p{4cm}p{3cm}p{6cm}}
+\toprule
+\textbf{Crit\`ere} & \textbf{Poids} & \textbf{Description} \\
+\midrule
+Rapport de qualit\'e & 15\% & \'Evaluation initiale approfondie de la qualit\'e \\
+Strat\'egie de manquantes & 20\% & Choix justifi\'e d'imputation \\
+Traitement d'outliers & 15\% & D\'etection, investigation, traitement \\
+Feature engineering & 25\% & Cr\'eativit\'e et pertinence m\'etier des variables \\
+Pipeline et reproductibilit\'e & 25\% & Pipeline complet, sans fuite, sauvegard\'e \\
+\bottomrule
+\end{longtable}
+
+% ============================================================
+\section{Projet 1 : Pr\'ediction de prix Melbourne Housing}
+
+\textbf{Dataset :} Melbourne Housing Snapshot (Kaggle)\\
+\textbf{Objectif :} Pr\'eparer le dataset pour un mod\`ele de r\'egression de prix immobilier.
+
+\subsection{Exigences}
+
+\begin{minted}{python}
+import pandas as pd
+
+# Charger le dataset brut
+df = pd.read_csv("melb_data.csv")
+print(f"Shape: {df.shape}")
+print(f"Missing values:\n{df.isnull().sum()}")
+\end{minted}
+
+T\^aches :
+\begin{enumerate}
+  \item Produire un rapport de qualit\'e complet (Chapitre~1).
+  \item Traiter les manquantes de \texttt{BuildingArea}, \texttt{YearBuilt}, \texttt{Car}, \texttt{CouncilArea} avec au moins deux strat\'egies. Justifier vos choix (Chapitre~3).
+  \item D\'etecter et traiter les outliers de \texttt{Price}, \texttt{Landsize}, \texttt{BuildingArea} (Chapitre~4).
+  \item Encoder les variables cat\'egorielles (\texttt{Type}, \texttt{Method}, \texttt{Regionname}, \texttt{Suburb}). Pour \texttt{Suburb} \`a forte cardinalit\'e, utiliser target ou frequency encoding (Chapitre~5).
+  \item Construire au moins 5 nouvelles variables : prix par pi\`ece, \^age du b\^atiment, cat\'egories de distance, moyennes par quartier, indicateur saisonnier (Chapitre~6).
+  \item Construire un \texttt{Pipeline} complet avec \texttt{ColumnTransformer}. Sauvegarder avec \texttt{joblib} (Chapitre~9).
+  \item Entra\^iner un mod\`ele baseline et reporter le $R^2$ sur un test r\'eserv\'e.
+\end{enumerate}
+
+% ============================================================
+\section{Projet 2 : Classification de survie Titanic}
+
+\textbf{Dataset :} Titanic (Kaggle)\\
+\textbf{Objectif :} Pr\'eparer le dataset pour un mod\`ele de classification de survie.
+
+\subsection{Exigences}
+
+\begin{minted}{python}
+url = ("https://raw.githubusercontent.com/datasciencedojo/"
+       "datasets/master/titanic.csv")
+df = pd.read_csv(url)
+print(f"Shape: {df.shape}")
+print(f"Survival rate: {df['Survived'].mean():.2%}")
+\end{minted}
+
+T\^aches :
+\begin{enumerate}
+  \item Analyser les motifs de manquantes. Investiguer si \texttt{Age} est MCAR ou MAR en le comparant \`a \texttt{Pclass} et \texttt{Sex} (Chapitre~3).
+  \item Imputer \texttt{Age} par KNN. Comparer avec imputation m\'ediane en \'evaluant la pr\'ecision du mod\`ele en aval.
+  \item Extraire le titre depuis \texttt{Name} (Mr, Mrs, Miss, Master, etc.) et l'encoder (Chapitres~5 et 7).
+  \item Cr\'eer des variables : \texttt{FamilySize} = \texttt{SibSp} + \texttt{Parch} + 1, \texttt{IsAlone}, \texttt{FarePerPerson}, lettre de pont de cabine (Chapitre~6).
+  \item Construire un pipeline complet avec \'evaluation par CV.
+\end{enumerate}
+
+% ============================================================
+\section{Projet 3 : Estimation de valeur de joueurs FIFA 21}
+
+\textbf{Dataset :} FIFA 21 Raw Data (Kaggle)\\
+\textbf{Objectif :} Nettoyer le c\'el\`ebre dataset FIFA d\'esordonn\'e et le pr\'eparer pour la pr\'ediction de valeur de joueur.
+
+\subsection{Exigences}
+
+\begin{minted}{python}
+df = pd.read_csv("fifa21_raw.csv")
+print(f"Shape: {df.shape}")
+# Note : beaucoup de colonnes ont des nombres encod\'es comme cha\^ines
+print(df[["Value", "Wage", "Weight", "Height"]].head())
+\end{minted}
+
+T\^aches :
+\begin{enumerate}
+  \item Parser les valeurs mon\'etaires encod\'ees comme cha\^ines (\texttt{Value}, \texttt{Wage}) : convertir << \texteuro110M >> en 110000000, << \texteuro220K >> en 220000.
+  \item Parser la taille (<< 5'11 >>) et le poids (<< 190lbs >>) en unit\'es m\'etriques.
+  \item G\'erer \texttt{Hits}, \texttt{W/F}, \texttt{SM}, \texttt{IR} (notes en \'etoiles stock\'ees comme cha\^ines).
+  \item D\'etecter et traiter les outliers de valeurs (beaucoup d'agents libres ont une valeur 0).
+  \item Construire des variables par position, par \^age (potentiel), et des ratios d'attributs physiques.
+  \item Construire un pipeline propre du CSV brut vers des variables pr\^etes pour la mod\'elisation.
+\end{enumerate}
+
+% ============================================================
+\section{Projet 4 : Pr\'evision de s\'eries temporelles Jena Climate}
+
+\textbf{Dataset :} Jena Climate 2009--2016 (Kaggle)\\
+\textbf{Objectif :} Pr\'eparer le dataset pour la pr\'evision de temp\'erature.
+
+\subsection{Exigences}
+
+\begin{minted}{python}
+df = pd.read_csv("jena_climate_2009_2016.csv")
+df["datetime"] = pd.to_datetime(df["Date Time"],
+                                 format="%d.%m.%Y %H:%M:%S")
+df = df.set_index("datetime")
+print(f"Shape: {df.shape}")
+print(f"Date range: {df.index.min()} to {df.index.max()}")
+\end{minted}
+
+T\^aches :
+\begin{enumerate}
+  \item R\'e\'echantillonner de 10 min vers horaire et journalier (Chapitre~8).
+  \item D\'etecter et g\'erer les anomalies de capteur (pics soudains, lectures constantes).
+  \item Cr\'eer des variables lag : 1h, 6h, 12h, 24h, 7j pour la temp\'erature.
+  \item Cr\'eer des statistiques mobiles : moyenne 24h, moyenne 7j, \'ecart-type 24h.
+  \item D\'ecomposer en tendance, saisonnalit\'e et r\'esidu. Utiliser chacun comme variable.
+  \item Ajouter un encodage cyclique pour l'heure, le jour de la semaine et le mois.
+  \item Construire un pipeline et entra\^iner un baseline pour pr\'edire la temp\'erature \`a 24h.
+\end{enumerate}
+
+% ============================================================
+\section{Projet 5 : Classification de texte 20 Newsgroups}
+
+\textbf{Dataset :} 20 Newsgroups (scikit-learn)\\
+\textbf{Objectif :} Pr\'etraiter des donn\'ees texte pour la classification th\'ematique.
+
+\subsection{Exigences}
+
+\begin{minted}{python}
+from sklearn.datasets import fetch_20newsgroups
+
+# Utiliser un sous-ensemble de 5 cat\'egories
+categories = ["sci.space", "rec.sport.baseball", "comp.graphics",
+              "talk.politics.mideast", "soc.religion.christian"]
+newsgroups = fetch_20newsgroups(subset="all", categories=categories,
+                                remove=("headers", "footers", "quotes"))
+print(f"Documents: {len(newsgroups.data)}")
+print(f"Categories: {newsgroups.target_names}")
+\end{minted}
+
+T\^aches :
+\begin{enumerate}
+  \item Construire un pipeline de nettoyage texte : minuscules, retirer emails/URL/nombres, retirer caract\`eres sp\'eciaux (Chapitre~7).
+  \item Tokeniser, retirer stopwords, lemmatiser.
+  \item Cr\'eer une matrice TF-IDF avec param\`etres appropri\'es (\texttt{min\_df}, \texttt{max\_df}, \texttt{ngram\_range}).
+  \item Ajouter des variables au niveau document : longueur, longueur moyenne des mots, richesse du vocabulaire (mots uniques / mots totaux).
+  \item Construire un pipeline combinant pr\'etraitement texte et classifieur.
+  \item \'Evaluer par CV et matrice de confusion.
+\end{enumerate}
+
+% ============================================================
+\section{Checklist des livrables}
+
+\begin{minted}{python}
+# Mod\`ele de v\'erification finale
+deliverables = {
+    "data_quality_report": False,    # Section avec m\'etriques de qualit\'e
+    "missing_data_handled": False,    # Imputation justifi\'ee
+    "outliers_handled": False,        # D\'etection + traitement
+    "features_engineered": False,     # >= 5 nouvelles variables
+    "pipeline_built": False,          # sklearn Pipeline
+    "pipeline_saved": False,          # fichier joblib
+    "baseline_model": False,          # Entra\^iner + \'evaluer
+    "report_written": False,          # R\'esum\'e 1-2 pages
+}
+
+# Cocher chaque item au fur et \`a mesure
+for item, done in deliverables.items():
+    status = "DONE" if done else "TODO"
+    print(f"  [{status}] {item}")
+\end{minted}
+
+% ============================================================
+\section{Exercices}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Choisissez l'un des cinq projets. Compl\'etez toutes les t\^aches requises et soumettez votre notebook, pipeline sauvegard\'e et rapport.
+  \item (Bonus) Apr\`es le projet principal, appliquez la m\^eme approche \`a un second projet. Comparez les d\'efis et discutez les diff\'erences de strat\'egies de pr\'etraitement entre domaines.
+  \item (Bonus) D\'eployez votre pipeline sauvegard\'e comme une fonction de pr\'ediction simple : \'ecrivez un script qui charge le pipeline depuis \texttt{joblib} et accepte de nouvelles donn\'ees depuis la ligne de commande ou un CSV.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Un projet capstone int\`egre toutes les comp\'etences de pr\'etraitement : chargement, nettoyage, imputation, gestion d'outliers, encodage, mise \`a l'\'echelle, feature engineering, automatisation par pipelines.
+  \item Les vrais datasets demandent des d\'ecisions m\'etier \`a chaque \'etape --- il n'y a pas une seule recette << correcte >>.
+  \item La reproductibilit\'e (via pipelines et artefacts sauvegard\'es) est aussi importante que la pr\'ecision.
+  \item Documenter ses choix et leur justification est une exigence professionnelle.
+  \item Les cinq options couvrent r\'egression tabulaire, classification tabulaire, nettoyage de donn\'ees d\'esordonn\'ees, s\'eries temporelles et texte --- les principaux domaines de pr\'etraitement.
+\end{itemize}

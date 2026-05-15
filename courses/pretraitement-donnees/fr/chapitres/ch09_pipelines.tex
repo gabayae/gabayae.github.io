@@ -1,0 +1,294 @@
+\chapter{Pipelines et automatisation}
+\label{ch:pipelines}
+
+\begin{quote}
+\emph{<< Si vous le faites deux fois, automatisez-le. >>}
+--- Tous les ing\'enieurs logiciels
+\end{quote}
+
+% ============================================================
+\section{Pourquoi des pipelines ?}
+
+Le pr\'etraitement manuel est sujet aux erreurs et aux fuites. Erreurs courantes :
+\begin{itemize}
+  \item Ajuster un scaler sur tout le dataset (y compris le test) --- fuite de donn\'ees.
+  \item Oublier d'appliquer les m\^emes transformations \`a la pr\'ediction.
+  \item Appliquer les transformations dans un ordre diff\'erent entre train et inference.
+\end{itemize}
+
+Les \texttt{Pipeline} et \texttt{ColumnTransformer} de scikit-learn r\'esolvent les trois en empaquetant tout le workflow dans un objet unique et reproductible.
+
+\begin{datatip}
+Un pipeline garantit que chaque transformation appliqu\'ee \`a l'entra\^inement est appliqu\'ee identiquement \`a la pr\'ediction, dans le m\^eme ordre, avec les m\^emes param\`etres ajust\'es.
+\end{datatip}
+
+% ============================================================
+\section{Pipeline basique}
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+
+# Adult Census
+url = ("https://archive.ics.uci.edu/ml/machine-learning-databases/"
+       "adult/adult.data")
+cols = ["age", "workclass", "fnlwgt", "education", "education_num",
+        "marital_status", "occupation", "relationship", "race",
+        "sex", "capital_gain", "capital_loss", "hours_per_week",
+        "native_country", "income"]
+df = pd.read_csv(url, header=None, names=cols, na_values=" ?",
+                 skipinitialspace=True)
+
+# Pipeline num\'erique simple
+num_pipe = Pipeline([
+    ("imputer", SimpleImputer(strategy="median")),
+    ("scaler", StandardScaler()),
+])
+
+# Fit et transform
+num_cols = ["age", "education_num", "capital_gain",
+            "capital_loss", "hours_per_week"]
+X_num = num_pipe.fit_transform(df[num_cols])
+print(f"Shape: {X_num.shape}")
+print(f"Means (should be ~0): {X_num.mean(axis=0).round(2)}")
+\end{minted}
+
+% ============================================================
+\section{ColumnTransformer}
+
+\begin{minted}{python}
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder
+
+# D\'efinir les groupes de colonnes
+num_features = ["age", "education_num", "capital_gain",
+                "capital_loss", "hours_per_week"]
+cat_features = ["workclass", "marital_status", "occupation",
+                "relationship", "race", "sex"]
+
+# Construire les transformateurs par type
+num_transformer = Pipeline([
+    ("imputer", SimpleImputer(strategy="median")),
+    ("scaler", StandardScaler()),
+])
+
+cat_transformer = Pipeline([
+    ("imputer", SimpleImputer(strategy="most_frequent")),
+    ("encoder", OneHotEncoder(handle_unknown="ignore",
+                               sparse_output=False)),
+])
+
+# Combiner avec ColumnTransformer
+preprocessor = ColumnTransformer([
+    ("num", num_transformer, num_features),
+    ("cat", cat_transformer, cat_features),
+])
+
+# Fit et transform
+X = preprocessor.fit_transform(df)
+print(f"Input shape: {df[num_features + cat_features].shape}")
+print(f"Output shape: {X.shape}")
+\end{minted}
+
+\begin{preprocesstip}
+Utilisez \texttt{ColumnTransformer} pour appliquer diff\'erentes transformations \`a diff\'erents types de colonnes en une seule \'etape. C'est l'approche standard en production.
+\end{preprocesstip}
+
+% ============================================================
+\section{Pipeline complet avec un mod\`ele}
+
+\begin{minted}{python}
+from sklearn.metrics import accuracy_score, classification_report
+
+# Pr\'eparer la cible
+y = (df["income"] == ">50K").astype(int)
+
+# Pipeline complet : pr\'etraitement + mod\`ele
+full_pipeline = Pipeline([
+    ("preprocessor", preprocessor),
+    ("classifier", LogisticRegression(max_iter=1000, random_state=42)),
+])
+
+# Split train/test
+X_train, X_test, y_train, y_test = train_test_split(
+    df[num_features + cat_features], y,
+    test_size=0.2, random_state=42, stratify=y
+)
+
+# Ajuster tout le pipeline
+full_pipeline.fit(X_train, y_train)
+
+# Pr\'edire
+y_pred = full_pipeline.predict(X_test)
+print(f"Accuracy: {accuracy_score(y_test, y_pred):.4f}")
+print(classification_report(y_test, y_pred))
+\end{minted}
+
+\begin{minted}{python}
+# Validation crois\'ee avec le pipeline (pas de fuite !)
+from sklearn.model_selection import cross_val_score
+
+scores = cross_val_score(full_pipeline,
+                         df[num_features + cat_features], y,
+                         cv=5, scoring="accuracy")
+print(f"CV Accuracy: {scores.mean():.4f} +/- {scores.std():.4f}")
+\end{minted}
+
+\begin{warningbox}
+Si vous mettez \`a l'\'echelle vos donn\'ees \emph{avant} le split train/test, l'information du test fuite vers la moyenne et l'\'ecart-type du scaler. En pla\c{c}ant le scaler dans un pipeline, scikit-learn garantit qu'il ne s'ajuste que sur l'entra\^inement pendant la CV.
+\end{warningbox}
+
+% ============================================================
+\section{Transformateurs personnalis\'es}
+
+\begin{minted}{python}
+from sklearn.base import BaseEstimator, TransformerMixin
+
+class MissingIndicator(BaseEstimator, TransformerMixin):
+    """Add binary columns indicating which values were missing."""
+
+    def fit(self, X, y=None):
+        self.columns_ = X.columns if hasattr(X, "columns") else None
+        return self
+
+    def transform(self, X):
+        X = pd.DataFrame(X, columns=self.columns_)
+        indicators = X.isnull().astype(int)
+        indicators.columns = [f"{c}_missing" for c in indicators.columns]
+        return pd.concat([X, indicators], axis=1)
+
+
+class LogTransformer(BaseEstimator, TransformerMixin):
+    """Apply log1p transformation to specified columns."""
+
+    def __init__(self, columns=None):
+        self.columns = columns
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X = X.copy()
+        cols = self.columns or X.columns
+        for col in cols:
+            X[col] = np.log1p(X[col].clip(lower=0))
+        return X
+\end{minted}
+
+\begin{minted}{python}
+# Utiliser des transformateurs personnalis\'es dans un pipeline
+custom_pipe = Pipeline([
+    ("missing_ind", MissingIndicator()),
+    ("imputer", SimpleImputer(strategy="median")),
+    ("log", LogTransformer(columns=["capital_gain", "capital_loss"])),
+    ("scaler", StandardScaler()),
+])
+
+# Tester
+sample = df[num_features].head(20)
+result = custom_pipe.fit_transform(sample)
+print(f"Input columns: {len(num_features)}")
+print(f"Output columns: {result.shape[1]}")
+\end{minted}
+
+% ============================================================
+\section{Sauvegarder et charger un pipeline}
+
+\begin{minted}{python}
+import joblib
+
+# Sauvegarder le pipeline ajust\'e
+joblib.dump(full_pipeline, "income_pipeline.joblib")
+print("Pipeline saved.")
+
+# Le recharger plus tard (web app ou batch)
+loaded_pipeline = joblib.load("income_pipeline.joblib")
+
+# Pr\'edire sur de nouvelles donn\'ees
+new_data = pd.DataFrame({
+    "age": [35], "education_num": [13],
+    "capital_gain": [0], "capital_loss": [0],
+    "hours_per_week": [40], "workclass": ["Private"],
+    "marital_status": ["Married-civ-spouse"],
+    "occupation": ["Exec-managerial"],
+    "relationship": ["Husband"], "race": ["White"],
+    "sex": ["Male"],
+})
+
+prediction = loaded_pipeline.predict(new_data)
+print(f"Prediction: {'> 50K' if prediction[0] else '<= 50K'}")
+\end{minted}
+
+\begin{preprocesstip}
+Un pipeline sauvegard\'e contient tous les param\`etres ajust\'es (moyennes du scaler, cat\'egories de l'encodeur, statistiques d'imputation). Ce seul fichier suffit pour pr\'etraiter les nouvelles donn\'ees identiquement aux donn\'ees d'entra\^inement.
+\end{preprocesstip}
+
+% ============================================================
+\section{Pipeline complet Melbourne Housing}
+
+\begin{minted}{python}
+# Pipeline complet pour Melbourne Housing
+melb = pd.read_csv("melb_data.csv")
+melb = melb.dropna(subset=["Price"])
+
+num_features_melb = ["Rooms", "Distance", "Landsize", "BuildingArea",
+                     "YearBuilt", "Car", "Bathroom"]
+cat_features_melb = ["Type", "Method", "Regionname"]
+
+melb_preprocessor = ColumnTransformer([
+    ("num", Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler", StandardScaler()),
+    ]), num_features_melb),
+    ("cat", Pipeline([
+        ("imputer", SimpleImputer(strategy="most_frequent")),
+        ("encoder", OneHotEncoder(handle_unknown="ignore",
+                                   sparse_output=False)),
+    ]), cat_features_melb),
+])
+
+from sklearn.ensemble import RandomForestRegressor
+
+melb_pipeline = Pipeline([
+    ("preprocessor", melb_preprocessor),
+    ("model", RandomForestRegressor(n_estimators=100, random_state=42)),
+])
+
+X_melb = melb[num_features_melb + cat_features_melb]
+y_melb = melb["Price"]
+
+X_tr, X_te, y_tr, y_te = train_test_split(X_melb, y_melb,
+                                           test_size=0.2, random_state=42)
+melb_pipeline.fit(X_tr, y_tr)
+score = melb_pipeline.score(X_te, y_te)
+print(f"Melbourne Housing R^2: {score:.4f}")
+\end{minted}
+
+% ============================================================
+\section{Exercices}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Construisez un pipeline \texttt{ColumnTransformer} pour Titanic avec : imputation m\'ediane + mise \`a l'\'echelle pour le num\'erique, et imputation mode + one-hot pour le cat\'egoriel. \'Evaluez par CV 5-fold.
+  \item Cr\'eez un transformateur personnalis\'e \texttt{OutlierClipper} qui clippe aux 1\textsuperscript{er} et 99\textsuperscript{e} percentiles. Int\'egrez-le dans un pipeline.
+  \item Construisez un pipeline complet pour Melbourne Housing qui inclut du feature engineering (prix par pi\`ece, \^age du b\^atiment). Sauvegardez-le avec \texttt{joblib} et rechargez-le pour pr\'edire.
+  \item Comparez la performance d'un pipeline avec et sans pr\'etraitement sur Adult Census. Utilisez un arbre de d\'ecision.
+  \item Cr\'eez un pipeline qui g\`ere simultan\'ement num\'erique, cat\'egoriel et texte avec \texttt{ColumnTransformer}. Utilisez TF-IDF pour le texte.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Le \texttt{Pipeline} scikit-learn cha\^ine transformations et mod\`ele en un seul objet, \'evitant la fuite de donn\'ees.
+  \item \texttt{ColumnTransformer} applique des transformations diff\'erentes \`a des types de colonnes diff\'erents.
+  \item Les transformateurs personnalis\'es (h\'eritant de \texttt{BaseEstimator} et \texttt{TransformerMixin}) s'int\`egrent naturellement dans les pipelines.
+  \item Sauvegarder les pipelines avec \texttt{joblib} capture tous les param\`etres ajust\'es pour un d\'eploiement reproductible.
+  \item Un pipeline garantit que le pr\'etraitement \`a l'entra\^inement et \`a la pr\'ediction sont identiques.
+\end{itemize}
