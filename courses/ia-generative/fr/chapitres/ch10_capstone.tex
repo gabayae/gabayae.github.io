@@ -1,0 +1,395 @@
+\chapter{Projets de fin de cours}
+\label{ch:capstone}
+
+\begin{quote}
+\emph{<< La meilleure fa\c{c}on d'apprendre l'IA g\'en\'erative est de construire quelque chose de r\'eel. Ces cinq projets vous m\`enent du concept \`a une application fonctionnelle. >>}
+\end{quote}
+
+Ce chapitre pr\'esente cinq projets de fin de cours. Chaque projet int\`egre des notions de plusieurs chapitres et aboutit \`a une application compl\`ete d\'eployable. Choisissez-en un (ou plusieurs) selon vos int\'er\^ets.
+
+% ============================================================
+\section{Projet 1 : Application RAG sur un corpus de PDF}
+
+\textbf{Objectif :} Construire un syst\`eme de question-r\'eponse sur une collection de documents PDF.
+
+\textbf{Chapitres utilis\'es :} 1 (plongements), 4 (prompting), 6 (RAG).
+
+\subsection{Sp\'ecification}
+
+\begin{enumerate}
+  \item Charger 5--10 documents PDF (articles de recherche, manuels, rapports).
+  \item D\'ecouper les documents avec chevauchement (500--800 caract\`eres).
+  \item Stocker les plongements dans ChromaDB avec m\'etadonn\'ees (nom de fichier, num\'ero de page).
+  \item Construire une cha\^ine RAG LangChain avec Gemini comme LLM.
+  \item Ajouter des citations de sources : chaque r\'eponse doit r\'ef\'erencer le document et la page.
+  \item \'Evaluer avec 10 questions de test dont vous connaissez la bonne r\'eponse.
+\end{enumerate}
+
+\begin{minted}{python}
+# Code de d\'epart : RAG avec suivi des sources
+from langchain_community.document_loaders import PyPDFDirectoryLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+
+# Charger tous les PDF d'un r\'epertoire
+loader = PyPDFDirectoryLoader("./pdf_corpus/")
+docs = loader.load()
+print(f"Loaded {len(docs)} pages from PDFs")
+
+# D\'ecouper
+splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=80)
+chunks = splitter.split_documents(docs)
+
+# Plonger et stocker
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+vectorstore = Chroma.from_documents(chunks, embeddings,
+                                     persist_directory="./capstone_rag_db")
+retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+
+# Cha\^ine RAG avec sources
+llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.2)
+
+template = ChatPromptTemplate.from_template(
+    """Answer the question based on the context below. Include source
+references (document name, page number) for each claim.
+
+Context:
+{context}
+
+Question: {question}
+
+Answer (with sources):"""
+)
+
+def format_docs_with_sources(docs):
+    formatted = []
+    for d in docs:
+        source = d.metadata.get("source", "unknown")
+        page = d.metadata.get("page", "?")
+        formatted.append(f"[{source}, p.{page}]\n{d.page_content}")
+    return "\n\n".join(formatted)
+
+chain = (
+    {"context": retriever | format_docs_with_sources,
+     "question": RunnablePassthrough()}
+    | template | llm | StrOutputParser()
+)
+
+answer = chain.invoke("What are the main findings of the study?")
+print(answer)
+\end{minted}
+
+\subsection{Livrables}
+
+\begin{itemize}
+  \item Notebook Jupyter fonctionnel avec pipeline complet.
+  \item Tableau d'\'evaluation : 10 questions, r\'eponses attendues, r\'eponses g\'en\'er\'ees, note de justesse (1--5).
+  \item R\'eflexion de 200 mots sur les limites du RAG rencontr\'ees.
+\end{itemize}
+
+% ============================================================
+\section{Projet 2 : Fine-tuner un chatbot de domaine}
+
+\textbf{Objectif :} Fine-tuner TinyLlama sur un dataset d'instructions personnalis\'e pour cr\'eer un assistant sp\'ecialis\'e.
+
+\textbf{Chapitres utilis\'es :} 1 (tokenisation), 3 (g\'en\'eration), 5 (fine-tuning).
+
+\subsection{Sp\'ecification}
+
+\begin{enumerate}
+  \item Choisir un domaine (cuisine, histoire africaine, programmation Python).
+  \item Cr\'eer 200+ paires instruction-r\'eponse (m\'elange r\'edig\'e \`a la main et curat\'e).
+  \item Fine-tuner TinyLlama avec QLoRA ($r=16$, 3 \'epoques).
+  \item Comparer mod\`ele de base vs mod\`ele fine-tun\'e sur 20 questions de test.
+  \item Mesurer la perplexit\'e avant et apr\`es fine-tuning.
+\end{enumerate}
+
+\begin{minted}{python}
+# Aide \`a la cr\'eation de dataset
+import json
+
+def create_instruction_dataset(topic, num_examples=50):
+    """Use an LLM to help generate instruction-response pairs."""
+    from groq import Groq
+    client = Groq()
+
+    pairs = []
+    prompt = f"""Generate {num_examples} diverse instruction-response pairs
+about {topic}. Format as JSON array with keys: instruction, response.
+Each response should be 2-4 sentences. Be accurate and educational."""
+
+    response = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.8, max_tokens=4096,
+    )
+
+    try:
+        pairs = json.loads(response.choices[0].message.content)
+    except json.JSONDecodeError:
+        print("Failed to parse JSON. Manual cleanup needed.")
+
+    return pairs
+
+# G\'en\'erer et sauvegarder
+pairs = create_instruction_dataset("West African cuisine", 50)
+with open("cooking_dataset.json", "w") as f:
+    json.dump(pairs, f, indent=2)
+print(f"Generated {len(pairs)} pairs")
+\end{minted}
+
+% ============================================================
+\section{Projet 3 : Pipeline de g\'en\'eration d'images}
+
+\textbf{Objectif :} Construire une application de g\'en\'eration d'images avec contr\^ole de style et variations.
+
+\textbf{Chapitres utilis\'es :} 7 (mod\`eles de diffusion).
+
+\subsection{Sp\'ecification}
+
+\begin{enumerate}
+  \item Cr\'eer un pipeline qui g\'en\`ere des images \`a partir de prompts.
+  \item Impl\'ementer des pr\'esets de style (photor\'ealiste, aquarelle, art num\'erique, croquis).
+  \item Ajouter image-vers-image pour des variations d'images existantes.
+  \item Utiliser ControlNet pour la g\'en\'eration guid\'ee par contours.
+  \item Produire une galerie de 20 images \`a travers 5 styles diff\'erents.
+\end{enumerate}
+
+\begin{minted}{python}
+from diffusers import StableDiffusionPipeline, StableDiffusionImg2ImgPipeline
+import torch
+
+class ImageGenerator:
+    STYLE_PROMPTS = {
+        "photorealistic": "photorealistic, 8k, highly detailed, sharp focus",
+        "watercolor": "watercolor painting, soft colors, artistic",
+        "digital_art": "digital art, vibrant colors, detailed illustration",
+        "sketch": "pencil sketch, black and white, detailed drawing",
+        "oil_painting": "oil painting, rich textures, masterpiece",
+    }
+
+    def __init__(self, model_id="stabilityai/stable-diffusion-2-1-base"):
+        self.pipe = StableDiffusionPipeline.from_pretrained(
+            model_id, torch_dtype=torch.float16
+        ).to("cuda")
+
+    def generate(self, prompt, style="photorealistic", seed=42, **kwargs):
+        styled_prompt = f"{prompt}, {self.STYLE_PROMPTS[style]}"
+        generator = torch.Generator("cuda").manual_seed(seed)
+        image = self.pipe(
+            styled_prompt,
+            negative_prompt="blurry, low quality, deformed",
+            generator=generator,
+            num_inference_steps=30,
+            guidance_scale=7.5,
+            **kwargs,
+        ).images[0]
+        return image
+
+gen = ImageGenerator()
+for style in ["photorealistic", "watercolor", "digital_art", "sketch"]:
+    img = gen.generate("A bustling market in Cotonou", style=style)
+    img.save(f"market_{style}.png")
+    print(f"Generated: market_{style}.png")
+\end{minted}
+
+% ============================================================
+\section{Projet 4 : Assistant de recherche multi-agents}
+
+\textbf{Objectif :} Construire un syst\`eme multi-agents o\`u les agents collaborent pour rechercher, r\'ediger et r\'eviser un rapport.
+
+\textbf{Chapitres utilis\'es :} 4 (prompting), 6 (RAG), 9 (agents).
+
+\subsection{Sp\'ecification}
+
+\begin{enumerate}
+  \item \textbf{Agent chercheur} : recherche de l'information et compile des notes.
+  \item \textbf{Agent r\'edacteur} : r\'edige un rapport structur\'e \`a partir des notes.
+  \item \textbf{Agent r\'eviseur} : v\'erifie la justesse, la coh\'erence et l'exhaustivit\'e.
+  \item Utiliser LangGraph pour orchestrer le workflow avec boucles conditionnelles.
+  \item Le r\'eviseur peut renvoyer le brouillon au r\'edacteur pour r\'evision (max 2 rondes).
+\end{enumerate}
+
+\begin{minted}{python}
+from langgraph.graph import StateGraph, END
+from langchain_google_genai import ChatGoogleGenerativeAI
+from typing import TypedDict
+
+class ResearchState(TypedDict):
+    topic: str
+    research_notes: str
+    draft: str
+    review: str
+    revision_count: int
+    final_report: str
+
+llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.3)
+
+def researcher(state):
+    result = llm.invoke(
+        f"You are a researcher. Compile detailed notes on: {state['topic']}. "
+        f"Include key facts, statistics, and recent developments."
+    )
+    return {"research_notes": result.content}
+
+def writer(state):
+    result = llm.invoke(
+        f"You are a technical writer. Write a structured report based on:\n"
+        f"{state['research_notes']}\n"
+        f"{'Previous review: ' + state.get('review', '') if state.get('review') else ''}"
+    )
+    return {"draft": result.content,
+            "revision_count": state.get("revision_count", 0) + 1}
+
+def reviewer(state):
+    result = llm.invoke(
+        f"You are a critical reviewer. Review this report for accuracy, "
+        f"completeness, and clarity:\n{state['draft']}\n"
+        f"Respond with APPROVED if the report is good, or list specific improvements."
+    )
+    return {"review": result.content}
+
+def should_revise(state):
+    if state.get("revision_count", 0) >= 3:
+        return "finalize"
+    if "APPROVED" in state.get("review", ""):
+        return "finalize"
+    return "revise"
+
+def finalize(state):
+    return {"final_report": state["draft"]}
+
+# Construire le graphe
+workflow = StateGraph(ResearchState)
+workflow.add_node("research", researcher)
+workflow.add_node("write", writer)
+workflow.add_node("review", reviewer)
+workflow.add_node("finalize", finalize)
+
+workflow.set_entry_point("research")
+workflow.add_edge("research", "write")
+workflow.add_edge("write", "review")
+workflow.add_conditional_edges("review", should_revise,
+                                {"revise": "write", "finalize": "finalize"})
+workflow.add_edge("finalize", END)
+
+app = workflow.compile()
+result = app.invoke({"topic": "The impact of AI on education in Africa",
+                      "revision_count": 0})
+print(result["final_report"])
+\end{minted}
+
+% ============================================================
+\section{Projet 5 : Benchmark d'\'evaluation}
+
+\textbf{Objectif :} Construire un benchmark d'\'evaluation complet pour comparer des LLM.
+
+\textbf{Chapitres utilis\'es :} 3 (g\'en\'eration), 4 (prompting), 8 (\'evaluation).
+
+\subsection{Sp\'ecification}
+
+\begin{enumerate}
+  \item Concevoir 50 cas de test r\'epartis en 5 cat\'egories : QA factuel, raisonnement, g\'en\'eration de code, r\'esum\'e, et s\^uret\'e.
+  \item \'Evaluer 3 mod\`eles (GPT-2, TinyLlama, Gemini Flash) sur tous les cas.
+  \item Calculer les m\'etriques automatiques : BLEU, ROUGE, perplexit\'e.
+  \item Mener une \'evaluation humaine sur un sous-ensemble de 20 cas.
+  \item Produire un rapport comparatif avec tableaux et visualisations.
+\end{enumerate}
+
+\begin{minted}{python}
+import json
+from rouge_score import rouge_scorer
+import numpy as np
+
+class LLMBenchmark:
+    def __init__(self):
+        self.scorer = rouge_scorer.RougeScorer(
+            ["rouge1", "rouge2", "rougeL"], use_stemmer=True
+        )
+        self.results = []
+
+    def add_test_case(self, category, question, reference_answer):
+        self.results.append({
+            "category": category,
+            "question": question,
+            "reference": reference_answer,
+            "model_outputs": {},
+        })
+
+    def evaluate_model(self, model_name, generate_fn):
+        for case in self.results:
+            output = generate_fn(case["question"])
+            scores = self.scorer.score(case["reference"], output)
+            case["model_outputs"][model_name] = {
+                "output": output,
+                "rouge1_f1": scores["rouge1"].fmeasure,
+                "rouge2_f1": scores["rouge2"].fmeasure,
+                "rougeL_f1": scores["rougeL"].fmeasure,
+            }
+
+    def summary(self):
+        for model in list(self.results[0]["model_outputs"].keys()):
+            r1 = np.mean([c["model_outputs"][model]["rouge1_f1"] for c in self.results])
+            r2 = np.mean([c["model_outputs"][model]["rouge2_f1"] for c in self.results])
+            rl = np.mean([c["model_outputs"][model]["rougeL_f1"] for c in self.results])
+            print(f"{model}: ROUGE-1={r1:.3f}, ROUGE-2={r2:.3f}, ROUGE-L={rl:.3f}")
+
+# Utilisation
+bench = LLMBenchmark()
+bench.add_test_case("factual", "What is the capital of Benin?", "The capital of Benin is Porto-Novo.")
+bench.add_test_case("reasoning", "If A > B and B > C, is A > C?", "Yes, by transitivity, A > C.")
+# ... ajouter d'autres cas
+\end{minted}
+
+% ============================================================
+\section{Grille de notation des projets}
+
+\begin{longtable}{p{4cm}p{2cm}p{6.5cm}}
+\toprule
+\textbf{Crit\`ere} & \textbf{Points} & \textbf{Description} \\
+\midrule
+Code fonctionnel & 30 & Le code tourne sans erreur sur Colab \\
+Profondeur technique & 25 & Usage correct des techniques du cours \\
+\'Evaluation & 20 & \'Evaluation quantitative et/ou qualitative \\
+Documentation & 15 & Notebook clair avec explications \\
+R\'eflexion & 10 & Discussion des limites et am\'eliorations \\
+\midrule
+\textbf{Total} & \textbf{100} & \\
+\bottomrule
+\end{longtable}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Choisissez l'un des cinq projets et impl\'ementez-le compl\`etement.
+  \item R\'edigez un rapport de projet de 500 mots couvrant : objectif, approche, r\'esultats, limites et travaux futurs.
+  \item Pr\'esentez votre projet en une d\'emonstration de 10 minutes montrant l'application fonctionnelle.
+  \item \'Evaluez par les pairs le projet d'un autre \'etudiant en utilisant la grille ci-dessus.
+  \item Proposez une sixi\`eme id\'ee de projet de fin de cours qui combine au moins 3 chapitres. R\'edigez la sp\'ecification.
+\end{enumerate}
+\end{exercise}
+
+\begin{ethicsbox}
+Votre projet de fin de cours sera probablement le premier syst\`eme d'IA g\'en\'erative que vous construisez. Avant de le partager :
+\begin{itemize}
+  \item Testez pour les sorties biais\'ees ou nocives.
+  \item Ajoutez des avertissements appropri\'es (<< Contenu g\'en\'er\'e par IA >>).
+  \item Ne fine-tunez pas sur des donn\'ees prot\'eg\'ees ou priv\'ees sans autorisation.
+  \item Consid\'erez l'impact social : qui en b\'en\'eficie et qui pourrait \^etre l\'es\'e ?
+\end{itemize}
+Chaque praticien de l'IA est responsable des syst\`emes qu'il construit.
+\end{ethicsbox}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Cinq projets de fin de cours couvrent RAG, fine-tuning, g\'en\'eration d'images, syst\`emes multi-agents et \'evaluation.
+  \item Chaque projet int\`egre des notions de plusieurs chapitres.
+  \item Les projets sont \'evalu\'es sur code fonctionnel, profondeur technique, \'evaluation, documentation et r\'eflexion.
+  \item Construisez de mani\`ere responsable : tester pour le pr\'ejudice, documenter les limites, ajouter les avertissements appropri\'es.
+\end{itemize}
