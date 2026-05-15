@@ -1,0 +1,41 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{langchain\PYGZus{}google\PYGZus{}genai}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{ChatGoogleGenerativeAI}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{langchain\PYGZus{}core.tools}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{tool}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{langchain.agents}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{create\PYGZus{}tool\PYGZus{}calling\PYGZus{}agent}\PYG{p}{,} \PYG{n}{AgentExecutor}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{langchain\PYGZus{}core.prompts}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{ChatPromptTemplate}
+
+\PYG{c+c1}{\PYGZsh{} D\PYGZbs{}\PYGZsq{}efinir les outils}
+\PYG{n+nd}{@tool}
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{search\PYGZus{}arxiv}\PYG{p}{(}\PYG{n}{query}\PYG{p}{:} \PYG{n+nb}{str}\PYG{p}{)} \PYG{o}{\PYGZhy{}\PYGZgt{}} \PYG{n+nb}{str}\PYG{p}{:}
+\PYG{+w}{    }\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}Search arxiv.org for recent papers. Returns titles and abstracts.\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{urllib.request}\PYG{o}{,}\PYG{+w}{ }\PYG{n+nn}{json}
+    \PYG{n}{url} \PYG{o}{=} \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}http://export.arxiv.org/api/query?search\PYGZus{}query=all:}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{query}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZam{}max\PYGZus{}results=3\PYGZdq{}}
+    \PYG{n}{response} \PYG{o}{=} \PYG{n}{urllib}\PYG{o}{.}\PYG{n}{request}\PYG{o}{.}\PYG{n}{urlopen}\PYG{p}{(}\PYG{n}{url}\PYG{p}{)}\PYG{o}{.}\PYG{n}{read}\PYG{p}{()}\PYG{o}{.}\PYG{n}{decode}\PYG{p}{()}
+    \PYG{c+c1}{\PYGZsh{} Parsing simplifi\PYGZbs{}\PYGZsq{}e}
+    \PYG{k}{return} \PYG{n}{response}\PYG{p}{[:}\PYG{l+m+mi}{2000}\PYG{p}{]}
+
+\PYG{n+nd}{@tool}
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{python\PYGZus{}calculator}\PYG{p}{(}\PYG{n}{expression}\PYG{p}{:} \PYG{n+nb}{str}\PYG{p}{)} \PYG{o}{\PYGZhy{}\PYGZgt{}} \PYG{n+nb}{str}\PYG{p}{:}
+\PYG{+w}{    }\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}Evaluate a Python math expression. Example: \PYGZsq{}2**10 + 3*4\PYGZsq{}\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{k}{try}\PYG{p}{:}
+        \PYG{n}{result} \PYG{o}{=} \PYG{n+nb}{eval}\PYG{p}{(}\PYG{n}{expression}\PYG{p}{)}
+        \PYG{k}{return} \PYG{n+nb}{str}\PYG{p}{(}\PYG{n}{result}\PYG{p}{)}
+    \PYG{k}{except} \PYG{n+ne}{Exception} \PYG{k}{as} \PYG{n}{e}\PYG{p}{:}
+        \PYG{k}{return} \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}Error: }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{e}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}
+
+\PYG{c+c1}{\PYGZsh{} Cr\PYGZbs{}\PYGZsq{}eer l\PYGZsq{}agent}
+\PYG{n}{llm} \PYG{o}{=} \PYG{n}{ChatGoogleGenerativeAI}\PYG{p}{(}\PYG{n}{model}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}gemini\PYGZhy{}2.0\PYGZhy{}flash\PYGZdq{}}\PYG{p}{,} \PYG{n}{temperature}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{)}
+\PYG{n}{tools\PYGZus{}list} \PYG{o}{=} \PYG{p}{[}\PYG{n}{search\PYGZus{}arxiv}\PYG{p}{,} \PYG{n}{python\PYGZus{}calculator}\PYG{p}{]}
+
+\PYG{n}{prompt} \PYG{o}{=} \PYG{n}{ChatPromptTemplate}\PYG{o}{.}\PYG{n}{from\PYGZus{}messages}\PYG{p}{([}
+    \PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}system\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}You are a helpful research assistant. Use tools when needed.\PYGZdq{}}\PYG{p}{),}
+    \PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}human\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+si}{\PYGZob{}input\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{),}
+    \PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}placeholder\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+si}{\PYGZob{}agent\PYGZus{}scratchpad\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{),}
+\PYG{p}{])}
+
+\PYG{n}{agent} \PYG{o}{=} \PYG{n}{create\PYGZus{}tool\PYGZus{}calling\PYGZus{}agent}\PYG{p}{(}\PYG{n}{llm}\PYG{p}{,} \PYG{n}{tools\PYGZus{}list}\PYG{p}{,} \PYG{n}{prompt}\PYG{p}{)}
+\PYG{n}{executor} \PYG{o}{=} \PYG{n}{AgentExecutor}\PYG{p}{(}\PYG{n}{agent}\PYG{o}{=}\PYG{n}{agent}\PYG{p}{,} \PYG{n}{tools}\PYG{o}{=}\PYG{n}{tools\PYGZus{}list}\PYG{p}{,} \PYG{n}{verbose}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{)}
+
+\PYG{n}{result} \PYG{o}{=} \PYG{n}{executor}\PYG{o}{.}\PYG{n}{invoke}\PYG{p}{(\PYGZob{}}\PYG{l+s+s2}{\PYGZdq{}input\PYGZdq{}}\PYG{p}{:} \PYG{l+s+s2}{\PYGZdq{}Find recent papers about LoRA fine\PYGZhy{}tuning and tell me how many authors the first paper has.\PYGZdq{}}\PYG{p}{\PYGZcb{})}
+\PYG{n+nb}{print}\PYG{p}{(}\PYG{n}{result}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}output\PYGZdq{}}\PYG{p}{])}
+\end{MintedVerbatim}

@@ -1,0 +1,68 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{transformers}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{p}{(}
+    \PYG{n}{AutoModelForCausalLM}\PYG{p}{,} \PYG{n}{AutoTokenizer}\PYG{p}{,}
+    \PYG{n}{TrainingArguments}\PYG{p}{,} \PYG{n}{Trainer}\PYG{p}{,} \PYG{n}{DataCollatorForLanguageModeling}\PYG{p}{,}
+    \PYG{n}{BitsAndBytesConfig}\PYG{p}{,}
+\PYG{p}{)}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{peft}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{LoraConfig}\PYG{p}{,} \PYG{n}{get\PYGZus{}peft\PYGZus{}model}\PYG{p}{,} \PYG{n}{TaskType}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{datasets}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{load\PYGZus{}dataset}
+\PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{torch}
+
+\PYG{c+c1}{\PYGZsh{} 1. Charger le mod\PYGZbs{}`ele en 4 bits}
+\PYG{n}{bnb\PYGZus{}config} \PYG{o}{=} \PYG{n}{BitsAndBytesConfig}\PYG{p}{(}
+    \PYG{n}{load\PYGZus{}in\PYGZus{}4bit}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{,}
+    \PYG{n}{bnb\PYGZus{}4bit\PYGZus{}quant\PYGZus{}type}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}nf4\PYGZdq{}}\PYG{p}{,}
+    \PYG{n}{bnb\PYGZus{}4bit\PYGZus{}compute\PYGZus{}dtype}\PYG{o}{=}\PYG{n}{torch}\PYG{o}{.}\PYG{n}{float16}\PYG{p}{,}
+\PYG{p}{)}
+
+\PYG{n}{model\PYGZus{}name} \PYG{o}{=} \PYG{l+s+s2}{\PYGZdq{}TinyLlama/TinyLlama\PYGZhy{}1.1B\PYGZhy{}Chat\PYGZhy{}v1.0\PYGZdq{}}
+\PYG{n}{tokenizer} \PYG{o}{=} \PYG{n}{AutoTokenizer}\PYG{o}{.}\PYG{n}{from\PYGZus{}pretrained}\PYG{p}{(}\PYG{n}{model\PYGZus{}name}\PYG{p}{)}
+\PYG{n}{tokenizer}\PYG{o}{.}\PYG{n}{pad\PYGZus{}token} \PYG{o}{=} \PYG{n}{tokenizer}\PYG{o}{.}\PYG{n}{eos\PYGZus{}token}
+
+\PYG{n}{model} \PYG{o}{=} \PYG{n}{AutoModelForCausalLM}\PYG{o}{.}\PYG{n}{from\PYGZus{}pretrained}\PYG{p}{(}
+    \PYG{n}{model\PYGZus{}name}\PYG{p}{,} \PYG{n}{quantization\PYGZus{}config}\PYG{o}{=}\PYG{n}{bnb\PYGZus{}config}\PYG{p}{,} \PYG{n}{device\PYGZus{}map}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}auto\PYGZdq{}}
+\PYG{p}{)}
+
+\PYG{c+c1}{\PYGZsh{} 2. Appliquer LoRA}
+\PYG{n}{lora\PYGZus{}config} \PYG{o}{=} \PYG{n}{LoraConfig}\PYG{p}{(}
+    \PYG{n}{task\PYGZus{}type}\PYG{o}{=}\PYG{n}{TaskType}\PYG{o}{.}\PYG{n}{CAUSAL\PYGZus{}LM}\PYG{p}{,} \PYG{n}{r}\PYG{o}{=}\PYG{l+m+mi}{16}\PYG{p}{,} \PYG{n}{lora\PYGZus{}alpha}\PYG{o}{=}\PYG{l+m+mi}{32}\PYG{p}{,}
+    \PYG{n}{lora\PYGZus{}dropout}\PYG{o}{=}\PYG{l+m+mf}{0.05}\PYG{p}{,}
+    \PYG{n}{target\PYGZus{}modules}\PYG{o}{=}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}q\PYGZus{}proj\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}v\PYGZus{}proj\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}k\PYGZus{}proj\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}o\PYGZus{}proj\PYGZdq{}}\PYG{p}{],}
+\PYG{p}{)}
+\PYG{n}{model} \PYG{o}{=} \PYG{n}{get\PYGZus{}peft\PYGZus{}model}\PYG{p}{(}\PYG{n}{model}\PYG{p}{,} \PYG{n}{lora\PYGZus{}config}\PYG{p}{)}
+
+\PYG{c+c1}{\PYGZsh{} 3. Pr\PYGZbs{}\PYGZsq{}eparer le dataset}
+\PYG{n}{dataset} \PYG{o}{=} \PYG{n}{load\PYGZus{}dataset}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}databricks/databricks\PYGZhy{}dolly\PYGZhy{}15k\PYGZdq{}}\PYG{p}{,} \PYG{n}{split}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}train[:1000]\PYGZdq{}}\PYG{p}{)}
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{tokenize}\PYG{p}{(}\PYG{n}{example}\PYG{p}{):}
+    \PYG{n}{text} \PYG{o}{=} \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}\PYGZsh{}\PYGZsh{}\PYGZsh{} Instruction:}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{example}\PYG{p}{[}\PYG{l+s+s1}{\PYGZsq{}instruction\PYGZsq{}}\PYG{p}{]}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s+s2}{\PYGZsh{}\PYGZsh{}\PYGZsh{} Response:}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{example}\PYG{p}{[}\PYG{l+s+s1}{\PYGZsq{}response\PYGZsq{}}\PYG{p}{]}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}
+    \PYG{k}{return} \PYG{n}{tokenizer}\PYG{p}{(}\PYG{n}{text}\PYG{p}{,} \PYG{n}{truncation}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{,} \PYG{n}{max\PYGZus{}length}\PYG{o}{=}\PYG{l+m+mi}{512}\PYG{p}{,} \PYG{n}{padding}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}max\PYGZus{}length\PYGZdq{}}\PYG{p}{)}
+
+\PYG{n}{tokenized} \PYG{o}{=} \PYG{n}{dataset}\PYG{o}{.}\PYG{n}{map}\PYG{p}{(}\PYG{n}{tokenize}\PYG{p}{,} \PYG{n}{remove\PYGZus{}columns}\PYG{o}{=}\PYG{n}{dataset}\PYG{o}{.}\PYG{n}{column\PYGZus{}names}\PYG{p}{)}
+
+\PYG{c+c1}{\PYGZsh{} 4. Param\PYGZbs{}`etres d\PYGZsq{}entra\PYGZbs{}\PYGZca{}inement}
+\PYG{n}{training\PYGZus{}args} \PYG{o}{=} \PYG{n}{TrainingArguments}\PYG{p}{(}
+    \PYG{n}{output\PYGZus{}dir}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}./tinyllama\PYGZhy{}dolly\PYGZhy{}lora\PYGZdq{}}\PYG{p}{,}
+    \PYG{n}{num\PYGZus{}train\PYGZus{}epochs}\PYG{o}{=}\PYG{l+m+mi}{3}\PYG{p}{,}
+    \PYG{n}{per\PYGZus{}device\PYGZus{}train\PYGZus{}batch\PYGZus{}size}\PYG{o}{=}\PYG{l+m+mi}{4}\PYG{p}{,}
+    \PYG{n}{gradient\PYGZus{}accumulation\PYGZus{}steps}\PYG{o}{=}\PYG{l+m+mi}{4}\PYG{p}{,}
+    \PYG{n}{learning\PYGZus{}rate}\PYG{o}{=}\PYG{l+m+mf}{2e\PYGZhy{}4}\PYG{p}{,}
+    \PYG{n}{fp16}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{,}
+    \PYG{n}{logging\PYGZus{}steps}\PYG{o}{=}\PYG{l+m+mi}{10}\PYG{p}{,}
+    \PYG{n}{save\PYGZus{}strategy}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}epoch\PYGZdq{}}\PYG{p}{,}
+    \PYG{n}{warmup\PYGZus{}ratio}\PYG{o}{=}\PYG{l+m+mf}{0.03}\PYG{p}{,}
+    \PYG{n}{lr\PYGZus{}scheduler\PYGZus{}type}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}cosine\PYGZdq{}}\PYG{p}{,}
+\PYG{p}{)}
+
+\PYG{c+c1}{\PYGZsh{} 5. Entra\PYGZbs{}\PYGZca{}iner}
+\PYG{n}{trainer} \PYG{o}{=} \PYG{n}{Trainer}\PYG{p}{(}
+    \PYG{n}{model}\PYG{o}{=}\PYG{n}{model}\PYG{p}{,}
+    \PYG{n}{args}\PYG{o}{=}\PYG{n}{training\PYGZus{}args}\PYG{p}{,}
+    \PYG{n}{train\PYGZus{}dataset}\PYG{o}{=}\PYG{n}{tokenized}\PYG{p}{,}
+    \PYG{n}{data\PYGZus{}collator}\PYG{o}{=}\PYG{n}{DataCollatorForLanguageModeling}\PYG{p}{(}\PYG{n}{tokenizer}\PYG{p}{,} \PYG{n}{mlm}\PYG{o}{=}\PYG{k+kc}{False}\PYG{p}{),}
+\PYG{p}{)}
+\PYG{n}{trainer}\PYG{o}{.}\PYG{n}{train}\PYG{p}{()}
+
+\PYG{c+c1}{\PYGZsh{} 6. Sauvegarder l\PYGZsq{}adapteur LoRA}
+\PYG{n}{model}\PYG{o}{.}\PYG{n}{save\PYGZus{}pretrained}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}./tinyllama\PYGZhy{}dolly\PYGZhy{}lora\PYGZdq{}}\PYG{p}{)}
+\end{MintedVerbatim}

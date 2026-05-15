@@ -1,0 +1,29 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{diffusers}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{StableDiffusionControlNetPipeline}\PYG{p}{,} \PYG{n}{ControlNetModel}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{controlnet\PYGZus{}aux}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{CannyDetector}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{PIL}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{Image}
+\PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{torch}
+
+\PYG{c+c1}{\PYGZsh{} Charger ControlNet pour les contours Canny}
+\PYG{n}{controlnet} \PYG{o}{=} \PYG{n}{ControlNetModel}\PYG{o}{.}\PYG{n}{from\PYGZus{}pretrained}\PYG{p}{(}
+    \PYG{l+s+s2}{\PYGZdq{}lllyasviel/sd\PYGZhy{}controlnet\PYGZhy{}canny\PYGZdq{}}\PYG{p}{,} \PYG{n}{torch\PYGZus{}dtype}\PYG{o}{=}\PYG{n}{torch}\PYG{o}{.}\PYG{n}{float16}
+\PYG{p}{)}
+\PYG{n}{pipe\PYGZus{}cn} \PYG{o}{=} \PYG{n}{StableDiffusionControlNetPipeline}\PYG{o}{.}\PYG{n}{from\PYGZus{}pretrained}\PYG{p}{(}
+    \PYG{l+s+s2}{\PYGZdq{}stabilityai/stable\PYGZhy{}diffusion\PYGZhy{}2\PYGZhy{}1\PYGZhy{}base\PYGZdq{}}\PYG{p}{,}
+    \PYG{n}{controlnet}\PYG{o}{=}\PYG{n}{controlnet}\PYG{p}{,}
+    \PYG{n}{torch\PYGZus{}dtype}\PYG{o}{=}\PYG{n}{torch}\PYG{o}{.}\PYG{n}{float16}\PYG{p}{,}
+\PYG{p}{)}\PYG{o}{.}\PYG{n}{to}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}cuda\PYGZdq{}}\PYG{p}{)}
+
+\PYG{c+c1}{\PYGZsh{} Extraire les contours d\PYGZsq{}une image de r\PYGZbs{}\PYGZsq{}ef\PYGZbs{}\PYGZsq{}erence}
+\PYG{n}{canny} \PYG{o}{=} \PYG{n}{CannyDetector}\PYG{p}{()}
+\PYG{n}{reference} \PYG{o}{=} \PYG{n}{Image}\PYG{o}{.}\PYG{n}{open}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}building\PYGZus{}photo.png\PYGZdq{}}\PYG{p}{)}
+\PYG{n}{edges} \PYG{o}{=} \PYG{n}{canny}\PYG{p}{(}\PYG{n}{reference}\PYG{p}{,} \PYG{n}{low\PYGZus{}threshold}\PYG{o}{=}\PYG{l+m+mi}{100}\PYG{p}{,} \PYG{n}{high\PYGZus{}threshold}\PYG{o}{=}\PYG{l+m+mi}{200}\PYG{p}{)}
+
+\PYG{c+c1}{\PYGZsh{} G\PYGZbs{}\PYGZsq{}en\PYGZbs{}\PYGZsq{}erer avec guidage par contours}
+\PYG{n}{result} \PYG{o}{=} \PYG{n}{pipe\PYGZus{}cn}\PYG{p}{(}
+    \PYG{n}{prompt}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}A futuristic building, cyberpunk style, neon lights\PYGZdq{}}\PYG{p}{,}
+    \PYG{n}{image}\PYG{o}{=}\PYG{n}{edges}\PYG{p}{,}
+    \PYG{n}{num\PYGZus{}inference\PYGZus{}steps}\PYG{o}{=}\PYG{l+m+mi}{30}\PYG{p}{,}
+\PYG{p}{)}\PYG{o}{.}\PYG{n}{images}\PYG{p}{[}\PYG{l+m+mi}{0}\PYG{p}{]}
+\PYG{n}{result}\PYG{o}{.}\PYG{n}{save}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}cyberpunk\PYGZus{}building.png\PYGZdq{}}\PYG{p}{)}
+\end{MintedVerbatim}

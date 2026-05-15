@@ -1,0 +1,265 @@
+\chapter{Valeurs manquantes}
+\label{ch:missing-data}
+
+\begin{quote}
+\emph{<< Les donn\'ees que vous n'avez pas sont souvent plus importantes que celles que vous avez. >>}
+--- Statisticien anonyme
+\end{quote}
+
+% ============================================================
+\section{Pourquoi des donn\'ees manquent}
+
+Une valeur manquante n'est pas une nuisance --- c'est une information. La \emph{raison} pour laquelle une donn\'ee manque d\'etermine comment vous devriez la traiter. Trois m\'ecanismes ont \'et\'e formalis\'es par Rubin (1976) :
+
+\begin{definition}[M\'ecanismes de donn\'ees manquantes]
+\begin{itemize}
+  \item \textbf{MCAR} (Missing Completely At Random) : la manquance est ind\'ependante de toute variable, observ\'ee ou non. Exemple : un \'echantillon de laboratoire est accidentellement tomb\'e.
+  \item \textbf{MAR} (Missing At Random) : la manquance d\'epend de variables observ\'ees mais pas de la valeur manquante elle-m\^eme. Exemple : les patients plus jeunes sautent un questionnaire de d\'epression.
+  \item \textbf{MNAR} (Missing Not At Random) : la manquance d\'epend de la valeur non observ\'ee. Exemple : les hauts revenus refusent de d\'eclarer leur revenu.
+\end{itemize}
+\end{definition}
+
+\begin{warningbox}
+On ne peut pas prouver statistiquement le MNAR --- cela requiert de la connaissance m\'etier. Mais la distinction compte \'enorm\'ement : l'imputation simple marche pour MCAR, est raisonnable pour MAR, et peut \^etre fortement biais\'ee pour MNAR.
+\end{warningbox}
+
+% ============================================================
+\section{D\'etecter les valeurs manquantes}
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+
+# Charger les donn\'ees Titanic
+url = ("https://raw.githubusercontent.com/datasciencedojo/"
+       "datasets/master/titanic.csv")
+df = pd.read_csv(url)
+
+# Compter les valeurs manquantes
+print(df.isnull().sum())
+print()
+print(f"Total missing cells: {df.isnull().sum().sum()}")
+print(f"Percentage missing: {df.isnull().mean().mean() * 100:.1f}%")
+\end{minted}
+
+\begin{minted}{python}
+# Rapport d\'etaill\'e des manquantes
+def missing_report(df):
+    """Return a DataFrame summarizing missing data."""
+    missing = df.isnull().sum()
+    pct = (missing / len(df)) * 100
+    report = pd.DataFrame({"missing": missing, "pct": pct.round(1)})
+    return report[report["missing"] > 0].sort_values("pct", ascending=False)
+
+print(missing_report(df))
+\end{minted}
+
+\subsection{Manquantes cach\'ees}
+
+\begin{minted}{python}
+# Les valeurs manquantes ne sont pas toujours NaN
+# D\'eguisements courants : "?", "N/A", "", -1, 999, -999, "unknown"
+df_adult = pd.read_csv(
+    "https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data",
+    header=None,
+    na_values=["?", " ?"],  # Adult utilise " ?" pour les manquantes
+    names=["age", "workclass", "fnlwgt", "education", "education_num",
+           "marital_status", "occupation", "relationship", "race",
+           "sex", "capital_gain", "capital_loss", "hours_per_week",
+           "native_country", "income"]
+)
+print(missing_report(df_adult))
+\end{minted}
+
+\begin{datatip}
+Scrutez toujours les valeurs sentinelles : \texttt{-1}, \texttt{999}, \texttt{0} dans les colonnes num\'eriques ; cha\^ines vides, << unknown >>, << N/A >> dans les colonnes texte. Remplacez-les par \texttt{np.nan} avant toute analyse.
+\end{datatip}
+
+% ============================================================
+\section{Visualiser les manquantes}
+
+\begin{minted}{python}
+import missingno as msno
+import matplotlib.pyplot as plt
+
+# Matrix plot : lignes blanches = manquantes
+msno.matrix(df, figsize=(10, 5), sparkline=False)
+plt.title("Missing data pattern --- Titanic")
+plt.tight_layout()
+plt.savefig("missing_matrix.png", dpi=150)
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Bar chart : compte de non-nuls par colonne
+msno.bar(df, figsize=(10, 4))
+plt.tight_layout()
+plt.show()
+
+# Heatmap : corr\'elation de manquance entre colonnes
+# Valeurs proches de +1 = colonnes manquantes ensemble
+msno.heatmap(df, figsize=(8, 6))
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Dendrogramme : clustering hi\'erarchique des patterns de manquance
+msno.dendrogram(df, figsize=(10, 5))
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+\begin{preprocesstip}
+La heatmap de corr\'elation de manquance est extr\^emement utile : si deux colonnes ont des manquances corr\'el\'ees, elles partagent probablement une cause commune (par ex. m\^eme section de questionnaire que certains r\'epondants ont saut\'ee).
+\end{preprocesstip}
+
+% ============================================================
+\section{Strat\'egies de suppression}
+
+\subsection{Suppression listwise (lignes)}
+
+\begin{minted}{python}
+# Supprimer les lignes avec UNE valeur manquante
+df_complete = df.dropna()
+print(f"Before: {len(df)}, After: {len(df_complete)}")
+print(f"Lost: {len(df) - len(df_complete)} rows "
+      f"({(len(df) - len(df_complete)) / len(df) * 100:.1f}%)")
+\end{minted}
+
+\subsection{Suppression de colonnes}
+
+\begin{minted}{python}
+# Supprimer les colonnes \`a plus de 50% manquantes
+threshold = 0.5
+cols_to_drop = df.columns[df.isnull().mean() > threshold].tolist()
+print(f"Dropping columns: {cols_to_drop}")
+df_reduced = df.drop(columns=cols_to_drop)
+\end{minted}
+
+\begin{warningbox}
+La suppression listwise n'est s\^ure que sous MCAR. Sous MAR ou MNAR, elle introduit un biais. Pour Titanic, les passagers plus \^ag\'es en classes sup\'erieures ont plus souvent un \^age renseign\'e --- supprimer les \^ages manquants biaise le dataset vers les classes inf\'erieures.
+\end{warningbox}
+
+% ============================================================
+\section{Imputation simple}
+
+\subsection{Imputation par moyenne, m\'ediane, mode}
+
+\begin{minted}{python}
+from sklearn.impute import SimpleImputer
+
+# Num\'erique : imputation m\'ediane (robuste aux outliers)
+num_imputer = SimpleImputer(strategy="median")
+df["Age"] = num_imputer.fit_transform(df[["Age"]])
+
+# Cat\'egoriel : imputation par mode (le plus fr\'equent)
+cat_imputer = SimpleImputer(strategy="most_frequent")
+df["Embarked"] = cat_imputer.fit_transform(df[["Embarked"]]).ravel()
+
+print(df.isnull().sum())
+\end{minted}
+
+\subsection{Imputation constante}
+
+\begin{minted}{python}
+# Remplir avec une valeur sp\'ecifique
+df["Cabin"] = df["Cabin"].fillna("Unknown")
+
+# Remplir num\'erique avec 0 (\`a utiliser avec prudence)
+df["some_col"] = df["some_col"].fillna(0)
+\end{minted}
+
+% ============================================================
+\section{Imputation avanc\'ee}
+
+\subsection{Imputation KNN}
+
+\begin{minted}{python}
+from sklearn.impute import KNNImputer
+
+# KNN utilise des lignes similaires pour estimer les manquantes
+# Ne fonctionne que sur des donn\'ees num\'eriques
+num_cols = ["Age", "Fare", "SibSp", "Parch"]
+knn_imputer = KNNImputer(n_neighbors=5, weights="distance")
+df[num_cols] = knn_imputer.fit_transform(df[num_cols])
+
+print(f"Missing after KNN: {df[num_cols].isnull().sum().sum()}")
+\end{minted}
+
+\subsection{Imputation it\'erative (MICE)}
+
+\begin{minted}{python}
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import IterativeImputer
+
+# L'imputeur it\'eratif mod\'elise chaque variable en fonction des autres
+iter_imputer = IterativeImputer(max_iter=10, random_state=42)
+df[num_cols] = iter_imputer.fit_transform(df[num_cols])
+
+print("Iterative imputation complete.")
+print(df[num_cols].describe())
+\end{minted}
+
+\begin{preprocesstip}
+L'imputation KNN respecte la structure locale (des passagers similaires re\c{c}oivent des \^ages similaires). L'imputation it\'erative capture les relations lin\'eaires entre variables. Les deux surpassent l'imputation moyenne/m\'ediane quand les donn\'ees sont MAR.
+\end{preprocesstip}
+
+% ============================================================
+\section{Imputation avec indicateur}
+
+\begin{minted}{python}
+# Cr\'eer un indicateur binaire AVANT d'imputer
+df["Age_was_missing"] = df["Age"].isnull().astype(int)
+
+# Puis imputer
+df["Age"] = df["Age"].fillna(df["Age"].median())
+
+# L'indicateur pr\'eserve l'information que la valeur \'etait manquante
+print(df[["Age", "Age_was_missing"]].head(10))
+\end{minted}
+
+\begin{datatip}
+Ajouter une colonne indicatrice est l'une des techniques les plus sous-utilis\'ees. Elle laisse les mod\`eles en aval apprendre si la manquance elle-m\^eme est pr\'edictive. Pour Titanic, avoir un num\'ero de cabine manquant est corr\'el\'e \`a une moindre survie.
+\end{datatip}
+
+% ============================================================
+\section{Choisir une strat\'egie d'imputation}
+
+\begin{longtable}{p{3.5cm}p{3cm}p{3cm}p{3.5cm}}
+\toprule
+\textbf{M\'ethode} & \textbf{Bon pour} & \textbf{Faiblesse} & \textbf{M\'ecanisme} \\
+\midrule
+Supprimer lignes & $<$5\% manquantes & Perte de donn\'ees & MCAR seul \\
+Moyenne/m\'ediane & Baseline rapide & R\'eduit la variance & MCAR \\
+Mode & Cat\'egoriel & Ignore la structure & MCAR \\
+KNN & Donn\'ees clusteris\'ees & Lent sur grand volume & MAR \\
+It\'eratif (MICE) & Relations lin\'eaires & Suppose lin\'earit\'e & MAR \\
+Constante m\'etier & Sens connu & Peut biaiser & Tout \\
+\bottomrule
+\end{longtable}
+
+% ============================================================
+\section{Exercices}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Chargez le dataset Melbourne Housing. Cr\'eez un rapport de manquantes et un missingno matrix plot. Quelles colonnes ont des manquances corr\'el\'ees ?
+  \item Pour Titanic, comparez la distribution de \texttt{Age} avant et apr\`es imputation moyenne vs imputation KNN. Tracez les deux distributions sur le m\^eme histogramme.
+  \item Chargez Adult Census (avec \texttt{na\_values=[" ?"]}) et imputez les trois colonnes cat\'egorielles \`a valeurs manquantes par mode. V\'erifiez qu'il ne reste aucune manquante.
+  \item Impl\'ementez une fonction \texttt{smart\_impute(df)} qui : (a) supprime les colonnes \`a $>$70\% manquantes, (b) impute les num\'eriques par m\'ediane, (c) impute les cat\'egorielles par mode, (d) ajoute des indicateurs pour toutes les colonnes initialement manquantes.
+  \item Investiguez si \texttt{Age} dans Titanic est MCAR en comparant le taux de survie des passagers avec et sans \^age renseign\'e. Que concluez-vous ?
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Les donn\'ees manquantes ont trois m\'ecanismes : MCAR, MAR et MNAR. Le m\'ecanisme d\'etermine quelle imputation est valide.
+  \item Scrutez toujours les valeurs sentinelles cach\'ees (\texttt{?}, \texttt{-1}, \texttt{999}).
+  \item La biblioth\`eque \texttt{missingno} fournit visualisations matrix, bar, heatmap et dendrogramme.
+  \item L'imputation simple (moyenne, m\'ediane, mode) est rapide mais r\'eduit la variance et ne marche bien que sous MCAR.
+  \item KNN et MICE capturent les relations entre variables et fonctionnent sous MAR.
+  \item Ajouter une colonne indicatrice de manquance pr\'eserve l'information contenue dans le fait qu'une valeur \'etait manquante.
+\end{itemize}

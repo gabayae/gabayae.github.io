@@ -1,0 +1,44 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{json}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{rouge\PYGZus{}score}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{rouge\PYGZus{}scorer}
+\PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{numpy}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n+nn}{np}
+
+\PYG{k}{class}\PYG{+w}{ }\PYG{n+nc}{LLMBenchmark}\PYG{p}{:}
+    \PYG{k}{def}\PYG{+w}{ }\PYG{n+nf+fm}{\PYGZus{}\PYGZus{}init\PYGZus{}\PYGZus{}}\PYG{p}{(}\PYG{n+nb+bp}{self}\PYG{p}{):}
+        \PYG{n+nb+bp}{self}\PYG{o}{.}\PYG{n}{scorer} \PYG{o}{=} \PYG{n}{rouge\PYGZus{}scorer}\PYG{o}{.}\PYG{n}{RougeScorer}\PYG{p}{(}
+            \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}rouge1\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}rouge2\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}rougeL\PYGZdq{}}\PYG{p}{],} \PYG{n}{use\PYGZus{}stemmer}\PYG{o}{=}\PYG{k+kc}{True}
+        \PYG{p}{)}
+        \PYG{n+nb+bp}{self}\PYG{o}{.}\PYG{n}{results} \PYG{o}{=} \PYG{p}{[]}
+
+    \PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{add\PYGZus{}test\PYGZus{}case}\PYG{p}{(}\PYG{n+nb+bp}{self}\PYG{p}{,} \PYG{n}{category}\PYG{p}{,} \PYG{n}{question}\PYG{p}{,} \PYG{n}{reference\PYGZus{}answer}\PYG{p}{):}
+        \PYG{n+nb+bp}{self}\PYG{o}{.}\PYG{n}{results}\PYG{o}{.}\PYG{n}{append}\PYG{p}{(\PYGZob{}}
+            \PYG{l+s+s2}{\PYGZdq{}category\PYGZdq{}}\PYG{p}{:} \PYG{n}{category}\PYG{p}{,}
+            \PYG{l+s+s2}{\PYGZdq{}question\PYGZdq{}}\PYG{p}{:} \PYG{n}{question}\PYG{p}{,}
+            \PYG{l+s+s2}{\PYGZdq{}reference\PYGZdq{}}\PYG{p}{:} \PYG{n}{reference\PYGZus{}answer}\PYG{p}{,}
+            \PYG{l+s+s2}{\PYGZdq{}model\PYGZus{}outputs\PYGZdq{}}\PYG{p}{:} \PYG{p}{\PYGZob{}\PYGZcb{},}
+        \PYG{p}{\PYGZcb{})}
+
+    \PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{evaluate\PYGZus{}model}\PYG{p}{(}\PYG{n+nb+bp}{self}\PYG{p}{,} \PYG{n}{model\PYGZus{}name}\PYG{p}{,} \PYG{n}{generate\PYGZus{}fn}\PYG{p}{):}
+        \PYG{k}{for} \PYG{n}{case} \PYG{o+ow}{in} \PYG{n+nb+bp}{self}\PYG{o}{.}\PYG{n}{results}\PYG{p}{:}
+            \PYG{n}{output} \PYG{o}{=} \PYG{n}{generate\PYGZus{}fn}\PYG{p}{(}\PYG{n}{case}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}question\PYGZdq{}}\PYG{p}{])}
+            \PYG{n}{scores} \PYG{o}{=} \PYG{n+nb+bp}{self}\PYG{o}{.}\PYG{n}{scorer}\PYG{o}{.}\PYG{n}{score}\PYG{p}{(}\PYG{n}{case}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}reference\PYGZdq{}}\PYG{p}{],} \PYG{n}{output}\PYG{p}{)}
+            \PYG{k}{case}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}model\PYGZus{}outputs\PYGZdq{}}\PYG{p}{][}\PYG{n}{model\PYGZus{}name}\PYG{p}{]} \PYG{o}{=} \PYG{p}{\PYGZob{}}
+                \PYG{l+s+s2}{\PYGZdq{}output\PYGZdq{}}\PYG{p}{:} \PYG{n}{output}\PYG{p}{,}
+                \PYG{l+s+s2}{\PYGZdq{}rouge1\PYGZus{}f1\PYGZdq{}}\PYG{p}{:} \PYG{n}{scores}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}rouge1\PYGZdq{}}\PYG{p}{]}\PYG{o}{.}\PYG{n}{fmeasure}\PYG{p}{,}
+                \PYG{l+s+s2}{\PYGZdq{}rouge2\PYGZus{}f1\PYGZdq{}}\PYG{p}{:} \PYG{n}{scores}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}rouge2\PYGZdq{}}\PYG{p}{]}\PYG{o}{.}\PYG{n}{fmeasure}\PYG{p}{,}
+                \PYG{l+s+s2}{\PYGZdq{}rougeL\PYGZus{}f1\PYGZdq{}}\PYG{p}{:} \PYG{n}{scores}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}rougeL\PYGZdq{}}\PYG{p}{]}\PYG{o}{.}\PYG{n}{fmeasure}\PYG{p}{,}
+            \PYG{p}{\PYGZcb{}}
+
+    \PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{summary}\PYG{p}{(}\PYG{n+nb+bp}{self}\PYG{p}{):}
+        \PYG{k}{for} \PYG{n}{model} \PYG{o+ow}{in} \PYG{n+nb}{list}\PYG{p}{(}\PYG{n+nb+bp}{self}\PYG{o}{.}\PYG{n}{results}\PYG{p}{[}\PYG{l+m+mi}{0}\PYG{p}{][}\PYG{l+s+s2}{\PYGZdq{}model\PYGZus{}outputs\PYGZdq{}}\PYG{p}{]}\PYG{o}{.}\PYG{n}{keys}\PYG{p}{()):}
+            \PYG{n}{r1} \PYG{o}{=} \PYG{n}{np}\PYG{o}{.}\PYG{n}{mean}\PYG{p}{([}\PYG{n}{c}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}model\PYGZus{}outputs\PYGZdq{}}\PYG{p}{][}\PYG{n}{model}\PYG{p}{][}\PYG{l+s+s2}{\PYGZdq{}rouge1\PYGZus{}f1\PYGZdq{}}\PYG{p}{]} \PYG{k}{for} \PYG{n}{c} \PYG{o+ow}{in} \PYG{n+nb+bp}{self}\PYG{o}{.}\PYG{n}{results}\PYG{p}{])}
+            \PYG{n}{r2} \PYG{o}{=} \PYG{n}{np}\PYG{o}{.}\PYG{n}{mean}\PYG{p}{([}\PYG{n}{c}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}model\PYGZus{}outputs\PYGZdq{}}\PYG{p}{][}\PYG{n}{model}\PYG{p}{][}\PYG{l+s+s2}{\PYGZdq{}rouge2\PYGZus{}f1\PYGZdq{}}\PYG{p}{]} \PYG{k}{for} \PYG{n}{c} \PYG{o+ow}{in} \PYG{n+nb+bp}{self}\PYG{o}{.}\PYG{n}{results}\PYG{p}{])}
+            \PYG{n}{rl} \PYG{o}{=} \PYG{n}{np}\PYG{o}{.}\PYG{n}{mean}\PYG{p}{([}\PYG{n}{c}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}model\PYGZus{}outputs\PYGZdq{}}\PYG{p}{][}\PYG{n}{model}\PYG{p}{][}\PYG{l+s+s2}{\PYGZdq{}rougeL\PYGZus{}f1\PYGZdq{}}\PYG{p}{]} \PYG{k}{for} \PYG{n}{c} \PYG{o+ow}{in} \PYG{n+nb+bp}{self}\PYG{o}{.}\PYG{n}{results}\PYG{p}{])}
+            \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{model}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{: ROUGE\PYGZhy{}1=}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{r1}\PYG{l+s+si}{:}\PYG{l+s+s2}{.3f}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{, ROUGE\PYGZhy{}2=}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{r2}\PYG{l+s+si}{:}\PYG{l+s+s2}{.3f}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{, ROUGE\PYGZhy{}L=}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{rl}\PYG{l+s+si}{:}\PYG{l+s+s2}{.3f}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+
+\PYG{c+c1}{\PYGZsh{} Utilisation}
+\PYG{n}{bench} \PYG{o}{=} \PYG{n}{LLMBenchmark}\PYG{p}{()}
+\PYG{n}{bench}\PYG{o}{.}\PYG{n}{add\PYGZus{}test\PYGZus{}case}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}factual\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}What is the capital of Benin?\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}The capital of Benin is Porto\PYGZhy{}Novo.\PYGZdq{}}\PYG{p}{)}
+\PYG{n}{bench}\PYG{o}{.}\PYG{n}{add\PYGZus{}test\PYGZus{}case}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}reasoning\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}If A \PYGZgt{} B and B \PYGZgt{} C, is A \PYGZgt{} C?\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}Yes, by transitivity, A \PYGZgt{} C.\PYGZdq{}}\PYG{p}{)}
+\PYG{c+c1}{\PYGZsh{} ... ajouter d\PYGZsq{}autres cas}
+\end{MintedVerbatim}

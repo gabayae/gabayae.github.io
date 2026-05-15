@@ -1,0 +1,63 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{langgraph.graph}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{StateGraph}\PYG{p}{,} \PYG{n}{END}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{typing}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{TypedDict}\PYG{p}{,} \PYG{n}{Annotated}
+
+\PYG{k}{class}\PYG{+w}{ }\PYG{n+nc}{AgentState}\PYG{p}{(}\PYG{n}{TypedDict}\PYG{p}{):}
+    \PYG{n}{question}\PYG{p}{:} \PYG{n+nb}{str}
+    \PYG{n}{research}\PYG{p}{:} \PYG{n+nb}{str}
+    \PYG{n}{draft}\PYG{p}{:} \PYG{n+nb}{str}
+    \PYG{n}{review}\PYG{p}{:} \PYG{n+nb}{str}
+    \PYG{n}{final\PYGZus{}answer}\PYG{p}{:} \PYG{n+nb}{str}
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{research\PYGZus{}step}\PYG{p}{(}\PYG{n}{state}\PYG{p}{:} \PYG{n}{AgentState}\PYG{p}{)} \PYG{o}{\PYGZhy{}\PYGZgt{}} \PYG{n}{AgentState}\PYG{p}{:}
+\PYG{+w}{    }\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}Research the question using the LLM.\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{n}{llm} \PYG{o}{=} \PYG{n}{ChatGoogleGenerativeAI}\PYG{p}{(}\PYG{n}{model}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}gemini\PYGZhy{}2.0\PYGZhy{}flash\PYGZdq{}}\PYG{p}{)}
+    \PYG{n}{result} \PYG{o}{=} \PYG{n}{llm}\PYG{o}{.}\PYG{n}{invoke}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}Research this topic thoroughly: }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{state}\PYG{p}{[}\PYG{l+s+s1}{\PYGZsq{}question\PYGZsq{}}\PYG{p}{]}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{k}{return} \PYG{p}{\PYGZob{}}\PYG{l+s+s2}{\PYGZdq{}research\PYGZdq{}}\PYG{p}{:} \PYG{n}{result}\PYG{o}{.}\PYG{n}{content}\PYG{p}{\PYGZcb{}}
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{draft\PYGZus{}step}\PYG{p}{(}\PYG{n}{state}\PYG{p}{:} \PYG{n}{AgentState}\PYG{p}{)} \PYG{o}{\PYGZhy{}\PYGZgt{}} \PYG{n}{AgentState}\PYG{p}{:}
+\PYG{+w}{    }\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}Write a draft answer based on research.\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{n}{llm} \PYG{o}{=} \PYG{n}{ChatGoogleGenerativeAI}\PYG{p}{(}\PYG{n}{model}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}gemini\PYGZhy{}2.0\PYGZhy{}flash\PYGZdq{}}\PYG{p}{)}
+    \PYG{n}{result} \PYG{o}{=} \PYG{n}{llm}\PYG{o}{.}\PYG{n}{invoke}\PYG{p}{(}
+        \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}Based on this research:}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{state}\PYG{p}{[}\PYG{l+s+s1}{\PYGZsq{}research\PYGZsq{}}\PYG{p}{]}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+se}{\PYGZbs{}n\PYGZbs{}n}\PYG{l+s+s2}{\PYGZdq{}}
+        \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}Write a clear, concise answer to: }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{state}\PYG{p}{[}\PYG{l+s+s1}{\PYGZsq{}question\PYGZsq{}}\PYG{p}{]}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}
+    \PYG{p}{)}
+    \PYG{k}{return} \PYG{p}{\PYGZob{}}\PYG{l+s+s2}{\PYGZdq{}draft\PYGZdq{}}\PYG{p}{:} \PYG{n}{result}\PYG{o}{.}\PYG{n}{content}\PYG{p}{\PYGZcb{}}
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{review\PYGZus{}step}\PYG{p}{(}\PYG{n}{state}\PYG{p}{:} \PYG{n}{AgentState}\PYG{p}{)} \PYG{o}{\PYGZhy{}\PYGZgt{}} \PYG{n}{AgentState}\PYG{p}{:}
+\PYG{+w}{    }\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}Review and improve the draft.\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{n}{llm} \PYG{o}{=} \PYG{n}{ChatGoogleGenerativeAI}\PYG{p}{(}\PYG{n}{model}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}gemini\PYGZhy{}2.0\PYGZhy{}flash\PYGZdq{}}\PYG{p}{)}
+    \PYG{n}{result} \PYG{o}{=} \PYG{n}{llm}\PYG{o}{.}\PYG{n}{invoke}\PYG{p}{(}
+        \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}Review this draft for accuracy and clarity. Suggest improvements:}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s+s2}{\PYGZdq{}}
+        \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{state}\PYG{p}{[}\PYG{l+s+s1}{\PYGZsq{}draft\PYGZsq{}}\PYG{p}{]}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}
+    \PYG{p}{)}
+    \PYG{k}{return} \PYG{p}{\PYGZob{}}\PYG{l+s+s2}{\PYGZdq{}review\PYGZdq{}}\PYG{p}{:} \PYG{n}{result}\PYG{o}{.}\PYG{n}{content}\PYG{p}{\PYGZcb{}}
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{finalize\PYGZus{}step}\PYG{p}{(}\PYG{n}{state}\PYG{p}{:} \PYG{n}{AgentState}\PYG{p}{)} \PYG{o}{\PYGZhy{}\PYGZgt{}} \PYG{n}{AgentState}\PYG{p}{:}
+\PYG{+w}{    }\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}Produce the final answer incorporating review feedback.\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{n}{llm} \PYG{o}{=} \PYG{n}{ChatGoogleGenerativeAI}\PYG{p}{(}\PYG{n}{model}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}gemini\PYGZhy{}2.0\PYGZhy{}flash\PYGZdq{}}\PYG{p}{)}
+    \PYG{n}{result} \PYG{o}{=} \PYG{n}{llm}\PYG{o}{.}\PYG{n}{invoke}\PYG{p}{(}
+        \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}Original draft:}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{state}\PYG{p}{[}\PYG{l+s+s1}{\PYGZsq{}draft\PYGZsq{}}\PYG{p}{]}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+se}{\PYGZbs{}n\PYGZbs{}n}\PYG{l+s+s2}{\PYGZdq{}}
+        \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}Review feedback:}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{state}\PYG{p}{[}\PYG{l+s+s1}{\PYGZsq{}review\PYGZsq{}}\PYG{p}{]}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+se}{\PYGZbs{}n\PYGZbs{}n}\PYG{l+s+s2}{\PYGZdq{}}
+        \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}Write the final polished answer.\PYGZdq{}}
+    \PYG{p}{)}
+    \PYG{k}{return} \PYG{p}{\PYGZob{}}\PYG{l+s+s2}{\PYGZdq{}final\PYGZus{}answer\PYGZdq{}}\PYG{p}{:} \PYG{n}{result}\PYG{o}{.}\PYG{n}{content}\PYG{p}{\PYGZcb{}}
+
+\PYG{c+c1}{\PYGZsh{} Construire le graphe}
+\PYG{n}{workflow} \PYG{o}{=} \PYG{n}{StateGraph}\PYG{p}{(}\PYG{n}{AgentState}\PYG{p}{)}
+\PYG{n}{workflow}\PYG{o}{.}\PYG{n}{add\PYGZus{}node}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}research\PYGZdq{}}\PYG{p}{,} \PYG{n}{research\PYGZus{}step}\PYG{p}{)}
+\PYG{n}{workflow}\PYG{o}{.}\PYG{n}{add\PYGZus{}node}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}draft\PYGZdq{}}\PYG{p}{,} \PYG{n}{draft\PYGZus{}step}\PYG{p}{)}
+\PYG{n}{workflow}\PYG{o}{.}\PYG{n}{add\PYGZus{}node}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}review\PYGZdq{}}\PYG{p}{,} \PYG{n}{review\PYGZus{}step}\PYG{p}{)}
+\PYG{n}{workflow}\PYG{o}{.}\PYG{n}{add\PYGZus{}node}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}finalize\PYGZdq{}}\PYG{p}{,} \PYG{n}{finalize\PYGZus{}step}\PYG{p}{)}
+
+\PYG{n}{workflow}\PYG{o}{.}\PYG{n}{set\PYGZus{}entry\PYGZus{}point}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}research\PYGZdq{}}\PYG{p}{)}
+\PYG{n}{workflow}\PYG{o}{.}\PYG{n}{add\PYGZus{}edge}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}research\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}draft\PYGZdq{}}\PYG{p}{)}
+\PYG{n}{workflow}\PYG{o}{.}\PYG{n}{add\PYGZus{}edge}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}draft\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}review\PYGZdq{}}\PYG{p}{)}
+\PYG{n}{workflow}\PYG{o}{.}\PYG{n}{add\PYGZus{}edge}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}review\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}finalize\PYGZdq{}}\PYG{p}{)}
+\PYG{n}{workflow}\PYG{o}{.}\PYG{n}{add\PYGZus{}edge}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}finalize\PYGZdq{}}\PYG{p}{,} \PYG{n}{END}\PYG{p}{)}
+
+\PYG{n}{app} \PYG{o}{=} \PYG{n}{workflow}\PYG{o}{.}\PYG{n}{compile}\PYG{p}{()}
+
+\PYG{n}{result} \PYG{o}{=} \PYG{n}{app}\PYG{o}{.}\PYG{n}{invoke}\PYG{p}{(\PYGZob{}}\PYG{l+s+s2}{\PYGZdq{}question\PYGZdq{}}\PYG{p}{:} \PYG{l+s+s2}{\PYGZdq{}What are the key differences between LoRA and QLoRA?\PYGZdq{}}\PYG{p}{\PYGZcb{})}
+\PYG{n+nb}{print}\PYG{p}{(}\PYG{n}{result}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}final\PYGZus{}answer\PYGZdq{}}\PYG{p}{])}
+\end{MintedVerbatim}

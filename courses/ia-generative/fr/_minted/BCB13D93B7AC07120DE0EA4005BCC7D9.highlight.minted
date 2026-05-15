@@ -1,0 +1,33 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{c+c1}{\PYGZsh{} Aide \PYGZbs{}`a la cr\PYGZbs{}\PYGZsq{}eation de dataset}
+\PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{json}
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{create\PYGZus{}instruction\PYGZus{}dataset}\PYG{p}{(}\PYG{n}{topic}\PYG{p}{,} \PYG{n}{num\PYGZus{}examples}\PYG{o}{=}\PYG{l+m+mi}{50}\PYG{p}{):}
+\PYG{+w}{    }\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}Use an LLM to help generate instruction\PYGZhy{}response pairs.\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{groq}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{Groq}
+    \PYG{n}{client} \PYG{o}{=} \PYG{n}{Groq}\PYG{p}{()}
+
+    \PYG{n}{pairs} \PYG{o}{=} \PYG{p}{[]}
+    \PYG{n}{prompt} \PYG{o}{=} \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}\PYGZdq{}\PYGZdq{}Generate }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{num\PYGZus{}examples}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{ diverse instruction\PYGZhy{}response pairs}
+\PYG{l+s+s2}{about }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{topic}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{. Format as JSON array with keys: instruction, response.}
+\PYG{l+s+s2}{Each response should be 2\PYGZhy{}4 sentences. Be accurate and educational.\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+
+    \PYG{n}{response} \PYG{o}{=} \PYG{n}{client}\PYG{o}{.}\PYG{n}{chat}\PYG{o}{.}\PYG{n}{completions}\PYG{o}{.}\PYG{n}{create}\PYG{p}{(}
+        \PYG{n}{model}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}llama\PYGZhy{}3.1\PYGZhy{}8b\PYGZhy{}instant\PYGZdq{}}\PYG{p}{,}
+        \PYG{n}{messages}\PYG{o}{=}\PYG{p}{[\PYGZob{}}\PYG{l+s+s2}{\PYGZdq{}role\PYGZdq{}}\PYG{p}{:} \PYG{l+s+s2}{\PYGZdq{}user\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}content\PYGZdq{}}\PYG{p}{:} \PYG{n}{prompt}\PYG{p}{\PYGZcb{}],}
+        \PYG{n}{temperature}\PYG{o}{=}\PYG{l+m+mf}{0.8}\PYG{p}{,} \PYG{n}{max\PYGZus{}tokens}\PYG{o}{=}\PYG{l+m+mi}{4096}\PYG{p}{,}
+    \PYG{p}{)}
+
+    \PYG{k}{try}\PYG{p}{:}
+        \PYG{n}{pairs} \PYG{o}{=} \PYG{n}{json}\PYG{o}{.}\PYG{n}{loads}\PYG{p}{(}\PYG{n}{response}\PYG{o}{.}\PYG{n}{choices}\PYG{p}{[}\PYG{l+m+mi}{0}\PYG{p}{]}\PYG{o}{.}\PYG{n}{message}\PYG{o}{.}\PYG{n}{content}\PYG{p}{)}
+    \PYG{k}{except} \PYG{n}{json}\PYG{o}{.}\PYG{n}{JSONDecodeError}\PYG{p}{:}
+        \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}Failed to parse JSON. Manual cleanup needed.\PYGZdq{}}\PYG{p}{)}
+
+    \PYG{k}{return} \PYG{n}{pairs}
+
+\PYG{c+c1}{\PYGZsh{} G\PYGZbs{}\PYGZsq{}en\PYGZbs{}\PYGZsq{}erer et sauvegarder}
+\PYG{n}{pairs} \PYG{o}{=} \PYG{n}{create\PYGZus{}instruction\PYGZus{}dataset}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}West African cuisine\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{50}\PYG{p}{)}
+\PYG{k}{with} \PYG{n+nb}{open}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}cooking\PYGZus{}dataset.json\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}w\PYGZdq{}}\PYG{p}{)} \PYG{k}{as} \PYG{n}{f}\PYG{p}{:}
+    \PYG{n}{json}\PYG{o}{.}\PYG{n}{dump}\PYG{p}{(}\PYG{n}{pairs}\PYG{p}{,} \PYG{n}{f}\PYG{p}{,} \PYG{n}{indent}\PYG{o}{=}\PYG{l+m+mi}{2}\PYG{p}{)}
+\PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}Generated }\PYG{l+s+si}{\PYGZob{}}\PYG{n+nb}{len}\PYG{p}{(}\PYG{n}{pairs}\PYG{p}{)}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{ pairs\PYGZdq{}}\PYG{p}{)}
+\end{MintedVerbatim}

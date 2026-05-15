@@ -1,0 +1,58 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{c+c1}{\PYGZsh{} Code de d\PYGZbs{}\PYGZsq{}epart : RAG avec suivi des sources}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{langchain\PYGZus{}community.document\PYGZus{}loaders}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{PyPDFDirectoryLoader}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{langchain\PYGZus{}text\PYGZus{}splitters}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{RecursiveCharacterTextSplitter}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{langchain\PYGZus{}community.vectorstores}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{Chroma}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{langchain\PYGZus{}community.embeddings}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{HuggingFaceEmbeddings}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{langchain\PYGZus{}google\PYGZus{}genai}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{ChatGoogleGenerativeAI}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{langchain\PYGZus{}core.prompts}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{ChatPromptTemplate}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{langchain\PYGZus{}core.runnables}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{RunnablePassthrough}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{langchain\PYGZus{}core.output\PYGZus{}parsers}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{StrOutputParser}
+
+\PYG{c+c1}{\PYGZsh{} Charger tous les PDF d\PYGZsq{}un r\PYGZbs{}\PYGZsq{}epertoire}
+\PYG{n}{loader} \PYG{o}{=} \PYG{n}{PyPDFDirectoryLoader}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}./pdf\PYGZus{}corpus/\PYGZdq{}}\PYG{p}{)}
+\PYG{n}{docs} \PYG{o}{=} \PYG{n}{loader}\PYG{o}{.}\PYG{n}{load}\PYG{p}{()}
+\PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}Loaded }\PYG{l+s+si}{\PYGZob{}}\PYG{n+nb}{len}\PYG{p}{(}\PYG{n}{docs}\PYG{p}{)}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{ pages from PDFs\PYGZdq{}}\PYG{p}{)}
+
+\PYG{c+c1}{\PYGZsh{} D\PYGZbs{}\PYGZsq{}ecouper}
+\PYG{n}{splitter} \PYG{o}{=} \PYG{n}{RecursiveCharacterTextSplitter}\PYG{p}{(}\PYG{n}{chunk\PYGZus{}size}\PYG{o}{=}\PYG{l+m+mi}{600}\PYG{p}{,} \PYG{n}{chunk\PYGZus{}overlap}\PYG{o}{=}\PYG{l+m+mi}{80}\PYG{p}{)}
+\PYG{n}{chunks} \PYG{o}{=} \PYG{n}{splitter}\PYG{o}{.}\PYG{n}{split\PYGZus{}documents}\PYG{p}{(}\PYG{n}{docs}\PYG{p}{)}
+
+\PYG{c+c1}{\PYGZsh{} Plonger et stocker}
+\PYG{n}{embeddings} \PYG{o}{=} \PYG{n}{HuggingFaceEmbeddings}\PYG{p}{(}\PYG{n}{model\PYGZus{}name}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}all\PYGZhy{}MiniLM\PYGZhy{}L6\PYGZhy{}v2\PYGZdq{}}\PYG{p}{)}
+\PYG{n}{vectorstore} \PYG{o}{=} \PYG{n}{Chroma}\PYG{o}{.}\PYG{n}{from\PYGZus{}documents}\PYG{p}{(}\PYG{n}{chunks}\PYG{p}{,} \PYG{n}{embeddings}\PYG{p}{,}
+                                     \PYG{n}{persist\PYGZus{}directory}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}./capstone\PYGZus{}rag\PYGZus{}db\PYGZdq{}}\PYG{p}{)}
+\PYG{n}{retriever} \PYG{o}{=} \PYG{n}{vectorstore}\PYG{o}{.}\PYG{n}{as\PYGZus{}retriever}\PYG{p}{(}\PYG{n}{search\PYGZus{}kwargs}\PYG{o}{=}\PYG{p}{\PYGZob{}}\PYG{l+s+s2}{\PYGZdq{}k\PYGZdq{}}\PYG{p}{:} \PYG{l+m+mi}{5}\PYG{p}{\PYGZcb{})}
+
+\PYG{c+c1}{\PYGZsh{} Cha\PYGZbs{}\PYGZca{}ine RAG avec sources}
+\PYG{n}{llm} \PYG{o}{=} \PYG{n}{ChatGoogleGenerativeAI}\PYG{p}{(}\PYG{n}{model}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}gemini\PYGZhy{}2.0\PYGZhy{}flash\PYGZdq{}}\PYG{p}{,} \PYG{n}{temperature}\PYG{o}{=}\PYG{l+m+mf}{0.2}\PYG{p}{)}
+
+\PYG{n}{template} \PYG{o}{=} \PYG{n}{ChatPromptTemplate}\PYG{o}{.}\PYG{n}{from\PYGZus{}template}\PYG{p}{(}
+\PYG{+w}{    }\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}Answer the question based on the context below. Include source}
+\PYG{l+s+sd}{references (document name, page number) for each claim.}
+
+\PYG{l+s+sd}{Context:}
+\PYG{l+s+sd}{\PYGZob{}context\PYGZcb{}}
+
+\PYG{l+s+sd}{Question: \PYGZob{}question\PYGZcb{}}
+
+\PYG{l+s+sd}{Answer (with sources):\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{p}{)}
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{format\PYGZus{}docs\PYGZus{}with\PYGZus{}sources}\PYG{p}{(}\PYG{n}{docs}\PYG{p}{):}
+    \PYG{n}{formatted} \PYG{o}{=} \PYG{p}{[]}
+    \PYG{k}{for} \PYG{n}{d} \PYG{o+ow}{in} \PYG{n}{docs}\PYG{p}{:}
+        \PYG{n}{source} \PYG{o}{=} \PYG{n}{d}\PYG{o}{.}\PYG{n}{metadata}\PYG{o}{.}\PYG{n}{get}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}source\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}unknown\PYGZdq{}}\PYG{p}{)}
+        \PYG{n}{page} \PYG{o}{=} \PYG{n}{d}\PYG{o}{.}\PYG{n}{metadata}\PYG{o}{.}\PYG{n}{get}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}page\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}?\PYGZdq{}}\PYG{p}{)}
+        \PYG{n}{formatted}\PYG{o}{.}\PYG{n}{append}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}[}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{source}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{, p.}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{page}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{]}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{d}\PYG{o}{.}\PYG{n}{page\PYGZus{}content}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{k}{return} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+se}{\PYGZbs{}n\PYGZbs{}n}\PYG{l+s+s2}{\PYGZdq{}}\PYG{o}{.}\PYG{n}{join}\PYG{p}{(}\PYG{n}{formatted}\PYG{p}{)}
+
+\PYG{n}{chain} \PYG{o}{=} \PYG{p}{(}
+    \PYG{p}{\PYGZob{}}\PYG{l+s+s2}{\PYGZdq{}context\PYGZdq{}}\PYG{p}{:} \PYG{n}{retriever} \PYG{o}{|} \PYG{n}{format\PYGZus{}docs\PYGZus{}with\PYGZus{}sources}\PYG{p}{,}
+     \PYG{l+s+s2}{\PYGZdq{}question\PYGZdq{}}\PYG{p}{:} \PYG{n}{RunnablePassthrough}\PYG{p}{()\PYGZcb{}}
+    \PYG{o}{|} \PYG{n}{template} \PYG{o}{|} \PYG{n}{llm} \PYG{o}{|} \PYG{n}{StrOutputParser}\PYG{p}{()}
+\PYG{p}{)}
+
+\PYG{n}{answer} \PYG{o}{=} \PYG{n}{chain}\PYG{o}{.}\PYG{n}{invoke}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}What are the main findings of the study?\PYGZdq{}}\PYG{p}{)}
+\PYG{n+nb}{print}\PYG{p}{(}\PYG{n}{answer}\PYG{p}{)}
+\end{MintedVerbatim}

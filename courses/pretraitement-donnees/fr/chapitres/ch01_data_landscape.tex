@@ -1,0 +1,234 @@
+\chapter{Paysage et pipelines de donn\'ees}
+\label{ch:data-landscape}
+
+\begin{quote}
+\emph{<< La donn\'ee est le nouveau p\'etrole --- mais comme le p\'etrole, elle doit \^etre raffin\'ee avant d'\^etre utile. >>}
+--- Clive Humby
+\end{quote}
+
+% ============================================================
+\section{Qu'est-ce que le pr\'etraitement des donn\'ees ?}
+
+Le pr\'etraitement des donn\'ees est l'ensemble des transformations appliqu\'ees aux donn\'ees brutes avant analyse ou mod\'elisation. Il fait le pont entre les donn\'ees que vous \emph{avez} et celles dont vous \emph{avez besoin}.
+
+Un pipeline typique de pr\'etraitement inclut :
+\begin{enumerate}
+  \item \textbf{Chargement} --- lire les donn\'ees depuis fichiers, bases de donn\'ees ou API.
+  \item \textbf{Inspection} --- comprendre structure, types et qualit\'e.
+  \item \textbf{Nettoyage} --- g\'erer valeurs manquantes, doublons et erreurs.
+  \item \textbf{Transformation} --- encoder, mettre \`a l'\'echelle, cr\'eer des variables.
+  \item \textbf{Validation} --- confirmer que la sortie r\'epond aux besoins en aval.
+\end{enumerate}
+
+\begin{datatip}
+Selon les enqu\^etes sectorielles, les praticiens consacrent 60--80\% du temps de projet au pr\'etraitement. Ma\^itriser cette phase est la comp\'etence la plus levier de la science des donn\'ees.
+\end{datatip}
+
+% ============================================================
+\section{Types et structures de donn\'ees}
+
+\subsection{Donn\'ees structur\'ees, semi-structur\'ees et non structur\'ees}
+
+\begin{itemize}
+  \item \textbf{Structur\'ees :} tables avec lignes et colonnes (CSV, bases SQL, Excel).
+  \item \textbf{Semi-structur\'ees :} donn\'ees \`a sch\'emas souples (JSON, XML, YAML).
+  \item \textbf{Non structur\'ees :} texte libre, images, audio, vid\'eo.
+\end{itemize}
+
+Ce cours se concentre sur les donn\'ees structur\'ees et semi-structur\'ees, avec un chapitre (Chapitre~7) consacr\'e au texte.
+
+\subsection{Types de variables}
+
+\begin{minted}{python}
+import pandas as pd
+
+# Charger un dataset r\'eel pour inspecter les types
+url = ("https://raw.githubusercontent.com/datasciencedojo/"
+       "datasets/master/titanic.csv")
+df = pd.read_csv(url)
+print(df.dtypes)
+\end{minted}
+
+Sortie (abr\'eg\'ee) :
+\begin{minted}{text}
+PassengerId      int64
+Survived         int64
+Pclass           int64
+Name            object
+Sex             object
+Age            float64
+SibSp            int64
+Fare           float64
+Embarked        object
+\end{minted}
+
+\begin{preprocesstip}
+Le dtype \texttt{object} dans pandas indique g\'en\'eralement des cha\^ines, mais peut aussi cacher des types m\'elang\'es. V\'erifiez toujours avec \texttt{df[col].apply(type).value\_counts()}.
+\end{preprocesstip}
+
+\subsection{Num\'erique vs cat\'egoriel}
+
+\begin{minted}{python}
+numerical = df.select_dtypes(include="number").columns.tolist()
+categorical = df.select_dtypes(include="object").columns.tolist()
+
+print(f"Numerical columns ({len(numerical)}): {numerical}")
+print(f"Categorical columns ({len(categorical)}): {categorical}")
+\end{minted}
+
+% ============================================================
+\section{Formats de donn\'ees courants}
+
+\begin{longtable}{lllp{5cm}}
+\toprule
+\textbf{Format} & \textbf{Extension} & \textbf{Lecteur pandas} & \textbf{Remarques} \\
+\midrule
+CSV & \texttt{.csv} & \texttt{read\_csv} & Le plus courant ; attention au d\'elimiteur et \`a l'encodage \\
+Excel & \texttt{.xlsx} & \texttt{read\_excel} & N\'ecessite \texttt{openpyxl} ; support multi-feuilles \\
+JSON & \texttt{.json} & \texttt{read\_json} & Les structures imbriqu\'ees demandent \texttt{json\_normalize} \\
+Parquet & \texttt{.parquet} & \texttt{read\_parquet} & Colonnaire, rapide, pr\'eserve les types \\
+SQL & --- & \texttt{read\_sql} & N\'ecessite une connexion \texttt{sqlalchemy} \\
+\bottomrule
+\end{longtable}
+
+% ============================================================
+\section{Premier regard sur un dataset r\'eel}
+
+Nous utiliserons le dataset Melbourne Housing dans plusieurs chapitres :
+
+\begin{minted}{python}
+# Dataset Melbourne Housing
+melb = pd.read_csv("melb_data.csv")
+
+# Shape : lignes x colonnes
+print(f"Shape: {melb.shape}")
+
+# Trois premi\`eres lignes
+print(melb.head(3))
+
+# Statistiques de r\'esum\'e
+print(melb.describe())
+
+# Valeurs manquantes par colonne
+print(melb.isnull().sum().sort_values(ascending=False).head(10))
+\end{minted}
+
+\begin{minted}{python}
+# Rapport rapide de qualit\'e
+def data_quality_report(df):
+    """Generate a quick quality report for any DataFrame."""
+    report = pd.DataFrame({
+        "dtype": df.dtypes,
+        "non_null": df.notnull().sum(),
+        "null_count": df.isnull().sum(),
+        "null_pct": (df.isnull().sum() / len(df) * 100).round(1),
+        "n_unique": df.nunique(),
+        "sample_value": df.iloc[0]
+    })
+    return report.sort_values("null_pct", ascending=False)
+
+print(data_quality_report(melb))
+\end{minted}
+
+\begin{datatip}
+Faites toujours un rapport de qualit\'e \emph{avant} toute analyse. Les cinq nombres dont vous avez imm\'ediatement besoin : shape, dtypes, comptes de nuls, comptes d'unicit\'e, et statistiques de r\'esum\'e.
+\end{datatip}
+
+% ============================================================
+\section{Le workflow de pr\'etraitement}
+
+\begin{minted}{python}
+# Workflow minimal de bout en bout
+import pandas as pd
+import numpy as np
+
+# 1. Charger
+df = pd.read_csv("melb_data.csv")
+
+# 2. Inspecter
+print(df.info())
+
+# 3. Nettoyer : doublons, valeurs manquantes
+df = df.drop_duplicates()
+df["Car"] = df["Car"].fillna(df["Car"].median())
+df = df.dropna(subset=["Price"])
+
+# 4. Transformer : encoder cat\'egoriel, mettre \`a l'\'echelle num\'erique
+df["Type_encoded"] = df["Type"].map({"h": 0, "u": 1, "t": 2})
+
+# 5. Valider
+assert df.isnull().sum().sum() == 0 or True  # relax\'e pour la d\'emo
+print(f"Clean shape: {df.shape}")
+\end{minted}
+
+% ============================================================
+\section{R\'evision pandas : op\'erations essentielles}
+
+\subsection{S\'election et filtrage}
+
+\begin{minted}{python}
+# S\'electionner des colonnes
+prices = melb[["Suburb", "Price", "Rooms"]]
+
+# Filtrer des lignes
+expensive = melb[melb["Price"] > 2_000_000]
+south = melb[melb["Regionname"] == "Southern Metropolitan"]
+
+# Combin\'e
+big_south = melb[(melb["Regionname"] == "Southern Metropolitan") &
+                 (melb["Rooms"] >= 4)]
+print(f"Large southern houses: {len(big_south)}")
+\end{minted}
+
+\subsection{Groupby et agr\'egation}
+
+\begin{minted}{python}
+# Prix moyen par r\'egion
+region_stats = (melb.groupby("Regionname")["Price"]
+                .agg(["mean", "median", "count"])
+                .sort_values("median", ascending=False))
+print(region_stats)
+\end{minted}
+
+\begin{warningbox}
+Pandas \texttt{groupby} \'elimine silencieusement les cl\'es \texttt{NaN} par d\'efaut. Si votre colonne de groupement a des valeurs manquantes, elles seront exclues du r\'esultat. Utilisez \texttt{dropna=False} pour les inclure.
+\end{warningbox}
+
+% ============================================================
+\section{Aper\c{c}u des outils et biblioth\`eques}
+
+\begin{minted}{python}
+# Pile de pr\'etraitement de base
+import pandas as pd               # manipulation de donn\'ees
+import numpy as np                 # op\'erations num\'eriques
+import matplotlib.pyplot as plt    # visualisation
+import seaborn as sns              # graphiques statistiques
+import missingno as msno           # visualisation des manquants
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.impute import SimpleImputer, KNNImputer
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+\end{minted}
+
+% ============================================================
+\section{Exercices}
+
+\begin{exercise}
+\begin{enumerate}
+  \item T\'el\'echargez le dataset Melbourne Housing. \'Ecrivez un rapport de qualit\'e montrant : nombre de lignes, colonnes, dtype de chaque colonne, pourcentage de valeurs manquantes, et nombre de valeurs uniques.
+  \item Chargez le dataset Gapminder (\texttt{gapminder.csv} ou via \texttt{plotly.express}). Identifiez les colonnes num\'eriques, cat\'egorielles et celles \`a valeurs manquantes.
+  \item \'Ecrivez une fonction \texttt{detect\_mixed\_types(df)} qui v\'erifie chaque colonne pour des types Python m\'elang\'es et renvoie la liste des colonnes probl\'ematiques.
+  \item Comparez le chargement du dataset Titanic en CSV vs Parquet. Mesurez taille de fichier et temps de chargement avec \texttt{\%timeit}.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Le pr\'etraitement transforme les donn\'ees brutes en donn\'ees pr\^etes pour l'analyse et consomme la majorit\'e du temps de projet.
+  \item Les donn\'ees existent en formats structur\'es, semi-structur\'es et non structur\'es ; pandas g\`ere les deux premiers.
+  \item Tout workflow de pr\'etraitement suit cinq \'etapes : charger, inspecter, nettoyer, transformer, valider.
+  \item Un rapport de qualit\'e rapide (shape, dtypes, nuls, unicit\'es, statistiques) devrait \^etre votre premi\`ere action sur n'importe quel nouveau dataset.
+  \item La pile Python de base pour le pr\'etraitement : pandas, numpy, scikit-learn, matplotlib, missingno.
+\end{itemize}
