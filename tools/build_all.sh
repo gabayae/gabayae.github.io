@@ -18,13 +18,16 @@ build_one() {
 export -f build_one
 export REPO_ROOT
 
-# Collect all jobs
+# Collect all jobs: every .tex file outside _site/ that contains \begin{document}
 JOBS=()
 while IFS= read -r master; do
   dir=$(dirname "$master")
   base=$(basename "$master")
   JOBS+=("$dir|$base")
-done < <(find courses -maxdepth 3 \( -name "cours.tex" -o -name "notes.tex" \) | sort)
+done < <(grep -rl "begin{document}" --include="*.tex" . 2>/dev/null \
+         | grep -v "^./_site/" \
+         | sed 's|^\./||' \
+         | sort)
 
 echo "Total masters: ${#JOBS[@]}"
 PARALLEL=4

@@ -33,11 +33,23 @@ def patch(text: str) -> tuple[str, bool]:
     return new_text, n > 0
 
 
+def find_all_masters() -> list[pathlib.Path]:
+    files: list[pathlib.Path] = []
+    for tex in REPO_ROOT.rglob("*.tex"):
+        rel_parts = tex.relative_to(REPO_ROOT).parts
+        if rel_parts and rel_parts[0] in {"_site", "node_modules", ".git"}:
+            continue
+        try:
+            head = tex.read_text(encoding="utf-8")[:50000]
+        except UnicodeDecodeError:
+            continue
+        if r"\begin{document}" in head:
+            files.append(tex)
+    return sorted(files)
+
+
 def main() -> int:
-    files = sorted(
-        list((REPO_ROOT / "courses").glob("*/fr/cours.tex"))
-        + list((REPO_ROOT / "courses").glob("*/en/notes.tex"))
-    )
+    files = find_all_masters()
     patched = 0
     for path in files:
         text = path.read_text(encoding="utf-8")
