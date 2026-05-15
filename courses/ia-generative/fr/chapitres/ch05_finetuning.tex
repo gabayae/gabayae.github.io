@@ -1,0 +1,262 @@
+\chapter{Fine-tuning des LLM}
+\label{ch:finetuning}
+
+\begin{quote}
+\emph{<< Le pr\'e-entra\^inement donne au mod\`ele de la connaissance. Le fine-tuning lui donne un m\'etier. >>}
+\end{quote}
+
+% ============================================================
+\section{Pourquoi fine-tuner ?}
+
+Le prompt engineering a ses limites. Quand vous avez besoin qu'un mod\`ele :
+\begin{itemize}
+  \item Suive constamment un format de sortie sp\'ecifique,
+  \item Manipule un vocabulaire de domaine (juridique, m\'edical, scientifique),
+  \item Atteigne une pr\'ecision maximale sur une t\^ache \'etroite,
+  \item R\'eduise la latence avec un mod\`ele plus petit et sp\'ecialis\'e,
+\end{itemize}
+le fine-tuning est la r\'eponse.
+
+% ============================================================
+\section{Fine-tuning complet vs m\'ethodes \`a param\`etres efficaces}
+
+\textbf{Fine-tuning complet} met \`a jour tous les param\`etres du mod\`ele. Pour un mod\`ele 7B, cela demande :
+\begin{itemize}
+  \item 28 Go pour les poids (FP32)
+  \item 28 Go pour les \'etats de l'optimiseur (Adam)
+  \item 28 Go pour les gradients
+  \item Total : $\sim$84 Go de VRAM --- plusieurs GPU A100.
+\end{itemize}
+
+\textbf{Fine-tuning \`a param\`etres efficaces (PEFT)} gel la plupart des param\`etres et n'entra\^ine qu'un petit nombre de param\`etres suppl\'ementaires.
+
+% ============================================================
+\section{LoRA : Low-Rank Adaptation}
+
+LoRA d\'ecompose les mises \`a jour de poids en matrices de bas rang. Au lieu de mettre \`a jour $W \in \mathbb{R}^{d \times d}$, on apprend $\Delta W = BA$ avec $B \in \mathbb{R}^{d \times r}$ et $A \in \mathbb{R}^{r \times d}$, et un rang $r \ll d$.
+
+\[
+W' = W + \alpha \cdot BA
+\]
+
+Avantages : seulement $2dr$ param\`etres au lieu de $d^2$. Pour $d=4096, r=16$ : on passe de 16,7M \`a 131K param\`etres par couche.
+
+\begin{minted}{python}
+from peft import LoraConfig, get_peft_model, TaskType
+from transformers import AutoModelForCausalLM
+
+model = AutoModelForCausalLM.from_pretrained(
+    "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    torch_dtype="auto",
+    device_map="auto",
+)
+
+lora_config = LoraConfig(
+    task_type=TaskType.CAUSAL_LM,
+    r=16,                        # rank
+    lora_alpha=32,               # scaling factor
+    lora_dropout=0.05,
+    target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
+)
+
+peft_model = get_peft_model(model, lora_config)
+peft_model.print_trainable_parameters()
+# trainable params: ~4M / total: ~1.1B = 0.36%
+\end{minted}
+
+% ============================================================
+\section{QLoRA : LoRA quantifi\'e}
+
+QLoRA charge le mod\`ele de base en pr\'ecision 4 bits (quantification NF4), puis entra\^ine les adapteurs LoRA en FP16. Cela r\'eduit l'usage de VRAM d'un facteur $\sim$4 :
+
+\begin{minted}{python}
+from transformers import BitsAndBytesConfig
+import torch
+
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_compute_dtype=torch.float16,
+    bnb_4bit_use_double_quant=True,
+)
+
+model = AutoModelForCausalLM.from_pretrained(
+    "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    quantization_config=bnb_config,
+    device_map="auto",
+)
+
+# Appliquer LoRA par-dessus le mod\`ele quantifi\'e
+peft_model = get_peft_model(model, lora_config)
+peft_model.print_trainable_parameters()
+\end{minted}
+
+\begin{aitip}
+QLoRA rend possible le fine-tuning d'un mod\`ele 7B sur un seul GPU Colab T4 gratuit (16 Go de VRAM). Cela d\'emocratise le fine-tuning --- pas besoin de mat\'eriel co\^uteux.
+\end{aitip}
+
+% ============================================================
+\section{Jeux de donn\'ees pour fine-tuning}
+
+\begin{longtable}{p{3cm}p{3cm}p{6.5cm}}
+\toprule
+\textbf{Dataset} & \textbf{Taille} & \textbf{Description} \\
+\midrule
+Alpaca & 52K & Donn\'ees instruction-following de Stanford \\
+Dolly & 15K & Instructions r\'edig\'ees par des employ\'es Databricks \\
+OpenAssistant & 160K & Conversations multi-tours \\
+UltraChat & 1.5M & Dialogues multi-tours synth\'etiques \\
+\bottomrule
+\end{longtable}
+
+\begin{minted}{python}
+from datasets import load_dataset
+
+# Charger le dataset Dolly
+dataset = load_dataset("databricks/databricks-dolly-15k", split="train")
+print(f"Dataset size: {len(dataset)}")
+print(dataset[0])
+
+# Formater pour l'instruction tuning
+def format_instruction(example):
+    if example["context"]:
+        text = (f"### Instruction:\n{example['instruction']}\n\n"
+                f"### Context:\n{example['context']}\n\n"
+                f"### Response:\n{example['response']}")
+    else:
+        text = (f"### Instruction:\n{example['instruction']}\n\n"
+                f"### Response:\n{example['response']}")
+    return {"text": text}
+
+formatted = dataset.map(format_instruction)
+print(formatted[0]["text"][:300])
+\end{minted}
+
+% ============================================================
+\section{Fine-tuning avec HuggingFace Trainer}
+
+\begin{minted}{python}
+from transformers import (
+    AutoModelForCausalLM, AutoTokenizer,
+    TrainingArguments, Trainer, DataCollatorForLanguageModeling,
+    BitsAndBytesConfig,
+)
+from peft import LoraConfig, get_peft_model, TaskType
+from datasets import load_dataset
+import torch
+
+# 1. Charger le mod\`ele en 4 bits
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_compute_dtype=torch.float16,
+)
+
+model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+tokenizer.pad_token = tokenizer.eos_token
+
+model = AutoModelForCausalLM.from_pretrained(
+    model_name, quantization_config=bnb_config, device_map="auto"
+)
+
+# 2. Appliquer LoRA
+lora_config = LoraConfig(
+    task_type=TaskType.CAUSAL_LM, r=16, lora_alpha=32,
+    lora_dropout=0.05,
+    target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
+)
+model = get_peft_model(model, lora_config)
+
+# 3. Pr\'eparer le dataset
+dataset = load_dataset("databricks/databricks-dolly-15k", split="train[:1000]")
+
+def tokenize(example):
+    text = f"### Instruction:\n{example['instruction']}\n### Response:\n{example['response']}"
+    return tokenizer(text, truncation=True, max_length=512, padding="max_length")
+
+tokenized = dataset.map(tokenize, remove_columns=dataset.column_names)
+
+# 4. Param\`etres d'entra\^inement
+training_args = TrainingArguments(
+    output_dir="./tinyllama-dolly-lora",
+    num_train_epochs=3,
+    per_device_train_batch_size=4,
+    gradient_accumulation_steps=4,
+    learning_rate=2e-4,
+    fp16=True,
+    logging_steps=10,
+    save_strategy="epoch",
+    warmup_ratio=0.03,
+    lr_scheduler_type="cosine",
+)
+
+# 5. Entra\^iner
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized,
+    data_collator=DataCollatorForLanguageModeling(tokenizer, mlm=False),
+)
+trainer.train()
+
+# 6. Sauvegarder l'adapteur LoRA
+model.save_pretrained("./tinyllama-dolly-lora")
+\end{minted}
+
+% ============================================================
+\section{\'Evaluation apr\`es fine-tuning}
+
+\begin{minted}{python}
+# Charger le mod\`ele fine-tun\'e
+from peft import PeftModel
+
+base_model = AutoModelForCausalLM.from_pretrained(
+    model_name, quantization_config=bnb_config, device_map="auto"
+)
+finetuned = PeftModel.from_pretrained(base_model, "./tinyllama-dolly-lora")
+
+# Comparer base vs fine-tun\'e
+prompt = "### Instruction:\nExplain what a neural network is.\n### Response:\n"
+inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+
+# Mod\`ele de base
+base_out = base_model.generate(**inputs, max_new_tokens=100, temperature=0.7)
+print("=== Base model ===")
+print(tokenizer.decode(base_out[0], skip_special_tokens=True))
+
+# Mod\`ele fine-tun\'e
+ft_out = finetuned.generate(**inputs, max_new_tokens=100, temperature=0.7)
+print("\n=== Fine-tuned model ===")
+print(tokenizer.decode(ft_out[0], skip_special_tokens=True))
+\end{minted}
+
+\begin{warningbox}
+Le fine-tuning sur de petits datasets risque l'\emph{oubli catastrophique} (catastrophic forgetting) : le mod\`ele perd ses capacit\'es g\'en\'erales. Utilisez un ensemble de validation r\'eserv\'e et surveillez \`a la fois la performance sp\'ecifique \`a la t\^ache et la performance g\'en\'erale.
+\end{warningbox}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Fine-tunez TinyLlama sur 500 exemples du dataset Dolly avec QLoRA. Reportez la perte d'entra\^inement \`a chaque \'epoque.
+  \item Exp\'erimentez avec les valeurs de rang LoRA : $r \in \{4, 8, 16, 32\}$. Lequel donne le meilleur compromis entre qualit\'e et temps d'entra\^inement ?
+  \item Fine-tunez sur un dataset personnalis\'e : cr\'eez 100 paires instruction-r\'eponse sur un sujet qui vous int\'eresse (cuisine, histoire, ou un domaine sp\'ecifique). \'Evaluez le mod\`ele avant et apr\`es.
+  \item Comparez l'usage de VRAM entre fine-tuning complet et QLoRA sur TinyLlama. Utilisez \texttt{torch.cuda.max\_memory\_allocated()}.
+\end{enumerate}
+\end{exercise}
+
+\begin{ethicsbox}
+Le fine-tuning peut int\'egrer des biais des donn\'ees d'entra\^inement. Si votre dataset contient des st\'er\'eotypes, le mod\`ele les apprendra. Auditez toujours vos donn\'ees pour rep\'erer les biais, testez le mod\`ele fine-tun\'e sur des entr\'ees diversifi\'ees, et documentez les sources de donn\'ees et limites connues.
+\end{ethicsbox}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Le fine-tuning adapte un mod\`ele pr\'e-entra\^in\'e \`a une t\^ache ou un domaine sp\'ecifique.
+  \item Le fine-tuning complet met \`a jour tous les param\`etres et demande beaucoup de VRAM.
+  \item LoRA entra\^ine des matrices d'adaptation de bas rang, r\'eduisant les param\`etres entra\^inables de plus de 99\%.
+  \item QLoRA combine quantification 4 bits et LoRA, permettant le fine-tuning sur GPU Colab gratuit.
+  \item Les datasets d'instruction-tuning (Alpaca, Dolly) apprennent aux mod\`eles \`a suivre des instructions.
+  \item HuggingFace Trainer + PEFT fournit un pipeline complet de fine-tuning en $\sim$30 lignes.
+  \item \'Evaluez toujours sur des donn\'ees r\'eserv\'ees et surveillez l'oubli catastrophique.
+\end{itemize}

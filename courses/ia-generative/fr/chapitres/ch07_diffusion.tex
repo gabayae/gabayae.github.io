@@ -1,0 +1,267 @@
+\chapter{Mod\`eles de diffusion et g\'en\'eration d'images}
+\label{ch:diffusion}
+
+\begin{quote}
+\emph{<< Les mod\`eles de diffusion g\'en\`erent des images en apprenant \`a inverser un processus de bruitage. Partir d'un bruit pur, d\'ebruiter \'etape par \'etape, et une image coh\'erente \'emerge. >>}
+\end{quote}
+
+% ============================================================
+\section{Le processus de diffusion}
+
+\subsection{Processus avant (ajout de bruit)}
+
+\'Etant donn\'ee une image $\mathbf{x}_0$, le processus avant ajoute du bruit gaussien sur $T$ pas de temps :
+\[
+q(\mathbf{x}_t | \mathbf{x}_{t-1}) = \mathcal{N}(\mathbf{x}_t; \sqrt{1-\beta_t}\,\mathbf{x}_{t-1},\; \beta_t \mathbf{I})
+\]
+
+o\`u $\beta_t$ est le sch\'ema de bruit. Apr\`es suffisamment d'\'etapes, $\mathbf{x}_T \approx \mathcal{N}(\mathbf{0}, \mathbf{I})$.
+
+\subsection{Processus inverse (d\'ebruitage)}
+
+Un r\'eseau de neurones apprend \`a inverser le bruit :
+\[
+p_\theta(\mathbf{x}_{t-1} | \mathbf{x}_t) = \mathcal{N}(\mathbf{x}_{t-1}; \boldsymbol{\mu}_\theta(\mathbf{x}_t, t),\; \sigma_t^2 \mathbf{I})
+\]
+
+Le mod\`ele pr\'edit le bruit $\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)$ et l'utilise pour calculer $\boldsymbol{\mu}_\theta$.
+
+\subsection{Objectif d'entra\^inement}
+
+La perte DDPM simplifi\'ee est :
+\[
+L = \mathbb{E}_{t, \mathbf{x}_0, \boldsymbol{\epsilon}} \left[\| \boldsymbol{\epsilon} - \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t) \|^2 \right]
+\]
+
+\begin{minted}{python}
+import torch
+import torch.nn.functional as F
+
+def diffusion_loss(model, x_0, noise_scheduler):
+    """Simplified DDPM training step."""
+    batch_size = x_0.shape[0]
+    # \'Echantillonner des pas de temps al\'eatoires
+    t = torch.randint(0, noise_scheduler.num_train_timesteps,
+                      (batch_size,), device=x_0.device)
+    # \'Echantillonner du bruit
+    noise = torch.randn_like(x_0)
+    # Ajouter du bruit aux images
+    x_t = noise_scheduler.add_noise(x_0, noise, t)
+    # Pr\'edire le bruit
+    noise_pred = model(x_t, t).sample
+    # Perte MSE
+    loss = F.mse_loss(noise_pred, noise)
+    return loss
+\end{minted}
+
+% ============================================================
+\section{Sch\'emas de bruit}
+
+Le sch\'ema de bruit $\{\beta_t\}_{t=1}^T$ contr\^ole \`a quelle vitesse le bruit est ajout\'e :
+
+\begin{itemize}
+  \item \textbf{Lin\'eaire :} $\beta_t$ cro\^it lin\'eairement de $\beta_1 = 10^{-4}$ \`a $\beta_T = 0.02$.
+  \item \textbf{Cosinus :} ajout de bruit plus doux, meilleur pour les petites images.
+  \item \textbf{Lin\'eaire mis \`a l'\'echelle :} utilis\'e par Stable Diffusion, r\'egl\'e pour l'espace latent.
+\end{itemize}
+
+\begin{minted}{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+T = 1000
+# Sch\'ema lin\'eaire
+beta_linear = np.linspace(1e-4, 0.02, T)
+alpha_linear = np.cumprod(1 - beta_linear)
+
+# Sch\'ema cosinus
+s = 0.008
+steps = np.arange(T + 1) / T
+f = np.cos((steps + s) / (1 + s) * np.pi / 2) ** 2
+alpha_cosine = f[1:] / f[0]
+
+plt.figure(figsize=(8, 4))
+plt.plot(alpha_linear, label="Linear")
+plt.plot(alpha_cosine, label="Cosine")
+plt.xlabel("Timestep")
+plt.ylabel("Cumulative alpha (signal remaining)")
+plt.title("Noise schedules")
+plt.legend()
+plt.tight_layout()
+plt.savefig("noise_schedules.png", dpi=150)
+plt.show()
+\end{minted}
+
+% ============================================================
+\section{L'architecture U-Net}
+
+Les mod\`eles de diffusion utilisent typiquement un \textbf{U-Net} : un encodeur-d\'ecodeur avec connexions r\'esiduelles. Le U-Net prend une image bruit\'ee et le pas de temps, et pr\'edit le bruit.
+
+Composants cl\'es :
+\begin{itemize}
+  \item \textbf{Blocs de downsampling} : convolutions qui r\'eduisent la r\'esolution spatiale.
+  \item \textbf{Blocs d'upsampling} : convolutions transpos\'ees qui augmentent la r\'esolution.
+  \item \textbf{Skip connections} : concat\`enent les caract\'eristiques de l'encodeur aux caract\'eristiques du d\'ecodeur.
+  \item \textbf{Plongement du pas de temps} : plongement sinuso\"idal de $t$, inject\'e dans chaque bloc.
+  \item \textbf{Cross-attention} : pour la g\'en\'eration conditionn\'ee par texte, le U-Net attribue son attention aux plongements de texte.
+\end{itemize}
+
+% ============================================================
+\section{Stable Diffusion}
+
+Stable Diffusion op\`ere dans l'\emph{espace latent} : les images sont compress\'ees par un encodeur VAE, la diffusion se passe dans l'espace latent, et le d\'ecodeur VAE reconstruit l'image.
+
+\begin{minted}{python}
+from diffusers import StableDiffusionPipeline
+import torch
+
+pipe = StableDiffusionPipeline.from_pretrained(
+    "stabilityai/stable-diffusion-2-1-base",
+    torch_dtype=torch.float16,
+)
+pipe = pipe.to("cuda")
+
+prompt = "A serene African village at sunset, digital art, highly detailed"
+image = pipe(
+    prompt,
+    num_inference_steps=30,
+    guidance_scale=7.5,
+).images[0]
+
+image.save("african_village.png")
+image
+\end{minted}
+
+\begin{aitip}
+\texttt{guidance\_scale} contr\^ole \`a quel point l'image suit le prompt. Des valeurs de 7--9 marchent bien pour la plupart des prompts. Des valeurs plus hautes produisent des interpr\'etations plus litt\'erales mais peuvent r\'eduire la qualit\'e d'image.
+\end{aitip}
+
+% ============================================================
+\section{Prompts n\'egatifs et param\`etres}
+
+\begin{minted}{python}
+image = pipe(
+    prompt="Portrait of a scientist in a laboratory, photorealistic",
+    negative_prompt="blurry, low quality, deformed, cartoon",
+    num_inference_steps=50,
+    guidance_scale=8.0,
+    height=512,
+    width=512,
+).images[0]
+image.save("scientist.png")
+\end{minted}
+
+% ============================================================
+\section{G\'en\'eration image-vers-image}
+
+Partir d'une image existante et la modifier :
+
+\begin{minted}{python}
+from diffusers import StableDiffusionImg2ImgPipeline
+from PIL import Image
+
+pipe_img2img = StableDiffusionImg2ImgPipeline.from_pretrained(
+    "stabilityai/stable-diffusion-2-1-base",
+    torch_dtype=torch.float16,
+).to("cuda")
+
+init_image = Image.open("sketch.png").resize((512, 512))
+
+result = pipe_img2img(
+    prompt="A beautiful watercolor painting of a landscape",
+    image=init_image,
+    strength=0.75,  # 0=pas de changement, 1=r\'eg\'en\'eration compl\`ete
+    guidance_scale=7.5,
+).images[0]
+result.save("watercolor.png")
+\end{minted}
+
+% ============================================================
+\section{ControlNet : g\'en\'eration guid\'ee}
+
+ControlNet ajoute un conditionnement spatial (contours, profondeur, pose) \`a Stable Diffusion :
+
+\begin{minted}{python}
+from diffusers import StableDiffusionControlNetPipeline, ControlNetModel
+from controlnet_aux import CannyDetector
+from PIL import Image
+import torch
+
+# Charger ControlNet pour les contours Canny
+controlnet = ControlNetModel.from_pretrained(
+    "lllyasviel/sd-controlnet-canny", torch_dtype=torch.float16
+)
+pipe_cn = StableDiffusionControlNetPipeline.from_pretrained(
+    "stabilityai/stable-diffusion-2-1-base",
+    controlnet=controlnet,
+    torch_dtype=torch.float16,
+).to("cuda")
+
+# Extraire les contours d'une image de r\'ef\'erence
+canny = CannyDetector()
+reference = Image.open("building_photo.png")
+edges = canny(reference, low_threshold=100, high_threshold=200)
+
+# G\'en\'erer avec guidage par contours
+result = pipe_cn(
+    prompt="A futuristic building, cyberpunk style, neon lights",
+    image=edges,
+    num_inference_steps=30,
+).images[0]
+result.save("cyberpunk_building.png")
+\end{minted}
+
+% ============================================================
+\section{G\'en\'eration par lots et contr\^ole de seed}
+
+\begin{minted}{python}
+import torch
+
+# G\'en\'eration reproductible avec seeds
+generator = torch.Generator("cuda").manual_seed(42)
+
+images = pipe(
+    prompt=["A cat astronaut", "A dog scientist", "A bird musician"],
+    num_inference_steps=30,
+    guidance_scale=7.5,
+    generator=generator,
+).images
+
+for i, img in enumerate(images):
+    img.save(f"generated_{i}.png")
+\end{minted}
+
+\begin{exercise}
+\begin{enumerate}
+  \item G\'en\'erez 5 images avec le m\^eme prompt mais des seeds diff\'erentes. Quelle variation observez-vous ?
+  \item Exp\'erimentez avec les valeurs de \texttt{guidance\_scale} : 1, 5, 7.5, 12, 20. Documentez l'effet sur la qualit\'e d'image et le respect du prompt.
+  \item Utilisez image-vers-image pour transformer un croquis simple en illustration d\'etaill\'ee. Essayez diff\'erentes valeurs de \texttt{strength}.
+  \item Appliquez ControlNet avec d\'etection de contours Canny pour g\'en\'erer des variantes architecturales d'une photo de b\^atiment.
+  \item G\'en\'erez une image, puis utilisez img2img pour cr\'eer 3 variations avec \texttt{strength} croissant (0.3, 0.5, 0.8).
+\end{enumerate}
+\end{exercise}
+
+\begin{ethicsbox}
+La g\'en\'eration d'images soul\`eve des questions \'ethiques s\'erieuses :
+\begin{itemize}
+  \item \textbf{Deepfakes :} g\'en\'erer des images r\'ealistes de personnes r\'eelles sans consentement.
+  \item \textbf{Droits d'auteur :} mod\`eles entra\^in\'es sur de l'art prot\'eg\'e sans autorisation des artistes.
+  \item \textbf{Biais :} les mod\`eles peuvent perp\'etuer des st\'er\'eotypes (par ex., g\'en\'erer surtout des visages \`a peau claire pour << professionnel >>).
+  \item \textbf{Contenus nocifs :} les mod\`eles peuvent g\'en\'erer des images violentes ou explicites.
+\end{itemize}
+Utilisez toujours les v\'erificateurs de s\^uret\'e (activ\'es par d\'efaut dans diffusers), filigranez les images g\'en\'er\'ees par IA, et ne g\'en\'erez jamais d'images non consenties de personnes r\'eelles.
+\end{ethicsbox}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Les mod\`eles de diffusion apprennent \`a inverser un processus de bruitage : partir du bruit, d\'ebruiter \'etape par \'etape.
+  \item L'objectif d'entra\^inement est simple : pr\'edire le bruit ajout\'e.
+  \item Les sch\'emas de bruit (lin\'eaire, cosinus) contr\^olent la vitesse de diffusion.
+  \item U-Net avec cross-attention est l'architecture standard pour la g\'en\'eration conditionn\'ee par texte.
+  \item Stable Diffusion travaille dans l'espace latent pour l'efficacit\'e.
+  \item ControlNet ajoute un guidage spatial (contours, profondeur, pose) au processus de g\'en\'eration.
+  \item Guidance scale, prompts n\'egatifs et nombre d'\'etapes sont les param\`etres cl\'es de g\'en\'eration.
+  \item Un d\'eploiement \'ethique demande filtres de s\^uret\'e, filigranage, et consentement.
+\end{itemize}
