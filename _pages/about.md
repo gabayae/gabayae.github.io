@@ -134,4 +134,23 @@ I advise research teams and startups on applying topological and geometric metho
 </div>
 </div>
 
+<div class="profile-section">
+<div class="profile-section-header">
+<div class="profile-icon"><i class="fa-solid fa-seedling"></i></div>
+<h3>Mentor</h3>
+</div>
+
+I supervise theses at IMSP and AIMS, mentor early-career African researchers through ACAS, and stay in touch with bootcamp alumni after their cohort ends. This is the slow, long-horizon part of the work; it's also the part I value most.
+
+- <span class="kw">Thesis supervision</span>: MSc and PhD candidates at IMSP and the AIMS centres — topology-and-data, fixed-point theory, geometric ML, applied AI on African problems
+- <span class="kw">Early-career research mentoring</span>: through <a href="https://acas-yde.org/" target="_blank">ACAS</a>, for African scholars at the postdoc and early-faculty stage working in AI, mathematics, and quantitative research
+- <span class="kw">Bootcamp &amp; alumni follow-up</span>: Bootcamp participants retain a peer Slack channel and 1-on-1 instructor access for 3 months after their cohort
+
+<div class="profile-links">
+<a href="https://acas-yde.org/" target="_blank"><i class="fa-solid fa-graduation-cap"></i> ACAS — research mentoring</a>
+<a href="{{ '/workshops/ml-ai-bootcamp/en/' | relative_url }}"><i class="fa-solid fa-rocket"></i> ML &amp; AI Bootcamp syllabus</a>
+<a href="mailto:gabayae2@gmail.com?subject=Research%20Supervision%20Inquiry"><i class="fa-solid fa-envelope"></i> Thesis supervision inquiry</a>
+</div>
+</div>
+
 </div>
