@@ -1,0 +1,226 @@
+\chapter{GPT et g\'en\'eration de texte}
+\label{ch:gpt-generation}
+
+\begin{quote}
+\emph{<< GPT, c'est juste de la pr\'ediction du token suivant, \`a grande \'echelle. Les capacit\'es \'emergentes viennent de l'\'echelle, pas d'un changement d'objectif. >>}
+\end{quote}
+
+% ============================================================
+\section{La famille GPT}
+
+Les mod\`eles GPT (Generative Pre-trained Transformer) sont des Transformers \emph{d\'ecodeur-seul} entra\^in\'es avec un objectif de mod\'elisation causale du langage : pr\'edire le token suivant \'etant donn\'es tous les tokens pr\'ec\'edents.
+
+\begin{longtable}{p{2.5cm}p{2.5cm}p{2.5cm}p{4.5cm}}
+\toprule
+\textbf{Mod\`ele} & \textbf{Param\`etres} & \textbf{Ann\'ee} & \textbf{Innovation cl\'e} \\
+\midrule
+GPT-1 & 117M & 2018 & Paradigme pr\'e-entra\^inement + fine-tuning \\
+GPT-2 & 1.5B & 2019 & Transfert de t\^ache zero-shot \\
+GPT-3 & 175B & 2020 & In-context learning, few-shot \\
+GPT-4 & Inconnu & 2023 & Multimodal, RLHF \\
+GPT-4o & Inconnu & 2024 & Omni : texte, vision, audio \\
+\bottomrule
+\end{longtable}
+
+Pour le travail pratique, on utilise \textbf{GPT-2} (poids ouverts, tourne sur GPU Colab gratuit) et \textbf{TinyLlama-1.1B} (architecture moderne, assez petit pour exp\'erimenter).
+
+% ============================================================
+\section{G\'en\'eration autor\'egressive}
+
+La g\'en\'eration autor\'egressive proc\`ede token par token :
+\begin{enumerate}
+  \item Fournir les tokens du prompt au mod\`ele.
+  \item Le mod\`ele sort des logits sur tout le vocabulaire.
+  \item S\'electionner le token suivant \`a partir des logits (via une \emph{strat\'egie de d\'ecodage}).
+  \item Ajouter le token \`a la s\'equence. R\'ep\'eter.
+\end{enumerate}
+
+\begin{minted}{python}
+from transformers import GPT2LMHeadModel, GPT2Tokenizer
+import torch
+
+tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+model = GPT2LMHeadModel.from_pretrained("gpt2")
+model.eval()
+
+prompt = "The future of artificial intelligence"
+input_ids = tokenizer.encode(prompt, return_tensors="pt")
+
+# Boucle autoregressive manuelle
+generated = input_ids.clone()
+for _ in range(30):
+    with torch.no_grad():
+        outputs = model(generated)
+        next_logits = outputs.logits[:, -1, :]  # logits pour la derni\`ere position
+        next_token = torch.argmax(next_logits, dim=-1, keepdim=True)  # greedy
+        generated = torch.cat([generated, next_token], dim=-1)
+
+print(tokenizer.decode(generated[0]))
+\end{minted}
+
+% ============================================================
+\section{Strat\'egies de d\'ecodage}
+
+\subsection{D\'ecodage glouton (greedy)}
+
+Toujours choisir le token de plus haute probabilit\'e. Rapide mais r\'ep\'etitif et terne.
+
+\subsection{\'Echantillonnage par temp\'erature}
+
+Mettre les logits \`a l'\'echelle par une temp\'erature $T$ avant le softmax :
+\[
+P(w_i) = \frac{e^{z_i / T}}{\sum_j e^{z_j / T}}
+\]
+\begin{itemize}
+  \item $T = 1.0$ : \'echantillonnage standard.
+  \item $T < 1.0$ : distribution plus piqu\'ee, plus d\'eterministe.
+  \item $T > 1.0$ : distribution plus plate, plus cr\'eative / al\'eatoire.
+\end{itemize}
+
+\subsection{\'Echantillonnage top-k}
+
+Ne garder que les $k$ tokens de plus haute probabilit\'e, redistribuer la probabilit\'e entre eux.
+
+\subsection{\'Echantillonnage top-p (nucleus)}
+
+Ne garder que le plus petit ensemble de tokens dont la probabilit\'e cumul\'ee d\'epasse $p$. S'adapte dynamiquement : moins de tokens quand le mod\`ele est s\^ur, plus quand il est incertain.
+
+\subsection{Beam search}
+
+Maintenir $b$ s\'equences candidates (beams) \`a chaque \'etape. S\'electionner les $b$ continuations de plus haute probabilit\'e. Bon pour la traduction et le r\'esum\'e o\`u la qualit\'e prime sur la diversit\'e.
+
+\begin{minted}{python}
+from transformers import pipeline
+
+generator = pipeline("text-generation", model="gpt2")
+
+prompt = "In 2026, the most important AI breakthrough was"
+
+# Greedy
+print("=== Greedy ===")
+print(generator(prompt, max_new_tokens=50, do_sample=False)[0]["generated_text"])
+
+# \'Echantillonnage par temp\'erature
+print("\n=== Temperature 0.3 (focused) ===")
+print(generator(prompt, max_new_tokens=50, do_sample=True,
+                temperature=0.3)[0]["generated_text"])
+
+print("\n=== Temperature 1.5 (creative) ===")
+print(generator(prompt, max_new_tokens=50, do_sample=True,
+                temperature=1.5)[0]["generated_text"])
+
+# \'Echantillonnage top-k
+print("\n=== Top-k (k=10) ===")
+print(generator(prompt, max_new_tokens=50, do_sample=True,
+                top_k=10)[0]["generated_text"])
+
+# \'Echantillonnage top-p (nucleus)
+print("\n=== Top-p (p=0.9) ===")
+print(generator(prompt, max_new_tokens=50, do_sample=True,
+                top_p=0.9)[0]["generated_text"])
+
+# Beam search
+print("\n=== Beam search (4 beams) ===")
+print(generator(prompt, max_new_tokens=50, num_beams=4,
+                do_sample=False)[0]["generated_text"])
+\end{minted}
+
+\begin{aitip}
+Pour la plupart des t\^aches cr\'eatives, \texttt{temperature=0.7} avec \texttt{top\_p=0.9} est un bon point de d\'epart. Pour les t\^aches factuelles (code, maths), utilisez \texttt{temperature=0.2} ou le d\'ecodage glouton.
+\end{aitip}
+
+% ============================================================
+\section{API \texttt{generate()} de HuggingFace}
+
+La m\'ethode \texttt{generate()} de n'importe quel LM causal HuggingFace prend en charge toutes les strat\'egies de d\'ecodage :
+
+\begin{minted}{python}
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(
+    model_name, torch_dtype="auto", device_map="auto"
+)
+
+messages = [
+    {"role": "system", "content": "You are a helpful AI assistant."},
+    {"role": "user", "content": "Explain gradient descent in 3 sentences."},
+]
+prompt = tokenizer.apply_chat_template(messages, tokenize=False,
+                                        add_generation_prompt=True)
+inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+
+output = model.generate(
+    **inputs,
+    max_new_tokens=150,
+    temperature=0.7,
+    top_p=0.9,
+    do_sample=True,
+    repetition_penalty=1.1,
+)
+print(tokenizer.decode(output[0], skip_special_tokens=True))
+\end{minted}
+
+% ============================================================
+\section{Contr\^oler la r\'ep\'etition}
+
+Les mod\`eles de base ont tendance \`a se r\'ep\'eter. Strat\'egies :
+
+\begin{minted}{python}
+# P\'enalit\'e de r\'ep\'etition : p\'enalise les tokens d\'ej\`a apparus
+output = model.generate(**inputs, max_new_tokens=100,
+                        repetition_penalty=1.2)
+
+# Pas de r\'ep\'etition de n-gramme : interdit toute r\'ep\'etition de n-gramme
+output = model.generate(**inputs, max_new_tokens=100,
+                        no_repeat_ngram_size=3)
+\end{minted}
+
+\begin{warningbox}
+R\'egler \texttt{repetition\_penalty} trop haut (> 1.5) peut produire une sortie incoh\'erente parce que le mod\`ele \'evite des mots courants et n\'ecessaires. Commencez \`a 1.1--1.2.
+\end{warningbox}
+
+% ============================================================
+\section{Comparer les mod\`eles : GPT-2 vs TinyLlama}
+
+\begin{minted}{python}
+from transformers import pipeline
+
+models = ["gpt2", "TinyLlama/TinyLlama-1.1B-Chat-v1.0"]
+prompt = "Machine learning is"
+
+for m in models:
+    gen = pipeline("text-generation", model=m, device_map="auto")
+    result = gen(prompt, max_new_tokens=60, do_sample=True,
+                 temperature=0.7, top_p=0.9)
+    print(f"\n=== {m} ===")
+    print(result[0]["generated_text"])
+\end{minted}
+
+\begin{exercise}
+\begin{enumerate}
+  \item G\'en\'erez 5 compl\'etions pour le m\^eme prompt avec les temp\'eratures 0.1, 0.5, 0.8, 1.0 et 1.5. D\'ecrivez comment les sorties changent.
+  \item Impl\'ementez l'\'echantillonnage top-k \`a partir de z\'ero : \'etant donn\'es des logits, mettez \`a z\'ero tout sauf les $k$ plus hautes valeurs, appliquez le softmax, \'echantillonnez.
+  \item Utilisez TinyLlama pour g\'en\'erer une explication de 200 mots sur la photosynth\`ese. Essayez greedy, beam search ($b=5$), et \'echantillonnage nucleus ($p=0.9$). Lequel est le meilleur ?
+  \item Mesurez la vitesse de g\'en\'eration (tokens/seconde) de GPT-2 sur CPU vs GPU.
+  \item G\'en\'erez une nouvelle courte avec GPT-2. D'abord sans p\'enalit\'e de r\'ep\'etition, puis avec \texttt{repetition\_penalty=1.15}. Comparez.
+\end{enumerate}
+\end{exercise}
+
+\begin{ethicsbox}
+Les mod\`eles \`a poids ouverts comme GPT-2 et TinyLlama n'ont pas de filtres de contenu int\'egr\'es. Ils peuvent g\'en\'erer des discours haineux, de la d\'esinformation, et des instructions nocives. En construisant des applications, ajoutez toujours du filtrage de sortie, de la mod\'eration de contenu, ou utilisez des mod\`eles instruction-tun\'es avec entra\^inement de s\^uret\'e.
+\end{ethicsbox}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Les mod\`eles GPT sont des Transformers d\'ecodeur-seul entra\^in\'es \`a pr\'edire le token suivant.
+  \item La g\'en\'eration autor\'egressive produit du texte un token \`a la fois, en r\'einjectant chaque sortie en entr\'ee.
+  \item Les strat\'egies de d\'ecodage (greedy, temp\'erature, top-k, top-p, beam search) contr\^olent le compromis entre qualit\'e et diversit\'e.
+  \item La temp\'erature met les logits \`a l'\'echelle : basse = focalis\'e, haute = cr\'eatif.
+  \item L'\'echantillonnage top-p (nucleus) adapte dynamiquement l'ensemble des candidats \`a la confiance du mod\`ele.
+  \item \texttt{generate()} de HuggingFace prend en charge toutes les strat\'egies via de simples arguments mot-cl\'es.
+  \item Les p\'enalit\'es de r\'ep\'etition pr\'eviennent les boucles d\'eg\'en\'er\'ees en g\'en\'eration ouverte.
+\end{itemize}
