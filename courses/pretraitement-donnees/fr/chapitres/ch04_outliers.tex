@@ -1,0 +1,265 @@
+\chapter{D\'etection et traitement des valeurs aberrantes}
+\label{ch:outliers}
+
+\begin{quote}
+\emph{<< Une valeur aberrante n'est pas du bruit tant que vous n'avez pas prouv\'e que c'est du bruit. >>}
+\end{quote}
+
+% ============================================================
+\section{Qu'est-ce qu'une valeur aberrante ?}
+
+Une valeur aberrante (outlier) est une observation qui s'\'ecarte substantiellement du motif \'etabli par la majorit\'e des donn\'ees. Les outliers peuvent \^etre :
+
+\begin{itemize}
+  \item \textbf{Erreurs de saisie} : un poids de patient de 800\,kg (au lieu de 80).
+  \item \textbf{Artefacts de mesure} : un capteur renvoyant $-999$ pendant la calibration.
+  \item \textbf{Vraies valeurs extr\^emes} : une maison vendue 10 millions de dollars dans une banlieue o\`u la m\'ediane est 500\,000\$.
+\end{itemize}
+
+\begin{warningbox}
+Ne supprimez jamais d'outliers automatiquement. Chaque outlier doit \^etre investigu\'e. Supprimer de vraies valeurs extr\^emes parce qu'elles << ont l'air fausses >> corrompt votre analyse. Supprimer des erreurs de donn\'ees parce qu'elles << ont l'air inhabituelles >> est correct et n\'ecessaire.
+\end{warningbox}
+
+% ============================================================
+\section{D\'etection visuelle}
+
+\begin{minted}{python}
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Le dataset FIFA 21 contient beaucoup de valeurs extr\^emes et d\'esordonn\'ees
+df = pd.read_csv("fifa21_raw.csv")
+
+# Les box plots r\'ev\`elent les outliers imm\'ediatement
+fig, axes = plt.subplots(1, 3, figsize=(14, 5))
+
+sns.boxplot(y=df["Age"], ax=axes[0])
+axes[0].set_title("Age distribution")
+
+sns.boxplot(y=df["Overall"], ax=axes[1])
+axes[1].set_title("Overall rating")
+
+sns.boxplot(y=df["Value(in Euro)"], ax=axes[2])
+axes[2].set_title("Market value (Euro)")
+
+plt.tight_layout()
+plt.savefig("outlier_boxplots.png", dpi=150)
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Scatter plot : outliers dans l'espace 2D
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.scatter(df["Age"], df["Overall"], alpha=0.3, s=10)
+ax.set_xlabel("Age")
+ax.set_ylabel("Overall Rating")
+ax.set_title("Age vs Overall --- look for isolated points")
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+% ============================================================
+\section{M\'ethodes statistiques}
+
+\subsection{M\'ethode du z-score}
+
+\begin{minted}{python}
+import numpy as np
+from scipy import stats
+
+# Z-score : nombre d'\'ecarts-types par rapport \`a la moyenne
+z_scores = np.abs(stats.zscore(df["Overall"].dropna()))
+threshold = 3
+outliers_z = (z_scores > threshold)
+print(f"Outliers by z-score (|z| > {threshold}): {outliers_z.sum()}")
+\end{minted}
+
+\begin{minted}{python}
+# Appliquer le z-score \`a plusieurs colonnes
+def detect_zscore_outliers(df, columns, threshold=3):
+    """Return a boolean mask of rows with any z-score outlier."""
+    mask = pd.Series(False, index=df.index)
+    for col in columns:
+        z = np.abs(stats.zscore(df[col].dropna()))
+        col_mask = pd.Series(False, index=df.index)
+        col_mask.iloc[:len(z)] = z > threshold
+        mask = mask | col_mask
+    return mask
+
+num_cols = ["Age", "Overall", "Potential"]
+outlier_mask = detect_zscore_outliers(df, num_cols)
+print(f"Rows with at least one outlier: {outlier_mask.sum()}")
+\end{minted}
+
+\begin{datatip}
+La m\'ethode du z-score suppose une distribution \`a peu pr\`es normale. Pour des donn\'ees asym\'etriques (revenus, prix immobiliers, valeurs de march\'e de joueurs), utilisez la m\'ethode IQR ou transformez en log d'abord.
+\end{datatip}
+
+\subsection{M\'ethode IQR}
+
+\begin{minted}{python}
+def iqr_bounds(series):
+    """Return lower and upper IQR bounds."""
+    Q1 = series.quantile(0.25)
+    Q3 = series.quantile(0.75)
+    IQR = Q3 - Q1
+    lower = Q1 - 1.5 * IQR
+    upper = Q3 + 1.5 * IQR
+    return lower, upper
+
+lower, upper = iqr_bounds(df["Overall"])
+outliers_iqr = df[(df["Overall"] < lower) | (df["Overall"] > upper)]
+print(f"IQR bounds: [{lower:.1f}, {upper:.1f}]")
+print(f"Outliers: {len(outliers_iqr)}")
+\end{minted}
+
+\begin{minted}{python}
+# Rapport IQR pour toutes les colonnes num\'eriques
+def iqr_outlier_report(df, columns):
+    """Generate an IQR outlier report."""
+    rows = []
+    for col in columns:
+        lo, hi = iqr_bounds(df[col].dropna())
+        n_out = ((df[col] < lo) | (df[col] > hi)).sum()
+        rows.append({"column": col, "lower": lo, "upper": hi,
+                      "n_outliers": n_out,
+                      "pct": round(n_out / len(df) * 100, 1)})
+    return pd.DataFrame(rows)
+
+report = iqr_outlier_report(df, ["Age", "Overall", "Potential"])
+print(report)
+\end{minted}
+
+% ============================================================
+\section{D\'etection multivari\'ee}
+
+\subsection{Distance de Mahalanobis}
+
+\begin{minted}{python}
+from scipy.spatial.distance import mahalanobis
+from numpy.linalg import inv
+
+def mahalanobis_outliers(df, columns, threshold=3):
+    """Detect multivariate outliers using Mahalanobis distance."""
+    data = df[columns].dropna()
+    mean = data.mean().values
+    cov_matrix = data.cov().values
+    cov_inv = inv(cov_matrix)
+
+    distances = data.apply(
+        lambda row: mahalanobis(row.values, mean, cov_inv), axis=1
+    )
+    return distances, distances > threshold
+
+cols = ["Age", "Overall", "Potential"]
+distances, mask = mahalanobis_outliers(df, cols)
+print(f"Multivariate outliers: {mask.sum()}")
+\end{minted}
+
+\begin{preprocesstip}
+La distance de Mahalanobis d\'etecte des points qui ne sont aberrants sur aucune dimension individuelle mais qui sont inhabituels dans la \emph{combinaison} de dimensions. Un joueur de 40 ans est normal. Un joueur not\'e 95 est normal. Un joueur de 40 ans not\'e 95 est aberrant dans l'espace joint.
+\end{preprocesstip}
+
+\subsection{Isolation Forest}
+
+\begin{minted}{python}
+from sklearn.ensemble import IsolationForest
+
+# Isolation Forest : d\'etection d'anomalies par arbres
+iso = IsolationForest(contamination=0.05, random_state=42)
+num_data = df[["Age", "Overall", "Potential"]].dropna()
+labels = iso.fit_predict(num_data)
+
+# -1 = outlier, 1 = inlier
+n_outliers = (labels == -1).sum()
+print(f"Isolation Forest outliers: {n_outliers} "
+      f"({n_outliers / len(num_data) * 100:.1f}%)")
+\end{minted}
+
+% ============================================================
+\section{R\`egles m\'etier}
+
+\begin{minted}{python}
+# Air Quality : la connaissance m\'etier compte
+df_air = pd.read_csv("AirQualityUCI.csv", sep=";", decimal=",")
+
+# Le dataset utilise -200 comme sentinelle pour donn\'ees manquantes
+print(f"Values == -200: {(df_air == -200).sum().sum()}")
+
+# Remplacer la sentinelle par NaN
+df_air = df_air.replace(-200, np.nan)
+
+# R\`egle m\'etier : une concentration de CO > 20 mg/m3
+# est physiquement implausible en station urbaine
+co_col = "CO(GT)"
+implausible = df_air[co_col] > 20
+print(f"Implausible CO readings: {implausible.sum()}")
+df_air.loc[implausible, co_col] = np.nan
+\end{minted}
+
+\begin{datatip}
+Les r\`egles m\'etier sont la m\'ethode de d\'etection d'outliers la plus fiable. Un z-score ne sait pas qu'un humain ne peut pas peser 800\,kg. Consultez toujours des experts m\'etier ou des plages de r\'ef\'erence quand elles existent.
+\end{datatip}
+
+% ============================================================
+\section{Strat\'egies de traitement}
+
+\begin{minted}{python}
+# Strat\'egie 1 : supprimer les lignes aberrantes
+df_clean = df[~outlier_mask].copy()
+
+# Strat\'egie 2 : capper (winsorize) aux bornes
+from scipy.stats import mstats
+df["Overall_winsorized"] = mstats.winsorize(df["Overall"], limits=[0.01, 0.01])
+
+# Strat\'egie 3 : remplacer par NaN et imputer plus tard
+df.loc[outlier_mask, "Overall"] = np.nan
+
+# Strat\'egie 4 : transformation log pour r\'eduire l'asym\'etrie
+df["Value_log"] = np.log1p(df["Value(in Euro)"].clip(lower=0))
+
+# Strat\'egie 5 : mise \`a l'\'echelle robuste (moins sensible aux outliers)
+from sklearn.preprocessing import RobustScaler
+scaler = RobustScaler()  # utilise m\'ediane et IQR au lieu de moyenne et std
+df[["Overall_robust"]] = scaler.fit_transform(df[["Overall"]])
+\end{minted}
+
+\begin{minted}{python}
+# Comparer les distributions avant et apr\`es winsorisation
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+df["Overall"].hist(bins=50, ax=axes[0], alpha=0.7)
+axes[0].set_title("Original")
+
+df["Overall_winsorized"].hist(bins=50, ax=axes[1], alpha=0.7, color="green")
+axes[1].set_title("Winsorized (1% each tail)")
+
+plt.tight_layout()
+plt.show()
+\end{minted}
+
+% ============================================================
+\section{Exercices}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Chargez le dataset FIFA 21. Cr\'eez des box plots pour cinq colonnes num\'eriques. Identifiez par IQR les colonnes avec le plus d'outliers.
+  \item Pour Air Quality UCI, remplacez toutes les sentinelles $-200$ par NaN. Puis appliquez des r\`egles m\'etier pour signaler les valeurs implausibles sur au moins deux colonnes de polluants.
+  \item Comparez les nombres d'outliers par z-score et par IQR sur une colonne asym\'etrique (par ex. valeur de march\'e). Quelle m\'ethode est plus appropri\'ee et pourquoi ?
+  \item Utilisez Isolation Forest sur Melbourne Housing (Price, Rooms, Distance, Landsize). Visualisez les outliers d\'etect\'es sur un scatter plot Price vs Landsize.
+  \item Impl\'ementez une fonction \texttt{treat\_outliers(series, method)} qui supporte trois m\'ethodes : << remove >>, << cap >>, << log >>. Testez-la sur une colonne avec outliers connus.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Les outliers peuvent \^etre des erreurs, des artefacts ou de vraies valeurs extr\^emes --- l'investigation est obligatoire.
+  \item Les m\'ethodes visuelles (box plots, scatter plots) donnent une intuition imm\'ediate.
+  \item Le z-score marche pour des donn\'ees \`a peu pr\`es normales ; l'IQR est robuste aux distributions asym\'etriques.
+  \item La distance de Mahalanobis et Isolation Forest d\'etectent des outliers multivari\'es invisibles aux m\'ethodes univari\'ees.
+  \item Les r\`egles m\'etier (limites physiques, sentinelles) sont la m\'ethode la plus fiable.
+  \item Les options de traitement : suppression, capping (winsorisation), transformation log, mise \`a l'\'echelle robuste.
+\end{itemize}
