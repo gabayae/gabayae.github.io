@@ -1,0 +1,24 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{c+c1}{\PYGZsh{} Air Quality UCI : mesures horaires de polluants}
+\PYG{n}{df\PYGZus{}air} \PYG{o}{=} \PYG{n}{pd}\PYG{o}{.}\PYG{n}{read\PYGZus{}csv}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}AirQualityUCI.csv\PYGZdq{}}\PYG{p}{,} \PYG{n}{sep}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{};\PYGZdq{}}\PYG{p}{,} \PYG{n}{decimal}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{},\PYGZdq{}}\PYG{p}{,}
+                      \PYG{n}{parse\PYGZus{}dates}\PYG{o}{=}\PYG{p}{\PYGZob{}}\PYG{l+s+s2}{\PYGZdq{}datetime\PYGZdq{}}\PYG{p}{:} \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}Date\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}Time\PYGZdq{}}\PYG{p}{]\PYGZcb{},}
+                      \PYG{n}{dayfirst}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{)}
+
+\PYG{c+c1}{\PYGZsh{} Remplacer les sentinelles}
+\PYG{n}{df\PYGZus{}air} \PYG{o}{=} \PYG{n}{df\PYGZus{}air}\PYG{o}{.}\PYG{n}{replace}\PYG{p}{(}\PYG{o}{\PYGZhy{}}\PYG{l+m+mi}{200}\PYG{p}{,} \PYG{n}{np}\PYG{o}{.}\PYG{n}{nan}\PYG{p}{)}
+
+\PYG{c+c1}{\PYGZsh{} S\PYGZbs{}\PYGZsq{}electionner les colonnes cl\PYGZbs{}\PYGZsq{}es}
+\PYG{n}{cols} \PYG{o}{=} \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}datetime\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}CO(GT)\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}NO2(GT)\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}T\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}RH\PYGZdq{}}\PYG{p}{]}
+\PYG{n}{df\PYGZus{}air} \PYG{o}{=} \PYG{n}{df\PYGZus{}air}\PYG{p}{[}\PYG{n}{cols}\PYG{p}{]}\PYG{o}{.}\PYG{n}{set\PYGZus{}index}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}datetime\PYGZdq{}}\PYG{p}{)}\PYG{o}{.}\PYG{n}{dropna}\PYG{p}{(}\PYG{n}{how}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}all\PYGZdq{}}\PYG{p}{)}
+
+\PYG{c+c1}{\PYGZsh{} R\PYGZbs{}\PYGZsq{}e\PYGZbs{}\PYGZsq{}echantillonner en journalier}
+\PYG{n}{air\PYGZus{}daily} \PYG{o}{=} \PYG{n}{df\PYGZus{}air}\PYG{o}{.}\PYG{n}{resample}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}D\PYGZdq{}}\PYG{p}{)}\PYG{o}{.}\PYG{n}{mean}\PYG{p}{()}
+
+\PYG{c+c1}{\PYGZsh{} Cr\PYGZbs{}\PYGZsq{}eer des variables temporelles}
+\PYG{n}{air\PYGZus{}daily}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}hour\PYGZus{}of\PYGZus{}day\PYGZus{}peak\PYGZdq{}}\PYG{p}{]} \PYG{o}{=} \PYG{n}{df\PYGZus{}air}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}CO(GT)\PYGZdq{}}\PYG{p}{]}\PYG{o}{.}\PYG{n}{resample}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}D\PYGZdq{}}\PYG{p}{)}\PYG{o}{.}\PYG{n}{idxmax}\PYG{p}{()}\PYG{o}{.}\PYG{n}{dt}\PYG{o}{.}\PYG{n}{hour}
+\PYG{n}{air\PYGZus{}daily}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}co\PYGZus{}lag1\PYGZdq{}}\PYG{p}{]} \PYG{o}{=} \PYG{n}{air\PYGZus{}daily}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}CO(GT)\PYGZdq{}}\PYG{p}{]}\PYG{o}{.}\PYG{n}{shift}\PYG{p}{(}\PYG{l+m+mi}{1}\PYG{p}{)}
+\PYG{n}{air\PYGZus{}daily}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}co\PYGZus{}rolling7\PYGZdq{}}\PYG{p}{]} \PYG{o}{=} \PYG{n}{air\PYGZus{}daily}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}CO(GT)\PYGZdq{}}\PYG{p}{]}\PYG{o}{.}\PYG{n}{rolling}\PYG{p}{(}\PYG{l+m+mi}{7}\PYG{p}{)}\PYG{o}{.}\PYG{n}{mean}\PYG{p}{()}
+\PYG{n}{air\PYGZus{}daily}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}co\PYGZus{}weekend\PYGZdq{}}\PYG{p}{]} \PYG{o}{=} \PYG{n}{air\PYGZus{}daily}\PYG{o}{.}\PYG{n}{index}\PYG{o}{.}\PYG{n}{dayofweek}\PYG{o}{.}\PYG{n}{isin}\PYG{p}{([}\PYG{l+m+mi}{5}\PYG{p}{,} \PYG{l+m+mi}{6}\PYG{p}{])}\PYG{o}{.}\PYG{n}{astype}\PYG{p}{(}\PYG{n+nb}{int}\PYG{p}{)}
+
+\PYG{n+nb}{print}\PYG{p}{(}\PYG{n}{air\PYGZus{}daily}\PYG{o}{.}\PYG{n}{head}\PYG{p}{(}\PYG{l+m+mi}{10}\PYG{p}{))}
+\end{MintedVerbatim}

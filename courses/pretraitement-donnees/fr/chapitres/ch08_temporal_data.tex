@@ -1,0 +1,286 @@
+\chapter{S\'eries temporelles et donn\'ees chronologiques}
+\label{ch:temporal-data}
+
+\begin{quote}
+\emph{<< Le temps est la variable la plus importante d'une s\'erie temporelle --- et la plus souvent mal trait\'ee. >>}
+\end{quote}
+
+% ============================================================
+\section{Parser les dates}
+
+La premi\`ere \'etape avec des donn\'ees temporelles est la conversion de cha\^ines en vrais objets datetime. Pandas fournit un parsing robuste, mais les formats r\'eels sont \'etonnamment incoh\'erents.
+
+\begin{minted}{python}
+import pandas as pd
+import numpy as np
+
+# Jena Climate : mesures m\'et\'eo aux 10 minutes
+# T\'el\'echarger : https://www.kaggle.com/datasets/mnassrib/jena-climate
+df = pd.read_csv("jena_climate_2009_2016.csv")
+print(df.head())
+print(f"\nDate column dtype: {df['Date Time'].dtype}")
+\end{minted}
+
+\begin{minted}{python}
+# Parser le datetime
+df["datetime"] = pd.to_datetime(df["Date Time"], format="%d.%m.%Y %H:%M:%S")
+df = df.set_index("datetime").drop(columns=["Date Time"])
+
+print(f"Date range: {df.index.min()} to {df.index.max()}")
+print(f"Frequency: ~{(df.index[1] - df.index[0])}")
+print(f"Total records: {len(df):,}")
+\end{minted}
+
+\begin{warningbox}
+Ambigu\"it\'e de parsing : << 01/02/2024 >> est-ce le 2 janvier (US) ou le 1\textsuperscript{er} f\'evrier (Europe) ? Sp\'ecifiez toujours le format explicitement avec \texttt{format}. Ne comptez jamais sur l'inf\'erence automatique en production.
+\end{warningbox}
+
+\subsection{G\'erer plusieurs formats de date}
+
+\begin{minted}{python}
+# Quand une colonne a des formats m\'elang\'es
+messy_dates = pd.Series(["2024-01-15", "15/01/2024", "Jan 15, 2024",
+                         "15-Jan-2024", "20240115"])
+
+# pd.to_datetime avec mixed g\`ere de nombreux cas
+parsed = pd.to_datetime(messy_dates, format="mixed", dayfirst=True)
+print(parsed)
+
+# Pour des donn\'ees vraiment d\'esordonn\'ees, parser sur mesure
+def parse_flexible(date_str):
+    """Essayer plusieurs formats de date."""
+    formats = ["%Y-%m-%d", "%d/%m/%Y", "%b %d, %Y",
+               "%d-%b-%Y", "%Y%m%d"]
+    for fmt in formats:
+        try:
+            return pd.to_datetime(date_str, format=fmt)
+        except (ValueError, TypeError):
+            continue
+    return pd.NaT
+\end{minted}
+
+% ============================================================
+\section{R\'e\'echantillonnage}
+
+\begin{minted}{python}
+# Downsampling : donn\'ees 10 min vers horaires
+hourly = df.resample("h").mean()
+print(f"10-min records: {len(df):,}")
+print(f"Hourly records: {len(hourly):,}")
+
+# Downsampling vers journalier
+daily = df.resample("D").agg({
+    "T (degC)": ["mean", "min", "max"],
+    "p (mbar)": "mean",
+    "rh (%)": "mean",
+})
+daily.columns = ["temp_mean", "temp_min", "temp_max",
+                 "pressure_mean", "humidity_mean"]
+print(daily.head())
+\end{minted}
+
+\begin{minted}{python}
+# Upsampling : journalier vers horaire (avec interpolation)
+daily_sample = daily.head(30)
+hourly_upsampled = daily_sample.resample("h").interpolate(method="linear")
+print(f"Daily records: {len(daily_sample)}")
+print(f"Hourly (upsampled): {len(hourly_upsampled)}")
+\end{minted}
+
+\begin{preprocesstip}
+En downsamplant, r\'efl\'echissez bien \`a la fonction d'agr\'egation. La temp\'erature utilise la moyenne, la pluviom\'etrie utilise la somme, et les min/max utilisent min/max. Une mauvaise agr\'egation produit des r\'esultats absurdes.
+\end{preprocesstip}
+
+% ============================================================
+\section{Variables d\'ecal\'ees (lag features)}
+
+\begin{minted}{python}
+# Variables d\'ecal\'ees : utiliser des valeurs pass\'ees comme pr\'edicteurs
+daily["temp_lag1"] = daily["temp_mean"].shift(1)   # hier
+daily["temp_lag7"] = daily["temp_mean"].shift(7)   # semaine derni\`ere
+daily["temp_lag30"] = daily["temp_mean"].shift(30) # mois dernier
+
+# Variables de variation
+daily["temp_change_1d"] = daily["temp_mean"].diff(1)
+daily["temp_change_7d"] = daily["temp_mean"].diff(7)
+
+# Variation en pourcentage
+daily["temp_pct_change"] = daily["temp_mean"].pct_change()
+
+print(daily[["temp_mean", "temp_lag1", "temp_lag7",
+             "temp_change_1d"]].head(10))
+\end{minted}
+
+\begin{minted}{python}
+# Autocorr\'elation : v\'erifier l'utilit\'e des lags
+import matplotlib.pyplot as plt
+from pandas.plotting import autocorrelation_plot
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+# Plot d'autocorr\'elation
+autocorrelation_plot(daily["temp_mean"].dropna(), ax=axes[0])
+axes[0].set_title("Temperature autocorrelation")
+axes[0].set_xlim(0, 400)
+
+# Autocorr\'elation partielle (utile pour d\'eterminer l'ordre)
+from statsmodels.graphics.tsaplots import plot_pacf
+plot_pacf(daily["temp_mean"].dropna(), lags=50, ax=axes[1])
+axes[1].set_title("Partial autocorrelation")
+
+plt.tight_layout()
+plt.savefig("autocorrelation.png", dpi=150)
+plt.show()
+\end{minted}
+
+\begin{warningbox}
+Les variables d\'ecal\'ees introduisent des NaN en d\'ebut de s\'erie. Une variable lag-30 a 30 valeurs manquantes. Compensez en supprimant les premi\`eres lignes ou en utilisant forward-fill.
+\end{warningbox}
+
+% ============================================================
+\section{Statistiques mobiles}
+
+\begin{minted}{python}
+# Statistiques mobiles : lissent le bruit
+daily["temp_rolling7"] = daily["temp_mean"].rolling(window=7).mean()
+daily["temp_rolling30"] = daily["temp_mean"].rolling(window=30).mean()
+daily["temp_rolling_std7"] = daily["temp_mean"].rolling(window=7).std()
+
+# Moyenne mobile pond\'er\'ee exponentiellement (plus r\'ecent = plus de poids)
+daily["temp_ewm7"] = daily["temp_mean"].ewm(span=7).mean()
+
+print(daily[["temp_mean", "temp_rolling7", "temp_rolling30",
+             "temp_ewm7"]].tail(10))
+\end{minted}
+
+\begin{minted}{python}
+# Visualiser les statistiques mobiles
+fig, ax = plt.subplots(figsize=(14, 6))
+
+daily["temp_mean"].plot(ax=ax, alpha=0.3, label="Daily mean")
+daily["temp_rolling7"].plot(ax=ax, label="7-day rolling mean")
+daily["temp_rolling30"].plot(ax=ax, label="30-day rolling mean",
+                             linewidth=2)
+
+ax.set_ylabel("Temperature (degC)")
+ax.set_title("Jena Climate: Temperature with rolling averages")
+ax.legend()
+plt.tight_layout()
+plt.savefig("rolling_stats.png", dpi=150)
+plt.show()
+\end{minted}
+
+% ============================================================
+\section{D\'ecomposition tendance/saisonnalit\'e}
+
+\begin{minted}{python}
+from statsmodels.tsa.seasonal import seasonal_decompose
+
+# D\'ecomposer en tendance + saisonnier + r\'esidu
+# Utiliser des donn\'ees mensuelles pour une d\'ecomposition plus propre
+monthly = daily["temp_mean"].resample("ME").mean()
+
+decomposition = seasonal_decompose(monthly, model="additive", period=12)
+
+fig = decomposition.plot()
+fig.set_size_inches(14, 10)
+plt.tight_layout()
+plt.savefig("decomposition.png", dpi=150)
+plt.show()
+\end{minted}
+
+\begin{minted}{python}
+# Extraire les composantes comme variables
+monthly_df = pd.DataFrame({
+    "observed": decomposition.observed,
+    "trend": decomposition.trend,
+    "seasonal": decomposition.seasonal,
+    "residual": decomposition.resid,
+})
+print(monthly_df.head(15))
+\end{minted}
+
+\begin{preprocesstip}
+Le r\'esidu de d\'ecomposition est ce qui reste apr\`es retrait de tendance et saisonnalit\'e. Un grand r\'esidu indique une observation inhabituelle --- m\'ecanisme de d\'etection d'outliers pour s\'eries temporelles.
+\end{preprocesstip}
+
+% ============================================================
+\section{\'Etude de cas Air Quality}
+
+\begin{minted}{python}
+# Air Quality UCI : mesures horaires de polluants
+df_air = pd.read_csv("AirQualityUCI.csv", sep=";", decimal=",",
+                      parse_dates={"datetime": ["Date", "Time"]},
+                      dayfirst=True)
+
+# Remplacer les sentinelles
+df_air = df_air.replace(-200, np.nan)
+
+# S\'electionner les colonnes cl\'es
+cols = ["datetime", "CO(GT)", "NO2(GT)", "T", "RH"]
+df_air = df_air[cols].set_index("datetime").dropna(how="all")
+
+# R\'e\'echantillonner en journalier
+air_daily = df_air.resample("D").mean()
+
+# Cr\'eer des variables temporelles
+air_daily["hour_of_day_peak"] = df_air["CO(GT)"].resample("D").idxmax().dt.hour
+air_daily["co_lag1"] = air_daily["CO(GT)"].shift(1)
+air_daily["co_rolling7"] = air_daily["CO(GT)"].rolling(7).mean()
+air_daily["co_weekend"] = air_daily.index.dayofweek.isin([5, 6]).astype(int)
+
+print(air_daily.head(10))
+\end{minted}
+
+% ============================================================
+\section{R\'ecapitulatif d'extraction de variables datetime}
+
+\begin{minted}{python}
+def extract_datetime_features(df, date_col):
+    """Extract a comprehensive set of datetime features."""
+    dt = df[date_col] if date_col in df.columns else df.index
+    features = pd.DataFrame(index=df.index)
+
+    features["year"] = dt.year
+    features["month"] = dt.month
+    features["day"] = dt.day
+    features["dayofweek"] = dt.dayofweek
+    features["hour"] = dt.hour if hasattr(dt, "hour") else 0
+    features["quarter"] = dt.quarter
+    features["is_weekend"] = dt.dayofweek.isin([5, 6]).astype(int)
+    features["day_of_year"] = dt.dayofyear
+    features["week_of_year"] = dt.isocalendar().week.astype(int)
+
+    # Encodage cyclique
+    features["month_sin"] = np.sin(2 * np.pi * dt.month / 12)
+    features["month_cos"] = np.cos(2 * np.pi * dt.month / 12)
+    features["dow_sin"] = np.sin(2 * np.pi * dt.dayofweek / 7)
+    features["dow_cos"] = np.cos(2 * np.pi * dt.dayofweek / 7)
+
+    return features
+\end{minted}
+
+% ============================================================
+\section{Exercices}
+
+\begin{exercise}
+\begin{enumerate}
+  \item Chargez Jena Climate. Parsez le datetime et r\'e\'echantillonnez en journalier. Tracez la temp\'erature moyenne quotidienne pour 2015.
+  \item Cr\'eez des variables lag (1, 7, 14, 30 jours) pour la temp\'erature. Calculez la corr\'elation de chaque lag avec la temp\'erature actuelle. Quel lag a la plus forte corr\'elation ?
+  \item Appliquez une d\'ecomposition saisonni\`ere sur les donn\'ees CO d'Air Quality. Y a-t-il un motif saisonnier clair ? Que dit la tendance ?
+  \item Construisez une fonction compl\`ete d'extraction de variables pour Jena Climate qui cr\'ee : lag, rolling, encodages cycliques et indicateurs de tendance. Appliquez-la et reportez le nombre de variables r\'esultantes.
+  \item Avec Air Quality, investiguez si les niveaux de CO diff\`erent significativement entre semaine et week-end. Cr\'eez les visualisations appropri\'ees.
+\end{enumerate}
+\end{exercise}
+
+% ============================================================
+\section{R\'esum\'e du chapitre}
+
+\begin{itemize}
+  \item Parsez toujours les dates explicitement avec un format connu ; jamais d'inf\'erence automatique en production.
+  \item Le r\'e\'echantillonnage change la r\'esolution temporelle : downsampling agr\`ege, upsampling interpole.
+  \item Les variables d\'ecal\'ees capturent les d\'ependances temporelles : la temp\'erature d'hier pr\'edit celle d'aujourd'hui.
+  \item Les statistiques mobiles (moyenne, \'ecart-type) lissent le bruit et r\'ev\`elent les tendances.
+  \item La d\'ecomposition saisonni\`ere s\'epare tendance, saisonnalit\'e et r\'esidus --- chacun peut servir de variable.
+  \item L'encodage cyclique (sinus/cosinus) garantit que d\'ecembre est proche de janvier dans l'espace des variables.
+\end{itemize}
