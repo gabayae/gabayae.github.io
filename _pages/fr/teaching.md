@@ -277,6 +277,26 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 </div></div></div>
 </div>
 
+<h2 class="teaching-section-header"><i class="fa-solid fa-rocket"></i> Bootcamps intensifs (8–12 semaines)</h2>
+
+<p>Programmes en cohorte conçus avec <a href="https://github.com/AI-Technipreneurs" target="_blank">AIRINA Labs</a>, destinés aux professionnels en activité et aux étudiants de master qui veulent un parcours intensif vers des systèmes de ML déployables, plutôt qu'un cours étalé sur un semestre. Ouverts aux cohortes d'entreprise (banque, télécom, assurance, secteur public) et aux inscriptions individuelles.</p>
+
+<div class="card hoverable mb-4">
+<div class="card-body">
+<h5 class="card-title">Machine Learning &amp; AI Bootcamp <span style="font-weight: 400; color: var(--global-text-color-light); font-size: 0.9rem;">— Une approche par la pratique</span></h5>
+
+<p class="card-text"><strong>10 semaines à temps plein</strong> ou <strong>20 semaines à temps partiel</strong>. Dix modules : de Python au ML classique, au deep learning, au TAL, aux LLM et à l'IA générative, jusqu'au MLOps — avec un projet capstone sur un jeu de données réel et un portfolio déployable.</p>
+
+<p class="card-text" style="font-size: 0.92rem;"><strong>Modules :</strong> Python · Introduction au ML · ML classique (classification, régression, clustering) · Systèmes de recommandation · TAL · ANN/CNN/RNN · LLM &amp; IA générative · MLOps &amp; déploiement · Projet capstone · Portfolio</p>
+
+<p class="card-text" style="font-size: 0.92rem;"><strong>Public :</strong> professionnels en reconversion vers des rôles ML/IA, étudiants de L3 à M2 cherchant un parcours intensif, et équipes d'entreprise organisant une montée en compétences interne.</p>
+
+<p class="card-text" style="font-size: 0.92rem;"><strong>Format :</strong> sessions de cohorte en direct, ateliers Python pratiques, permanences hebdomadaires, projet capstone évalué par des praticiens du ML.</p>
+
+<a href="mailto:gabayae2@gmail.com?subject=Bootcamp%20ML%20%26%20IA%20%E2%80%94%20renseignements%20cohorte" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-envelope" style="margin-right: 0.3rem;"></i>Renseignements cohorte</a>
+</div>
+</div>
+
 <h2 class="teaching-section-header"><i class="fa-solid fa-book-open"></i> Supports de cours</h2>
 
 <div class="card hoverable mb-4">

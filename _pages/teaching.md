@@ -329,4 +329,24 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 </div></div></div>
 </div>
 
+<h2 class="teaching-section-header"><i class="fa-solid fa-rocket"></i> Intensive bootcamps (8–12 weeks)</h2>
+
+<p>Cohort programs run through <a href="https://github.com/AI-Technipreneurs" target="_blank">AIRINA Labs</a> for working professionals and graduate students who want an intensive path to deployable ML systems, rather than a semester-long course. Open to corporate cohorts (banks, telecoms, insurance, public sector) and individual enrolment.</p>
+
+<div class="card hoverable mb-4">
+<div class="card-body">
+<h5 class="card-title">Machine Learning &amp; AI Bootcamp <span style="font-weight: 400; color: var(--global-text-color-light); font-size: 0.9rem;">— An experiential approach</span></h5>
+
+<p class="card-text"><strong>10 weeks full-time</strong> or <strong>20 weeks part-time</strong>. Ten modules from Python through classical ML, deep learning, NLP, LLMs and generative AI, MLOps — closing with a capstone project on a real dataset and a deployable portfolio piece.</p>
+
+<p class="card-text" style="font-size: 0.92rem;"><strong>Modules:</strong> Python · Introduction to ML · Classical ML (classification, regression, clustering) · Recommender systems · NLP · ANN/CNN/RNN · LLMs &amp; generative AI · MLOps &amp; deployment · Capstone project · Portfolio</p>
+
+<p class="card-text" style="font-size: 0.92rem;"><strong>For:</strong> working professionals moving into ML/AI roles, upper-undergraduate and masters students looking for an intensive route, and corporate teams running an internal upskilling cohort.</p>
+
+<p class="card-text" style="font-size: 0.92rem;"><strong>Format:</strong> live cohort sessions, hands-on Python labs, weekly office hours, capstone reviewed by working ML practitioners.</p>
+
+<a href="mailto:gabayae2@gmail.com?subject=ML%20%26%20AI%20Bootcamp%20%E2%80%94%20cohort%20inquiry" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-envelope" style="margin-right: 0.3rem;"></i>Inquire about a cohort</a>
+</div>
+</div>
+
 </div>
