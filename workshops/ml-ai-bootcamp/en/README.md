@@ -16,6 +16,10 @@ lang: en
 
 ---
 
+In January 2023, BioNTech acquired InstaDeep — a machine-learning company founded in Tunis with offices in Lagos, Nairobi, and Paris — for $562 million. The deal made public what recruiters across the continent had been observing for years: global demand for production-ready ML engineers far exceeds trained supply, and the gap is wider in Africa than anywhere else. Most African undergraduate computer-science curricula end before deep learning; the MOOCs that fill the void are calibrated to North-American prerequisites and usually presume a prior software-engineering job. This bootcamp targets that gap directly. It takes quantitatively trained graduates — mathematics, statistics, computer science, quantitative finance, scientific engineering — and brings them in ten weeks to the production-ready level that African and international ML teams now hire for.
+
+---
+
 ## Program at a glance
 
 | | |
