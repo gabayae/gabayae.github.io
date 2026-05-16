@@ -14,6 +14,8 @@ lang: fr
 **Cadence :** 10 semaines à temps plein ou 20 semaines à temps partiel
 **Taille de cohorte :** 12 à 24 participants par session
 
+**Pages opérationnelles.** &nbsp; [Calendrier hebdomadaire]({{ '/workshops/ml-ai-bootcamp/fr/schedule/' | relative_url }}) &nbsp;|&nbsp; [Brief du capstone]({{ '/workshops/ml-ai-bootcamp/CAPSTONE/' | relative_url }})
+
 ---
 
 En janvier 2023, BioNTech a racheté InstaDeep — une entreprise d'apprentissage automatique fondée à Tunis et exploitant des bureaux à Lagos, Nairobi et Paris — pour 562 millions de dollars. L'opération a rendu public ce que les recruteurs du secteur en Afrique observaient depuis plusieurs années : la demande mondiale d'ingénieurs ML déployables en production dépasse très largement l'offre formée, et l'écart est plus marqué sur le continent qu'ailleurs. La plupart des cursus universitaires africains en informatique se terminent avant le deep learning ; les MOOC qui comblent le vide sont calibrés pour des prérequis nord-américains et supposent généralement un premier emploi en ingénierie logicielle. Ce bootcamp cible exactement ce trou. Il prend des diplômés quantitatifs — mathématiques, statistique, informatique, finance quantitative, génie scientifique — et les amène en dix semaines au niveau de mise en production que recherchent les équipes ML africaines et internationales qui les recrutent.
