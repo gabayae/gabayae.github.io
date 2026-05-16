@@ -26,7 +26,7 @@ pip install ripser persim scikit-tda gudhi matplotlib
 
 ## Your First Persistence Diagram
 
-Let's start with a simple example — computing the persistent homology of a noisy circle:
+The simplest meaningful example is persistent homology of a noisy circle:
 
 ```python
 import numpy as np

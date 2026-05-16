@@ -15,10 +15,7 @@ toc:
 
 In the [TDA Python tutorial](/en/blog/2025/tda-python-tutorial/), we computed persistence diagrams and used basic summary statistics as ML features. But persistence diagrams live in an awkward mathematical space — they are multisets of points, not vectors — which makes them difficult to use directly with standard ML algorithms.
 
-**Persistence landscapes**, introduced by Peter Bubenik, solve this problem elegantly. They transform persistence diagrams into functions in a Banach space, giving us a vector representation that is:
-- **Stable:** small changes in data produce small changes in the landscape
-- **Statistical:** we can compute means, variances, and perform hypothesis tests
-- **Compatible:** the output plugs directly into any ML pipeline expecting feature vectors
+**Persistence landscapes**, introduced by Peter Bubenik in 2015, solve this problem by transforming persistence diagrams into functions in a Banach space. The resulting vector representation is stable (small changes in data produce small changes in the landscape), supports the usual statistics (means, variances, hypothesis tests), and plugs directly into any ML pipeline that takes feature vectors.
 
 ## The Mathematics
 
@@ -36,7 +33,7 @@ The first landscape $$\lambda_1$$ captures the most persistent features, $$\lamb
 
 ## Implementation
 
-Let's build a complete pipeline. First, install the dependencies:
+The pipeline in full. First, install the dependencies:
 
 ```bash
 pip install ripser persim scikit-learn matplotlib
@@ -156,7 +153,7 @@ def tda_classification(datasets, labels):
 
 ## Example: Classifying Shapes
 
-Let's test this on a synthetic dataset — distinguishing circles from figure-eights:
+A synthetic stress test for the pipeline: distinguishing circles from figure-eights.
 
 ```python
 from sklearn.datasets import make_circles
