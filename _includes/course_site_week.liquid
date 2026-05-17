@@ -1,0 +1,89 @@
+{%- assign data_key = include.data_key -%}
+{%- assign week_num = include.week_number -%}
+{%- assign course_data = site.data[data_key] -%}
+{%- assign week = nil -%}
+{%- for w in course_data.weeks -%}
+  {%- if w.number == week_num -%}{%- assign week = w -%}{%- endif -%}
+{%- endfor -%}
+{%- assign weeks_total = course_data.weeks | size -%}
+
+{%- if week == nil -%}
+<p><em>No data found for week {{ week_num }} of {{ data_key }}.</em></p>
+{%- else -%}
+
+{%- assign d = course_data.defaults -%}
+{%- assign c = course_data.course -%}
+
+<div class="course-site-week">
+
+<p class="course-site-week-meta">
+  <a href="{{ '/courses/' | append: c.slug | append: '/cohort/' | relative_url }}">← {{ c.short_title }} cohort home</a>
+  &nbsp;|&nbsp; <a href="{{ '/courses/' | append: c.slug | append: '/cohort/schedule/' | relative_url }}">schedule</a>
+  {%- assign prev_int = week.number | plus: 0 | minus: 1 -%}
+  {%- assign next_int = week.number | plus: 1 -%}
+  {%- if prev_int >= 1 -%}
+    {%- assign prev_str = prev_int | prepend: '0' | slice: -2, 2 -%}
+    &nbsp;|&nbsp; <a href="{{ '/courses/' | append: c.slug | append: '/cohort/week-' | append: prev_str | append: '/' | relative_url }}">← week {{ prev_str }}</a>
+  {%- endif -%}
+  {%- if next_int <= weeks_total -%}
+    {%- assign next_str = next_int | prepend: '0' | slice: -2, 2 -%}
+    &nbsp;|&nbsp; <a href="{{ '/courses/' | append: c.slug | append: '/cohort/week-' | append: next_str | append: '/' | relative_url }}">week {{ next_str }} →</a>
+  {%- endif -%}
+</p>
+
+<h1>Week {{ week.number }} — {{ week.title }}</h1>
+
+{% if week.pitch %}<blockquote><p>{{ week.pitch }}</p></blockquote>{% endif %}
+
+<h2>Lecture</h2>
+{% if week.lecture_topic %}<p>{{ week.lecture_topic | markdownify | remove: "<p>" | remove: "</p>" }}</p>{% endif %}
+{% if week.lecture_session %}
+<p><strong>When:</strong> {{ week.lecture_session }}</p>
+{% endif %}
+
+{% if week.readings and week.readings.size > 0 %}
+<h2>Readings (before the lecture)</h2>
+<ul>
+  {% for r in week.readings %}
+    <li>{% if r.url and r.url != "" %}<a href="{{ r.url }}" target="_blank" rel="noopener">{{ r.ref }}</a>{% else %}{{ r.ref }}{% endif %}{% if r.note %} — <em>{{ r.note }}</em>{% endif %}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if week.problem_set %}
+<h2>Problem set {{ week.number }}</h2>
+{% if week.problem_set.title %}<p><strong>{{ week.problem_set.title }}</strong></p>{% endif %}
+{% if week.problem_set.description %}<p>{{ week.problem_set.description | markdownify | remove: "<p>" | remove: "</p>" }}</p>{% endif %}
+{% if week.problem_set.problems and week.problem_set.problems.size > 0 %}
+<ol>
+  {% for p in week.problem_set.problems %}<li>{{ p | markdownify | remove: "<p>" | remove: "</p>" }}</li>{% endfor %}
+</ol>
+{% endif %}
+<p><strong>Due:</strong> {{ week.problem_set.due | default: d.pset_due }} &nbsp;|&nbsp; <strong>Submission:</strong> {{ d.pset_submission }}</p>
+{% endif %}
+
+{% if week.code_lab %}
+<h2>Code lab</h2>
+{% if week.code_lab.title %}<p><strong>{{ week.code_lab.title }}</strong></p>{% endif %}
+{% if week.code_lab.task %}<p>{{ week.code_lab.task | markdownify | remove: "<p>" | remove: "</p>" }}</p>{% endif %}
+<ul>
+  {% if week.code_lab.notebook %}<li><strong>Notebook:</strong> {{ week.code_lab.notebook }}</li>{% endif %}
+  {% if week.code_lab.dataset %}<li><strong>Dataset:</strong> {{ week.code_lab.dataset }}</li>{% endif %}
+</ul>
+{% endif %}
+
+{% if week.discussion %}
+<h2>Paper discussion (recitation)</h2>
+<p>{{ week.discussion.paper }}{% if week.discussion.url %} — <a href="{{ week.discussion.url }}" target="_blank" rel="noopener">link</a>{% endif %}</p>
+{% if week.discussion.prompts and week.discussion.prompts.size > 0 %}
+<ul>
+  {% for q in week.discussion.prompts %}<li>{{ q }}</li>{% endfor %}
+</ul>
+{% endif %}
+{% endif %}
+
+<h2>From the course notes</h2>
+<p>Lecture material is drawn from chapter {{ week.number }} of the bilingual course notes: <a href="{{ c.notes_pdf | relative_url }}">EN PDF</a>{% if c.notes_pdf_fr %} &nbsp;|&nbsp; <a href="{{ c.notes_pdf_fr | relative_url }}">FR PDF</a>{% endif %}.</p>
+
+</div>
+{%- endif -%}
