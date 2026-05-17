@@ -2,7 +2,7 @@
 layout: page
 permalink: /courses/apprentissage-geometrique/cohort/week-03/
 title: "Week 03 — Graph Neural Networks"
-description: "Message passing as the fundamental operation. Why GNNs are permutation-equivariant by construction."
+description: "Message passing as the core operation. Why GNNs are permutation-equivariant by construction."
 lang: en
 nav: false
 ---

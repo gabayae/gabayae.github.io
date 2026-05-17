@@ -2,23 +2,24 @@
 layout: page
 permalink: /courses/apprentissage-geometrique/cohort/
 title: "Geometric Deep Learning — Cohort site"
-description: "The mathematics behind neural networks that respect symmetry — groups, manifolds, graphs, equivariance. From Felix Klein's Erlangen Program to GNNs and AlphaFold."
+description: "Neural networks that respect the symmetries of their input domain — translation, rotation, permutation, graph structure. The mathematical thesis that ties GNNs, equivariant networks, and AlphaFold together."
 lang: en
 nav: false
 ---
 
-**Course:** Geometric Deep Learning
-**Level:** Graduate
-**Instructor:** Dr. Yaé Ulrich Gaba
-**Meeting pattern:** Tuesdays 14:00–16:00 lecture · Thursdays 14:00–15:00 paper discussion (Africa/Lagos UTC+1)
+<p style="font-size: 1.15em; line-height: 1.55; color: var(--global-text-color, #333); margin-bottom: 1.6em;">Neural networks that respect the symmetries of their input domain — translation, rotation, permutation, graph structure. The mathematical thesis that ties GNNs, equivariant networks, and AlphaFold together.</p>
 
-**Operational pages.** &nbsp; [Weekly schedule]({{ '/courses/apprentissage-geometrique/cohort/schedule/' | relative_url }}) &nbsp;|&nbsp; [Course notes (PDF)]({{ '/courses/apprentissage-geometrique/en/notes.pdf' | relative_url }})
+<div style="display: flex; flex-wrap: wrap; gap: 18px; margin: 1.4em 0 2em 0; font-size: 0.95em;">
+  <a href="{{ '/courses/apprentissage-geometrique/cohort/schedule/' | relative_url }}" style="padding: 10px 18px; background: rgba(59,111,212,0.12); border: 1px solid rgba(59,111,212,0.45); border-radius: 6px; text-decoration: none; font-weight: 600;">→ Weekly schedule</a>
+  <a href="{{ '/courses/apprentissage-geometrique/en/notes.pdf' | relative_url }}" style="padding: 10px 18px; background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.15); border-radius: 6px; text-decoration: none;">EN notes (PDF)</a>
+  <a href="{{ '/courses/apprentissage-geometrique/fr/cours.pdf' | relative_url }}" style="padding: 10px 18px; background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.15); border-radius: 6px; text-decoration: none;">FR notes (PDF)</a>
+</div>
 
----
-
-The mathematics behind neural networks that respect symmetry — groups, manifolds, graphs, equivariance. From Felix Klein's Erlangen Program to GNNs and AlphaFold.
-
----
+<table style="margin-bottom: 1.8em;">
+<tr><th style="text-align:left;">Level</th><td>Graduate</td></tr>
+<tr><th style="text-align:left;">Instructor</th><td>Dr. Yaé Ulrich Gaba</td></tr>
+<tr><th style="text-align:left;">Meeting pattern</th><td>Tuesdays 14:00–16:00 lecture · Thursdays 14:00–15:00 paper discussion (Africa/Lagos UTC+1)</td></tr>
+</table>
 
 ## Prerequisites
 
@@ -34,26 +35,6 @@ Bronstein, Bruna, Cohen, Veličković, *Geometric Deep Learning: Grids, Groups, 
 
 
 
-## How this site works
+## What this site is and isn't
 
-- The bilingual lecture notes ([EN PDF]({{ '/courses/apprentissage-geometrique/en/notes.pdf' | relative_url }}) · [FR PDF]({{ '/courses/apprentissage-geometrique/fr/cours.pdf' | relative_url }})) remain the reference text.
-- This **cohort site** is the operational layer for participants enrolled in a live cohort: weekly pages with the lecture topic, readings, problem sets, code labs, and paper discussions.
-- The single source of truth for the schedule is `_data/apprentissage-geometrique.yml` in the site repository. Editing one YAML entry updates every place the week appears.
-- Past-cohort recordings are linked on each week page once the session is complete.
-
-## Going to the weekly material
-
-Use the [schedule]({{ '/courses/apprentissage-geometrique/cohort/schedule/' | relative_url }}) page to navigate to any week, or jump directly:
-
-- [Week 01 — Motivations — Why Geometry in Deep Learning]({{ '/courses/apprentissage-geometrique/cohort/week-01/' | relative_url }})
-- [Week 02 — Group Theory for Deep Learning]({{ '/courses/apprentissage-geometrique/cohort/week-02/' | relative_url }})
-- [Week 03 — Graph Neural Networks]({{ '/courses/apprentissage-geometrique/cohort/week-03/' | relative_url }})
-- [Week 04 — GNN Variants — GAT, GIN, GraphSAGE]({{ '/courses/apprentissage-geometrique/cohort/week-04/' | relative_url }})
-- [Week 05 — Spectral Graph Learning]({{ '/courses/apprentissage-geometrique/cohort/week-05/' | relative_url }})
-- [Week 06 — Learning on Manifolds]({{ '/courses/apprentissage-geometrique/cohort/week-06/' | relative_url }})
-- [Week 07 — Equivariant and Invariant Networks]({{ '/courses/apprentissage-geometrique/cohort/week-07/' | relative_url }})
-- [Week 08 — Point Cloud Representations]({{ '/courses/apprentissage-geometrique/cohort/week-08/' | relative_url }})
-- [Week 09 — Applications]({{ '/courses/apprentissage-geometrique/cohort/week-09/' | relative_url }})
-- [Week 10 — Connections to TDA]({{ '/courses/apprentissage-geometrique/cohort/week-10/' | relative_url }})
-- [Week 11 — Current Research Directions]({{ '/courses/apprentissage-geometrique/cohort/week-11/' | relative_url }})
-- [Week 12 — Final project presentations]({{ '/courses/apprentissage-geometrique/cohort/week-12/' | relative_url }})
+The bilingual notes (linked above) are the reference text. This cohort site is the operational layer: every week page has the lecture topic, the readings to do beforehand, the problem set or code lab, and any paper discussion. The schedule and weeks are generated from a single data file (`_data/apprentissage-geometrique.yml`), so the same source drives the landing, the schedule, and every week page. If you are reading along without being in a cohort, the week pages still work as a self-study guide; the deliverables become optional, but the readings and lecture topics are the same.

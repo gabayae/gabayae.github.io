@@ -7,18 +7,19 @@ lang: en
 nav: false
 ---
 
-**Course:** MLOps — From Notebook to Production
-**Level:** Graduate / professional
-**Instructor:** Dr. Yaé Ulrich Gaba
-**Meeting pattern:** Tuesdays + Thursdays, 14:00–16:00 lecture · Fridays 14:00–15:00 systems review (Africa/Lagos UTC+1)
+<p style="font-size: 1.15em; line-height: 1.55; color: var(--global-text-color, #333); margin-bottom: 1.6em;">What it takes for a machine-learning model to keep working after the notebook is closed: containerization, deployment, monitoring, reproducibility, and the engineering discipline that distinguishes a prototype from a production system.</p>
 
-**Operational pages.** &nbsp; [Weekly schedule]({{ '/courses/mlops/cohort/schedule/' | relative_url }}) &nbsp;|&nbsp; [Course notes (PDF)]({{ '/courses/mlops/en/notes.pdf' | relative_url }})
+<div style="display: flex; flex-wrap: wrap; gap: 18px; margin: 1.4em 0 2em 0; font-size: 0.95em;">
+  <a href="{{ '/courses/mlops/cohort/schedule/' | relative_url }}" style="padding: 10px 18px; background: rgba(59,111,212,0.12); border: 1px solid rgba(59,111,212,0.45); border-radius: 6px; text-decoration: none; font-weight: 600;">→ Weekly schedule</a>
+  <a href="{{ '/courses/mlops/en/notes.pdf' | relative_url }}" style="padding: 10px 18px; background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.15); border-radius: 6px; text-decoration: none;">EN notes (PDF)</a>
+  <a href="{{ '/courses/mlops/fr/cours.pdf' | relative_url }}" style="padding: 10px 18px; background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.15); border-radius: 6px; text-decoration: none;">FR notes (PDF)</a>
+</div>
 
----
-
-What it takes for a machine-learning model to keep working after the notebook is closed: containerization, deployment, monitoring, reproducibility, and the engineering discipline that distinguishes a prototype from a production system.
-
----
+<table style="margin-bottom: 1.8em;">
+<tr><th style="text-align:left;">Level</th><td>Graduate / professional</td></tr>
+<tr><th style="text-align:left;">Instructor</th><td>Dr. Yaé Ulrich Gaba</td></tr>
+<tr><th style="text-align:left;">Meeting pattern</th><td>Tuesdays + Thursdays, 14:00–16:00 lecture · Fridays 14:00–15:00 systems review (Africa/Lagos UTC+1)</td></tr>
+</table>
 
 ## Prerequisites
 
@@ -34,26 +35,6 @@ Chip Huyen, *Designing Machine Learning Systems* (O'Reilly 2022) — recommended
 
 
 
-## How this site works
+## What this site is and isn't
 
-- The bilingual lecture notes ([EN PDF]({{ '/courses/mlops/en/notes.pdf' | relative_url }}) · [FR PDF]({{ '/courses/mlops/fr/cours.pdf' | relative_url }})) remain the reference text.
-- This **cohort site** is the operational layer for participants enrolled in a live cohort: weekly pages with the lecture topic, readings, problem sets, code labs, and paper discussions.
-- The single source of truth for the schedule is `_data/mlops.yml` in the site repository. Editing one YAML entry updates every place the week appears.
-- Past-cohort recordings are linked on each week page once the session is complete.
-
-## Going to the weekly material
-
-Use the [schedule]({{ '/courses/mlops/cohort/schedule/' | relative_url }}) page to navigate to any week, or jump directly:
-
-- [Week 01 — Introduction to MLOps — From Notebook to Production]({{ '/courses/mlops/cohort/week-01/' | relative_url }})
-- [Week 02 — Environments and Dependency Management]({{ '/courses/mlops/cohort/week-02/' | relative_url }})
-- [Week 03 — Version Control — Git and DVC]({{ '/courses/mlops/cohort/week-03/' | relative_url }})
-- [Week 04 — Experiment Tracking — MLflow, Weights & Biases]({{ '/courses/mlops/cohort/week-04/' | relative_url }})
-- [Week 05 — Data Pipelines and Feature Stores]({{ '/courses/mlops/cohort/week-05/' | relative_url }})
-- [Week 06 — Large-Scale Training — Distributed Training]({{ '/courses/mlops/cohort/week-06/' | relative_url }})
-- [Week 07 — Containerization — Docker for ML]({{ '/courses/mlops/cohort/week-07/' | relative_url }})
-- [Week 08 — Model Deployment — REST APIs, FastAPI, Streamlit]({{ '/courses/mlops/cohort/week-08/' | relative_url }})
-- [Week 09 — CI/CD for Machine Learning]({{ '/courses/mlops/cohort/week-09/' | relative_url }})
-- [Week 10 — Model Monitoring in Production]({{ '/courses/mlops/cohort/week-10/' | relative_url }})
-- [Week 11 — Reproducibility in Research — Standards and Best Practices]({{ '/courses/mlops/cohort/week-11/' | relative_url }})
-- [Week 12 — Final capstone — deploy and defend a system]({{ '/courses/mlops/cohort/week-12/' | relative_url }})
+The bilingual notes (linked above) are the reference text. This cohort site is the operational layer: every week page has the lecture topic, the readings to do beforehand, the problem set or code lab, and any paper discussion. The schedule and weeks are generated from a single data file (`_data/mlops.yml`), so the same source drives the landing, the schedule, and every week page. If you are reading along without being in a cohort, the week pages still work as a self-study guide; the deliverables become optional, but the readings and lecture topics are the same.

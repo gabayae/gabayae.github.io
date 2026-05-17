@@ -2,7 +2,7 @@
 layout: page
 permalink: /courses/ia-generative/cohort/week-03/
 title: "Week 03 — GPT and Text Generation"
-description: "The GPT family — from GPT-1's 117M parameters in 2018 to today's trillion-parameter models — and the engineering of inference."
+description: "The GPT family from 2018's 117M-parameter GPT-1 to today's trillion-parameter frontier, plus the inference-time engineering that makes deployment feasible."
 lang: en
 nav: false
 ---

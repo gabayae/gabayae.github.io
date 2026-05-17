@@ -31,18 +31,18 @@ lang: en
 nav: false
 ---
 
-**Course:** {title}
-**Level:** {level}
-**Instructor:** {instructor}
-**Meeting pattern:** {meeting_pattern}
+<p style="font-size: 1.15em; line-height: 1.55; color: var(--global-text-color, #333); margin-bottom: 1.6em;">{pitch}</p>
 
-**Operational pages.** &nbsp; [Weekly schedule]({{{{ '/courses/{slug}/cohort/schedule/' | relative_url }}}}) &nbsp;|&nbsp; [Course notes (PDF)]({{{{ '{notes_pdf}' | relative_url }}}})
+<div style="display: flex; flex-wrap: wrap; gap: 18px; margin: 1.4em 0 2em 0; font-size: 0.95em;">
+  <a href="{{{{ '/courses/{slug}/cohort/schedule/' | relative_url }}}}" style="padding: 10px 18px; background: rgba(59,111,212,0.12); border: 1px solid rgba(59,111,212,0.45); border-radius: 6px; text-decoration: none; font-weight: 600;">→ Weekly schedule</a>
+  <a href="{{{{ '{notes_pdf}' | relative_url }}}}" style="padding: 10px 18px; background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.15); border-radius: 6px; text-decoration: none;">EN notes (PDF)</a>{fr_pdf_button}
+</div>
 
----
-
-{pitch}
-
----
+<table style="margin-bottom: 1.8em;">
+<tr><th style="text-align:left;">Level</th><td>{level}</td></tr>
+<tr><th style="text-align:left;">Instructor</th><td>{instructor}</td></tr>
+<tr><th style="text-align:left;">Meeting pattern</th><td>{meeting_pattern}</td></tr>
+</table>
 
 ## Prerequisites
 
@@ -58,18 +58,9 @@ nav: false
 
 {caveat_block}
 
-## How this site works
+## What this site is and isn't
 
-- The bilingual lecture notes ([EN PDF]({{{{ '{notes_pdf}' | relative_url }}}}){fr_pdf_link}) remain the reference text.
-- This **cohort site** is the operational layer for participants enrolled in a live cohort: weekly pages with the lecture topic, readings, problem sets, code labs, and paper discussions.
-- The single source of truth for the schedule is `_data/{slug}.yml` in the site repository. Editing one YAML entry updates every place the week appears.
-- Past-cohort recordings are linked on each week page once the session is complete.
-
-## Going to the weekly material
-
-Use the [schedule]({{{{ '/courses/{slug}/cohort/schedule/' | relative_url }}}}) page to navigate to any week, or jump directly:
-
-{week_links}
+The bilingual notes (linked above) are the reference text. This cohort site is the operational layer: every week page has the lecture topic, the readings to do beforehand, the problem set or code lab, and any paper discussion. The schedule and weeks are generated from a single data file (`_data/{slug}.yml`), so the same source drives the landing, the schedule, and every week page. If you are reading along without being in a cohort, the week pages still work as a self-study guide; the deliverables become optional, but the readings and lecture topics are the same.
 """
 
 SCHEDULE_TPL = """---
@@ -137,18 +128,17 @@ def scaffold_one(slug: str) -> None:
     cohort_dir = REPO / "courses" / slug / "cohort"
     cohort_dir.mkdir(parents=True, exist_ok=True)
 
-    week_links = "\n".join(
-        f"- [Week {w['number']} — {w['title']}]({{{{ '/courses/{slug}/cohort/week-{w['number']}/' | relative_url }}}})"
-        for w in weeks
-    )
-
     caveat_block = ""
     if course.get("caveat"):
         caveat_block = f"## A note on freshness\n\n{course['caveat']}\n"
 
-    fr_pdf_link = ""
+    fr_pdf_button = ""
     if course.get("notes_pdf_fr"):
-        fr_pdf_link = f" · [FR PDF]({{{{ '{course['notes_pdf_fr']}' | relative_url }}}})"
+        fr_pdf_button = (
+            f'\n  <a href="{{{{ \'{course["notes_pdf_fr"]}\' | relative_url }}}}" '
+            f'style="padding: 10px 18px; background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.15); '
+            f'border-radius: 6px; text-decoration: none;">FR notes (PDF)</a>'
+        )
 
     landing = LANDING_TPL.format(
         slug=slug,
@@ -161,9 +151,8 @@ def scaffold_one(slug: str) -> None:
         grading=course["grading"],
         textbook=course.get("textbook", "—"),
         notes_pdf=course["notes_pdf"],
-        fr_pdf_link=fr_pdf_link,
+        fr_pdf_button=fr_pdf_button,
         caveat_block=caveat_block,
-        week_links=week_links,
     )
     (cohort_dir / "index.md").write_text(landing, encoding="utf-8")
 

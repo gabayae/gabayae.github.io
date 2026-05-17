@@ -14,35 +14,46 @@
 {%- assign d = course_data.defaults -%}
 {%- assign c = course_data.course -%}
 
-<div class="course-site-week">
+<div class="cohort-week">
 
-<p class="course-site-week-meta">
-  <a href="{{ '/courses/' | append: c.slug | append: '/cohort/' | relative_url }}">← {{ c.short_title }} cohort home</a>
-  &nbsp;|&nbsp; <a href="{{ '/courses/' | append: c.slug | append: '/cohort/schedule/' | relative_url }}">schedule</a>
+<div class="cohort-week-nav" style="margin-bottom: 1.5em; font-size: 0.92em; color: var(--global-text-color-light, #777);">
+  <a href="{{ '/courses/' | append: c.slug | append: '/cohort/' | relative_url }}">{{ c.short_title }}</a>
+  &nbsp;·&nbsp; <a href="{{ '/courses/' | append: c.slug | append: '/cohort/schedule/' | relative_url }}">schedule</a>
+  &nbsp;·&nbsp; <strong>Week {{ week.number }} of {{ weeks_total }}</strong>
   {%- assign prev_int = week.number | plus: 0 | minus: 1 -%}
   {%- assign next_int = week.number | plus: 1 -%}
   {%- if prev_int >= 1 -%}
     {%- assign prev_str = prev_int | prepend: '0' | slice: -2, 2 -%}
-    &nbsp;|&nbsp; <a href="{{ '/courses/' | append: c.slug | append: '/cohort/week-' | append: prev_str | append: '/' | relative_url }}">← week {{ prev_str }}</a>
+    &nbsp;·&nbsp; <a href="{{ '/courses/' | append: c.slug | append: '/cohort/week-' | append: prev_str | append: '/' | relative_url }}">← {{ prev_str }}</a>
   {%- endif -%}
   {%- if next_int <= weeks_total -%}
     {%- assign next_str = next_int | prepend: '0' | slice: -2, 2 -%}
-    &nbsp;|&nbsp; <a href="{{ '/courses/' | append: c.slug | append: '/cohort/week-' | append: next_str | append: '/' | relative_url }}">week {{ next_str }} →</a>
+    &nbsp;·&nbsp; <a href="{{ '/courses/' | append: c.slug | append: '/cohort/week-' | append: next_str | append: '/' | relative_url }}">{{ next_str }} →</a>
   {%- endif -%}
-</p>
+</div>
 
-<h1>Week {{ week.number }} — {{ week.title }}</h1>
+<h1 style="margin-bottom: 0.2em;">Week {{ week.number }}<span style="font-weight: 300; color: var(--global-text-color-light, #777);"> — {{ week.title }}</span></h1>
 
-{% if week.pitch %}<blockquote><p>{{ week.pitch }}</p></blockquote>{% endif %}
+{% if week.pitch %}
+<p style="font-size: 1.08em; font-style: italic; color: var(--global-text-color, #333); margin-bottom: 1.8em;">{{ week.pitch }}</p>
+{% endif %}
+
+{% if week.problem_set or week.code_lab %}
+<aside style="background: rgba(59,111,212,0.07); border-left: 4px solid rgba(59,111,212,0.6); padding: 14px 18px; margin: 1.2em 0; border-radius: 4px;">
+  <strong>This week you ship:</strong>
+  {% if week.problem_set %}{{ week.problem_set.title | default: "Problem set" }}{% endif %}
+  {% if week.problem_set and week.code_lab %} &nbsp;+&nbsp; {% endif %}
+  {% if week.code_lab %}{{ week.code_lab.title | default: "Code lab" }}{% endif %}
+  <br>
+  <span style="font-size: 0.92em; color: var(--global-text-color-light, #555);"><strong>Due:</strong> {{ d.pset_due }} · <strong>Submission:</strong> {{ d.pset_submission }}</span>
+</aside>
+{% endif %}
 
 <h2>Lecture</h2>
 {% if week.lecture_topic %}<p>{{ week.lecture_topic | markdownify | remove: "<p>" | remove: "</p>" }}</p>{% endif %}
-{% if week.lecture_session %}
-<p><strong>When:</strong> {{ week.lecture_session }}</p>
-{% endif %}
 
 {% if week.readings and week.readings.size > 0 %}
-<h2>Readings (before the lecture)</h2>
+<h2>Read before the lecture</h2>
 <ul>
   {% for r in week.readings %}
     <li>{% if r.url and r.url != "" %}<a href="{{ r.url }}" target="_blank" rel="noopener">{{ r.ref }}</a>{% else %}{{ r.ref }}{% endif %}{% if r.note %} — <em>{{ r.note }}</em>{% endif %}</li>
@@ -51,7 +62,7 @@
 {% endif %}
 
 {% if week.problem_set %}
-<h2>Problem set {{ week.number }}</h2>
+<h2>Problem set</h2>
 {% if week.problem_set.title %}<p><strong>{{ week.problem_set.title }}</strong></p>{% endif %}
 {% if week.problem_set.description %}<p>{{ week.problem_set.description | markdownify | remove: "<p>" | remove: "</p>" }}</p>{% endif %}
 {% if week.problem_set.problems and week.problem_set.problems.size > 0 %}
@@ -59,31 +70,35 @@
   {% for p in week.problem_set.problems %}<li>{{ p | markdownify | remove: "<p>" | remove: "</p>" }}</li>{% endfor %}
 </ol>
 {% endif %}
-<p><strong>Due:</strong> {{ week.problem_set.due | default: d.pset_due }} &nbsp;|&nbsp; <strong>Submission:</strong> {{ d.pset_submission }}</p>
 {% endif %}
 
 {% if week.code_lab %}
 <h2>Code lab</h2>
 {% if week.code_lab.title %}<p><strong>{{ week.code_lab.title }}</strong></p>{% endif %}
 {% if week.code_lab.task %}<p>{{ week.code_lab.task | markdownify | remove: "<p>" | remove: "</p>" }}</p>{% endif %}
-<ul>
-  {% if week.code_lab.notebook %}<li><strong>Notebook:</strong> {{ week.code_lab.notebook }}</li>{% endif %}
-  {% if week.code_lab.dataset %}<li><strong>Dataset:</strong> {{ week.code_lab.dataset }}</li>{% endif %}
-</ul>
+<p style="font-size: 0.92em; color: var(--global-text-color-light, #666);">
+  {% if week.code_lab.notebook %}Notebook: <code>{{ week.code_lab.notebook }}</code>{% endif %}
+  {% if week.code_lab.notebook and week.code_lab.dataset %} &nbsp;·&nbsp; {% endif %}
+  {% if week.code_lab.dataset %}Dataset: {{ week.code_lab.dataset }}{% endif %}
+</p>
 {% endif %}
 
 {% if week.discussion %}
-<h2>Paper discussion (recitation)</h2>
-<p>{{ week.discussion.paper }}{% if week.discussion.url %} — <a href="{{ week.discussion.url }}" target="_blank" rel="noopener">link</a>{% endif %}</p>
+<h2>Recitation — paper discussion</h2>
+<p>{{ week.discussion.paper }}{% if week.discussion.url and week.discussion.url != "" %} (<a href="{{ week.discussion.url }}" target="_blank" rel="noopener">paper</a>){% endif %}</p>
 {% if week.discussion.prompts and week.discussion.prompts.size > 0 %}
+<p>Come ready to argue one side of each:</p>
 <ul>
   {% for q in week.discussion.prompts %}<li>{{ q }}</li>{% endfor %}
 </ul>
 {% endif %}
 {% endif %}
 
-<h2>From the course notes</h2>
-<p>Lecture material is drawn from chapter {{ week.number }} of the bilingual course notes: <a href="{{ c.notes_pdf | relative_url }}">EN PDF</a>{% if c.notes_pdf_fr %} &nbsp;|&nbsp; <a href="{{ c.notes_pdf_fr | relative_url }}">FR PDF</a>{% endif %}.</p>
+<hr style="margin-top: 2.5em; opacity: 0.3;">
+<p style="font-size: 0.88em; color: var(--global-text-color-light, #777);">
+  Reference text for this week: chapter {{ week.number }} of the bilingual notes —
+  <a href="{{ c.notes_pdf | relative_url }}">EN PDF</a>{% if c.notes_pdf_fr %} · <a href="{{ c.notes_pdf_fr | relative_url }}">FR PDF</a>{% endif %}.
+</p>
 
 </div>
 {%- endif -%}

@@ -7,18 +7,19 @@ lang: en
 nav: false
 ---
 
-**Course:** Reinforcement Learning
-**Level:** Graduate
-**Instructor:** Dr. Yaé Ulrich Gaba
-**Meeting pattern:** Mondays + Wednesdays, 14:00–16:00 lecture · Fridays 14:00–15:00 paper discussion (Africa/Lagos UTC+1)
+<p style="font-size: 1.15em; line-height: 1.55; color: var(--global-text-color, #333); margin-bottom: 1.6em;">MDPs, dynamic programming, Q-learning, policy gradients, actor-critic, modern algorithms (PPO, SAC), and the new RLHF pipeline behind ChatGPT-class systems.</p>
 
-**Operational pages.** &nbsp; [Weekly schedule]({{ '/courses/apprentissage-renforcement/cohort/schedule/' | relative_url }}) &nbsp;|&nbsp; [Course notes (PDF)]({{ '/courses/apprentissage-renforcement/en/notes.pdf' | relative_url }})
+<div style="display: flex; flex-wrap: wrap; gap: 18px; margin: 1.4em 0 2em 0; font-size: 0.95em;">
+  <a href="{{ '/courses/apprentissage-renforcement/cohort/schedule/' | relative_url }}" style="padding: 10px 18px; background: rgba(59,111,212,0.12); border: 1px solid rgba(59,111,212,0.45); border-radius: 6px; text-decoration: none; font-weight: 600;">→ Weekly schedule</a>
+  <a href="{{ '/courses/apprentissage-renforcement/en/notes.pdf' | relative_url }}" style="padding: 10px 18px; background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.15); border-radius: 6px; text-decoration: none;">EN notes (PDF)</a>
+  <a href="{{ '/courses/apprentissage-renforcement/fr/cours.pdf' | relative_url }}" style="padding: 10px 18px; background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.15); border-radius: 6px; text-decoration: none;">FR notes (PDF)</a>
+</div>
 
----
-
-MDPs, dynamic programming, Q-learning, policy gradients, actor-critic, modern algorithms (PPO, SAC), and the new RLHF pipeline behind ChatGPT-class systems.
-
----
+<table style="margin-bottom: 1.8em;">
+<tr><th style="text-align:left;">Level</th><td>Graduate</td></tr>
+<tr><th style="text-align:left;">Instructor</th><td>Dr. Yaé Ulrich Gaba</td></tr>
+<tr><th style="text-align:left;">Meeting pattern</th><td>Mondays + Wednesdays, 14:00–16:00 lecture · Fridays 14:00–15:00 paper discussion (Africa/Lagos UTC+1)</td></tr>
+</table>
 
 ## Prerequisites
 
@@ -34,26 +35,6 @@ Sutton and Barto, *Reinforcement Learning: An Introduction* (2nd ed., MIT Press 
 
 
 
-## How this site works
+## What this site is and isn't
 
-- The bilingual lecture notes ([EN PDF]({{ '/courses/apprentissage-renforcement/en/notes.pdf' | relative_url }}) · [FR PDF]({{ '/courses/apprentissage-renforcement/fr/cours.pdf' | relative_url }})) remain the reference text.
-- This **cohort site** is the operational layer for participants enrolled in a live cohort: weekly pages with the lecture topic, readings, problem sets, code labs, and paper discussions.
-- The single source of truth for the schedule is `_data/apprentissage-renforcement.yml` in the site repository. Editing one YAML entry updates every place the week appears.
-- Past-cohort recordings are linked on each week page once the session is complete.
-
-## Going to the weekly material
-
-Use the [schedule]({{ '/courses/apprentissage-renforcement/cohort/schedule/' | relative_url }}) page to navigate to any week, or jump directly:
-
-- [Week 01 — Markov Decision Processes]({{ '/courses/apprentissage-renforcement/cohort/week-01/' | relative_url }})
-- [Week 02 — Dynamic Programming]({{ '/courses/apprentissage-renforcement/cohort/week-02/' | relative_url }})
-- [Week 03 — Monte Carlo and Temporal Difference Methods]({{ '/courses/apprentissage-renforcement/cohort/week-03/' | relative_url }})
-- [Week 04 — Q-Learning and Temporal Difference Methods]({{ '/courses/apprentissage-renforcement/cohort/week-04/' | relative_url }})
-- [Week 05 — Deep Q-Networks and Variants]({{ '/courses/apprentissage-renforcement/cohort/week-05/' | relative_url }})
-- [Week 06 — Policy Gradient Methods]({{ '/courses/apprentissage-renforcement/cohort/week-06/' | relative_url }})
-- [Week 07 — Actor-Critic Methods]({{ '/courses/apprentissage-renforcement/cohort/week-07/' | relative_url }})
-- [Week 08 — State-of-the-Art Algorithms]({{ '/courses/apprentissage-renforcement/cohort/week-08/' | relative_url }})
-- [Week 09 — Multi-Agent Reinforcement Learning]({{ '/courses/apprentissage-renforcement/cohort/week-09/' | relative_url }})
-- [Week 10 — Constrained and Safe RL]({{ '/courses/apprentissage-renforcement/cohort/week-10/' | relative_url }})
-- [Week 11 — Applications]({{ '/courses/apprentissage-renforcement/cohort/week-11/' | relative_url }})
-- [Week 12 — Final project presentations]({{ '/courses/apprentissage-renforcement/cohort/week-12/' | relative_url }})
+The bilingual notes (linked above) are the reference text. This cohort site is the operational layer: every week page has the lecture topic, the readings to do beforehand, the problem set or code lab, and any paper discussion. The schedule and weeks are generated from a single data file (`_data/apprentissage-renforcement.yml`), so the same source drives the landing, the schedule, and every week page. If you are reading along without being in a cohort, the week pages still work as a self-study guide; the deliverables become optional, but the readings and lecture topics are the same.
