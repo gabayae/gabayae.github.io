@@ -14,7 +14,9 @@ lang: fr
 **Cadence :** 10 semaines à temps plein ou 20 semaines à temps partiel
 **Taille de cohorte :** 12 à 24 participants par session
 
-**Pages opérationnelles.** &nbsp; [Calendrier hebdomadaire]({{ '/workshops/ml-ai-bootcamp/fr/schedule/' | relative_url }}) &nbsp;|&nbsp; [Brief du capstone]({{ '/workshops/ml-ai-bootcamp/CAPSTONE/' | relative_url }})
+**Pages opérationnelles.** &nbsp; [Calendrier hebdomadaire (EN)]({{ '/workshops/ml-ai-bootcamp/en/schedule/' | relative_url }}) &nbsp;|&nbsp; [Brief du capstone]({{ '/workshops/ml-ai-bootcamp/CAPSTONE/' | relative_url }})
+
+*Note : le calendrier opérationnel et les pages hebdomadaires sont en anglais. La traduction française suivra après la première cohorte, une fois la structure stabilisée par le retour des participants.*
 
 ---
 

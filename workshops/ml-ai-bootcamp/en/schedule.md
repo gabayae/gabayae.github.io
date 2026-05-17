@@ -2,57 +2,52 @@
 layout: page
 permalink: /workshops/ml-ai-bootcamp/en/schedule/
 title: "Bootcamp — Weekly schedule"
-description: "Week-by-week schedule of the AIRINA Labs Machine Learning & AI Bootcamp. Each week page lists live sessions, readings, lab notebooks, deliverables, and office hours."
+description: "Week-by-week schedule of the AIRINA Labs Machine Learning & AI Bootcamp."
 lang: en
 nav: false
 ---
 
-This is the operational schedule for one full-time cohort (ten weeks). Part-time cohorts run the same content over twenty weeks at half the weekly load.
+The operational schedule for one full-time cohort (ten weeks). Part-time cohorts run the same content over twenty weeks at half the weekly load. Per-cohort dates fill in at intake; the structure below is stable across cohorts.
 
-The dates below are filled in at intake; the schedule is otherwise stable across cohorts. Each week page is the single source of truth for what the cohort is doing that week --- readings, recordings, lab links, deliverables --- and replaces the inevitable email scramble.
-
-For the program rationale, prerequisites, and ten-module curriculum overview, see the [syllabus]({{ '/workshops/ml-ai-bootcamp/en/' | relative_url }}). For the final project, see the [capstone brief]({{ '/workshops/ml-ai-bootcamp/CAPSTONE/' | relative_url }}).
+For program rationale, prerequisites, and the ten-module curriculum overview, see the [syllabus]({{ '/workshops/ml-ai-bootcamp/en/' | relative_url }}). For the final project, see the [capstone brief]({{ '/workshops/ml-ai-bootcamp/CAPSTONE/' | relative_url }}).
 
 ---
 
 <div class="bootcamp-schedule">
 
-| Week | Module | Title | Detail |
-|:---:|:---:|---|:---:|
-| 01 | M1 | **Python for data work** | [week 01]({{ '/workshops/ml-ai-bootcamp/en/week-01/' | relative_url }}) |
-| 02 | M2 | **Introduction to machine learning** | _(week 02 — coming)_ |
-| 03 | M3 | **Classical ML: regression, classification, clustering** | _(week 03 — coming)_ |
-| 04 | M4 | **Recommender systems** | _(week 04 — coming)_ |
-| 05 | M5 | **Natural language processing** | _(week 05 — coming)_ |
-| 06 | M6 | **Modern ML: ANN, CNN, RNN** | _(week 06 — coming)_ |
-| 07 | M7 | **Transformers and LLMs** | _(week 07 — coming)_ |
-| 08 | M8 | **Retrieval-augmented generation and agents** | _(week 08 — coming)_ |
-| 09 | M9 | **MLOps: from notebook to production** | _(week 09 — coming)_ |
-| 10 | M10 | **Capstone presentations** | _(week 10 — coming)_ |
+<table>
+  <thead>
+    <tr><th>Week</th><th>Module</th><th>Title</th><th>Deliverable</th><th>Detail</th></tr>
+  </thead>
+  <tbody>
+  {% for week in site.data.bootcamp.weeks %}
+    <tr>
+      <td><strong>{{ week.number }}</strong></td>
+      <td>{{ week.module }}</td>
+      <td><a href="{{ '/workshops/ml-ai-bootcamp/en/week-' | append: week.number | append: '/' | relative_url }}"><strong>{{ week.title }}</strong></a><br><em>{{ week.pitch }}</em></td>
+      <td>{{ week.deliverable | markdownify | remove: "<p>" | remove: "</p>" | truncate: 140 }}</td>
+      <td><a href="{{ '/workshops/ml-ai-bootcamp/en/week-' | append: week.number | append: '/' | relative_url }}">week {{ week.number }} →</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
 
 </div>
 
----
+## How the week pages work
 
-## How the week pages are structured
+Every week page is generated from a single source — [`_data/bootcamp.yml`](https://github.com/gabayae/gabayae.github.io/blob/main/_data/bootcamp.yml) — so the data lives in one place. Each week page renders:
 
-Every week page follows the same four-section layout, so cohort participants know exactly where to look:
-
-1. **What you ship this week** --- the deliverable, due date, submission channel.
-2. **Live sessions** --- date, time, topic, link, recording link (filled in after the session).
-3. **Readings and prep** --- mandatory reading before each session, optional deepening reading.
-4. **Lab notebooks** --- the hands-on work for the week, with notebook links and dataset URLs.
-
-A short **office hours** block at the bottom of each week page lists the TA and the open Q&A slots.
+1. **What you ship this week** — the deliverable, due date, submission channel, rubric.
+2. **Live sessions and labs** — the default weekly cadence (Mon–Thu live + lab blocks, Friday speaker / lab review / retrospective), with per-cohort dates and Zoom links filled in inline.
+3. **Learning outcomes and topics covered.**
+4. **Labs** — three to four hands-on projects per week, with the dataset link and the task spec.
+5. **Readings** — split into mandatory (with the "before X" day specified) and optional deepening.
+6. **Catalogue cross-references** — back to the existing [course notes]({{ '/courses/' | relative_url }}) when there is a corresponding course.
 
 ## Operational notes
 
-- Sessions run on **Africa/Lagos time (UTC+1)** by default; recordings and notebooks are timezone-agnostic. Part-time cohorts negotiate session times at intake.
+- Sessions run on **Africa/Lagos time (UTC+1)** by default. Part-time cohorts negotiate times at intake.
 - Lab notebooks live in a [public GitHub repo](https://github.com/AI-Technipreneurs) that mirrors this schedule. Each week's lab is a tagged release.
-- The capstone milestones are interleaved with the regular modules: a proposal in week 4, a midterm review in week 7, a code freeze in week 9, the final presentations in week 10.
-
-## Looking for something specific?
-
-- **Past recordings.** Each week page lists the recording link once the session is complete. Recordings are retained for at least twelve months after the cohort.
-- **Lab dataset access.** Every lab notebook tells you where to download or generate the dataset. No dataset is gated.
-- **Office hours.** TA roster and slots are listed on the [office hours page](#) (filled in at intake).
+- Capstone milestones are interleaved with the regular modules: proposal in week 4, midterm review in week 7, code freeze week 9, final presentations week 10.
+- Past-cohort recordings are linked on each week page once the session is complete and retained for at least twelve months.
