@@ -31,6 +31,8 @@ lang: en
 nav: false
 ---
 
+<div style="margin-bottom: 1em;">{status_badge}</div>
+
 <p style="font-size: 1.15em; line-height: 1.55; color: var(--global-text-color, #333); margin-bottom: 1.6em;">{pitch}</p>
 
 <div style="display: flex; flex-wrap: wrap; gap: 18px; margin: 1.4em 0 2em 0; font-size: 0.95em;">
@@ -118,6 +120,25 @@ nav: false
 """
 
 
+def _status_badge(status: str) -> str:
+    """Render a small inline badge for the cohort status. Colors are chosen
+    against the existing al-folio neutral palette."""
+    spec = {
+        "active": ("rgba(40,160,90,0.14)", "rgba(40,160,90,0.65)", "Currently being taught"),
+        "upcoming": ("rgba(59,111,212,0.14)", "rgba(59,111,212,0.65)", "Next cohort scheduled — see schedule for dates"),
+        "self-study": ("rgba(120,120,120,0.12)", "rgba(120,120,120,0.5)", "Self-study reference — no active cohort"),
+        "archive": ("rgba(120,120,120,0.08)", "rgba(120,120,120,0.35)", "Archived after delivery"),
+    }
+    bg, border, label = spec.get(status, spec["self-study"])
+    return (
+        f'<span style="display: inline-block; padding: 4px 12px; background: {bg}; '
+        f'border: 1px solid {border}; border-radius: 14px; font-size: 0.82em; '
+        f'font-family: monospace; letter-spacing: 0.04em; text-transform: uppercase;">'
+        f'{status}</span> '
+        f'<span style="color: var(--global-text-color-light, #777); font-size: 0.9em; margin-left: 6px;">{label}</span>'
+    )
+
+
 def scaffold_one(slug: str) -> None:
     data_path = REPO / "_data" / f"{slug}.yml"
     with data_path.open(encoding="utf-8") as f:
@@ -140,6 +161,8 @@ def scaffold_one(slug: str) -> None:
             f'border-radius: 6px; text-decoration: none;">FR notes (PDF)</a>'
         )
 
+    status_badge = _status_badge(course.get("status", "self-study"))
+
     landing = LANDING_TPL.format(
         slug=slug,
         title=course["title"],
@@ -153,6 +176,7 @@ def scaffold_one(slug: str) -> None:
         notes_pdf=course["notes_pdf"],
         fr_pdf_button=fr_pdf_button,
         caveat_block=caveat_block,
+        status_badge=status_badge,
     )
     (cohort_dir / "index.md").write_text(landing, encoding="utf-8")
 
