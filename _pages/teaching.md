@@ -14,7 +14,7 @@ lang: en
 I teach courses spanning <strong>pure mathematics</strong>, <strong>applied mathematics</strong>, <strong>statistics</strong>, and <strong>data science / machine learning</strong>, at both undergraduate and graduate levels. Below is an overview of the 38 courses with full lecture notes.
 </p>
 
-<div style="background: linear-gradient(135deg, rgba(59,111,212,0.12), rgba(59,111,212,0.04)); border: 2px solid rgba(59,111,212,0.4); border-radius: 12px; padding: 24px; margin-bottom: 28px; text-align: center;">
+<div style="background: linear-gradient(135deg, rgba(59,111,212,0.12), rgba(59,111,212,0.04)); border: 2px solid rgba(59,111,212,0.4); border-radius: 12px; padding: 24px; margin-bottom: 16px; text-align: center;">
 <p style="font-size: 1.15rem; margin-bottom: 12px;">
 <i class="fa-solid fa-book-open" style="margin-right: 8px; color: var(--global-theme-color);"></i>
 <strong>Looking for lecture notes, exercises, and code?</strong>
@@ -23,6 +23,21 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 <a href="{{ '/courses/' | relative_url }}" class="btn btn-primary btn-lg" style="font-weight: 600; padding: 10px 28px; border-radius: 8px;">
 <i class="fa-solid fa-file-pdf" style="margin-right: 8px;"></i> Browse all course materials
 </a>
+</div>
+
+<div style="background: linear-gradient(135deg, rgba(232,194,48,0.12), rgba(232,194,48,0.04)); border: 2px solid rgba(232,194,48,0.45); border-radius: 12px; padding: 22px 24px; margin-bottom: 28px;">
+<p style="font-size: 1.05rem; margin-bottom: 10px;">
+<i class="fa-solid fa-users-line" style="margin-right: 8px; color: #b8910f;"></i>
+<strong>Six courses also have a full cohort site</strong> — weekly schedule, readings, problem sets, code labs, paper discussions. The cohort layer for participants enrolled in a live cohort, or for self-study readers who want more than the PDF.
+</p>
+<div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px;">
+  <a href="{{ '/courses/tda/cohort/' | relative_url }}" style="padding: 6px 14px; border: 1px solid rgba(232,194,48,0.55); border-radius: 6px; text-decoration: none; font-size: 0.92rem;">TDA</a>
+  <a href="{{ '/courses/apprentissage-geometrique/cohort/' | relative_url }}" style="padding: 6px 14px; border: 1px solid rgba(232,194,48,0.55); border-radius: 6px; text-decoration: none; font-size: 0.92rem;">Geometric Deep Learning</a>
+  <a href="{{ '/courses/apprentissage-renforcement/cohort/' | relative_url }}" style="padding: 6px 14px; border: 1px solid rgba(232,194,48,0.55); border-radius: 6px; text-decoration: none; font-size: 0.92rem;">Reinforcement Learning</a>
+  <a href="{{ '/courses/mlops/cohort/' | relative_url }}" style="padding: 6px 14px; border: 1px solid rgba(232,194,48,0.55); border-radius: 6px; text-decoration: none; font-size: 0.92rem;">MLOps</a>
+  <a href="{{ '/courses/ia-generative/cohort/' | relative_url }}" style="padding: 6px 14px; border: 1px solid rgba(232,194,48,0.55); border-radius: 6px; text-decoration: none; font-size: 0.92rem;">Generative AI</a>
+  <a href="{{ '/courses/apprentissage-automatique/cohort/' | relative_url }}" style="padding: 6px 14px; border: 1px solid rgba(232,194,48,0.55); border-radius: 6px; text-decoration: none; font-size: 0.92rem;">ML Foundations</a>
+</div>
 </div>
 
 <h2 class="teaching-section-header"><i class="fa-solid fa-lightbulb"></i> Teaching philosophy</h2>

@@ -7,6 +7,8 @@ lang: en
 nav: false
 ---
 
+<div style="margin-bottom: 1em;"><span style="display: inline-block; padding: 4px 12px; background: rgba(120,120,120,0.12); border: 1px solid rgba(120,120,120,0.5); border-radius: 14px; font-size: 0.82em; font-family: monospace; letter-spacing: 0.04em; text-transform: uppercase;">self-study</span> <span style="color: var(--global-text-color-light, #777); font-size: 0.9em; margin-left: 6px;">Self-study reference — no active cohort</span></div>
+
 <p style="font-size: 1.15em; line-height: 1.55; color: var(--global-text-color, #333); margin-bottom: 1.6em;">The classical machine-learning toolkit — linear and tree-based methods, SVMs, ensembles, clustering, dimensionality reduction, Bayesian learning — with the statistical learning theory underneath.</p>
 
 <div style="display: flex; flex-wrap: wrap; gap: 18px; margin: 1.4em 0 2em 0; font-size: 0.95em;">
