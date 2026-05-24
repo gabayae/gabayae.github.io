@@ -58,6 +58,54 @@ Ma formation est en mathématiques pures (Doctorat en topologie), prolongée par
 
 ---
 
+## Compétences
+
+Les quatre piliers ci-dessous reprennent la grille de compétences attendue dans les postes de consultant analytique avancé — chaque pilier renvoie à des livrables et à des preuves déjà présents sur le site ou dans le portfolio public.
+
+<div class="row row-cols-1 row-cols-md-2 g-5 mb-5">
+<div class="col">
+<div class="card hoverable h-100">
+<div class="card-body">
+<h4 class="card-title"><i class="fa-solid fa-chart-column" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Analytique avancée & modélisation</h4>
+<p class="card-text">Modélisation prédictive et prescriptive sur données publiques réelles — séries temporelles (SARIMA, modèles à espace d'état, GBM), GLMs (Poisson, Gamma, Tweedie), modèles de survie (Cox PH, Weibull AFT), classification (XGBoost) et apprentissage par renforcement (Q-learning, politiques basées LP). Validation par backtest à origine glissante, calibration et analyse Gini / lift.</p>
+<p class="card-text" style="font-size: 0.85rem;"><em>Preuves : <a href="https://gabayae.github.io/data-portfolio/fr/">portfolio de 13 projets</a> couvrant énergie (PJM, NASA POWER), assurance (freMTPL2), télécom (MTN), logistique sanitaire (Kenya KMPDC) et commerce (M5).</em></p>
+</div>
+</div>
+</div>
+
+<div class="col">
+<div class="card hoverable h-100">
+<div class="card-body">
+<h4 class="card-title"><i class="fa-solid fa-chart-pie" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Visualisation & reporting</h4>
+<p class="card-text">Reporting bilingue (EN/FR) approfondi, livré à la fois en notebooks Jupyter exécutés et en pages d'étude de cas accessibles aux décideurs. Tableaux de bord interactifs Streamlit en miroir du portfolio statique. Pile Python de visualisation (matplotlib, seaborn) couplée à un design éditorial statique avec cartes Open Graph, hreflang et données structurées.</p>
+<p class="card-text" style="font-size: 0.85rem;"><em>Preuves : <a href="https://gabayae.github.io/data-portfolio/fr/case-studies/">5 études de cas approfondies</a> + <a href="https://gabayae.github.io/data-portfolio/">jumeau Streamlit</a>.</em></p>
+</div>
+</div>
+</div>
+
+<div class="col">
+<div class="card hoverable h-100">
+<div class="card-body">
+<h4 class="card-title"><i class="fa-solid fa-microchip" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Développement IA & automatisation</h4>
+<p class="card-text">Systèmes IA de bout en bout : pipelines topologiques pour la détection précoce (surveillance épidémique par homologie persistante), politiques d'apprentissage par renforcement pour l'allocation de ressources, apprentissage profond géométrique et équivariant. Python de production avec annotations de type, services FastAPI et builds Docker reproductibles.</p>
+<p class="card-text" style="font-size: 0.85rem;"><em>Preuves : <a href="https://nostarch.com/shapeofdata">The Shape of Data</a> (No Starch, 2024), recherche TDA + RL sur <a href="/fr/projects/">projets</a> et <a href="/fr/publications/">publications</a>.</em></p>
+</div>
+</div>
+</div>
+
+<div class="col">
+<div class="card hoverable h-100">
+<div class="card-body">
+<h4 class="card-title"><i class="fa-solid fa-people-group" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Collaboration & gouvernance</h4>
+<p class="card-text">Recherche transversale à la frontière des mathématiques, de l'ingénierie et des métiers. Supervision de candidats MSc et PhD à AIMS, série d'ateliers AI.Technipreneurs pour les institutions africaines, mentorat ACAS, plus de 20 articles co-signés évalués par les pairs. À l'aise pour traduire entre ingénieurs données, chercheurs IA et décideurs.</p>
+<p class="card-text" style="font-size: 0.85rem;"><em>Preuves : <a href="/fr/teaching/">enseignement & ateliers</a>, <a href="/fr/publications/">150+ publications, h-index 12</a>.</em></p>
+</div>
+</div>
+</div>
+</div>
+
+---
+
 ## Secteurs d'intervention
 
 Je travaille dans plusieurs secteurs. La constante : je me soucie davantage de savoir si le modèle est juste que de savoir s'il impressionne. Secteurs dans lesquels je prends des missions :
