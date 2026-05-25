@@ -60,15 +60,15 @@ My background is pure mathematics (PhD in topology) plus applied machine learnin
 
 ## Capabilities
 
-The four pillars below mirror the competency framing used in advanced-analytics consultant roles — each pillar links to deliverables and evidence already in this site or in the public portfolio.
+Four pillars, in the vocabulary advanced-analytics consultant briefs tend to use. Each card points to evidence already on this site or in the public portfolio.
 
 <div class="row row-cols-1 row-cols-md-2 g-5 mb-5">
 <div class="col">
 <div class="card hoverable h-100">
 <div class="card-body">
 <h4 class="card-title"><i class="fa-solid fa-chart-column" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Advanced analytics & modeling</h4>
-<p class="card-text">Predictive and prescriptive modeling on real public data — time-series (SARIMA, state-space, GBM), GLMs (Poisson, Gamma, Tweedie), survival models (Cox PH, Weibull AFT), classification (XGBoost), and reinforcement learning (Q-learning, LP-based policies). Validation by rolling-origin backtest, calibration, Gini / top-decile lift.</p>
-<p class="card-text" style="font-size: 0.85rem;"><em>Evidence: <a href="https://gabayae.github.io/data-portfolio/">13-project portfolio</a> spanning energy (PJM, NASA POWER), insurance (freMTPL2), telecom (MTN), health logistics (Kenya KMPDC) and retail (M5).</em></p>
+<p class="card-text">Predictive and prescriptive modeling on real public data. Time-series (SARIMA, state-space models, GBM), GLMs (Poisson, Gamma, Tweedie), survival (Cox PH, Weibull AFT), classification (XGBoost), reinforcement learning (Q-learning, LP-based policies). Validation by rolling-origin backtest, calibration plots, Gini / top-decile lift.</p>
+<p class="card-text" style="font-size: 0.85rem;"><em>Evidence: <a href="https://gabayae.github.io/data-portfolio/">13-project portfolio</a> spanning energy (PJM, NASA POWER), insurance (freMTPL2), telecom (MTN), health logistics (Kenya KMPDC), and retail (M5).</em></p>
 </div>
 </div>
 </div>
@@ -77,7 +77,7 @@ The four pillars below mirror the competency framing used in advanced-analytics 
 <div class="card hoverable h-100">
 <div class="card-body">
 <h4 class="card-title"><i class="fa-solid fa-chart-pie" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Visualization & reporting</h4>
-<p class="card-text">Long-form bilingual (EN/FR) reporting that ships as both executable Jupyter notebooks and reader-facing case studies. Interactive Streamlit dashboards mirror the static portfolio. Python visualization stack (matplotlib, seaborn) plus editorial static-site design with OG cards, hreflang alternates and structured data.</p>
+<p class="card-text">Bilingual (EN/FR) reporting in two formats: executable Jupyter notebooks for technical readers, long-form case-study pages for everyone else. A Streamlit app doubles the static portfolio. Python visualization (matplotlib, seaborn) plus editorial static-site design with OG cards, hreflang alternates, and structured data.</p>
 <p class="card-text" style="font-size: 0.85rem;"><em>Evidence: <a href="https://gabayae.github.io/data-portfolio/case-studies/">5 long-form case studies</a> + <a href="https://gabayae.github.io/data-portfolio/">Streamlit twin</a>.</em></p>
 </div>
 </div>
@@ -87,7 +87,7 @@ The four pillars below mirror the competency framing used in advanced-analytics 
 <div class="card hoverable h-100">
 <div class="card-body">
 <h4 class="card-title"><i class="fa-solid fa-microchip" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>AI development & automation</h4>
-<p class="card-text">End-to-end AI systems: topological pipelines for early-warning (epidemic surveillance via persistent homology), reinforcement-learning policies for resource allocation, geometric and equivariant deep learning. Production-grade Python with type hints, FastAPI services and reproducible Docker builds.</p>
+<p class="card-text">Applied AI systems built end to end. Research side: topological pipelines for early-warning detection (epidemic surveillance via persistent homology), RL policies for resource allocation, geometric and equivariant deep learning. Engineering side: typed Python, FastAPI services, reproducible Docker builds.</p>
 <p class="card-text" style="font-size: 0.85rem;"><em>Evidence: <a href="https://nostarch.com/shapeofdata">The Shape of Data</a> (No Starch, 2024), TDA + RL research on <a href="/en/projects/">projects</a> and <a href="/en/publications/">publications</a>.</em></p>
 </div>
 </div>
@@ -97,7 +97,7 @@ The four pillars below mirror the competency framing used in advanced-analytics 
 <div class="card hoverable h-100">
 <div class="card-body">
 <h4 class="card-title"><i class="fa-solid fa-people-group" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Collaboration & governance</h4>
-<p class="card-text">Cross-functional research at the boundary of mathematics, engineering and business. Supervision of MSc and PhD candidates at AIMS, the AI.Technipreneurs workshop series for African institutions, ACAS mentoring, and 20+ co-authored peer-reviewed papers. Comfortable translating between data engineers, AI scientists and decision-makers.</p>
+<p class="card-text">Research across mathematics, engineering, and business teams. MSc and PhD supervision at AIMS, the AI.Technipreneurs workshop series for African institutions, ACAS mentoring, 20+ co-authored peer-reviewed papers. Used to translating between data engineers, AI scientists, and the people who have to act on what the model says.</p>
 <p class="card-text" style="font-size: 0.85rem;"><em>Evidence: <a href="/en/teaching/">teaching & workshops</a>, <a href="/en/publications/">150+ publications, h-index 12</a>.</em></p>
 </div>
 </div>
