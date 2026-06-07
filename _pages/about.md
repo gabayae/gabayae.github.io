@@ -105,7 +105,7 @@ I teach graduate courses, short courses, and industry workshops at AIMS centres,
 - <span class="kw">Applied Mathematics</span>: Probability, Stochastic Modeling, Quantitative Finance, Mathematical Programming, Simulation
 - <span class="kw">Data Science & ML</span>: TDA, Geometric Deep Learning, Deep RL, NLP, MLOps, Cloud Analytics (Azure)
 
-Organizer of the <span class="kw"><a href="https://wocomtoqc.github.io/" target="_blank">Workshop on Computational Topology & Quantum Computing (WoComToQC)</a></span>. Regular instructor for <a href="https://www.datascienceafrica.org/" target="_blank">Data Science Africa</a> and <a href="https://github.com/AI-Technipreneurs" target="_blank">Data Science Makers</a>. Most of my mentees are early-career African scientists; I treat that part of the job as load-bearing, not extracurricular.
+Organizer of the <span class="kw"><a href="https://wocomtoqc.github.io/" target="_blank">Workshop on Computational Topology & Quantum Computing (WoComToQC)</a></span>. Regular instructor for <a href="https://www.datascienceafrica.org/" target="_blank">Data Science Africa</a> and <a href="https://airina-labs.github.io/AIRINA-Labs/" target="_blank">Data Science Makers</a>. Most of my mentees are early-career African scientists; I treat that part of the job as load-bearing, not extracurricular.
 
 <div class="profile-links">
 <a href="{{ '/en/teaching/' | relative_url }}"><i class="fa-solid fa-book-open"></i> Full course catalogue</a>

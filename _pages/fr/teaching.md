@@ -314,7 +314,7 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 <div class="card-body">
 <p>Une sélection de supports de cours, notebooks et slides sont disponibles en ligne :</p>
 <ul class="course-list">
-<li><a href="https://github.com/AI-Technipreneurs">AI-Technipreneurs GitHub</a> — Matériel de formation en science des données & ML</li>
+<li><a href="https://airina-labs.github.io/AIRINA-Labs/">AIRINA Labs</a> — Matériel de formation en science des données & ML</li>
 <li><a href="{{ '/courses/topologie-generale/' | relative_url }}">Topologie Générale — Notes de cours</a></li>
 <li><a href="{{ '/courses/tda/' | relative_url }}">TDA avec Python — Notebooks</a></li>
 <li><a href="{{ '/courses/apprentissage-renforcement/' | relative_url }}">Apprentissage par Renforcement Profond — Slides & Code</a></li>

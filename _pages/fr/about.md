@@ -105,7 +105,7 @@ J'enseigne des cours de master, des formations courtes et des ateliers industrie
 - <span class="kw">Mathématiques appliquées</span>: Probabilités, Modélisation stochastique, Finance quantitative, Programmation mathématique, Simulation
 - <span class="kw">Science des données & ML</span>: TDA, Apprentissage géométrique profond, RL profond, TAL, MLOps, Analytique cloud (Azure)
 
-Organisateur du <span class="kw"><a href="https://wocomtoqc.github.io/" target="_blank">Workshop on Computational Topology & Quantum Computing (WoComToQC)</a></span>. Formateur régulier pour <a href="https://www.datascienceafrica.org/" target="_blank">Data Science Africa</a> et <a href="https://github.com/AI-Technipreneurs" target="_blank">Data Science Makers</a>. La plupart de mes encadrés sont des scientifiques africains en début de carrière ; je traite cette partie du métier comme essentielle, pas comme extra-scolaire.
+Organisateur du <span class="kw"><a href="https://wocomtoqc.github.io/" target="_blank">Workshop on Computational Topology & Quantum Computing (WoComToQC)</a></span>. Formateur régulier pour <a href="https://www.datascienceafrica.org/" target="_blank">Data Science Africa</a> et <a href="https://airina-labs.github.io/AIRINA-Labs/" target="_blank">Data Science Makers</a>. La plupart de mes encadrés sont des scientifiques africains en début de carrière ; je traite cette partie du métier comme essentielle, pas comme extra-scolaire.
 
 <div class="profile-links">
 <a href="{{ '/fr/teaching/' | relative_url }}"><i class="fa-solid fa-book-open"></i> Catalogue complet des cours</a>
