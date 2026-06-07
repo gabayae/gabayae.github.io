@@ -142,7 +142,7 @@ Je conseille des équipes de recherche et des startups sur l'application de mét
 
 J'encadre des thèses à l'IMSP et à AIMS, j'accompagne de jeunes chercheurs africains via l'ACAS, et je reste en lien avec les anciens des cohortes après leur sortie du bootcamp. C'est la partie lente, à horizon long, du métier ; c'est aussi celle à laquelle je tiens le plus.
 
-- <span class="kw">Direction de thèse</span> : étudiants de master et de doctorat à l'IMSP et dans les centres AIMS — topologie appliquée aux données, théorie des points fixes, ML géométrique, IA appliquée aux problèmes africains
+- <span class="kw">Supervision de mémoire</span> : étudiants de master à l'IMSP — topologie appliquée aux données, théorie des points fixes, ML géométrique, IA appliquée aux problèmes africains
 - <span class="kw">Accompagnement de jeunes chercheurs</span> : via <a href="https://acas-yde.org/" target="_blank">l'ACAS</a>, pour des chercheurs africains au stade postdoctoral et en début de carrière universitaire, en IA, mathématiques et recherche quantitative
 - <span class="kw">Suivi des anciens du bootcamp</span> : les participants au Bootcamp conservent l'accès à un canal Slack de pairs et à un échange 1-à-1 avec l'instructeur pendant 3 mois après leur cohorte
 
