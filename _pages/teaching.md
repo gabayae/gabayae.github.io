@@ -346,7 +346,7 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 
 <h2 class="teaching-section-header"><i class="fa-solid fa-rocket"></i> Intensive bootcamps (8–12 weeks)</h2>
 
-<p>Cohort programs run through <a href="https://github.com/AI-Technipreneurs" target="_blank">AIRINA Labs</a> for working professionals and graduate students who want an intensive path to deployable ML systems, rather than a semester-long course. Open to corporate cohorts (banks, telecoms, insurance, public sector) and individual enrolment.</p>
+<p>Cohort programs run through <a href="https://airina-labs.github.io/AIRINA-Labs/" target="_blank">AIRINA Labs</a> for working professionals and graduate students who want an intensive path to deployable ML systems, rather than a semester-long course. Open to corporate cohorts (banks, telecoms, insurance, public sector) and individual enrolment.</p>
 
 <div class="card hoverable mb-4">
 <div class="card-body">

@@ -5,7 +5,7 @@ permalink: /en/
 lang: en
 subtitle: >
   Researcher · Educator · Consultant —
-  <a href='https://github.com/AI-Technipreneurs'>AIRINA Labs</a> ·
+  <a href='https://airina-labs.github.io/AIRINA-Labs/'>AIRINA Labs</a> ·
   <a href='https://acas-yde.org/'>African Centre for Advanced Studies (ACAS)</a>
 
 stats:
@@ -38,7 +38,7 @@ latest_posts:
   limit: 3
 ---
 
-I develop mathematical methods for the shape and structure of data, and I work in three modes: <span class="kw">research</span>, <span class="kw">teaching</span>, and <span class="kw">consulting</span>. PhD in topology (<a href="https://www.uct.ac.za/" target="_blank">UCT</a>), MSc from <a href="https://www.aust.edu.ng/" target="_blank">AUST</a>. My current work applies topological and geometric methods to machine learning, AI safety, and quantum-classical computation, on problems that show up in African contexts — epidemic surveillance, credit risk for unbanked populations, energy demand forecasting. As Head of R&D at <a href="https://github.com/AI-Technipreneurs" target="_blank">AIRINA Labs</a>, I lead a team of over 10 researchers across six African countries; sector coverage includes banking, energy, insurance, IT, and retail. I am also co-founder of <a href="https://ai-technipreneurs.com/" target="_blank">AI-Technipreneurs</a>, a Benin-based firm with offices in Togo, building custom software, data and analytics platforms, and digital-transformation training for African enterprises. The research and the consulting feed each other; neither is a side activity.
+I develop mathematical methods for the shape and structure of data, and I work in three modes: <span class="kw">research</span>, <span class="kw">teaching</span>, and <span class="kw">consulting</span>. PhD in topology (<a href="https://www.uct.ac.za/" target="_blank">UCT</a>), MSc from <a href="https://www.aust.edu.ng/" target="_blank">AUST</a>. My current work applies topological and geometric methods to machine learning, AI safety, and quantum-classical computation, on problems that show up in African contexts — epidemic surveillance, credit risk for unbanked populations, energy demand forecasting. As Head of R&D at <a href="https://airina-labs.github.io/AIRINA-Labs/" target="_blank">AIRINA Labs</a>, I lead a team of over 10 researchers across six African countries; sector coverage includes banking, energy, insurance, IT, and retail. I am also co-founder of <a href="https://ai-technipreneurs.com/" target="_blank">AI-Technipreneurs</a>, a Benin-based firm with offices in Togo, building custom software, data and analytics platforms, and digital-transformation training for African enterprises. The research and the consulting feed each other; neither is a side activity.
 
 <div class="profile-sections">
 
@@ -82,7 +82,7 @@ My mathematical foundations are in <span class="kw">asymmetric topology</span> a
 
 </div>
 
-Co-author of <a href="https://nostarch.com/shapeofdata" target="_blank"><em>The Shape of Data</em></a> (No Starch Press). Currently at <a href="https://github.com/AI-Technipreneurs" target="_blank">AIRINA Labs</a> and <a href="https://acas-yde.org/" target="_blank">ACAS</a>. Previously at <a href="https://quantumleapafrica.org/" target="_blank">Quantum Leap Africa</a>, <a href="https://www.nwu.ac.za/" target="_blank">North-West University</a>, and <a href="https://imsp-benin.com/" target="_blank">IMSP</a>.
+Co-author of <a href="https://nostarch.com/shapeofdata" target="_blank"><em>The Shape of Data</em></a> (No Starch Press). Currently at <a href="https://airina-labs.github.io/AIRINA-Labs/" target="_blank">AIRINA Labs</a> and <a href="https://acas-yde.org/" target="_blank">ACAS</a>. Previously at <a href="https://quantumleapafrica.org/" target="_blank">Quantum Leap Africa</a>, <a href="https://www.nwu.ac.za/" target="_blank">North-West University</a>, and <a href="https://imsp-benin.com/" target="_blank">IMSP</a>.
 
 <div class="profile-links">
 <a href="{{ '/en/publications/' | relative_url }}"><i class="fa-solid fa-file-lines"></i> Publications</a>

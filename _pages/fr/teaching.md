@@ -281,7 +281,7 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 
 <h2 class="teaching-section-header"><i class="fa-solid fa-rocket"></i> Bootcamps intensifs (8–12 semaines)</h2>
 
-<p>Programmes en cohorte conçus avec <a href="https://github.com/AI-Technipreneurs" target="_blank">AIRINA Labs</a>, destinés aux professionnels en activité et aux étudiants de master qui veulent un parcours intensif vers des systèmes de ML déployables, plutôt qu'un cours étalé sur un semestre. Ouverts aux cohortes d'entreprise (banque, télécom, assurance, secteur public) et aux inscriptions individuelles.</p>
+<p>Programmes en cohorte conçus avec <a href="https://airina-labs.github.io/AIRINA-Labs/" target="_blank">AIRINA Labs</a>, destinés aux professionnels en activité et aux étudiants de master qui veulent un parcours intensif vers des systèmes de ML déployables, plutôt qu'un cours étalé sur un semestre. Ouverts aux cohortes d'entreprise (banque, télécom, assurance, secteur public) et aux inscriptions individuelles.</p>
 
 <div class="card hoverable mb-4">
 <div class="card-body">

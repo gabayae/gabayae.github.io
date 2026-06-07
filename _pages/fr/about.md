@@ -5,7 +5,7 @@ permalink: /fr/
 lang: fr
 subtitle: >
   Chercheur · Enseignant · Consultant —
-  <a href='https://github.com/AI-Technipreneurs'>AIRINA Labs</a> ·
+  <a href='https://airina-labs.github.io/AIRINA-Labs/'>AIRINA Labs</a> ·
   <a href='https://acas-yde.org/'>Centre Africain d'Études Avancées (ACAS)</a>
 
 stats:
@@ -38,7 +38,7 @@ latest_posts:
   limit: 3
 ---
 
-Je développe des méthodes mathématiques pour la forme et la structure des données, dans trois modes : <span class="kw">recherche</span>, <span class="kw">enseignement</span> et <span class="kw">conseil</span>. Doctorat en topologie (<a href="https://www.uct.ac.za/" target="_blank">UCT</a>), Master de l'<a href="https://www.aust.edu.ng/" target="_blank">AUST</a>. Mes travaux actuels appliquent les méthodes topologiques et géométriques à l'apprentissage automatique, à la sûreté de l'IA et au calcul quantique-classique, sur des problèmes qui se posent dans des contextes africains — surveillance épidémiologique, scoring de crédit pour les populations non bancarisées, prévision de la demande énergétique. En tant que Directeur R&D d'<a href="https://github.com/AI-Technipreneurs" target="_blank">AIRINA Labs</a>, je dirige une équipe de plus de 10 chercheurs répartie sur six pays africains ; les secteurs couverts incluent banque, énergie, assurance, IT et retail. Je suis également co-fondateur d'<a href="https://ai-technipreneurs.com/" target="_blank">AI-Technipreneurs</a>, une société basée au Bénin avec des bureaux au Togo, qui développe des logiciels sur mesure, des plateformes de données et d'analyse, et des formations à la transformation numérique pour les entreprises africaines. La recherche et le conseil se nourrissent l'un l'autre ; aucun des deux n'est une activité annexe.
+Je développe des méthodes mathématiques pour la forme et la structure des données, dans trois modes : <span class="kw">recherche</span>, <span class="kw">enseignement</span> et <span class="kw">conseil</span>. Doctorat en topologie (<a href="https://www.uct.ac.za/" target="_blank">UCT</a>), Master de l'<a href="https://www.aust.edu.ng/" target="_blank">AUST</a>. Mes travaux actuels appliquent les méthodes topologiques et géométriques à l'apprentissage automatique, à la sûreté de l'IA et au calcul quantique-classique, sur des problèmes qui se posent dans des contextes africains — surveillance épidémiologique, scoring de crédit pour les populations non bancarisées, prévision de la demande énergétique. En tant que Directeur R&D d'<a href="https://airina-labs.github.io/AIRINA-Labs/" target="_blank">AIRINA Labs</a>, je dirige une équipe de plus de 10 chercheurs répartie sur six pays africains ; les secteurs couverts incluent banque, énergie, assurance, IT et retail. Je suis également co-fondateur d'<a href="https://ai-technipreneurs.com/" target="_blank">AI-Technipreneurs</a>, une société basée au Bénin avec des bureaux au Togo, qui développe des logiciels sur mesure, des plateformes de données et d'analyse, et des formations à la transformation numérique pour les entreprises africaines. La recherche et le conseil se nourrissent l'un l'autre ; aucun des deux n'est une activité annexe.
 
 <div class="profile-sections">
 
@@ -82,7 +82,7 @@ Mes fondements mathématiques sont en <span class="kw">topologie asymétrique</s
 
 </div>
 
-Co-auteur de <a href="https://nostarch.com/shapeofdata" target="_blank"><em>The Shape of Data</em></a> (No Starch Press). Actuellement à <a href="https://github.com/AI-Technipreneurs" target="_blank">AIRINA Labs</a> et au <a href="https://acas-yde.org/" target="_blank">ACAS</a>. Précédemment à <a href="https://quantumleapafrica.org/" target="_blank">Quantum Leap Africa</a>, <a href="https://www.nwu.ac.za/" target="_blank">North-West University</a> et <a href="https://imsp-benin.com/" target="_blank">IMSP</a>.
+Co-auteur de <a href="https://nostarch.com/shapeofdata" target="_blank"><em>The Shape of Data</em></a> (No Starch Press). Actuellement à <a href="https://airina-labs.github.io/AIRINA-Labs/" target="_blank">AIRINA Labs</a> et au <a href="https://acas-yde.org/" target="_blank">ACAS</a>. Précédemment à <a href="https://quantumleapafrica.org/" target="_blank">Quantum Leap Africa</a>, <a href="https://www.nwu.ac.za/" target="_blank">North-West University</a> et <a href="https://imsp-benin.com/" target="_blank">IMSP</a>.
 
 <div class="profile-links">
 <a href="{{ '/fr/publications/' | relative_url }}"><i class="fa-solid fa-file-lines"></i> Publications</a>

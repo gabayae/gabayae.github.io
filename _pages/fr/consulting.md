@@ -193,7 +193,7 @@ Je travaille dans plusieurs secteurs. La constante : je me soucie davantage de s
 
 J'ai travaillé avec et à travers les organisations suivantes :
 
-- **[AI.Technipreneurs / AIRINA Labs](https://github.com/AI-Technipreneurs)**: Recherche et innovation en IA pour l'Afrique
+- **[AIRINA Labs](https://airina-labs.github.io/AIRINA-Labs/)**: Recherche et innovation en IA pour l'Afrique
 - **[Centre Africain d'Études Avancées (ACAS)](https://acas-yde.org/)**: Recherche et mentorat pour les chercheurs africains
 
 ---

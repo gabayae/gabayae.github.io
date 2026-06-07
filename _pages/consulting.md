@@ -193,7 +193,7 @@ I work across sectors. The constant: I care more about whether the model is righ
 
 I've worked with and through the following organizations:
 
-- **[AI.Technipreneurs / AIRINA Labs](https://github.com/AI-Technipreneurs)**: AI research and innovation for Africa
+- **[AIRINA Labs](https://airina-labs.github.io/AIRINA-Labs/)**: AI research and innovation for Africa
 - **[African Centre for Advanced Studies (ACAS)](https://acas-yde.org/)**: Research and mentoring for African scholars
 
 ---
