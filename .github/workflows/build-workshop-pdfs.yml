@@ -1,0 +1,55 @@
+name: Build workshop PDFs
+
+# Compile the LaTeX source for the Mathematical Foundations of Modern AI
+# workshop into PDFs and commit them back to the repo. Triggers only when
+# the .tex source changes, so the PDF commit (which contains no .tex) does
+# not re-trigger this workflow.
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "workshops/math-foundations-modern-ai/**/*.tex"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-pdfs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build EN — notes.pdf
+        uses: xu-cheng/latex-action@v3
+        with:
+          working_directory: workshops/math-foundations-modern-ai/en
+          root_file: notes.tex
+          latexmk_use_xelatex: true
+          latexmk_shell_escape: true
+          extra_system_packages: "py3-pygments"
+
+      - name: Build FR — cours.pdf
+        uses: xu-cheng/latex-action@v3
+        with:
+          working_directory: workshops/math-foundations-modern-ai/fr
+          root_file: cours.tex
+          latexmk_use_xelatex: true
+          latexmk_shell_escape: true
+          extra_system_packages: "py3-pygments"
+
+      - name: Commit PDFs
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add workshops/math-foundations-modern-ai/en/notes.pdf workshops/math-foundations-modern-ai/fr/cours.pdf
+          if git diff --cached --quiet; then
+            echo "No PDF changes to commit."
+          else
+            git commit -m "Build workshop PDFs from latest .tex source"
+            git push
+          fi
