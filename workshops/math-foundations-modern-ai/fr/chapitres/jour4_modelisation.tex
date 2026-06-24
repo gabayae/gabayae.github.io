@@ -1,17 +1,148 @@
 \chapter{Modélisation pour l'IA}
 \label{ch:jour4}
 
+\begin{quote}
+\emph{\og L'architecture que vous choisissez est le prior que vous placez sur quelles fonctions sont faciles à apprendre. Tout le reste est de l'optimisation d'hyperparamètres par-dessus ce prior. \fg}
+\end{quote}
+
+% ============================================================
+Les Jours 1 à 3 ont construit la machinerie : vecteurs, gradients, vraisemblances. Chaque modèle a été un MLP --- le défaut d'approximation universelle, capable en principe de représenter n'importe quoi mais capable en pratique de représenter très peu avant que son nombre de paramètres n'explose. Les systèmes réels utilisent des CNN, des GNN, des Transformers, des U-Net, de l'attention à positions relatives. Ce ne sont pas des choix d'ingénierie arbitraires. Chaque architecture est un \emph{prior} : un énoncé sur les types de fonctions qui sont plausibles, cuisiné dans le modèle avant qu'aucune donnée d'entraînement ne soit vue.
+
+Ce chapitre traite de comment ce prior est encodé. Le nom général est \emph{biais inductif}. Le vocabulaire technique précis est \emph{invariance} et \emph{équivariance}. La question pratique est : étant donné un problème réel, comment choisir --- ou concevoir --- une architecture dont les biais correspondent à la structure de vos données ?
+
+\section{Biais inductif : le prior qu'une architecture encode}
+
+Deux modèles peuvent avoir le même pouvoir expressif --- le même ensemble de fonctions qu'ils peuvent en principe représenter --- et pourtant apprendre très différemment des mêmes données. La différence, c'est avec quelle facilité chacun peut trouver une bonne fonction par descente de gradient. Cette différence est le biais inductif.
+
+\begin{definition}[Biais inductif]
+L'ensemble des hypothèses, encodées dans l'architecture et dans la perte, qui déterminent quelles fonctions le modèle préfère en l'absence de données. De manière équivalente : le prior sur les fonctions induit par l'entraînement du modèle.
+\end{definition}
+
+Le théorème d'approximation universelle du Jour 1 dit qu'un MLP à une couche cachée peut en principe approximer toute fonction continue. Il ne dit rien sur combien de paramètres cela demande, ni sur combien de données sont nécessaires pour trouver la bonne fonction. Pour un problème de classification d'images avec $10^9$ arrangements de pixels, un MLP de largeur suffisante existe --- vous n'aurez ni assez de données ni assez de temps pour le trouver. Un CNN, avec le bon biais inductif, le trouve.
+
+\begin{intuition}
+Le biais inductif, c'est la différence entre \emph{peut représenter} et \emph{peut apprendre à partir de données réalistes}. L'architecture est la partie du modèle où vous, le concepteur, êtes autorisé à dire : \og Je sais quelque chose sur ce problème. Voici la structure. \fg
+\end{intuition}
+
+\section{Contraintes et régularisation}
+
+Le premier type de biais est celui que nous avons introduit la semaine passée sans le nommer : la régularisation. L'objectif d'entraînement non contraint est juste la perte sur les données d'entraînement. Ajouter une pénalité change le problème :
+\[
+\min_\theta \; \mathcal{L}(\theta) + \lambda \, R(\theta).
+\]
+$R$ encode quels types de $\theta$ nous préférons en l'absence de données --- typiquement des paramètres simples, à norme petite, ou parcimonieux. $\lambda$ contrôle à quel point cette préférence domine.
+
+\paragraph{Régularisation $L^2$ (\emph{weight decay}).} $R(\theta) = \|\theta\|^2$. Tire les poids vers zéro. Équivaut, sous une interprétation bayésienne, à un prior gaussien sur les poids.
+
+\paragraph{Régularisation $L^1$.} $R(\theta) = \|\theta\|_1$. Tire les poids vers zéro et tend à les rendre exactement nuls. Utile quand la parcimonie est réellement significative (sélection de variables, \emph{compressed sensing}).
+
+\paragraph{Dropout (Srivastava et al., 2014).} À chaque pas d'entraînement, mettre aléatoirement une fraction des activations cachées à zéro. Le modèle entraîné se comporte comme un ensemble. Ce n'est pas une pénalité dans la perte, mais joue le même rôle en pratique.
+
+La régularisation est la forme la plus douce du biais inductif : elle change le paysage de la perte, elle ne change pas le modèle. Les deux sections suivantes décrivent des biais qui changent le modèle lui-même.
+
+\section{Invariance et équivariance}
+
+Le second type de biais est structurel. Il dit : \emph{la fonction que nous voulons apprendre a une symétrie, et l'architecture doit respecter cette symétrie}.
+
+\begin{definition}[Invariance et équivariance]
+Une fonction $f$ est \emph{invariante} sous une transformation $g$ si $f(g(\bm{x})) = f(\bm{x})$ pour tout $\bm{x}$. Elle est \emph{équivariante} si $f(g(\bm{x})) = g(f(\bm{x}))$ : appliquer la transformation à l'entrée revient à l'appliquer à la sortie.
+\end{definition}
+
+Les tâches de classification sont typiquement invariantes sous des transformations qui préservent l'identité : une image de chat reste un chat après translation, une phrase reste \og sentiment positif \fg\ après passage à des synonymes, une molécule garde la même activité après rotation. La fonction que nous voulons apprendre doit respecter cette invariance, et une architecture qui l'intègre n'a pas à l'apprendre à partir des données.
+
+Beaucoup de couches intermédiaires sont équivariantes plutôt qu'invariantes : une carte de caractéristiques doit se translater quand son entrée se translate, pour qu'une couche ultérieure puisse poolinger les caractéristiques translatées en quelque chose d'invariant. La recette standard est une pile de couches équivariantes terminée par une étape de pooling invariant.
+
+\section{CNN : équivariance par translation pour les grilles}
+
+Les données d'image vivent sur une grille régulière. Un chat translaté de dix pixels vers la droite est toujours un chat. Si nous voulons que l'architecture le sache, il faut l'équivariance par translation.
+
+\begin{proposition}[La convolution est équivariante par translation]
+Soit $T_d$ la translation de $d$ pixels et $K$ un filtre convolutionnel. Alors $K \star (T_d \bm{x}) = T_d (K \star \bm{x})$ pour tout $\bm{x}$ et tout $d$. L'opération de convolution commute avec la translation ; par conséquent, toute fonction construite uniquement de convolutions et de non-linéarités ponctuelles est équivariante par translation.
+\end{proposition}
+
+Une couche convolutionnelle avec des filtres $k \times k$ a $k \cdot k \cdot C_{\text{in}} \cdot C_{\text{out}}$ paramètres, quelle que soit la taille de l'image. Une couche MLP projetant la même image vers la même sortie aurait $H \cdot W \cdot C_{\text{in}} \cdot H \cdot W \cdot C_{\text{out}}$ paramètres --- quatre ordres de grandeur de plus pour une image typique. La convolution est dramatiquement plus efficace en paramètres \emph{parce que} les mêmes poids sont partagés à travers toutes les positions spatiales, ce qui est exactement ce que demande l'équivariance par translation.
+
 \begin{aitip}
-Ce chapitre est en cours de rédaction. Le cours est esquissé ci-dessous ; le texte complet sera publié dans la prochaine itération de l'atelier. Le syllabus et le notebook de TP de cette journée sont déjà disponibles.
+Les réseaux convolutionnels n'ont pas été conçus en ajustant des hyperparamètres jusqu'à ce que quelque chose marche sur ImageNet. Ils ont été conçus par Yann LeCun dans les années 1980 en partant de l'équivariance par translation et du partage de poids comme principes. Le succès des CNN sur les images est une confirmation que le bon biais inductif vaut plus que la seule échelle des données --- bien que depuis 2020, les Transformers avec assez de données et assez d'échelle aient montré que même des biais inductifs très faibles peuvent être surmontés par un entraînement suffisant (Dosovitskiy et al., 2021).
 \end{aitip}
 
-\section*{Sections prévues}
+\section{GNN : équivariance par permutation pour les graphes}
+
+Les données de graphes ont une symétrie différente. Un graphe est un ensemble de nœuds connectés par des arêtes. Renuméroter les nœuds ($1 \to 7, 2 \to 3, \ldots$) donne le même graphe en tant qu'objet mathématique. Une fonction sur les graphes doit traiter deux renumérotations comme équivalentes.
+
+\begin{definition}[Équivariance par permutation pour les caractéristiques de nœuds]
+Soit $P$ une matrice de permutation agissant sur les nœuds d'un graphe. Une fonction $f$ sur les caractéristiques de nœuds est équivariante par permutation si $f(P \bm{X}, P A P^\top) = P f(\bm{X}, A)$, où $\bm{X}$ est la matrice de caractéristiques de nœuds et $A$ est la matrice d'adjacence.
+\end{definition}
+
+Les réseaux de neurones sur graphes à passage de messages (Gilmer et al., 2017) atteignent cela en calculant la nouvelle représentation de chaque nœud comme une agrégation des représentations actuelles de ses voisins, en utilisant seulement des agrégations invariantes par permutation (somme, moyenne, max). La mise à jour pour le nœud $v$ à la couche $\ell+1$ est :
+\[
+\bm{h}_v^{(\ell+1)} = \phi\!\left( \bm{h}_v^{(\ell)}, \; \bigoplus_{u \in \mathcal{N}(v)} \psi(\bm{h}_v^{(\ell)}, \bm{h}_u^{(\ell)}) \right)
+\]
+où $\bigoplus$ est un agrégateur invariant par permutation (le plus souvent somme ou moyenne), et $\phi, \psi$ sont de petits réseaux de neurones (typiquement des MLP) à paramètres appris.
+
+Pour des sorties au niveau du graphe (classer le graphe entier), un dernier pooling invariant par permutation est ajouté : sommer ou moyenner les représentations de nœuds.
+
+\section{Attention et Transformers}
+
+Un Transformer (Vaswani et al., 2017) traite l'entrée comme un ensemble non ordonné de jetons et calcule des interactions par paires via l'attention. L'opération d'attention est elle-même équivariante par permutation --- l'encodage positionnel est ajouté précisément parce qu'on veut habituellement que le modèle connaisse l'ordre, et l'attention pure serait aveugle à l'ordre.
+
+\begin{definition}[Auto-attention]
+Étant donnée une séquence de vecteurs $\bm{X} = [\bm{x}_1, \ldots, \bm{x}_n]$, l'auto-attention calcule :
+\[
+\bm{Q} = \bm{X} W_Q, \quad \bm{K} = \bm{X} W_K, \quad \bm{V} = \bm{X} W_V, \quad \bm{A} = \mathrm{softmax}\!\left( \tfrac{\bm{Q} \bm{K}^\top}{\sqrt{d_k}} \right), \quad \bm{Y} = \bm{A} \bm{V}.
+\]
+$\bm{Q}, \bm{K}, \bm{V}$ sont des projections linéaires de l'entrée. $\bm{A}$ est une matrice $n \times n$ de poids par paires. Chaque sortie est une moyenne pondérée de toutes les entrées, où les poids dépendent du contenu.
+\end{definition}
+
+\begin{intuition}
+La convolution agrège l'information depuis des voisins spatiaux avec des poids fixes. L'attention agrège l'information depuis \emph{toutes} les positions avec des poids qui dépendent du contenu. Une couche convolutionnelle demande \og qu'y a-t-il ici ? \fg\ L'attention demande \og qu'est-ce qui ici ressemble à ce que je cherche, et où ? \fg\ La première est structurelle, la seconde est associative. Les deux s'avèrent utiles, et l'image moderne (Vision Transformers, architectures hybrides, MoE) consiste largement à les combiner.
+\end{intuition}
+
+\section{Choisir une architecture : l'exercice de correspondance}
+
+Étant donné un problème réel, le mouvement de conception consiste à identifier les symétries des données et à choisir une architecture dont les biais inductifs leur correspondent :
+
 \begin{itemize}
-  \item Optimisation contrainte et non contrainte ; régularisation comme contraintes molles.
-  \item Invariance et équivariance : quelles symétries le modèle doit-il respecter ?
-  \item Architectures spécialisées (CNN, GNN, attention) comme biais inductif.
-  \item Traduire un problème réel en problème d'apprentissage : choix des entrées, des cibles, de la fonction de perte, de la métrique d'évaluation.
+  \item \textbf{Grille régulière avec symétrie de translation} (images, spectrogrammes audio, capteurs denses) $\to$ CNN.
+  \item \textbf{Séquence où l'ordre compte} (texte, séries temporelles, formes d'onde audio) $\to$ RNN historiquement, Transformer en pratique aujourd'hui.
+  \item \textbf{Graphe ou ensemble} (molécules, réseaux sociaux, nuages de points, systèmes de particules) $\to$ GNN, DeepSets, réseaux pour nuages de points.
+  \item \textbf{Ensemble avec équivariance par translation/rotation} (molécules 3D, systèmes physiques avec lois de conservation) $\to$ réseaux équivariants (SE(3)-Transformers, EGNN).
+  \item \textbf{Caractéristiques tabulaires hétérogènes} (lignes de base de données) $\to$ MLP ou arbres boostés. Le prior du deep learning vous rapporte peu ici.
 \end{itemize}
 
+Là où il n'y a pas de symétrie évidente, un MLP est le défaut sûr, et les arbres (XGBoost, LightGBM) battent fréquemment tout réseau de neurones. Le bon biais inductif fait un vrai travail ; le mauvais biais inductif est juste une contrainte arbitraire qui vous ralentit.
+
+\section{Traduire un problème réel en problème d'apprentissage}
+
+Le choix d'architecture est l'une de quatre décisions interdépendantes à prendre au moment de cadrer un problème d'apprentissage :
+
+\begin{enumerate}
+  \item \textbf{Entrées.} Quelle information le modèle voit-il réellement ? Brute, ou featurisée ? À quelle granularité (pixel, jeton, transaction, jour) ?
+  \item \textbf{Cibles.} Que le modèle essaie-t-il de prédire ? Une classe ? Un réel ? Une distribution ? Une séquence ?
+  \item \textbf{Perte.} Comment mesure-t-on \og faux \fg ? Entropie croisée, MSE, contrastif, sur-mesure ?
+  \item \textbf{Métrique d'évaluation.} Comment déclare-t-on le succès ? Souvent \emph{pas} la même chose que la perte --- la précision n'est pas différentiable, mais c'est ce qui intéresse l'utilisateur.
+\end{enumerate}
+
+Quand un projet échoue, l'architecture n'est généralement pas le problème. Le problème est généralement que l'une de ces quatre était mauvaise. L'exemple célèbre : un modèle entraîné à prédire une pneumonie depuis des radios thoraciques qui a appris à prédire la machine à radio de l'hôpital, parce que cette information a fuité dans l'entrée. Mauvaises entrées. Solution différente de \og ajouter plus de couches \fg.
+
+\begin{intuition}
+L'architecture est la plus petite des quatre décisions. Entrées, cibles, perte et métrique déterminent si le problème est bien posé ; l'architecture ne fait que déterminer si un problème bien posé peut être résolu efficacement. Une longue carrière en ML est surtout une question de bien cadrer --- pas une question de choisir le bon nombre de couches.
+\end{intuition}
+
+\section{Ce que vous avez vu}
+
+Chaque réseau de neurones est un approximateur de fonctions avec un prior intégré --- le biais inductif. Les CNN encodent l'équivariance par translation pour des données en grille ; les GNN encodent l'équivariance par permutation pour les graphes ; les Transformers remplacent les priors structurels par une agrégation pondérée basée sur le contenu. Choisir une architecture, c'est choisir un prior, et ce choix compte bien plus que la taille du réseau. Autour de ce choix se trouve le problème plus vaste du cadrage : entrées, cibles, perte et métrique d'évaluation doivent toutes s'aligner avant qu'aucune architecture ne puisse faire un travail utile.
+
+Le Jour 5, le chapitre final, pose la question que nous avons remise depuis le début : comment savons-nous que le modèle apprend réellement la bonne chose, et ne mémorise pas le jeu de données ou n'exploite pas un artefact ?
+
 \section*{Travail pratique}
-Le notebook du Jour 4 (\texttt{Day4\_Modeling\_InductiveBias.ipynb}) compare un MLP, un CNN et un petit GNN sur une tâche structurée en graphe, montrant comment le biais inductif change l'efficacité en échantillons.
+
+Ouvrez le notebook du Jour 4 (\texttt{Day4\_Modeling\_InductiveBias.ipynb}). Vous allez :
+
+\begin{enumerate}
+  \item Entraîner un MLP et un CNN avec des comptes de paramètres comparables sur MNIST, puis évaluer les deux sur une version translatée de l'ensemble de test. Vous verrez l'équivariance par translation du CNN payer quand l'entraînement et le test ne correspondent plus exactement.
+  \item Implémenter à la main un petit GNN à passage de messages et l'appliquer à un problème synthétique de classification de nœuds. Comparer à un MLP qui ignore la structure du graphe et n'utilise que les caractéristiques des nœuds.
+  \item Calculer l'auto-attention à partir de zéro sur une petite séquence jouet. Visualiser les poids d'attention en carte de chaleur et voir comment les projections requête/clé/valeur produisent une sélection basée sur le contenu.
+\end{enumerate}
+
+À la fin du TP, vous aurez une preuve directe de l'affirmation centrale de ce chapitre --- que le bon biais inductif fait un travail même avant qu'aucun entraînement ne commence.
