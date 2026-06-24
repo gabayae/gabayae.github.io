@@ -1,0 +1,133 @@
+\chapter{Évaluer les modèles d'IA}
+\label{ch:jour5}
+
+\begin{quote}
+\emph{\og Un modèle à 99\,\% de précision sur le test n'est pas terminé. Un modèle est terminé quand vous pouvez défendre, devant une partie prenante, à la fois les cas où il fonctionne et les cas où il échoue. \fg}
+\end{quote}
+
+% ============================================================
+Nous avons un modèle entraîné. C'est un empilement d'applications affines et de non-linéarités (Jour 1), ajusté aux données par descente de gradient sur une perte dérivée d'une vraisemblance (Jours 2 et 3), avec une architecture choisie pour correspondre à la structure des données (Jour 4). La perte d'entraînement est petite. La perte de test est petite. Le modèle est-il terminé ?
+
+La réponse honnête est : généralement non. L'évaluation est la partie de l'apprentissage automatique qui reçoit le moins d'attention dans les cours et le plus d'attention dans les vrais projets. Chaque échec en production d'un système d'IA des dix dernières années --- une voiture autonome qui n'a pas reconnu un camion blanc contre un ciel lumineux, un outil de recrutement qui a systématiquement déclassé les femmes, un modèle médical qui a appris à prédire l'hôpital au lieu de la maladie --- est une histoire d'évaluation qui a mal tourné. Ce chapitre traite de comment faire l'évaluation correctement, à quoi ressemblent les modes d'échec standards, et comment décider si un modèle doit être déployé ou retourner à la planche à dessin.
+
+\section{Ce que la précision sur le test mesure réellement}
+
+Une précision sur le test est un nombre. Elle mesure la fraction de prédictions correctes sur un seul ensemble mis de côté, tiré de la même distribution que l'ensemble d'entraînement, évaluée avec la même métrique utilisée pour la sélection du modèle. Chacune de ces qualifications compte :
+
+\begin{itemize}
+  \item \textbf{Un nombre.} Un seul scalaire écrase tout ce qui pourrait vous intéresser en un seul résumé. Où le modèle échoue-t-il ? Sur quelles classes ? Sous quelles entrées ? À quels seuils ? La précision sur le test ne dit rien.
+  \item \textbf{Un seul ensemble mis de côté.} La fluctuation entre différents ensembles de test est réelle, particulièrement pour des ensembles de test petits. Un 92\,\% rapporté peut devenir 87\,\% la semaine prochaine.
+  \item \textbf{Même distribution.} Des données de test tirées de la même distribution que les données d'entraînement vous renseignent sur l'\emph{interpolation}, pas sur la généralisation aux cas qui vous intéressent en déploiement.
+  \item \textbf{Même métrique utilisée pour la sélection du modèle.} Si vous avez choisi le modèle qui maximise la précision sur le test sur de nombreux essais, l'ensemble de test est devenu en pratique un ensemble d'entraînement, et vous l'avez sur-ajusté.
+\end{itemize}
+
+\begin{intuition}
+La précision sur le test est une statistique nécessaire, pas suffisante. Elle vous dit que le modèle ajuste l'ensemble de test. Elle ne vous dit pas que le modèle a appris la tâche sous-jacente. Distinguer ces deux est essentiellement l'objet de ce chapitre.
+\end{intuition}
+
+\section{La décomposition biais-variance}
+
+Pour un problème de régression avec perte d'erreur quadratique et un point de test fixe $\bm{x}_0$, la perte attendue d'un modèle $\hat{f}(\bm{x}_0)$ entraîné sur un ensemble d'entraînement aléatoire se décompose comme :
+\[
+\mathbb{E}\bigl[(y_0 - \hat{f}(\bm{x}_0))^2\bigr] = \underbrace{(f(\bm{x}_0) - \mathbb{E}[\hat{f}(\bm{x}_0)])^2}_{\text{biais}^2} + \underbrace{\mathrm{Var}(\hat{f}(\bm{x}_0))}_{\text{variance}} + \underbrace{\sigma^2}_{\text{bruit irréductible}}
+\]
+où $f$ est la vraie fonction inconnue et $\sigma^2$ est la variance du bruit d'étiquette. L'espérance est prise à la fois sur l'ensemble d'entraînement aléatoire et sur l'étiquette de test aléatoire.
+
+\begin{itemize}
+  \item \textbf{Biais} : à quel point le modèle se trompe, en moyenne, à travers de nombreuses exécutions d'entraînement. Un modèle trop simple pour capturer la vérité a un biais élevé --- sous-apprentissage.
+  \item \textbf{Variance} : à quel point le modèle fluctue d'une exécution d'entraînement à l'autre. Un modèle trop flexible par rapport à la taille du jeu de données a une variance élevée --- sur-apprentissage.
+  \item \textbf{Bruit irréductible} : ce qu'aucun modèle ne peut réduire, parce que l'étiquette elle-même est bruitée.
+\end{itemize}
+
+L'image classique dit : à mesure que la capacité du modèle augmente, le biais diminue et la variance augmente. Le compromis idéal se situe quelque part au milieu. Le TP d'aujourd'hui produit cette image explicitement en ajustant des polynômes de degré variable à un petit jeu de données.
+
+\begin{aitip}
+Pour les grands réseaux de neurones, l'image classique s'effondre. Le phénomène de \emph{double descente} (Belkin et al., 2019) montre que l'erreur de test monte d'abord puis redescend à mesure que la capacité du modèle dépasse la taille du jeu de données. Le deep learning moderne opère dans un régime où la capacité supplémentaire ne nuit pas systématiquement à la généralisation. C'est empirique, pas encore pleinement compris théoriquement, et c'est l'une des questions ouvertes du champ.
+\end{aitip}
+
+\section{Découpages : entraînement, validation, test, et à quoi sert chacun}
+
+Pour estimer la généralisation sans contaminer le processus de sélection du modèle, la discipline standard consiste en trois jeux de données disjoints :
+
+\begin{itemize}
+  \item \textbf{Ensemble d'entraînement} ($\sim 60$--$80\,\%$). Les données que le modèle voit et ajuste.
+  \item \textbf{Ensemble de validation} ($\sim 10$--$20\,\%$). Les données utilisées pour choisir entre modèles candidats, hyperparamètres, architectures. Mises de côté de l'entraînement, mais le modélisateur interagit beaucoup avec elles.
+  \item \textbf{Ensemble de test} ($\sim 10$--$20\,\%$). Les données utilisées pour estimer la généralisation finale. Touchées une seule fois, après que toutes les décisions ont été prises.
+\end{itemize}
+
+\begin{warningbox}
+L'ensemble de test est contaminé dès l'instant où vous prenez une décision basée sur sa performance. \og Nous avons essayé 50 architectures et choisi celle avec la meilleure précision sur le test \fg\ a en pratique transformé l'ensemble de test en ensemble de validation. La précision sur le test rapportée est alors biaisée à la hausse, souvent substantiellement. La solution est la discipline --- un vrai ensemble mis de côté que le modélisateur ne regarde pas avant la toute fin --- et, lorsque c'est possible, un ensemble de test externe sur lequel l'équipe ne peut pas itérer.
+\end{warningbox}
+
+Pour les petits jeux de données, la validation croisée à $k$ plis fait tourner le rôle de validation à travers différents découpages pour que chaque exemple serve de validation une fois. Cela donne une meilleure estimation de la généralisation au prix de $k$ fois plus d'entraînement. Pour des jeux de données au-delà de quelques dizaines de milliers d'exemples, un seul découpage entraînement/val/test suffit généralement.
+
+\section{Calibration : confiant n'est pas la même chose que juste}
+
+Un classifieur renvoie une probabilité par classe. \og 90\,\% \fg\ devrait signifier que parmi toutes les prédictions faites avec 90\,\% de confiance, 90\,\% sont correctes. La \emph{calibration} est de savoir si c'est vrai. Les réseaux profonds modernes ont tendance à être \emph{trop confiants} : ils disent 99\,\% quand ils devraient dire 80\,\%.
+
+\begin{definition}[Diagramme de fiabilité]
+Grouper les prédictions en classes (\emph{bins}) selon leur confiance (par exemple, 0,0--0,1, 0,1--0,2, \ldots). Pour chaque classe, tracer (confiance moyenne dans la classe, fraction correcte dans la classe). Un modèle parfaitement calibré se trouve sur la diagonale.
+\end{definition}
+
+L'Erreur de Calibration Attendue (ECE) est la distance moyenne à la diagonale, pondérée par la population de chaque classe. C'est un seul nombre qui résume à quel point le modèle est mal calibré.
+
+\begin{intuition}
+La calibration compte quand la décision en aval dépend de la probabilité, pas seulement de l'argmax. Un système de triage médical qui signale \og 70\,\% de probabilité de sepsis \fg\ a intérêt à le penser vraiment --- le médecin traitera différemment que pour \og 95\,\% de probabilité \fg. Un \emph{ranker} de recherche peut être terriblement mal calibré sans que personne ne le remarque, parce que seul l'ordre compte. Décidez si votre application a besoin de probabilités calibrées, et mesurez si oui.
+\end{intuition}
+
+L'échelle de température (\emph{temperature scaling}, Guo et al., 2017) est la solution la plus simple. Après entraînement, diviser les logits pré-softmax par un scalaire de température $T$, choisi sur un ensemble de validation pour minimiser la log-vraisemblance négative. Un scalaire. Règle la plupart des problèmes de calibration des réseaux modernes sans ré-entraînement.
+
+\section{Décalage de distribution : quand l'ensemble de test n'est pas l'ensemble de déploiement}
+
+La précision sur le test estime la performance sur des données \emph{de la même distribution que les données d'entraînement}. Les modèles déployés voient des données d'une distribution différente --- parce que le monde change, parce que le processus de collecte de données est différent, parce que les utilisateurs se comportent différemment de ce que le jeu de données suggérait.
+
+Trois décalages courants :
+
+\begin{itemize}
+  \item \textbf{Décalage de covariable.} $p_{\text{deploy}}(\bm{x}) \neq p_{\text{train}}(\bm{x})$, mais $p(y \mid \bm{x})$ est inchangée. Les types d'entrées changent ; la règle d'étiquetage ne change pas. Les changements de qualité de caméra entre entraînement et déploiement en sont un exemple courant.
+  \item \textbf{Décalage d'étiquette.} $p_{\text{deploy}}(y) \neq p_{\text{train}}(y)$, mais $p(\bm{x} \mid y)$ est inchangée. La prévalence des classes change ; l'apparence de chaque classe ne change pas. Un modèle entraîné sur un jeu de données équilibré et déployé sur des données déséquilibrées échoue de cette façon.
+  \item \textbf{Décalage de concept.} $p(y \mid \bm{x})$ lui-même change. La règle d'étiquetage a changé. Les systèmes de recommandation en souffrent constamment --- ce que les utilisateurs \emph{veulent} cette année n'est pas ce qu'ils voulaient l'an dernier.
+\end{itemize}
+
+Le TP d'aujourd'hui produit une expérience de décalage de covariable en faisant tourner l'ensemble de test et en mesurant la chute de précision. La chute est dramatique pour le MLP du Jour 4, moindre pour le CNN. C'est exactement l'histoire du biais inductif d'hier, racontée du côté de l'évaluation.
+
+\section{Exemples adversariaux et détection hors distribution}
+
+Certains échecs sont plus pointus que le décalage graduel de distribution. Les exemples adversariaux (Szegedy et al., 2014 ; Goodfellow et al., 2015) sont des entrées construites spécifiquement pour tromper le modèle --- des perturbations imperceptiblement petites qui transforment une prédiction correcte confiante en une prédiction incorrecte confiante. Elles révèlent que le modèle a appris une fonction qui s'accorde avec les données sur les entrées naturelles mais en diverge ailleurs.
+
+Les entrées hors distribution (OOD) ne sont pas adversariales, juste non familières : un modèle entraîné sur des chats et des chiens à qui l'on demande de classer un poisson. Un modèle bien élevé devrait signaler \og je ne sais pas \fg. La plupart des réseaux modernes font l'inverse : ils attribuent confiamment l'une des classes entraînées.
+
+\begin{intuition}
+Un modèle entraîné sur un ensemble fermé de classes n'a aucune représentation de \og autre \fg. Détecter qu'une entrée est OOD est un problème séparé, typiquement abordé en examinant la confiance softmax (une confiance basse signifie parfois OOD), l'énergie des logits, ou la distance dans l'espace de caractéristiques à l'exemple d'entraînement le plus proche. Le TP d'aujourd'hui montre le mode d'échec en utilisant un détecteur basé sur la confiance softmax appliqué à des entrées Fashion-MNIST sur un classifieur entraîné sur MNIST.
+\end{intuition}
+
+\section{Le cadre de décision : déployer, collecter, ou reconcevoir}
+
+L'évaluation produit une décision. Il y en a trois :
+
+\begin{enumerate}
+  \item \textbf{Déployer.} La performance sur le test est acceptable sur la population pertinente, la calibration est adéquate pour l'usage en aval, et les modes d'échec que vous avez mesurés sont tolérables. Déployer avec surveillance.
+  \item \textbf{Collecter plus de données.} Le modèle a la bonne structure mais pas assez d'exemples. Les courbes de validation croisée montent encore ; la perte de test plafonne pour la bonne raison. Ajouter des données étiquetées et continuer.
+  \item \textbf{Reconcevoir.} Le modèle est faux sur quelque chose de structurel --- l'architecture ne correspond pas à la tâche, la perte ne capture pas ce que les utilisateurs veulent, les cibles ne sont pas ce qui était censé être appris. Aucune quantité de données ne corrige cela. Retourner au cadrage.
+\end{enumerate}
+
+Les deux modes d'échec de cette décision : \emph{déployer quand il faudrait reconcevoir} (le modèle semble bien sur l'ensemble de test mais résout le mauvais problème) et \emph{collecter quand il faudrait déployer} (le perfectionnisme retarde un modèle qui serait déjà utile). La vraie discipline d'évaluation consiste à distinguer ces cas, et la seule façon de le faire est de connaître les modes d'échec de votre modèle assez bien pour pouvoir défendre la décision devant une partie prenante sceptique.
+
+\section{Ce que nous avons construit au cours des cinq jours}
+
+L'atelier a commencé par des vecteurs. Un modèle en IA moderne est une fonction d'un espace vectoriel vers un autre, construite à partir d'applications affines et de non-linéarités (Jour 1). Il apprend par descente de gradient sur une fonction de perte qui résume à quel point il se trompe ; la règle de la chaîne rend ce calcul faisable pour des réseaux à un million de paramètres (Jour 2). Quand le but est la génération plutôt que la prédiction, la perte devient une vraisemblance et le modèle devient une distribution dont on peut tirer des échantillons --- l'image unificatrice derrière les VAE, les modèles de langue et la diffusion (Jour 3). L'architecture encode un prior sur quelles fonctions sont faciles à apprendre ; CNN, GNN et Transformers sont trois priors différents pour trois types de données différents (Jour 4). Et l'évaluation est la discipline qui nous dit si tout ce qui précède fait réellement la bonne chose, ou seulement quelque chose qui semble juste sur un ensemble de test (Jour 5).
+
+Les mêmes cinq idées --- vecteurs et applications linéaires, apprentissage par gradient, vraisemblance, biais inductif, discipline d'évaluation --- font tourner chaque modèle utilisé en production aujourd'hui, d'une régression logistique aux systèmes de classe GPT. Les implémentations grandissent ; les structures ne changent pas. Ce que vous avez construit au cours de ces cinq jours, c'est le vocabulaire pour lire un article, évaluer un fournisseur, auditer un système déployé, et décider quand un outil d'IA est la bonne réponse au problème devant vous.
+
+\section*{Travail pratique}
+
+Ouvrez le notebook du Jour 5 (\texttt{Day5\_Evaluation\_Generalization.ipynb}). Vous allez :
+
+\begin{enumerate}
+  \item Ajuster des polynômes de degré 1, 3, 9, 15 au même petit jeu de données, répété sur de nombreux ensembles d'entraînement aléatoires. Tracer biais et variance séparément pour voir la décomposition à l'œuvre.
+  \item Entraîner un classifieur sur MNIST et produire son diagramme de fiabilité. Calculer l'Erreur de Calibration Attendue. Appliquer l'échelle de température sur un découpage de validation et remesurer.
+  \item Prendre un CNN entraîné sur MNIST et l'évaluer sur MNIST tourné. Mesurer la chute de précision à mesure que l'angle de rotation augmente.
+  \item Utiliser la confiance softmax du même CNN comme détecteur hors distribution sur Fashion-MNIST. Tracer la distribution des confiances pour les entrées en distribution vs OOD et voir à quel point elles sont séparables (ou non).
+\end{enumerate}
+
+À la fin du TP, vous aurez vu, avec vos propres chiffres, chacun des modes d'échec nommés dans ce chapitre, et vous aurez les outils pour les détecter dans vos propres modèles.

@@ -1,0 +1,165 @@
+\chapter{Algèbre linéaire et modèles paramétriques}
+\label{ch:jour1}
+
+\begin{quote}
+\emph{\og Un réseau de neurones est un empilement d'applications linéaires entrecoupées de non-linéarités. La mathématique est comprise depuis un siècle ; la surprise d'ingénierie, c'est que ça marche à l'échelle. \fg}
+\end{quote}
+
+% ============================================================
+Un modèle d'IA moderne est, dans son essence, une fonction. Il prend en entrée un vecteur $\bm{x} \in \mathbb{R}^d$ --- les pixels d'une image, le plongement d'une phrase, les attributs d'un client --- et renvoie une sortie : une étiquette de classe, une probabilité, un autre vecteur. Le vocabulaire de cette fonction est celui de l'algèbre linéaire. Les espaces vectoriels décrivent où vivent les données. Les applications linéaires les transportent d'un espace à un autre. Les ingrédients non-linéaires (ReLU, softmax) sont la ponctuation. Presque tout le reste --- profondeur, largeur, dimension de plongement, espace latent, têtes d'attention --- est un choix de composition d'applications linéaires.
+
+Ce chapitre installe la colonne vertébrale algébrique de l'atelier. Nous ne démontrerons pas le théorème spectral. Nous nommerons les structures, donnerons l'intuition géométrique, et écrirons le peu de code nécessaire pour les voir à l'œuvre. Le Jour 2 introduira les gradients pour rendre ces modèles entraînables ; le Jour 3 ajoutera la probabilité pour les rendre génératifs. Mais toutes les structures sont déjà ici.
+
+\section{Espaces vectoriels, version courte}
+
+Un \emph{espace vectoriel} sur $\mathbb{R}$ est un ensemble $V$ où l'on peut additionner des éléments et les multiplier par des réels, avec les règles habituelles (associativité, distributivité, élément neutre). Chaque exemple concret qui nous intéresse dans cet atelier est une variante de $\mathbb{R}^d$ : des $d$-uplets ordonnés de réels.
+
+\begin{definition}[L'exemple standard]
+$\mathbb{R}^d$ est l'ensemble des $d$-uplets $\bm{x} = (x_1, \ldots, x_d)$ avec l'addition et la multiplication scalaire faites composante par composante.
+\end{definition}
+
+\begin{example}
+Une image en niveaux de gris $28 \times 28$ pixels est un élément de $\mathbb{R}^{784}$ une fois aplatie. Le plongement d'une phrase par un petit modèle de langue est un élément de $\mathbb{R}^{768}$. La ligne d'un utilisateur dans la table d'attributs d'un système de recommandation est un élément de $\mathbb{R}^{50}$ environ. Ces objets ont l'air très différents dans le monde, mais ils sont identiques pour la mathématique --- ce sont des points dans un espace vectoriel, et le modèle les traite ainsi.
+\end{example}
+
+La \emph{dimension} d'un espace vectoriel est le nombre de directions indépendantes selon lesquelles on peut se déplacer. $\mathbb{R}^{784}$ en a 784, une par pixel. En pratique, les données ne remplissent pas l'espace : presque tous les vecteurs de $\mathbb{R}^{784}$ ressemblent à du bruit aléatoire, et presque aucun ne ressemble à un chiffre. Cette observation --- les données réelles vivent sur un sous-ensemble de dimension beaucoup plus basse --- est l'\emph{hypothèse de la variété}, et c'est la raison pour laquelle les plongements fonctionnent.
+
+\begin{intuition}
+Un espace vectoriel de grande dimension est essentiellement vide. L'IA moderne exploite cela : même quand l'espace ambiant a $10^4$ dimensions, la structure qui nous intéresse (l'ensemble des images plausibles, l'ensemble des phrases sensées) vit sur un sous-ensemble minuscule et courbe. Apprendre ce sous-ensemble, c'est une grande partie de ce que fait l'entraînement.
+\end{intuition}
+
+\section{Applications linéaires et matrices}
+
+Une \emph{application linéaire} $f: \mathbb{R}^d \to \mathbb{R}^k$ est une fonction qui respecte l'addition et la multiplication scalaire :
+\[
+f(\bm{x} + \bm{y}) = f(\bm{x}) + f(\bm{y}), \qquad f(\alpha \bm{x}) = \alpha f(\bm{x}).
+\]
+Toute telle application est donnée par une matrice $W \in \mathbb{R}^{k \times d}$ : $f(\bm{x}) = W \bm{x}$. Choisissez une base et l'application devient une liste de nombres.
+
+\begin{definition}[Application affine]
+Une application affine est une application linéaire plus un décalage constant : $\bm{x} \mapsto W \bm{x} + \bm{b}$, où $\bm{b} \in \mathbb{R}^k$ est le biais. Chaque couche d'un réseau de neurones standard est une application affine suivie d'une non-linéarité.
+\end{definition}
+
+La matrice $W$ fait trois choses simultanément : elle dilate, elle pivote, et elle projette sur un sous-espace (éventuellement de dimension plus basse). La décomposition en valeurs singulières rend cela précis --- tout $W$ s'écrit $U \Sigma V^\top$ où $U$ et $V$ sont des rotations et $\Sigma$ est une dilatation diagonale positive. Nous n'aurons pas besoin du détail de la SVD, mais l'image vaut d'être retenue :
+
+\begin{intuition}
+Chaque couche linéaire d'un réseau de neurones pivote l'espace d'entrée, étire certaines directions et en rétrécit d'autres, et jette éventuellement des directions (celles dont la valeur singulière est nulle). Empiler des couches empile ces opérations. Les non-linéarités sont ce qui empêche la pile de s'effondrer en une seule application linéaire.
+\end{intuition}
+
+\section{Du perceptron au MLP}
+
+Le réseau de neurones le plus simple est un seul neurone, le \emph{perceptron} (Rosenblatt, 1958) :
+\[
+y = \sigma(\bm{w}^\top \bm{x} + b)
+\]
+où $\bm{w} \in \mathbb{R}^d$ est un vecteur de poids, $b \in \mathbb{R}$ un biais, et $\sigma$ une fonction non-linéaire. Avec $\sigma(z) = 1/(1 + e^{-z})$ (la sigmoïde logistique), c'est exactement une régression logistique habillée d'un autre vocabulaire.
+
+\begin{proposition}[Pourquoi une seule couche ne suffit pas]
+Une seule couche affine ne peut séparer l'espace d'entrée que par un hyperplan. La fonction XOR --- sortie 1 si exactement une des deux entrées binaires vaut 1 --- ne peut être exprimée par aucun perceptron seul. C'est la critique originale de Minsky et Papert (1969) qui a brièvement tué le champ.
+\end{proposition}
+
+La solution est la composition. Un \emph{perceptron multicouche} (MLP) empile des applications affines avec des non-linéarités entre elles. Un MLP à deux couches de $\mathbb{R}^d$ vers $\mathbb{R}^k$ est :
+\[
+\bm{h} = \sigma(W_1 \bm{x} + \bm{b}_1), \qquad \bm{y} = W_2 \bm{h} + \bm{b}_2
+\]
+où $W_1 \in \mathbb{R}^{m \times d}$, $W_2 \in \mathbb{R}^{k \times m}$, et $m$ est la largeur de la couche cachée. La non-linéarité $\sigma$ est appliquée composante par composante. Les réseaux modernes utilisent $\sigma(z) = \max(0, z)$, l'unité linéaire rectifiée (ReLU), presque partout.
+
+\begin{aitip}
+Le théorème d'approximation universelle (Cybenko, 1989 ; Hornik, 1991) dit qu'un MLP même à une seule couche cachée, avec suffisamment de largeur, peut approximer toute fonction continue sur un compact avec une précision arbitraire. C'est une affirmation d'\emph{existence}, pas d'\emph{apprenabilité} ni d'efficacité. Les réseaux profonds modernes ne sont pas profonds parce que les réseaux peu profonds ne peuvent pas représenter la fonction. Ils sont profonds parce que la profondeur rend les bonnes fonctions plus faciles à trouver par descente de gradient.
+\end{aitip}
+
+\subsection{Compter les paramètres}
+
+Prenez un MLP avec dimension d'entrée $d = 784$, une couche cachée de largeur $m = 256$, et dimension de sortie $k = 10$. Le compte des paramètres :
+\[
+\underbrace{784 \cdot 256 + 256}_{\text{première couche : } W_1, \bm{b}_1} + \underbrace{256 \cdot 10 + 10}_{\text{deuxième couche : } W_2, \bm{b}_2} = 203\,530.
+\]
+Un petit classifieur MNIST a déjà quelques centaines de milliers de paramètres. GPT-3 en a 175 milliards. Les nombres grandissent vite, mais la structure ne change pas --- chaque couche reste une application affine suivie d'une non-linéarité.
+
+\subsection{Le MLP en code}
+
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+
+class MLPDeuxCouches(nn.Module):
+    def __init__(self, d_in: int, d_cache: int, d_out: int):
+        super().__init__()
+        self.fc1 = nn.Linear(d_in, d_cache)   # application affine : W1 x + b1
+        self.fc2 = nn.Linear(d_cache, d_out)  # application affine : W2 h + b2
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        h = torch.relu(self.fc1(x))           # non-linéarité
+        y = self.fc2(h)
+        return y
+
+modele = MLPDeuxCouches(d_in=784, d_cache=256, d_out=10)
+n_params = sum(p.numel() for p in modele.parameters())
+print(f"Nombre de paramètres : {n_params:,}")
+\end{minted}
+
+La couche \texttt{nn.Linear} contient exactement le $W$ et le $\bm{b}$ des formules ci-dessus. Tout le reste de cet atelier sera des variations sur ce thème : plus de couches, des non-linéarités différentes, du partage de poids (CNN), des connexions structurées (GNN), de l'attention (Transformers). L'unité de base est l'application affine.
+
+\begin{exercise}
+Un bloc résiduel dans un ResNet a la forme $\bm{y} = \bm{x} + F(\bm{x})$, où $F$ est un petit sous-réseau. Argumentez de façon informelle pourquoi cela devrait rendre l'entraînement plus facile que la composition brute $\bm{y} = F(\bm{x})$. (Indice : que se passe-t-il si $F$ retourne zéro ? Qu'est-ce que cela implique pour le gradient ?)
+\end{exercise}
+
+\section{Plongements : vecteurs comme représentations}
+
+Jusqu'ici nous avons traité l'entrée $\bm{x}$ comme si elle était déjà un vecteur. Mais l'entrée réelle est souvent autre chose : un mot, un identifiant d'utilisateur, une catégorie discrète. La transformer en vecteur est la première décision que prend le modèle.
+
+\begin{definition}[Plongement]
+Un plongement est une fonction d'un ensemble discret $V$ (vocabulaire, ensemble d'utilisateurs, ensemble de catégories) vers un espace vectoriel $\mathbb{R}^d$. Concrètement, c'est une matrice $E \in \mathbb{R}^{|V| \times d}$ : chaque ligne est la représentation vectorielle d'un élément.
+\end{definition}
+
+La matrice de plongement est un paramètre du modèle. Elle est apprise. Après entraînement, des éléments similaires se retrouvent proches dans l'espace de plongement, et la géométrie de cet espace porte le sens que le modèle a découvert.
+
+\begin{example}
+Word2Vec (Mikolov et al., 2013) entraîne une matrice de plongement pour les mots anglais de sorte que la similarité cosinus de deux vecteurs de mots suit leur similarité sémantique. La régularité géométrique célèbre $\bm{e}_{\text{king}} - \bm{e}_{\text{man}} + \bm{e}_{\text{woman}} \approx \bm{e}_{\text{queen}}$ est une observation empirique sur l'espace résultant, pas un objectif d'entraînement. L'objectif d'entraînement était bien plus simple : prédire un mot à partir de son contexte.
+\end{example}
+
+Dans les modèles de langue modernes, le plongement d'entrée est la première couche (une consultation dans une matrice de plongement), et le reste du réseau opère sur ces vecteurs. L'astuce est que le même espace vectoriel fait double emploi : il est l'espace d'entrée \emph{et} la mémoire de travail du modèle.
+
+\begin{warningbox}
+\og Plongement \fg\ est surchargé en apprentissage automatique. Cela peut désigner une représentation d'entrée apprise (Word2Vec, le plongement de jeton d'un LLM), une activation cachée à l'intérieur d'un réseau (\og le plongement de cette image est la sortie de l'avant-dernière couche \fg), ou une représentation entraînée séparément utilisée comme attribut dans un modèle aval (sentence-transformers). Les trois sont des vecteurs. Les différences tiennent à comment ils sont produits et à quoi ils servent.
+\end{warningbox}
+
+\section{Autoencodeurs et géométrie de l'espace latent}
+
+Un \emph{autoencodeur} apprend une représentation compressée de son entrée en essayant de reproduire cette entrée à partir de la compression. Il a deux parties :
+\[
+\underbrace{\bm{z} = f_{\text{enc}}(\bm{x})}_{\text{encodeur, } \mathbb{R}^d \to \mathbb{R}^k} \qquad \underbrace{\hat{\bm{x}} = f_{\text{dec}}(\bm{z})}_{\text{décodeur, } \mathbb{R}^k \to \mathbb{R}^d}
+\]
+avec $k < d$. L'objectif d'entraînement est la reconstruction : minimiser $\|\bm{x} - \hat{\bm{x}}\|^2$ sur un jeu de données. Comme le goulot $\bm{z}$ est de dimension plus basse que $\bm{x}$, l'autoencodeur ne peut pas mémoriser l'entrée ; il doit trouver de la structure.
+
+\begin{intuition}
+L'ACP (PCA) est un autoencodeur linéaire. Si $f_{\text{enc}}$ et $f_{\text{dec}}$ sont contraints à être des applications linéaires et qu'on minimise l'erreur quadratique de reconstruction, la solution optimale projette sur les $k$ premières composantes principales. Les autoencodeurs non-linéaires généralisent cette idée : ils apprennent une surface courbe de dimension $k$ à l'intérieur de $\mathbb{R}^d$ qui épouse les données.
+\end{intuition}
+
+L'espace du goulot $\mathbb{R}^k$ s'appelle l'\emph{espace latent}. C'est là que vit la compréhension compressée des données par le modèle. Deux questions valent généralement la peine d'être posées sur tout espace latent :
+
+\begin{itemize}
+  \item \textbf{Que signifie chaque dimension ?} Souvent rien en soi --- les axes sont arbitraires --- mais des directions dans l'espace correspondent souvent à des facteurs sémantiques (éclairage, pose, identité pour un jeu de visages ; sujet, sentiment, temps pour un jeu de textes).
+  \item \textbf{Comment transporte-t-il entre points voisins ?} Si de petits déplacements dans $\bm{z}$ produisent de petits changements plausibles dans $\hat{\bm{x}}$, le modèle a appris la bonne variété. Si de petits déplacements produisent des sauts ou du non-sens, il ne l'a pas apprise.
+\end{itemize}
+
+Le Jour 3 reviendra aux autoencodeurs dans leur forme probabiliste (autoencodeurs variationnels, VAE) comme l'une des passerelles vers la modélisation générative. La structure autoencodeur --- encodeur, latent, décodeur --- est aussi exactement la structure d'un modèle de diffusion déguisé.
+
+\section{Ce que vous avez vu}
+
+Tout modèle paramétrique de cet atelier est construit à partir de trois pièces : des vecteurs (les données et les représentations intermédiaires), des applications affines (les couches, avec leurs poids et biais), et des non-linéarités (les activations qui empêchent l'effondrement). Les architectures modernes --- CNN, RNN, Transformers, GNN, modèles de diffusion --- sont des variations sur quelles applications affines sont liées ensemble et quelles non-linéarités sont insérées où. Les noms changent. La mathématique est la même.
+
+Ce que nous n'avons pas encore fait, c'est rendre quoi que ce soit \emph{apprenable}. Pour l'instant, les poids $W$ et les biais $\bm{b}$ sont juste des nombres ; le modèle est une fonction. Le Jour 2 introduit le gradient, la fonction de perte et la machinerie d'optimisation qui transforme cette fonction en quelque chose qui peut être ajusté aux données. La structure reste la même. L'entraînement, c'est ce qui la remplit.
+
+\section*{Travail pratique}
+
+Ouvrez le notebook du Jour 1 (\texttt{Day1\_LinearAlgebra\_ParametricModels.ipynb}). Vous allez :
+
+\begin{enumerate}
+  \item Implémenter un MLP à deux couches à la main en NumPy --- en écrivant explicitement les produits matriciels et ReLU --- et vérifier que le compte de paramètres correspond à ce que nous avons calculé.
+  \item Entraîner le même MLP en PyTorch sur MNIST, obtenant environ 97\,\% de précision sur l'ensemble de test en moins d'une minute.
+  \item Extraire les activations de la couche cachée pour l'ensemble de test, les projeter en 2D avec l'ACP, et colorer les points par leur vraie classe de chiffre. Vous verrez des amas --- le réseau a appris une représentation où les chiffres similaires vivent près les uns des autres.
+  \item Entraîner un petit autoencodeur sur MNIST avec un espace latent de dimension 2. Visualiser directement l'espace latent et marcher le long de lignes droites dans cet espace : vous verrez des chiffres se métamorphoser progressivement en d'autres chiffres.
+\end{enumerate}
+
+À la fin du TP, vous aurez construit la machinerie que le reste de l'atelier suppose : un MLP qui fonctionne, un autoencodeur qui fonctionne, et l'habitude d'inspecter ce qu'un réseau a appris en regardant ses représentations internes.

@@ -1,0 +1,148 @@
+\chapter{Modelling for AI}
+\label{ch:day4}
+
+\begin{quote}
+\emph{``The architecture you choose is the prior you place on which functions are easy to learn. Everything else is hyperparameter tuning on top of that prior.''}
+\end{quote}
+
+% ============================================================
+Days 1 to 3 built the machinery: vectors, gradients, likelihoods. Every model has been an MLP --- the universal-approximation default, capable in principle of representing anything but capable in practice of representing very little before its parameter count explodes. Real systems use CNNs, GNNs, Transformers, U-Nets, attention with relative positions. These are not arbitrary engineering choices. Each architecture is a \emph{prior}: a statement about what kinds of functions are plausible, baked into the model before any training data is seen.
+
+This chapter is about how that prior is encoded. The general name is \emph{inductive bias}. The specific technical vocabulary is \emph{invariance} and \emph{equivariance}. The practical question is: given a real problem, how do you choose --- or design --- an architecture whose biases match the structure of your data?
+
+\section{Inductive bias: the prior an architecture encodes}
+
+Two models can have the same expressive power --- the same set of functions they can in principle represent --- and yet learn very differently from the same data. The difference is how easily each can find a good function by gradient descent. That difference is the inductive bias.
+
+\begin{definition}[Inductive bias]
+The set of assumptions, encoded in the architecture and the loss, that determine which functions the model prefers in the absence of data. Equivalently: the prior over functions induced by training the model.
+\end{definition}
+
+The universal approximation theorem from Day 1 says a one-hidden-layer MLP can in principle approximate any continuous function. It says nothing about how many parameters that takes or how much data is needed to find the right function. For an image-classification problem with $10^9$ pixel arrangements, a sufficient-width MLP exists --- you will not have enough data or time to find it. A CNN, with the right inductive bias, finds it.
+
+\begin{intuition}
+Inductive bias is the difference between \emph{can represent} and \emph{can learn from realistic data}. The architecture is the part of the model that you, the designer, are allowed to say: ``I know something about this problem. Here is the structure.''
+\end{intuition}
+
+\section{Constraints and regularization}
+
+The first kind of bias is the one we introduced last week without naming it: regularization. The unconstrained training objective is just the loss on the training data. Adding a penalty changes the problem:
+\[
+\min_\theta \; \mathcal{L}(\theta) + \lambda \, R(\theta).
+\]
+$R$ encodes what kinds of $\theta$ we prefer in the absence of data --- typically simple, small-norm, or sparse parameters. $\lambda$ controls how strongly that preference dominates.
+
+\paragraph{$L^2$ regularization (weight decay).} $R(\theta) = \|\theta\|^2$. Pulls weights toward zero. Equivalent, under a Bayesian interpretation, to a Gaussian prior on the weights.
+
+\paragraph{$L^1$ regularization.} $R(\theta) = \|\theta\|_1$. Pulls weights toward zero and tends to make them exactly zero. Useful when sparsity is genuinely meaningful (feature selection, compressed sensing).
+
+\paragraph{Dropout (Srivastava et al., 2014).} At each training step, randomly set a fraction of hidden activations to zero. The trained model behaves as an ensemble. Not a penalty in the loss, but plays the same role in practice.
+
+Regularization is the softest form of inductive bias: it changes the loss landscape, it does not change the model. The next two sections describe biases that change the model itself.
+
+\section{Invariance and equivariance}
+
+The second kind of bias is structural. It says: \emph{the function we want to learn has a symmetry, and the architecture should respect that symmetry}.
+
+\begin{definition}[Invariance and equivariance]
+A function $f$ is \emph{invariant} under a transformation $g$ if $f(g(\bm{x})) = f(\bm{x})$ for every $\bm{x}$. It is \emph{equivariant} if $f(g(\bm{x})) = g(f(\bm{x}))$: applying the transformation to the input is the same as applying it to the output.
+\end{definition}
+
+Classification tasks are typically invariant under transformations that preserve identity: an image of a cat is still a cat after a shift, a sentence is still ``positive sentiment'' after switching to synonyms, a molecule still has the same activity after a rotation. The function we want to learn should respect that invariance, and an architecture that bakes it in does not have to learn it from data.
+
+Many intermediate layers are equivariant rather than invariant: a feature map should shift when its input shifts, so that a later layer can pool the shifted features into something invariant. The standard recipe is a stack of equivariant layers ending in an invariant pooling step.
+
+\section{CNNs: translation equivariance for grids}
+
+Image data lives on a regular grid. A cat shifted ten pixels right is still a cat. If we want the architecture to know that, we need translation equivariance.
+
+\begin{proposition}[Convolution is translation equivariant]
+Let $T_d$ denote translation by $d$ pixels and $K$ a convolutional filter. Then $K \star (T_d \bm{x}) = T_d (K \star \bm{x})$ for every $\bm{x}$ and every $d$. The convolution operation commutes with translation; therefore any function built only of convolutions and pointwise non-linearities is translation equivariant.
+\end{proposition}
+
+A convolutional layer with $k \times k$ filters has $k \cdot k \cdot C_{\text{in}} \cdot C_{\text{out}}$ parameters, regardless of the image size. An MLP layer mapping the same image to the same output would have $H \cdot W \cdot C_{\text{in}} \cdot H \cdot W \cdot C_{\text{out}}$ parameters --- four orders of magnitude more for a typical image. The convolution is dramatically more parameter-efficient \emph{because} it ties the same weights across all spatial positions, which is exactly what translation equivariance demands.
+
+\begin{aitip}
+Convolutional networks were not designed by tuning hyperparameters until something worked on ImageNet. They were designed by Yann LeCun in the 1980s starting from translation equivariance and weight-sharing as principles. The success of CNNs on images is a confirmation that the right inductive bias is worth more than scale of data alone --- although since 2020, Transformers with enough data and enough scale have shown that even very weak inductive biases can be overcome by sufficient training (Dosovitskiy et al., 2021).
+\end{aitip}
+
+\section{GNNs: permutation equivariance for graphs}
+
+Graph data has a different symmetry. A graph is a set of nodes connected by edges. Relabeling the nodes ($1 \to 7, 2 \to 3, \ldots$) gives the same graph as a mathematical object. A function over graphs should treat any two relabelings as equivalent.
+
+\begin{definition}[Permutation equivariance for node features]
+Let $P$ be a permutation matrix acting on the nodes of a graph. A function $f$ over node features is permutation equivariant if $f(P \bm{X}, P A P^\top) = P f(\bm{X}, A)$, where $\bm{X}$ is the node feature matrix and $A$ is the adjacency matrix.
+\end{definition}
+
+Message-passing graph neural networks (Gilmer et al., 2017) achieve this by computing each node's new representation as an aggregation of its neighbors' current representations, using only permutation-invariant aggregations (sum, mean, max). The update for node $v$ at layer $\ell+1$ is:
+\[
+\bm{h}_v^{(\ell+1)} = \phi\!\left( \bm{h}_v^{(\ell)}, \; \bigoplus_{u \in \mathcal{N}(v)} \psi(\bm{h}_v^{(\ell)}, \bm{h}_u^{(\ell)}) \right)
+\]
+where $\bigoplus$ is a permutation-invariant aggregator (most commonly sum or mean), and $\phi, \psi$ are small neural networks (typically MLPs) with learned parameters.
+
+For graph-level outputs (classifying the whole graph), one final permutation-invariant pooling step is added: sum or mean the node representations together.
+
+\section{Attention and Transformers}
+
+A Transformer (Vaswani et al., 2017) treats the input as an unordered set of tokens and computes pairwise interactions through attention. The attention operation is itself permutation equivariant --- positional encoding is added precisely because we usually \emph{want} the model to know the order, and pure attention would be order-blind.
+
+\begin{definition}[Self-attention]
+Given a sequence of vectors $\bm{X} = [\bm{x}_1, \ldots, \bm{x}_n]$, self-attention computes:
+\[
+\bm{Q} = \bm{X} W_Q, \quad \bm{K} = \bm{X} W_K, \quad \bm{V} = \bm{X} W_V, \quad \bm{A} = \mathrm{softmax}\!\left( \tfrac{\bm{Q} \bm{K}^\top}{\sqrt{d_k}} \right), \quad \bm{Y} = \bm{A} \bm{V}.
+\]
+$\bm{Q}, \bm{K}, \bm{V}$ are linear projections of the input. $\bm{A}$ is an $n \times n$ matrix of pairwise weights. Each output is a weighted average of all inputs, where the weights depend on content.
+\end{definition}
+
+\begin{intuition}
+Convolution aggregates information from spatial neighbors with fixed weights. Attention aggregates information from \emph{all} positions with weights that depend on the content. A convolutional layer asks ``what is here?'' Attention asks ``what here is similar to what I am looking for, and where is it?'' The first is structural, the second is associative. Both turn out to be useful, and the modern picture (Vision Transformers, hybrid architectures, MoE) is largely about combining them.
+\end{intuition}
+
+\section{Choosing an architecture: the matching exercise}
+
+Given a real-world problem, the design move is to identify the symmetries of the data and pick an architecture whose inductive biases match them:
+
+\begin{itemize}
+  \item \textbf{Regular grid with translation symmetry} (images, audio spectrograms, dense sensor arrays) $\to$ CNN.
+  \item \textbf{Sequence with order matters} (text, time series, audio waveforms) $\to$ RNN historically, Transformer in practice now.
+  \item \textbf{Graph or set} (molecules, social networks, point clouds, particle systems) $\to$ GNN, DeepSets, point-cloud networks.
+  \item \textbf{Set with translation/rotation equivariance} (3D molecules, physical systems with conservation laws) $\to$ equivariant networks (SE(3)-Transformers, EGNN).
+  \item \textbf{Heterogeneous tabular features} (rows in a database) $\to$ MLP or gradient-boosted trees. The deep-learning prior buys you little here.
+\end{itemize}
+
+Where there is no obvious symmetry, an MLP is the safe default, and trees (XGBoost, LightGBM) frequently beat any neural network. The right inductive bias is doing real work; the wrong one is just an arbitrary constraint that slows you down.
+
+\section{Translating a real problem into a learning problem}
+
+Architecture choice is one of four interlocking decisions you make when framing a learning problem:
+
+\begin{enumerate}
+  \item \textbf{Inputs.} What information does the model actually see? Raw, or featurized? At what granularity (pixel, token, transaction, day)?
+  \item \textbf{Targets.} What is the model trying to predict? A class? A real number? A distribution? A sequence?
+  \item \textbf{Loss.} How do we measure ``wrong''? Cross-entropy, MSE, contrastive, custom?
+  \item \textbf{Evaluation metric.} How do we declare success? Often \emph{not} the same as the loss --- accuracy is not differentiable, but it is what the user actually cares about.
+\end{enumerate}
+
+When a project fails, the architecture is usually not the problem. The problem is usually that one of these four was wrong. The famous example: a model trained to predict pneumonia from chest X-rays that learned to predict the hospital's chest-X-ray machine instead, because that information leaked into the input. Wrong inputs. Different fix from ``add more layers.''
+
+\begin{intuition}
+The architecture is the smallest of the four decisions. Inputs, targets, loss, and metric determine whether the problem is even well-posed; the architecture only determines whether a well-posed problem can be solved efficiently. A long career in ML is mostly about getting the framing right --- not about picking the right number of layers.
+\end{intuition}
+
+\section{What you have seen}
+
+Every neural network is a function approximator with a prior baked in --- the inductive bias. CNNs encode translation equivariance for grid data; GNNs encode permutation equivariance for graphs; Transformers replace structural priors with content-based weighted aggregation. Choosing an architecture is choosing a prior, and that choice matters far more than the size of the network. Surrounding that choice is the larger framing problem: inputs, targets, loss, and evaluation metric all have to line up before any architecture can do useful work.
+
+Day 5, the final chapter, asks the question we have been deferring all along: how do we know the model is actually learning the right thing, and not memorizing the dataset or exploiting an artifact?
+
+\section*{Lab}
+
+Open the Day 4 notebook (\texttt{Day4\_Modeling\_InductiveBias.ipynb}). You will:
+
+\begin{enumerate}
+  \item Train an MLP and a CNN with comparable parameter counts on MNIST, then evaluate both on a shifted version of the test set. You will see the CNN's translation equivariance pay off when train and test no longer match exactly.
+  \item Implement a tiny message-passing GNN by hand and apply it to a synthetic node-classification problem. Compare to an MLP that ignores the graph structure and uses only node features.
+  \item Compute self-attention from scratch on a small toy sequence. Visualize the attention weights as a heatmap and see how query/key/value projections produce content-based selection.
+\end{enumerate}
+
+By the end of the lab you will have direct evidence for the central claim of this chapter --- that the right inductive bias is doing work even before any training begins.

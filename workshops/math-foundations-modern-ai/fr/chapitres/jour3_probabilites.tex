@@ -1,0 +1,161 @@
+\chapter{Probabilités et modélisation générative}
+\label{ch:jour3}
+
+\begin{quote}
+\emph{\og Un modèle génératif est une distribution de probabilités dont on peut tirer des échantillons. Tout le reste --- la fonction de perte, l'architecture, l'algorithme d'entraînement --- est au service de l'apprentissage de cette distribution à partir de données. \fg}
+\end{quote}
+
+% ============================================================
+Les Jours 1 et 2 ont construit une fonction : un MLP qui projette des entrées vers des sorties, dont les poids sont entraînés par descente de gradient sur une perte. Le cadre était déterministe. Une entrée donnée produisait une sortie donnée. Cette image suffit pour la classification et la régression, mais elle ne capture pas ce que font les modèles génératifs modernes. Un modèle de diffusion ne prédit pas une seule sortie à partir d'une entrée ; il échantillonne une image (ou plusieurs images différentes) depuis une distribution apprise. Un modèle de langue ne prédit pas un seul jeton suivant ; il donne une distribution sur le vocabulaire, et l'échantillonneur y tire.
+
+Pour parler de cela, il nous faut la probabilité. Ce chapitre est le pont : il réintroduit la fonction de perte du Jour 2 comme une vraisemblance, développe l'autoencodeur variationnel comme le modèle génératif non trivial le plus simple, et se termine par l'image du débruitage par diffusion qui sous-tend essentiellement tout générateur d'images et d'audio à l'état de l'art construit ces cinq dernières années.
+
+\section{Distributions, densités, et ce qu'on cherche à apprendre}
+
+Une distribution de probabilités attribue un poids à chaque résultat possible. Pour un ensemble fini, une distribution est une liste de nombres positifs qui somment à 1. Pour un espace continu comme $\mathbb{R}^d$, c'est une fonction de densité $p(\bm{x}) \geq 0$ dont l'intégrale sur tout l'espace vaut 1.
+
+\begin{definition}[Densité]
+Une densité de probabilité $p: \mathbb{R}^d \to \mathbb{R}_{\geq 0}$ satisfait $\int p(\bm{x}) \, d\bm{x} = 1$. Pour toute région $A \subseteq \mathbb{R}^d$, la probabilité qu'un échantillon tombe dans $A$ est $\int_A p(\bm{x}) \, d\bm{x}$.
+\end{definition}
+
+Les données qui nous intéressent --- images, textes, molécules --- viennent d'une distribution inconnue $p_{\text{data}}$. La modélisation générative signifie : estimer $p_{\text{data}}$ à partir d'échantillons, assez bien pour générer de nouveaux échantillons qui ressemblent à ceux qui en viennent.
+
+\begin{intuition}
+Pour MNIST, $p_{\text{data}}$ est une densité sur $\mathbb{R}^{784}$. Presque chaque point de $\mathbb{R}^{784}$ est une image de bruit avec une densité essentiellement nulle. Les vrais chiffres vivent sur un sous-ensemble minuscule et courbe (la variété du Jour 1), où la densité est énorme. Un modèle génératif est quelque chose qui a intériorisé la forme de cette région de haute densité.
+\end{intuition}
+
+\section{Vraisemblance : une perte avec une signification}
+
+Supposons que nous ayons une famille paramétrique de densités $\{p_\theta : \theta \in \Theta\}$. Étant donnés des échantillons $\bm{x}_1, \ldots, \bm{x}_N$ tirés de $p_{\text{data}}$, la \emph{vraisemblance} est la densité de probabilité que le modèle attribue aux données :
+\[
+\mathcal{L}_{\text{vrais}}(\theta) = \prod_{i=1}^N p_\theta(\bm{x}_i).
+\]
+L'\emph{estimation par maximum de vraisemblance} (MLE) choisit le $\theta$ qui rend les données les plus plausibles sous $p_\theta$. En pratique, on travaille avec la log-vraisemblance négative, parce qu'elle transforme le produit en somme et donne quelque chose à minimiser :
+\[
+- \log \mathcal{L}_{\text{vrais}}(\theta) = - \sum_{i=1}^N \log p_\theta(\bm{x}_i).
+\]
+
+\begin{proposition}[L'entropie croisée est la log-vraisemblance négative]
+Pour un classifieur de sortie softmax $p_\theta(y \mid \bm{x})$, la perte d'entropie croisée du Jour 2,
+\[
+\mathcal{L}_{\text{CE}}(\theta) = - \frac{1}{N} \sum_{i=1}^N \log p_\theta(y_i \mid \bm{x}_i),
+\]
+est exactement $-\frac{1}{N} \log \mathcal{L}_{\text{vrais}}(\theta)$. Entraîner un classifieur avec l'entropie croisée, c'est faire du maximum de vraisemblance sur la distribution conditionnelle $p_\theta(y \mid \bm{x})$.
+\end{proposition}
+
+Le classifieur du Jour 2 est déjà un modèle génératif --- d'étiquettes conditionnellement aux entrées. Pour générer des \emph{entrées}, il nous faut un modèle de la distribution des entrées elle-même. C'est l'objet du reste de ce chapitre.
+
+\section{Divergence de KL : distance entre distributions}
+
+Pour comparer deux distributions, on utilise la divergence de Kullback--Leibler :
+\[
+D_{\mathrm{KL}}(q \,\|\, p) = \int q(\bm{x}) \log \frac{q(\bm{x})}{p(\bm{x})} \, d\bm{x} = \mathbb{E}_{\bm{x} \sim q}\!\left[ \log q(\bm{x}) - \log p(\bm{x}) \right].
+\]
+La KL est positive ou nulle, nulle si et seulement si $p = q$, et asymétrique. Ce n'est pas une métrique --- $D_{\mathrm{KL}}(p \,\|\, q) \neq D_{\mathrm{KL}}(q \,\|\, p)$ en général --- mais c'est l'objet naturel quand l'une des distributions est les données et l'autre est le modèle.
+
+\begin{proposition}[La MLE minimise la KL avec les données]
+À une constante près qui ne dépend pas de $\theta$, la log-vraisemblance négative est égale à $D_{\mathrm{KL}}(p_{\text{data}} \,\|\, p_\theta)$. Le maximum de vraisemblance est une minimisation approchée de la KL entre la distribution des données et celle du modèle.
+\end{proposition}
+
+C'est l'énoncé le plus propre de ce que fait l'entraînement d'un modèle génératif : rendre la distribution du modèle proche de la distribution des données au sens de la KL. Le reste du chapitre est deux histoires sur \emph{comment} faire cette minimisation quand $p_\theta$ est un réseau de neurones.
+
+\section{Autoencodeurs variationnels}
+
+Rappelez-vous l'autoencodeur du Jour 1 : un encodeur $f_{\text{enc}}: \mathbb{R}^d \to \mathbb{R}^k$ et un décodeur $f_{\text{dec}}: \mathbb{R}^k \to \mathbb{R}^d$, avec $k < d$, entraînés à minimiser $\|\bm{x} - f_{\text{dec}}(f_{\text{enc}}(\bm{x}))\|^2$. L'autoencodeur apprend un espace latent, mais il n'a pas de notion de probabilité --- on ne peut pas y échantillonner. L'autoencodeur variationnel (VAE, Kingma \& Welling, 2014) est la cousine probabiliste.
+
+\subsection{Le modèle}
+
+Le VAE suppose que les données sont générées comme suit :
+\begin{enumerate}
+  \item Échantillonner un vecteur latent $\bm{z}$ depuis un prior simple, typiquement $p(\bm{z}) = \mathcal{N}(\bm{0}, I)$.
+  \item Faire passer $\bm{z}$ par un décodeur neuronal $f_{\text{dec}}$ pour obtenir les paramètres d'une distribution $p_\theta(\bm{x} \mid \bm{z})$ sur les données (par exemple, une gaussienne de moyenne $f_{\text{dec}}(\bm{z})$).
+  \item Échantillonner $\bm{x}$ depuis $p_\theta(\bm{x} \mid \bm{z})$.
+\end{enumerate}
+La distribution du modèle est la marginale $p_\theta(\bm{x}) = \int p_\theta(\bm{x} \mid \bm{z}) \, p(\bm{z}) \, d\bm{z}$. Cette intégrale est intractable pour un décodeur neuronal, donc on ne peut pas évaluer $\log p_\theta(\bm{x})$ directement. Le VAE introduit un second réseau de neurones --- un \emph{encodeur} $q_\phi(\bm{z} \mid \bm{x})$, typiquement gaussien de moyenne et variance produites par $f_{\text{enc}}$ --- et optimise une borne inférieure sur la log-vraisemblance.
+
+\subsection{La borne inférieure (ELBO)}
+
+Pour tout choix de $q_\phi$,
+\[
+\log p_\theta(\bm{x}) \geq \underbrace{\mathbb{E}_{q_\phi(\bm{z} \mid \bm{x})}\!\left[ \log p_\theta(\bm{x} \mid \bm{z}) \right]}_{\text{terme de reconstruction}} - \underbrace{D_{\mathrm{KL}}(q_\phi(\bm{z} \mid \bm{x}) \,\|\, p(\bm{z}))}_{\text{régularisation vers le prior}}.
+\]
+C'est l'ELBO. Maximiser l'ELBO par rapport à $\theta$ et $\phi$ conjointement est l'objectif d'entraînement. Le premier terme veut que le décodeur reconstruise $\bm{x}$ correctement à partir d'un $\bm{z}$ tiré de l'encodeur. Le second terme veut que la postérieure de l'encodeur ressemble au prior.
+
+\begin{intuition}
+Le VAE est un autoencodeur avec deux changements. D'abord, l'encodeur produit une distribution, pas un seul $\bm{z}$ --- on échantillonne pour obtenir le latent. Ensuite, un terme de perte supplémentaire tire les distributions de l'encodeur vers le prior gaussien standard. Ensemble, ces changements rendent l'espace latent \emph{génératif} : des échantillons du prior, décodés, ressemblent à des données, parce que l'encodeur a été poussé à utiliser la même région de l'espace latent que celle couverte par le prior.
+\end{intuition}
+
+\subsection{L'astuce de reparamétrisation}
+
+L'espérance $\mathbb{E}_{q_\phi(\bm{z} \mid \bm{x})}[\cdot]$ est prise sur un $\bm{z}$ aléatoire, et l'encodeur produit les paramètres de cet aléa. On ne peut pas différentier directement à travers un échantillonnage aléatoire. L'astuce (Kingma \& Welling, 2014) : écrire $\bm{z} = \bm{\mu}_\phi(\bm{x}) + \bm{\sigma}_\phi(\bm{x}) \odot \bm{\epsilon}$ avec $\bm{\epsilon} \sim \mathcal{N}(\bm{0}, I)$. Maintenant l'aléa est dans $\bm{\epsilon}$, qui n'a pas de paramètres ; $\bm{\mu}_\phi$ et $\bm{\sigma}_\phi$ sont déterministes et différentiables. La rétropropagation passe.
+
+Le TP d'aujourd'hui entraîne un petit VAE sur MNIST et visualise à la fois l'espace latent et ce qui se passe quand on décode un chemin lisse à travers cet espace.
+
+\section{Diffusion débruitante}
+
+Les modèles de diffusion (Sohl-Dickstein et al., 2015 ; Ho et al., 2020) prennent une autre route vers la même destination. Au lieu d'essayer d'apprendre la distribution des données directement, ils apprennent à \emph{inverser} un processus de bruitage fixe.
+
+\subsection{Le processus avant}
+
+Partez d'une vraie image $\bm{x}_0$. Définissez une suite de versions corrompues $\bm{x}_1, \bm{x}_2, \ldots, \bm{x}_T$ en ajoutant une petite quantité de bruit gaussien à chaque étape :
+\[
+\bm{x}_t = \sqrt{1 - \beta_t} \, \bm{x}_{t-1} + \sqrt{\beta_t} \, \bm{\epsilon}_t, \qquad \bm{\epsilon}_t \sim \mathcal{N}(\bm{0}, I).
+\]
+Les variances $\beta_t$ sont petites et choisies de sorte qu'à $t = T$ (souvent $T = 1000$), $\bm{x}_T$ soit essentiellement du bruit gaussien pur. Ce processus avant n'a aucun paramètre ; c'est juste un planning de bruit.
+
+Une conséquence en forme close utile : pour tout $t$, on peut écrire $\bm{x}_t$ directement en fonction de $\bm{x}_0$ et d'un seul vecteur de bruit :
+\[
+\bm{x}_t = \sqrt{\bar{\alpha}_t} \, \bm{x}_0 + \sqrt{1 - \bar{\alpha}_t} \, \bm{\epsilon}, \quad \bm{\epsilon} \sim \mathcal{N}(\bm{0}, I),
+\]
+où $\bar{\alpha}_t = \prod_{s=1}^t (1 - \beta_s)$. C'est ce qui rend l'entraînement efficace --- pas besoin de simuler la chaîne pas à pas.
+
+\subsection{Le processus arrière}
+
+On entraîne un réseau de neurones $\bm{\epsilon}_\theta(\bm{x}_t, t)$ qui prend une image bruitée et un pas de temps, et prédit le bruit qui a été ajouté. La perte d'entraînement est une simple MSE :
+\[
+\mathcal{L}_{\text{diff}}(\theta) = \mathbb{E}_{\bm{x}_0, t, \bm{\epsilon}} \!\left[ \|\bm{\epsilon} - \bm{\epsilon}_\theta(\bm{x}_t, t)\|^2 \right]
+\]
+où $\bm{x}_t$ est la version bruitée de $\bm{x}_0$ au pas $t$, donnée par la formule en forme close ci-dessus. Une fois que le réseau sait prédire le bruit, on peut le soustraire : étant donné un $\bm{x}_t$ bruité, on récupère une estimation de $\bm{x}_0$ (ou, plus précisément, de $\bm{x}_{t-1}$).
+
+\begin{aitip}
+L'objectif d'entraînement est juste une MSE sur la prédiction du bruit. Pas de log-vraisemblance, pas de divergence KL dans la perte, pas de borne variationnelle à négocier. L'avantage empirique de la diffusion sur les VAE tient en grande partie au fait que cette perte se comporte beaucoup mieux que l'ELBO. La raison profonde qui explique son succès vient du lien avec le \emph{score matching} (Hyvärinen, 2005 ; Song \& Ermon, 2019) : la prédiction du bruit est, à un facteur d'échelle connu près, une estimation du gradient de la log-densité de la distribution des données au point bruité.
+\end{aitip}
+
+\subsection{Échantillonnage}
+
+Pour générer une nouvelle image, partez d'un bruit pur $\bm{x}_T \sim \mathcal{N}(\bm{0}, I)$ et exécutez le processus arrière : à chaque pas, utilisez le réseau pour prédire le bruit, puis avancez d'un pas vers une image propre. Après $T$ pas, vous avez un échantillon de l'approximation par le modèle de $p_{\text{data}}$. Les échantillonneurs modernes (DDIM, Karras et al.) réduisent le nombre de pas requis de milliers à des dizaines, avec peu de perte de qualité.
+
+\begin{intuition}
+Un modèle de diffusion entraîné est un débruiteur qui sait à quoi les données ressemblent à chaque niveau de bruit. L'échantillonnage est juste un débruitage à l'envers, partant du bruit pur et finissant à quelque chose que le modèle considère comme un échantillon valide. Le TP d'aujourd'hui entraîne cette image à partir de zéro sur une spirale 2D, pour que vous puissiez regarder le bruit devenir une spirale en temps réel.
+\end{intuition}
+
+\section{Pourquoi la probabilité change l'image}
+
+Les réseaux déterministes des Jours 1 et 2 étaient des approximateurs de fonctions. Les réseaux probabilistes du Jour 3 sont des approximateurs de distributions. La différence a des conséquences :
+
+\begin{itemize}
+  \item Un classifieur vous dit la probabilité de chaque étiquette. Un modèle de diffusion vous dit la probabilité de chaque image possible.
+  \item Un classifieur est interrogé une fois par entrée. Un modèle génératif est échantillonné --- il produit quelque chose de différent à chaque appel.
+  \item L'échec d'un classifieur, ce sont des prédictions fausses. L'échec d'un modèle génératif, c'est de produire des échantillons que la distribution des données ne produirait jamais, ou d'échouer à couvrir des régions qu'elle couvre.
+\end{itemize}
+
+Les objets mathématiques (perte, gradient, optimiseur) sont les mêmes. L'interprétation est différente, et les choix de design qui en découlent --- quoi modéliser, sur quoi conditionner, comment échantillonner --- sont différents.
+
+\section{Ce que vous avez vu}
+
+La perte d'entropie croisée du Jour 2 est une log-vraisemblance négative. Le maximum de vraisemblance est une minimisation approchée de la KL entre données et modèle. Le VAE optimise une borne inférieure tractable sur la log-vraisemblance et utilise une astuce d'échantillonnage reparamétré pour propager le gradient à travers l'aléa. Les modèles de diffusion contournent entièrement la vraisemblance, entraînant un débruiteur par simple MSE et échantillonnant en inversant le processus de bruitage.
+
+Ces trois idées --- vraisemblance, ELBO, score de débruitage --- couvrent essentiellement tout modèle génératif utilisé en production : modèles de langue (vraisemblance du prochain jeton), Stable Diffusion (débruitage), VAE d'images (étapes de compression perceptuelle de la \emph{latent diffusion}). Le Jour 4 revient sur une question que nous avons esquivée : quand les données ont une structure (graphes, séquences, images sur une grille régulière), quelles architectures encodent cette structure dans le modèle ?
+
+\section*{Travail pratique}
+
+Ouvrez le notebook du Jour 3 (\texttt{Day3\_Probability\_GenerativeModels.ipynb}). Vous allez :
+
+\begin{enumerate}
+  \item Échantillonner depuis une gaussienne, en ajuster une aux données, et calculer la KL entre deux gaussiennes à la main et par Monte Carlo --- pour voir pourquoi la forme close compte.
+  \item Entraîner un petit VAE sur MNIST. Visualiser l'espace latent 2D, y échantillonner, et décoder un chemin entre deux latents pour regarder un chiffre se transformer en un autre.
+  \item Implémenter un modèle de diffusion débruitant à partir de zéro sur un jeu de données en spirale 2D. Visualiser le processus de bruitage avant et le processus de génération arrière pas à pas.
+  \item Entraîner un petit modèle de diffusion sur MNIST, échantillonner quelques chiffres, et inspecter les niveaux de bruit intermédiaires.
+\end{enumerate}
+
+À la fin du TP, vous aurez construit deux modèles génératifs à partir de zéro et entraîné les deux avec succès sur des données réelles, en utilisant seulement NumPy, PyTorch, et la mathématique de ce chapitre.

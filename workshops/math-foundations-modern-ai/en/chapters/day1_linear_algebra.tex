@@ -1,0 +1,165 @@
+\chapter{Linear algebra and parametric models}
+\label{ch:day1}
+
+\begin{quote}
+\emph{``A neural network is a stack of linear maps with non-linear interruptions. The mathematics has been understood for a century; the engineering surprise is that it works at scale.''}
+\end{quote}
+
+% ============================================================
+A modern AI model is, at its core, a function. It takes an input vector $\bm{x} \in \mathbb{R}^d$ --- pixels of an image, embeddings of a sentence, features of a customer --- and returns an output: a class label, a probability, another vector. The vocabulary of that function is linear algebra. Vector spaces describe where the data lives. Linear maps move data between spaces. The non-linear ingredients (ReLU, softmax) are punctuation. Almost everything else about a network --- depth, width, embedding dimension, latent space, attention heads --- is a choice of how to compose linear maps.
+
+This chapter sets up the linear-algebraic spine of the workshop. We will not prove the spectral theorem. We will name the structures, give the geometric intuition, and write the small amount of code needed to see them in action. Day 2 will introduce gradients to make these models trainable; Day 3 will add probability to make them generative. But the structures are all here.
+
+\section{Vector spaces, the short version}
+
+A \emph{vector space} over $\mathbb{R}$ is a set $V$ where you can add elements and multiply them by real numbers, and the usual rules hold (associativity, distributivity, a zero element). Every concrete example we care about in this workshop is some flavor of $\mathbb{R}^d$: ordered tuples of real numbers.
+
+\begin{definition}[The standard example]
+$\mathbb{R}^d$ is the set of $d$-tuples $\bm{x} = (x_1, \ldots, x_d)$ with addition and scalar multiplication done component-wise.
+\end{definition}
+
+\begin{example}
+A grayscale image of $28 \times 28$ pixels is an element of $\mathbb{R}^{784}$ once we flatten it. A sentence embedding from a small language model is an element of $\mathbb{R}^{768}$. A user's row in a recommender system's feature table is an element of $\mathbb{R}^{50}$ or so. These all look very different in the world but identical to the mathematics --- they are points in a vector space, and the model treats them as such.
+\end{example}
+
+The \emph{dimension} of a vector space is the number of independent directions you can move in. $\mathbb{R}^{784}$ has 784 of them, one per pixel. In practice, the data does not fill the space: nearly all $\mathbb{R}^{784}$ vectors look like random noise, and almost none of them look like a digit. This observation --- that real data lives on a much lower-dimensional subset --- is the \emph{manifold hypothesis}, and it is the reason embeddings work.
+
+\begin{intuition}
+A high-dimensional vector space is mostly empty. Modern AI exploits this: even when the ambient space has $10^4$ dimensions, the structure we care about (the set of plausible images, the set of meaningful sentences) lives on a tiny, curved subset. Learning that subset is a large part of what training does.
+\end{intuition}
+
+\section{Linear maps and matrices}
+
+A \emph{linear map} $f: \mathbb{R}^d \to \mathbb{R}^k$ is a function that respects addition and scalar multiplication:
+\[
+f(\bm{x} + \bm{y}) = f(\bm{x}) + f(\bm{y}), \qquad f(\alpha \bm{x}) = \alpha f(\bm{x}).
+\]
+Every such map is given by a matrix $W \in \mathbb{R}^{k \times d}$: $f(\bm{x}) = W \bm{x}$. Pick a basis and the map becomes a list of numbers.
+
+\begin{definition}[Affine map]
+An affine map is a linear map plus a constant offset: $\bm{x} \mapsto W \bm{x} + \bm{b}$, where $\bm{b} \in \mathbb{R}^k$ is the bias. Every layer of a standard neural network is an affine map followed by a non-linearity.
+\end{definition}
+
+The matrix $W$ does three things at once: it scales, it rotates, and it projects onto a (possibly lower-dimensional) subspace. The singular value decomposition makes this precise --- any $W$ can be written $U \Sigma V^\top$ where $U$ and $V$ are rotations and $\Sigma$ is a non-negative diagonal scaling. We will not need the SVD machinery in detail, but the picture is worth holding:
+
+\begin{intuition}
+Every linear layer in a neural network rotates the input space, stretches some directions and shrinks others, and possibly throws some directions away (those with singular value zero). Stacking layers stacks these operations. The non-linearities are what prevent the stack from collapsing into a single linear map.
+\end{intuition}
+
+\section{From the perceptron to the MLP}
+
+The simplest neural network is a single neuron, the \emph{perceptron} (Rosenblatt, 1958):
+\[
+y = \sigma(\bm{w}^\top \bm{x} + b)
+\]
+where $\bm{w} \in \mathbb{R}^d$ is a vector of weights, $b \in \mathbb{R}$ is a bias, and $\sigma$ is a non-linear function. With $\sigma(z) = 1/(1 + e^{-z})$ (the logistic sigmoid), this is exactly logistic regression dressed up in different vocabulary.
+
+\begin{proposition}[Why a single layer is not enough]
+A single affine layer can only separate input space by a hyperplane. The XOR function --- output is 1 if exactly one of two binary inputs is 1 --- cannot be expressed by any single perceptron. This is the original 1969 critique of Minsky and Papert that briefly killed the field.
+\end{proposition}
+
+The fix is composition. A \emph{multilayer perceptron} (MLP) stacks affine maps with non-linearities between them. A two-layer MLP from $\mathbb{R}^d$ to $\mathbb{R}^k$ is:
+\[
+\bm{h} = \sigma(W_1 \bm{x} + \bm{b}_1), \qquad \bm{y} = W_2 \bm{h} + \bm{b}_2
+\]
+where $W_1 \in \mathbb{R}^{m \times d}$, $W_2 \in \mathbb{R}^{k \times m}$, and $m$ is the width of the hidden layer. The non-linearity $\sigma$ is applied component-wise. Modern networks use $\sigma(z) = \max(0, z)$, the rectified linear unit (ReLU), almost everywhere.
+
+\begin{aitip}
+The universal approximation theorem (Cybenko, 1989; Hornik, 1991) says that even a one-hidden-layer MLP with enough width can approximate any continuous function on a compact set to arbitrary accuracy. This is a statement about \emph{existence}, not about \emph{learnability} or efficiency. Modern deep networks are not deep because shallow networks cannot represent the function. They are deep because depth makes the right functions easier to find by gradient descent.
+\end{aitip}
+
+\subsection{Counting parameters}
+
+Take an MLP with input dimension $d = 784$, one hidden layer of width $m = 256$, and output dimension $k = 10$. The parameter count is:
+\[
+\underbrace{784 \cdot 256 + 256}_{\text{first layer: } W_1, \bm{b}_1} + \underbrace{256 \cdot 10 + 10}_{\text{second layer: } W_2, \bm{b}_2} = 203\,530.
+\]
+A small MNIST classifier already has a couple hundred thousand parameters. GPT-3 has 175 billion. The numbers grow fast, but the structure does not change --- every layer is still an affine map followed by a non-linearity.
+
+\subsection{The MLP in code}
+
+\begin{minted}{python}
+import torch
+import torch.nn as nn
+
+class TwoLayerMLP(nn.Module):
+    def __init__(self, d_in: int, d_hidden: int, d_out: int):
+        super().__init__()
+        self.fc1 = nn.Linear(d_in, d_hidden)   # affine map: W1 x + b1
+        self.fc2 = nn.Linear(d_hidden, d_out)  # affine map: W2 h + b2
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        h = torch.relu(self.fc1(x))            # non-linearity
+        y = self.fc2(h)
+        return y
+
+model = TwoLayerMLP(d_in=784, d_hidden=256, d_out=10)
+n_params = sum(p.numel() for p in model.parameters())
+print(f"Number of parameters: {n_params:,}")
+\end{minted}
+
+The \texttt{nn.Linear} layer holds exactly the $W$ and $\bm{b}$ from the formulas above. Everything else in this workshop is variations on this theme: more layers, different non-linearities, weight-sharing (CNNs), structured connections (GNNs), attention (Transformers). The base unit is the affine map.
+
+\begin{exercise}
+A residual block in a ResNet has the form $\bm{y} = \bm{x} + F(\bm{x})$, where $F$ is a small sub-network. Argue informally why this should make training easier than the bare composition $\bm{y} = F(\bm{x})$. (Hint: what happens if $F$ outputs zero? What does that imply for the gradient?)
+\end{exercise}
+
+\section{Embeddings: vectors as representations}
+
+Up to this point, we have treated the input $\bm{x}$ as if it were already a vector. But the real input is often something else: a word, a user ID, a discrete category. Turning it into a vector is the first decision the model makes.
+
+\begin{definition}[Embedding]
+An embedding is a function from a discrete set $V$ (vocabulary, set of users, set of categories) into a vector space $\mathbb{R}^d$. Concretely it is a matrix $E \in \mathbb{R}^{|V| \times d}$: each row is the vector representation of one item.
+\end{definition}
+
+The embedding matrix is a parameter of the model. It is learned. After training, similar items end up close in the embedding space, and the geometry of that space carries the meaning the model has discovered.
+
+\begin{example}
+Word2Vec (Mikolov et al., 2013) trains an embedding matrix for English words so that the cosine similarity of two word vectors tracks their semantic similarity. The famous geometric regularity $\bm{e}_{\text{king}} - \bm{e}_{\text{man}} + \bm{e}_{\text{woman}} \approx \bm{e}_{\text{queen}}$ is an empirical observation about the resulting space, not an objective the model was trained on. The training objective was much simpler: predict a word from its context.
+\end{example}
+
+In modern language models, the input embedding is the first layer (a lookup in an embedding matrix), and the rest of the network operates on those vectors. The trick is that the same vector space is doing double duty: it is the input space \emph{and} the model's working memory.
+
+\begin{warningbox}
+``Embedding'' is overloaded in machine learning. It can mean a learned input representation (Word2Vec, an LLM's token embedding), a hidden activation inside a network (``the embedding of this image is the output of the second-to-last layer''), or a separately trained representation used as a feature in a downstream model (sentence-transformers). All three are vectors. The differences are about how they are produced and what they are used for.
+\end{warningbox}
+
+\section{Autoencoders and the geometry of latent space}
+
+An \emph{autoencoder} learns a compressed representation of its input by trying to reproduce that input from the compression. It has two parts:
+\[
+\underbrace{\bm{z} = f_{\text{enc}}(\bm{x})}_{\text{encoder, } \mathbb{R}^d \to \mathbb{R}^k} \qquad \underbrace{\hat{\bm{x}} = f_{\text{dec}}(\bm{z})}_{\text{decoder, } \mathbb{R}^k \to \mathbb{R}^d}
+\]
+with $k < d$. The training objective is reconstruction: minimize $\|\bm{x} - \hat{\bm{x}}\|^2$ over a dataset. Because the bottleneck $\bm{z}$ is lower-dimensional than $\bm{x}$, the autoencoder cannot memorize the input; it has to find structure.
+
+\begin{intuition}
+PCA is a linear autoencoder. If $f_{\text{enc}}$ and $f_{\text{dec}}$ are forced to be linear maps and we minimize squared reconstruction error, the optimal solution projects onto the top-$k$ principal components. Non-linear autoencoders generalize this idea: they learn a curved $k$-dimensional surface inside $\mathbb{R}^d$ that fits the data.
+\end{intuition}
+
+The bottleneck space $\mathbb{R}^k$ is called the \emph{latent space}. It is where the model's compressed understanding of the data lives. Two questions are usually worth asking about any latent space:
+
+\begin{itemize}
+  \item \textbf{What does each dimension mean?} Often nothing on its own --- the axes are arbitrary --- but directions in the space often correspond to semantic factors (lighting, pose, identity for a face dataset; topic, sentiment, tense for a text dataset).
+  \item \textbf{How does it transport between nearby points?} If small movements in $\bm{z}$ produce small, plausible changes in $\hat{\bm{x}}$, the model has learned the right manifold. If small movements produce jumps or nonsense, it has not.
+\end{itemize}
+
+Day 3 will return to autoencoders in their probabilistic form (variational autoencoders, VAEs) as one of the bridges to generative modelling. The autoencoder structure --- encoder, latent, decoder --- is also exactly the structure of a diffusion model in disguise.
+
+\section{What you have seen}
+
+Every parametric model in this workshop is built from three pieces: vectors (the data and intermediate representations), affine maps (the layers, with their weights and biases), and non-linearities (the activations that prevent collapse). Modern architectures --- CNNs, RNNs, Transformers, GNNs, diffusion models --- are variations on which affine maps are tied together and which non-linearities are inserted where. The names are different. The mathematics is the same.
+
+What we have not yet done is make any of this \emph{learn}. So far the weights $W$ and biases $\bm{b}$ are just numbers; the model is a function. Day 2 introduces the gradient, the loss function, and the optimization machinery that turns this function into something that can be fit to data. The structure stays the same. Training is what fills it in.
+
+\section*{Lab}
+
+Open the Day 1 notebook (\texttt{Day1\_LinearAlgebra\_ParametricModels.ipynb}). You will:
+
+\begin{enumerate}
+  \item Implement a two-layer MLP by hand in NumPy --- writing the matrix multiplications and ReLU explicitly --- and verify the parameter count matches what we computed above.
+  \item Train the same MLP in PyTorch on MNIST, getting roughly 97\% test accuracy in under a minute.
+  \item Extract the activations of the hidden layer for the test set, project them to 2D with PCA, and color the points by their true digit class. You will see clusters --- the network has learned a representation in which similar digits live near each other.
+  \item Train a small autoencoder on MNIST with a 2-dimensional latent space. Visualize the latent space directly and walk along straight lines in it: you will see digits morph smoothly into other digits.
+\end{enumerate}
+
+By the end of the lab you will have built the machinery that the rest of the workshop assumes: a working MLP, a working autoencoder, and the habit of inspecting what a network has learned by looking at its internal representations.

@@ -1,0 +1,161 @@
+\chapter{Probability and generative modelling}
+\label{ch:day3}
+
+\begin{quote}
+\emph{``A generative model is a probability distribution you can sample from. Everything else --- the loss function, the architecture, the training algorithm --- is in service of learning that distribution from data.''}
+\end{quote}
+
+% ============================================================
+Days 1 and 2 built a function: an MLP that maps inputs to outputs, with weights trained by gradient descent on a loss. The setup was deterministic. A given input produced a given output. That picture is enough for classification and regression, but it does not capture what modern generative models do. A diffusion model does not predict a single output from an input; it samples one image (or many different images) from a learned distribution. A language model does not predict one next token; it gives you a distribution over the vocabulary, and the sampler draws from it.
+
+To talk about that, we need probability. This chapter is the bridge: it reintroduces the loss function from Day 2 as a likelihood, develops the variational autoencoder as the simplest non-trivial generative model, and ends with the denoising diffusion picture that underlies essentially every state-of-the-art image and audio generator built in the last five years.
+
+\section{Distributions, densities, and what we are trying to learn}
+
+A probability distribution assigns weight to every possible outcome. For a finite set, a distribution is a list of non-negative numbers summing to 1. For a continuous space like $\mathbb{R}^d$, it is a density function $p(\bm{x}) \geq 0$ whose integral over the whole space is 1.
+
+\begin{definition}[Density]
+A probability density $p: \mathbb{R}^d \to \mathbb{R}_{\geq 0}$ satisfies $\int p(\bm{x}) \, d\bm{x} = 1$. For any region $A \subseteq \mathbb{R}^d$, the probability that a sample falls in $A$ is $\int_A p(\bm{x}) \, d\bm{x}$.
+\end{definition}
+
+The data we care about --- images, texts, molecules --- comes from some unknown distribution $p_{\text{data}}$. Generative modelling means: estimate $p_{\text{data}}$ from samples, well enough to generate new samples that look like they came from it.
+
+\begin{intuition}
+For MNIST, $p_{\text{data}}$ is a density on $\mathbb{R}^{784}$. Almost every point in $\mathbb{R}^{784}$ is a noise image with density essentially zero. Real digits live on a tiny, curved subset (the manifold from Day 1), where the density is enormous. A generative model is something that has internalized the shape of that high-density region.
+\end{intuition}
+
+\section{Likelihood: a loss with a meaning}
+
+Suppose we have a parametric family of densities $\{p_\theta : \theta \in \Theta\}$. Given samples $\bm{x}_1, \ldots, \bm{x}_N$ drawn from $p_{\text{data}}$, the \emph{likelihood} is the probability density that the model assigns to the data:
+\[
+\mathcal{L}_{\text{lik}}(\theta) = \prod_{i=1}^N p_\theta(\bm{x}_i).
+\]
+\emph{Maximum likelihood estimation} (MLE) picks the $\theta$ that makes the data look most plausible under $p_\theta$. In practice we work with the negative log-likelihood, because it turns the product into a sum and gives us something to minimize:
+\[
+- \log \mathcal{L}_{\text{lik}}(\theta) = - \sum_{i=1}^N \log p_\theta(\bm{x}_i).
+\]
+
+\begin{proposition}[Cross-entropy is negative log-likelihood]
+For a classifier with softmax output $p_\theta(y \mid \bm{x})$, the cross-entropy loss from Day 2,
+\[
+\mathcal{L}_{\text{CE}}(\theta) = - \frac{1}{N} \sum_{i=1}^N \log p_\theta(y_i \mid \bm{x}_i),
+\]
+is exactly $-\frac{1}{N} \log \mathcal{L}_{\text{lik}}(\theta)$. Training a classifier with cross-entropy is maximum likelihood on the conditional distribution $p_\theta(y \mid \bm{x})$.
+\end{proposition}
+
+The classifier from Day 2 is already a generative model --- of labels conditional on inputs. To generate \emph{inputs} we need a model of the input distribution itself. That is what the rest of this chapter is about.
+
+\section{KL divergence: distance between distributions}
+
+To compare two distributions we use the Kullback--Leibler divergence:
+\[
+D_{\mathrm{KL}}(q \,\|\, p) = \int q(\bm{x}) \log \frac{q(\bm{x})}{p(\bm{x})} \, d\bm{x} = \mathbb{E}_{\bm{x} \sim q}\!\left[ \log q(\bm{x}) - \log p(\bm{x}) \right].
+\]
+KL is non-negative, zero if and only if $p = q$, and asymmetric. It is not a metric --- $D_{\mathrm{KL}}(p \,\|\, q) \neq D_{\mathrm{KL}}(q \,\|\, p)$ in general --- but it is the natural object when one of the distributions is the data and the other is the model.
+
+\begin{proposition}[MLE minimizes KL to the data]
+Up to a constant that does not depend on $\theta$, the negative log-likelihood equals $D_{\mathrm{KL}}(p_{\text{data}} \,\|\, p_\theta)$. Maximum likelihood is approximate KL minimization between the data distribution and the model distribution.
+\end{proposition}
+
+This is the cleanest statement of what training a generative model is doing: making the model distribution close to the data distribution in the KL sense. The rest of the chapter is two stories about \emph{how} to do that minimization when $p_\theta$ is a neural network.
+
+\section{Variational autoencoders}
+
+Recall the autoencoder from Day 1: an encoder $f_{\text{enc}}: \mathbb{R}^d \to \mathbb{R}^k$ and a decoder $f_{\text{dec}}: \mathbb{R}^k \to \mathbb{R}^d$, with $k < d$, trained to minimize $\|\bm{x} - f_{\text{dec}}(f_{\text{enc}}(\bm{x}))\|^2$. The autoencoder learns a latent space, but it has no notion of probability --- you cannot sample from it. The variational autoencoder (VAE, Kingma \& Welling, 2014) is the probabilistic cousin.
+
+\subsection{The model}
+
+The VAE assumes data is generated as follows:
+\begin{enumerate}
+  \item Sample a latent vector $\bm{z}$ from a simple prior, typically $p(\bm{z}) = \mathcal{N}(\bm{0}, I)$.
+  \item Pass $\bm{z}$ through a neural network decoder $f_{\text{dec}}$ to get parameters of a distribution $p_\theta(\bm{x} \mid \bm{z})$ over data (e.g., a Gaussian with mean $f_{\text{dec}}(\bm{z})$).
+  \item Sample $\bm{x}$ from $p_\theta(\bm{x} \mid \bm{z})$.
+\end{enumerate}
+The model distribution is the marginal $p_\theta(\bm{x}) = \int p_\theta(\bm{x} \mid \bm{z}) \, p(\bm{z}) \, d\bm{z}$. This integral is intractable for a neural-network decoder, so we cannot evaluate $\log p_\theta(\bm{x})$ directly. The VAE introduces a second neural network --- an \emph{encoder} $q_\phi(\bm{z} \mid \bm{x})$, typically Gaussian with mean and variance output by $f_{\text{enc}}$ --- and optimizes a lower bound on the log-likelihood.
+
+\subsection{The Evidence Lower BOund (ELBO)}
+
+For any choice of $q_\phi$,
+\[
+\log p_\theta(\bm{x}) \geq \underbrace{\mathbb{E}_{q_\phi(\bm{z} \mid \bm{x})}\!\left[ \log p_\theta(\bm{x} \mid \bm{z}) \right]}_{\text{reconstruction term}} - \underbrace{D_{\mathrm{KL}}(q_\phi(\bm{z} \mid \bm{x}) \,\|\, p(\bm{z}))}_{\text{regularizer to the prior}}.
+\]
+This is the ELBO. Maximizing the ELBO with respect to $\theta$ and $\phi$ jointly is the training objective. The first term wants the decoder to reconstruct $\bm{x}$ well from a $\bm{z}$ drawn from the encoder. The second term wants the encoder's posterior to look like the prior.
+
+\begin{intuition}
+The VAE is an autoencoder with two changes. First, the encoder outputs a distribution, not a single $\bm{z}$ --- you sample to get the latent. Second, an extra loss term pulls the encoder distributions toward the standard Gaussian prior. Together these changes make the latent space \emph{generative}: samples from the prior, decoded, look like data, because the encoder has been pushed to use the same region of latent space the prior covers.
+\end{intuition}
+
+\subsection{The reparameterization trick}
+
+The expectation $\mathbb{E}_{q_\phi(\bm{z} \mid \bm{x})}[\cdot]$ is taken over a random $\bm{z}$, and the encoder produces the parameters of that randomness. We cannot directly differentiate through random sampling. The trick (Kingma \& Welling, 2014): write $\bm{z} = \bm{\mu}_\phi(\bm{x}) + \bm{\sigma}_\phi(\bm{x}) \odot \bm{\epsilon}$ with $\bm{\epsilon} \sim \mathcal{N}(\bm{0}, I)$. Now the randomness is in $\bm{\epsilon}$, which has no parameters; $\bm{\mu}_\phi$ and $\bm{\sigma}_\phi$ are deterministic and differentiable. Backprop flows through.
+
+The lab today trains a small VAE on MNIST and visualizes both the latent space and what happens when you decode a smooth path through it.
+
+\section{Denoising diffusion}
+
+Diffusion models (Sohl-Dickstein et al., 2015; Ho et al., 2020) take a different route to the same destination. Instead of trying to learn the data distribution directly, they learn to \emph{reverse} a fixed noising process.
+
+\subsection{The forward process}
+
+Start from a real image $\bm{x}_0$. Define a sequence of corrupted versions $\bm{x}_1, \bm{x}_2, \ldots, \bm{x}_T$ by adding a small amount of Gaussian noise at each step:
+\[
+\bm{x}_t = \sqrt{1 - \beta_t} \, \bm{x}_{t-1} + \sqrt{\beta_t} \, \bm{\epsilon}_t, \qquad \bm{\epsilon}_t \sim \mathcal{N}(\bm{0}, I).
+\]
+The variances $\beta_t$ are small and chosen so that by $t = T$ (often $T = 1000$), $\bm{x}_T$ is essentially pure Gaussian noise. This forward process has no parameters; it is just a noise schedule.
+
+A useful closed-form consequence: for any $t$, we can write $\bm{x}_t$ directly in terms of $\bm{x}_0$ and a single noise vector:
+\[
+\bm{x}_t = \sqrt{\bar{\alpha}_t} \, \bm{x}_0 + \sqrt{1 - \bar{\alpha}_t} \, \bm{\epsilon}, \quad \bm{\epsilon} \sim \mathcal{N}(\bm{0}, I),
+\]
+where $\bar{\alpha}_t = \prod_{s=1}^t (1 - \beta_s)$. This is what makes training efficient --- no need to simulate the chain step by step.
+
+\subsection{The reverse process}
+
+We train a neural network $\bm{\epsilon}_\theta(\bm{x}_t, t)$ that takes a noisy image and a timestep and predicts the noise that was added. The training loss is plain MSE:
+\[
+\mathcal{L}_{\text{diff}}(\theta) = \mathbb{E}_{\bm{x}_0, t, \bm{\epsilon}} \!\left[ \|\bm{\epsilon} - \bm{\epsilon}_\theta(\bm{x}_t, t)\|^2 \right]
+\]
+where $\bm{x}_t$ is the noisy version of $\bm{x}_0$ at timestep $t$ using the closed-form formula above. Once the network can predict the noise, we can subtract it: given a noisy $\bm{x}_t$, recover an estimate of $\bm{x}_0$ (or, more carefully, of $\bm{x}_{t-1}$).
+
+\begin{aitip}
+The training objective is just MSE on noise prediction. There is no log-likelihood, no KL divergence in the loss, no variational bound to negotiate. Diffusion's empirical advantage over VAEs is largely that this loss is much better behaved than the ELBO. The deep reason it works comes from the connection to score matching (Hyvärinen, 2005; Song \& Ermon, 2019): the noise prediction is, up to a known scaling, an estimate of the gradient of the log-density of the data distribution at the noised point.
+\end{aitip}
+
+\subsection{Sampling}
+
+To generate a new image, start from pure noise $\bm{x}_T \sim \mathcal{N}(\bm{0}, I)$ and run the reverse process: at each step, use the network to predict the noise, then take one step closer to a clean image. After $T$ steps you have a sample from the model's approximation to $p_{\text{data}}$. Modern samplers (DDIM, Karras et al.) reduce the number of required steps from thousands to tens, at little loss of quality.
+
+\begin{intuition}
+A trained diffusion model is a denoiser that knows what data looks like at every noise level. Sampling is just denoising in reverse, starting from pure noise and ending at something the model considers a valid sample. The lab today trains this picture from scratch on a 2D spiral so you can watch the noise become a spiral in real time.
+\end{intuition}
+
+\section{Why probability changes the picture}
+
+The deterministic networks of Days 1 and 2 were function approximators. The probabilistic networks of Day 3 are distribution approximators. The difference is consequential:
+
+\begin{itemize}
+  \item A classifier tells you the probability of each label. A diffusion model tells you the probability of each possible image.
+  \item A classifier is queried once per input. A generative model is sampled --- it produces something different each time you call it.
+  \item A classifier's failure is wrong predictions. A generative model's failure is producing samples that the data distribution would never produce, or failing to cover regions that it does.
+\end{itemize}
+
+The mathematical objects (loss, gradient, optimizer) are the same. The interpretation is different, and the design choices that follow --- what to model, what to condition on, how to sample --- are different.
+
+\section{What you have seen}
+
+The cross-entropy loss from Day 2 is negative log-likelihood. Maximum likelihood is approximate KL minimization between data and model. The VAE optimizes a tractable lower bound on the log-likelihood and uses a reparameterized sampling trick to backprop through randomness. Diffusion models bypass the likelihood entirely, training a denoiser by plain MSE and sampling by reversing the noising process.
+
+These three ideas --- likelihood, ELBO, denoising score --- cover essentially every generative model used in production: language models (next-token likelihood), Stable Diffusion (denoising), image VAEs (the perceptual compression stages of latent diffusion). Day 4 returns to a question we have ducked: when the data has structure (graphs, sequences, images on a regular grid), what architectures encode that structure into the model?
+
+\section*{Lab}
+
+Open the Day 3 notebook (\texttt{Day3\_Probability\_GenerativeModels.ipynb}). You will:
+
+\begin{enumerate}
+  \item Sample from a Gaussian, fit one to data, and compute KL between two Gaussians by hand and by Monte Carlo --- so you see why the closed-form matters.
+  \item Train a small VAE on MNIST. Visualize the 2D latent space, sample from it, and decode a path between two latents to watch one digit morph into another.
+  \item Implement a denoising diffusion model from scratch on a 2D spiral dataset. Visualize the forward noising process and the reverse generation process step by step.
+  \item Train a small diffusion model on MNIST, sample a few digits, and inspect the intermediate noise levels.
+\end{enumerate}
+
+By the end of the lab you will have built two generative models from scratch and trained both successfully on real data, using only NumPy, PyTorch, and the math from this chapter.
