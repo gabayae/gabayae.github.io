@@ -1,18 +1,192 @@
 \chapter{Calculus and optimization}
 \label{ch:day2}
 
+\begin{quote}
+\emph{``Training a neural network is the chain rule, applied carefully, many times per second.''}
+\end{quote}
+
+% ============================================================
+At the end of Day 1 we had a model: an MLP, a stack of affine maps and ReLUs, with weights $W$ and biases $\bm{b}$ that were just random numbers. The model was a function. It did nothing useful. To make it useful we need to adjust those numbers so the model's outputs match the data --- and we need to do that adjustment automatically, because there are too many numbers to set by hand.
+
+This chapter is about that adjustment. The mathematics is calculus: derivatives say how a function's output changes when you nudge its inputs, and gradients generalize that idea to functions of many variables. The algorithm is gradient descent: take a small step in the direction that decreases the loss. The engineering trick that makes it tractable for million-parameter networks is the chain rule, applied recursively --- backpropagation. By the end of the day you will have implemented backpropagation by hand, in NumPy, for the MLP we built yesterday.
+
+\section{The loss function}
+
+Before we can optimize anything we have to say what we are optimizing. We need a single real number that measures \emph{how wrong} the model is on a dataset. That number is the \emph{loss}.
+
+\begin{definition}[Loss function]
+Given a model $f_\theta$ with parameters $\theta$ and a dataset $\{(\bm{x}_i, y_i)\}_{i=1}^N$, a loss function $\mathcal{L}(\theta)$ is a real-valued function of $\theta$ that is small when the model fits the data well and large when it does not. Training is the optimization problem $\min_\theta \mathcal{L}(\theta)$.
+\end{definition}
+
+Two losses cover most of this workshop:
+
+\paragraph{Mean squared error (regression).} For real-valued targets:
+\[
+\mathcal{L}_{\text{MSE}}(\theta) = \frac{1}{N} \sum_{i=1}^N \|f_\theta(\bm{x}_i) - y_i\|^2.
+\]
+This is the squared distance between prediction and target, averaged over the dataset.
+
+\paragraph{Cross-entropy (classification).} For class labels $y_i \in \{1, \ldots, K\}$, the model outputs a probability distribution $f_\theta(\bm{x}_i) \in \Delta^{K-1}$ over classes (via softmax), and:
+\[
+\mathcal{L}_{\text{CE}}(\theta) = -\frac{1}{N} \sum_{i=1}^N \log f_\theta(\bm{x}_i)_{y_i}.
+\]
+This is the negative log-likelihood under the model's predicted distribution. Day 3 explains why \emph{this} loss and not some other.
+
+\begin{intuition}
+The loss is a landscape. The parameters $\theta$ are coordinates. Training is the act of finding a low point. The landscape has millions of dimensions (one per parameter) but is otherwise just a function $\mathcal{L}: \mathbb{R}^P \to \mathbb{R}$. Everything in this chapter is about how to walk downhill on that landscape efficiently.
+\end{intuition}
+
+\section{Derivatives and gradients}
+
+For a scalar function $f: \mathbb{R} \to \mathbb{R}$, the derivative $f'(x)$ is the rate of change at $x$: if we nudge $x$ by $\epsilon$, the output changes by approximately $f'(x) \cdot \epsilon$. The gradient generalizes this to functions of many variables.
+
+\begin{definition}[Gradient]
+For a function $f: \mathbb{R}^d \to \mathbb{R}$, the gradient at $\bm{x}$ is the vector of partial derivatives:
+\[
+\nabla f(\bm{x}) = \left( \frac{\partial f}{\partial x_1}(\bm{x}), \, \frac{\partial f}{\partial x_2}(\bm{x}), \, \ldots, \, \frac{\partial f}{\partial x_d}(\bm{x}) \right).
+\]
+The gradient points in the direction of steepest \emph{ascent}. The opposite direction, $-\nabla f(\bm{x})$, is steepest descent.
+\end{definition}
+
+This is the key geometric fact behind every optimization algorithm in this workshop: to decrease a function, follow its negative gradient.
+
+\begin{example}
+Let $f(x_1, x_2) = x_1^2 + 3 x_2^2$. The gradient is $\nabla f = (2 x_1, 6 x_2)$. At the point $(1, 1)$ the gradient is $(2, 6)$. The function increases most rapidly in the direction $(2, 6)/\|(2, 6)\|$ and decreases most rapidly in the opposite direction. Both axes point outward from the minimum at $(0, 0)$, but the $x_2$ direction is steeper, because the function curves more steeply along $x_2$.
+\end{example}
+
+\section{Gradient descent}
+
+The simplest optimization algorithm is the one suggested by the previous section: start somewhere, compute the gradient, step in the negative-gradient direction, repeat.
+
+\begin{definition}[Gradient descent]
+Given a learning rate $\eta > 0$ and an initial point $\theta_0$, gradient descent produces a sequence
+\[
+\theta_{t+1} = \theta_t - \eta \, \nabla \mathcal{L}(\theta_t).
+\]
+\end{definition}
+
+The learning rate $\eta$ controls how big a step we take. If $\eta$ is too small, training is slow. If $\eta$ is too large, the steps overshoot and the loss oscillates or diverges.
+
+\begin{warningbox}
+The learning rate is the single most consequential hyperparameter in deep learning. ``My model is not training'' is, in practice, almost always ``my learning rate is wrong.'' The lab today includes a learning-rate sweep so you can see this directly.
+\end{warningbox}
+
+\section{The chain rule and backpropagation}
+
+For an MLP with two layers, the loss is a composition of functions:
+\[
+\mathcal{L}(\theta) = \ell\bigl(f_2(f_1(\bm{x}))\bigr)
+\]
+where $f_1$ is the first affine-plus-ReLU layer, $f_2$ is the second, and $\ell$ is the loss applied to the output. To do gradient descent on $\mathcal{L}$ we need the gradient with respect to every parameter in $f_1$ and $f_2$.
+
+The chain rule from single-variable calculus generalizes to vector-valued functions. If $\bm{y} = g(\bm{u})$ and $\bm{u} = h(\bm{x})$, then
+\[
+\frac{\partial \bm{y}}{\partial \bm{x}} = \frac{\partial \bm{y}}{\partial \bm{u}} \cdot \frac{\partial \bm{u}}{\partial \bm{x}}
+\]
+where the partial derivatives are Jacobian matrices and the product is matrix multiplication. Applied repeatedly to the composition above, this lets us compute $\partial \mathcal{L} / \partial \theta$ for every parameter.
+
+\begin{intuition}
+The forward pass computes the loss from inputs to scalar output. The backward pass computes derivatives in the opposite direction: it starts from the scalar loss (whose derivative with respect to itself is 1) and propagates partial derivatives back through every layer, multiplying Jacobians as it goes. The total work of the backward pass is roughly the same as the forward pass --- a factor of 2 to 3, depending on the network. This is why training is feasible at all.
+\end{intuition}
+
+\subsection{Backprop for a 2-layer MLP, by hand}
+
+For the two-layer MLP from Day 1:
+\begin{align*}
+\bm{h}_{\text{pre}} &= W_1 \bm{x} + \bm{b}_1 \\
+\bm{h} &= \mathrm{ReLU}(\bm{h}_{\text{pre}}) \\
+\bm{y} &= W_2 \bm{h} + \bm{b}_2
+\end{align*}
+with cross-entropy loss after a softmax, the gradients have a closed form. Let $\bm{p} = \mathrm{softmax}(\bm{y})$ and $\bm{y}^*$ be the one-hot target. Then:
+\begin{align*}
+\frac{\partial \mathcal{L}}{\partial \bm{y}} &= \bm{p} - \bm{y}^* &\text{(softmax-CE collapses)} \\
+\frac{\partial \mathcal{L}}{\partial W_2} &= \frac{\partial \mathcal{L}}{\partial \bm{y}} \cdot \bm{h}^\top, \quad \frac{\partial \mathcal{L}}{\partial \bm{b}_2} = \frac{\partial \mathcal{L}}{\partial \bm{y}} \\
+\frac{\partial \mathcal{L}}{\partial \bm{h}} &= W_2^\top \cdot \frac{\partial \mathcal{L}}{\partial \bm{y}} \\
+\frac{\partial \mathcal{L}}{\partial \bm{h}_{\text{pre}}} &= \frac{\partial \mathcal{L}}{\partial \bm{h}} \odot \mathbf{1}[\bm{h}_{\text{pre}} > 0] &\text{(ReLU gradient)} \\
+\frac{\partial \mathcal{L}}{\partial W_1} &= \frac{\partial \mathcal{L}}{\partial \bm{h}_{\text{pre}}} \cdot \bm{x}^\top, \quad \frac{\partial \mathcal{L}}{\partial \bm{b}_1} = \frac{\partial \mathcal{L}}{\partial \bm{h}_{\text{pre}}}.
+\end{align*}
+Five lines. That is backpropagation for a two-layer MLP. The lab implements these formulas in NumPy and checks them against PyTorch's autograd to the bit.
+
+\subsection{Why we never write this code in practice}
+
+For a two-layer MLP we could derive these formulas. For a fifty-layer ResNet, or for a Transformer with cross-attention, the algebra is hopeless. Modern frameworks (PyTorch, JAX, TensorFlow) record the computational graph of the forward pass and replay it backward, applying the chain rule at each node. Every primitive operation (matmul, ReLU, softmax) has a hand-coded backward; the framework composes them automatically. This is what \emph{differentiable programming} means.
+
 \begin{aitip}
-This chapter is forthcoming. The lecture is outlined below; the full text will be released as part of the next workshop iteration. The syllabus and lab notebook for this day are already available.
+You will never write the backward pass for a production model. But you should understand what it is, because almost every training failure --- vanishing gradients, exploding gradients, dead ReLUs, gradient checkpointing trade-offs --- is a story about backpropagation. ``My loss is NaN'' is a story about backpropagation.
 \end{aitip}
 
-\section*{Planned sections}
+\section{Stochastic gradient descent}
+
+The loss is a sum over the dataset:
+\[
+\mathcal{L}(\theta) = \frac{1}{N} \sum_{i=1}^N \ell_i(\theta).
+\]
+Computing $\nabla \mathcal{L}$ exactly requires a full pass over the dataset. For MNIST that is 60\,000 examples per step. For ImageNet, 1.2 million. For an LLM pretrained on $10^{12}$ tokens, the number is meaningless.
+
+\begin{definition}[Stochastic gradient descent, SGD]
+At each step, sample a small batch $B \subset \{1, \ldots, N\}$ and update with the batch gradient:
+\[
+\theta_{t+1} = \theta_t - \eta \cdot \frac{1}{|B|} \sum_{i \in B} \nabla \ell_i(\theta_t).
+\]
+The batch gradient is a noisy but unbiased estimate of the full gradient.
+\end{definition}
+
+Two things make SGD work in practice:
+
+\begin{enumerate}
+  \item \textbf{Computational.} A batch of 128 fits in memory, runs in milliseconds, and gives a usable step. Full-batch gradient descent would be a hundred times slower per step for the same compute budget.
+  \item \textbf{Statistical.} The noise in the gradient estimate acts as implicit regularization, helping the optimizer escape narrow minima. This is part of why neural networks generalize at all (Hardt et al., 2016; Keskar et al., 2017).
+\end{enumerate}
+
+\section{Adam: momentum and adaptive step sizes}
+
+Plain SGD is the simplest optimizer, but rarely the best one in practice. Adam (Kingma \& Ba, 2015) adds two ingredients:
+
+\paragraph{Momentum.} Instead of taking a step in the direction of the current gradient, take a step in the direction of an exponentially-weighted average of recent gradients. This smooths out noise and accelerates progress along consistent directions.
+
+\paragraph{Per-parameter learning rates.} Each parameter gets its own effective learning rate, based on a running estimate of the magnitude of \emph{its} recent gradients. Parameters with consistently small gradients take larger steps; parameters with consistently large gradients take smaller steps.
+
+The update rule, with $\beta_1 = 0.9$, $\beta_2 = 0.999$, $\epsilon = 10^{-8}$:
+\begin{align*}
+\bm{m}_t &= \beta_1 \bm{m}_{t-1} + (1 - \beta_1) \nabla \mathcal{L}(\theta_t) &\text{(momentum)} \\
+\bm{v}_t &= \beta_2 \bm{v}_{t-1} + (1 - \beta_2) (\nabla \mathcal{L}(\theta_t))^2 &\text{(squared-gradient running mean)} \\
+\theta_{t+1} &= \theta_t - \eta \cdot \frac{\hat{\bm{m}}_t}{\sqrt{\hat{\bm{v}}_t} + \epsilon}
+\end{align*}
+where $\hat{\bm{m}}, \hat{\bm{v}}$ are bias-corrected versions of $\bm{m}, \bm{v}$. The square root and division are element-wise.
+
+Adam is the default optimizer for almost every modern network. SGD with momentum still beats it for some computer-vision benchmarks (Wilson et al., 2017), but Adam's tolerance of bad hyperparameter choices is what makes it the practical default.
+
+\section{Reading a learning curve}
+
+A learning curve plots loss (or accuracy) against training step. It is the diagnostic instrument of deep learning. Four characteristic shapes:
+
 \begin{itemize}
-  \item Multivariate derivatives and the chain rule.
-  \item Gradient descent, stochastic gradient descent, Adam.
-  \item Backpropagation as the chain rule on a computational graph.
-  \item Differentiable programming: why a modern framework computes gradients you did not write.
-  \item Learning rates, hyperparameters, and reading a learning curve.
+  \item \textbf{Healthy:} train loss decreases smoothly, validation loss decreases too and tracks within a small gap. The model is learning, and what it learns generalizes.
+  \item \textbf{Overfitting:} train loss decreases, validation loss decreases for a while and then starts to climb. The model is memorizing training examples instead of learning the underlying pattern. Day 5 returns to this.
+  \item \textbf{Underfitting:} both losses plateau high. The model lacks capacity, the optimizer is stuck, or the learning rate is wrong.
+  \item \textbf{Diverging:} loss spikes upward, often to infinity. The learning rate is too large, or the loss is being computed on a non-differentiable region (log of zero, division by zero in attention).
 \end{itemize}
 
+\begin{intuition}
+Reading the learning curve is the first thing to do when training does not work. Most pathologies have a characteristic shape, and the curve tells you which one you are looking at within seconds. Today's lab generates each of these shapes deliberately so you can recognize them next time.
+\end{intuition}
+
+\section{What you have seen}
+
+Training a neural network is gradient descent on a high-dimensional loss landscape, made tractable by the chain rule (backpropagation) and made practical by stochastic mini-batches and adaptive optimizers like Adam. The mathematics is calculus; the engineering is automatic differentiation. Every modern framework gives you the second for free, but only the first lets you reason about what is going wrong when something does.
+
+Day 3 adds the missing ingredient: probability. We have been speaking of ``predicting'' outputs and ``matching'' targets, but generative models do something stranger --- they learn an entire probability distribution and sample from it. That requires us to take the loss function seriously as a likelihood.
+
 \section*{Lab}
-The Day 2 notebook (\texttt{Day2\_Calculus\_Optimization.ipynb}) walks through implementing backpropagation by hand in NumPy for the Day 1 MLP, then training a deeper PyTorch network end-to-end and inspecting the resulting learning curves.
+
+Open the Day 2 notebook (\texttt{Day2\_Calculus\_Optimization.ipynb}). You will:
+
+\begin{enumerate}
+  \item Compute the gradient of a small function by hand, then verify against PyTorch's autograd.
+  \item Add a manual backward pass to the NumPy MLP from Day 1, then check every gradient against PyTorch's autograd to the last decimal --- the standard gradient-check trick used to debug new layers.
+  \item Train the manual MLP on MNIST with vanilla SGD and your own training loop. No frameworks.
+  \item Replace the manual training loop with PyTorch + Adam and observe the difference.
+  \item Sweep the learning rate over $\{10^{-1}, 10^{-2}, 10^{-3}, 10^{-4}\}$ and plot the resulting learning curves on a single axis. You will see all four characteristic shapes from above.
+\end{enumerate}
+
+By the end of the lab you will have written and verified a backward pass, trained a network from first principles, and built the habit of looking at the learning curve \emph{before} blaming the model.

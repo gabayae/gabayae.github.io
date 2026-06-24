@@ -1,18 +1,192 @@
 \chapter{Calcul différentiel et optimisation}
 \label{ch:jour2}
 
+\begin{quote}
+\emph{\og Entraîner un réseau de neurones, c'est appliquer la règle de la chaîne, soigneusement, plusieurs fois par seconde. \fg}
+\end{quote}
+
+% ============================================================
+À la fin du Jour 1, nous avions un modèle : un MLP, un empilement d'applications affines et de ReLU, dont les poids $W$ et les biais $\bm{b}$ étaient de simples nombres aléatoires. Le modèle était une fonction. Il ne faisait rien d'utile. Pour le rendre utile, il faut ajuster ces nombres pour que les sorties du modèle correspondent aux données --- et il faut le faire automatiquement, parce qu'il y a trop de nombres pour les régler à la main.
+
+Ce chapitre traite de cet ajustement. La mathématique est le calcul différentiel : la dérivée dit comment la sortie d'une fonction change quand on perturbe ses entrées, et le gradient généralise cette idée aux fonctions de plusieurs variables. L'algorithme est la descente de gradient : faire un petit pas dans la direction qui diminue la perte. L'astuce d'ingénierie qui rend cela tractable pour des réseaux à un million de paramètres est la règle de la chaîne, appliquée récursivement --- la rétropropagation. À la fin de la journée, vous aurez implémenté la rétropropagation à la main, en NumPy, pour le MLP construit hier.
+
+\section{La fonction de perte}
+
+Avant de pouvoir optimiser quoi que ce soit, il faut dire ce qu'on optimise. Il nous faut un seul nombre réel qui mesure \emph{à quel point} le modèle se trompe sur un jeu de données. Ce nombre est la \emph{perte}.
+
+\begin{definition}[Fonction de perte]
+Étant donné un modèle $f_\theta$ de paramètres $\theta$ et un jeu de données $\{(\bm{x}_i, y_i)\}_{i=1}^N$, une fonction de perte $\mathcal{L}(\theta)$ est une fonction à valeurs réelles de $\theta$, petite quand le modèle ajuste bien les données et grande quand ce n'est pas le cas. L'entraînement est le problème d'optimisation $\min_\theta \mathcal{L}(\theta)$.
+\end{definition}
+
+Deux pertes couvrent la majeure partie de cet atelier :
+
+\paragraph{Erreur quadratique moyenne (régression).} Pour des cibles à valeurs réelles :
+\[
+\mathcal{L}_{\text{MSE}}(\theta) = \frac{1}{N} \sum_{i=1}^N \|f_\theta(\bm{x}_i) - y_i\|^2.
+\]
+C'est la distance euclidienne au carré entre prédiction et cible, moyennée sur le jeu de données.
+
+\paragraph{Entropie croisée (classification).} Pour des étiquettes de classe $y_i \in \{1, \ldots, K\}$, le modèle produit une distribution de probabilités $f_\theta(\bm{x}_i) \in \Delta^{K-1}$ sur les classes (via softmax), et :
+\[
+\mathcal{L}_{\text{CE}}(\theta) = -\frac{1}{N} \sum_{i=1}^N \log f_\theta(\bm{x}_i)_{y_i}.
+\]
+C'est la log-vraisemblance négative sous la distribution prédite par le modèle. Le Jour 3 expliquera pourquoi \emph{cette} perte et pas une autre.
+
+\begin{intuition}
+La perte est un paysage. Les paramètres $\theta$ sont des coordonnées. L'entraînement est l'acte de trouver un point bas. Le paysage a des millions de dimensions (une par paramètre), mais c'est par ailleurs juste une fonction $\mathcal{L}: \mathbb{R}^P \to \mathbb{R}$. Tout ce chapitre traite de comment marcher en bas de ce paysage efficacement.
+\end{intuition}
+
+\section{Dérivées et gradients}
+
+Pour une fonction scalaire $f: \mathbb{R} \to \mathbb{R}$, la dérivée $f'(x)$ est le taux de variation en $x$ : si l'on perturbe $x$ de $\epsilon$, la sortie change d'environ $f'(x) \cdot \epsilon$. Le gradient généralise cela aux fonctions de plusieurs variables.
+
+\begin{definition}[Gradient]
+Pour une fonction $f: \mathbb{R}^d \to \mathbb{R}$, le gradient en $\bm{x}$ est le vecteur des dérivées partielles :
+\[
+\nabla f(\bm{x}) = \left( \frac{\partial f}{\partial x_1}(\bm{x}), \, \frac{\partial f}{\partial x_2}(\bm{x}), \, \ldots, \, \frac{\partial f}{\partial x_d}(\bm{x}) \right).
+\]
+Le gradient pointe dans la direction de plus grande \emph{augmentation}. La direction opposée, $-\nabla f(\bm{x})$, est celle de plus grande diminution.
+\end{definition}
+
+C'est le fait géométrique clé derrière tout algorithme d'optimisation de cet atelier : pour diminuer une fonction, suivre son gradient négatif.
+
+\begin{example}
+Soit $f(x_1, x_2) = x_1^2 + 3 x_2^2$. Le gradient est $\nabla f = (2 x_1, 6 x_2)$. Au point $(1, 1)$, le gradient est $(2, 6)$. La fonction augmente le plus rapidement dans la direction $(2, 6)/\|(2, 6)\|$ et diminue le plus rapidement dans la direction opposée. Les deux axes pointent vers l'extérieur du minimum en $(0, 0)$, mais la direction $x_2$ est plus pentue, parce que la fonction s'incurve plus fortement selon $x_2$.
+\end{example}
+
+\section{Descente de gradient}
+
+L'algorithme d'optimisation le plus simple est celui que suggère la section précédente : commencer quelque part, calculer le gradient, faire un pas dans la direction du gradient négatif, recommencer.
+
+\begin{definition}[Descente de gradient]
+Étant donné un taux d'apprentissage $\eta > 0$ et un point initial $\theta_0$, la descente de gradient produit une suite
+\[
+\theta_{t+1} = \theta_t - \eta \, \nabla \mathcal{L}(\theta_t).
+\]
+\end{definition}
+
+Le taux d'apprentissage $\eta$ contrôle la taille du pas. Si $\eta$ est trop petit, l'entraînement est lent. Si $\eta$ est trop grand, les pas dépassent et la perte oscille ou diverge.
+
+\begin{warningbox}
+Le taux d'apprentissage est l'hyperparamètre le plus déterminant en deep learning. \og Mon modèle ne s'entraîne pas \fg, en pratique, c'est presque toujours \og mon taux d'apprentissage est mauvais \fg. Le TP d'aujourd'hui inclut un balayage du taux d'apprentissage pour que vous le voyiez directement.
+\end{warningbox}
+
+\section{La règle de la chaîne et la rétropropagation}
+
+Pour un MLP à deux couches, la perte est une composition de fonctions :
+\[
+\mathcal{L}(\theta) = \ell\bigl(f_2(f_1(\bm{x}))\bigr)
+\]
+où $f_1$ est la première couche affine-plus-ReLU, $f_2$ est la seconde, et $\ell$ est la perte appliquée à la sortie. Pour faire une descente de gradient sur $\mathcal{L}$, nous avons besoin du gradient par rapport à chaque paramètre dans $f_1$ et $f_2$.
+
+La règle de la chaîne du calcul à une variable se généralise aux fonctions à valeurs vectorielles. Si $\bm{y} = g(\bm{u})$ et $\bm{u} = h(\bm{x})$, alors
+\[
+\frac{\partial \bm{y}}{\partial \bm{x}} = \frac{\partial \bm{y}}{\partial \bm{u}} \cdot \frac{\partial \bm{u}}{\partial \bm{x}}
+\]
+où les dérivées partielles sont des matrices jacobiennes et le produit est une multiplication matricielle. Appliquée de manière répétée à la composition ci-dessus, cela nous permet de calculer $\partial \mathcal{L} / \partial \theta$ pour chaque paramètre.
+
+\begin{intuition}
+La passe avant calcule la perte des entrées vers la sortie scalaire. La passe arrière calcule les dérivées dans la direction opposée : elle part de la perte scalaire (dont la dérivée par rapport à elle-même est 1) et propage les dérivées partielles en arrière à travers chaque couche, multipliant des jacobiennes au passage. Le travail total de la passe arrière est à peu près le même que celui de la passe avant --- un facteur 2 à 3, selon le réseau. C'est pourquoi l'entraînement est faisable.
+\end{intuition}
+
+\subsection{Rétropropagation pour un MLP à deux couches, à la main}
+
+Pour le MLP à deux couches du Jour 1 :
+\begin{align*}
+\bm{h}_{\text{pre}} &= W_1 \bm{x} + \bm{b}_1 \\
+\bm{h} &= \mathrm{ReLU}(\bm{h}_{\text{pre}}) \\
+\bm{y} &= W_2 \bm{h} + \bm{b}_2
+\end{align*}
+avec une perte d'entropie croisée après softmax, les gradients ont une forme close. Soient $\bm{p} = \mathrm{softmax}(\bm{y})$ et $\bm{y}^*$ la cible en encodage one-hot. Alors :
+\begin{align*}
+\frac{\partial \mathcal{L}}{\partial \bm{y}} &= \bm{p} - \bm{y}^* &\text{(la composition softmax-CE se simplifie)} \\
+\frac{\partial \mathcal{L}}{\partial W_2} &= \frac{\partial \mathcal{L}}{\partial \bm{y}} \cdot \bm{h}^\top, \quad \frac{\partial \mathcal{L}}{\partial \bm{b}_2} = \frac{\partial \mathcal{L}}{\partial \bm{y}} \\
+\frac{\partial \mathcal{L}}{\partial \bm{h}} &= W_2^\top \cdot \frac{\partial \mathcal{L}}{\partial \bm{y}} \\
+\frac{\partial \mathcal{L}}{\partial \bm{h}_{\text{pre}}} &= \frac{\partial \mathcal{L}}{\partial \bm{h}} \odot \mathbf{1}[\bm{h}_{\text{pre}} > 0] &\text{(gradient de ReLU)} \\
+\frac{\partial \mathcal{L}}{\partial W_1} &= \frac{\partial \mathcal{L}}{\partial \bm{h}_{\text{pre}}} \cdot \bm{x}^\top, \quad \frac{\partial \mathcal{L}}{\partial \bm{b}_1} = \frac{\partial \mathcal{L}}{\partial \bm{h}_{\text{pre}}}.
+\end{align*}
+Cinq lignes. Voilà la rétropropagation pour un MLP à deux couches. Le TP implémente ces formules en NumPy et les vérifie contre l'autograd de PyTorch au bit près.
+
+\subsection{Pourquoi on n'écrit jamais ce code en pratique}
+
+Pour un MLP à deux couches, on peut dériver ces formules. Pour un ResNet à cinquante couches, ou un Transformer avec attention croisée, l'algèbre devient désespérée. Les frameworks modernes (PyTorch, JAX, TensorFlow) enregistrent le graphe de calcul de la passe avant et le rejouent en arrière, appliquant la règle de la chaîne à chaque nœud. Chaque opération primitive (matmul, ReLU, softmax) a sa rétropropagation codée à la main ; le framework les compose automatiquement. C'est ce qu'on appelle la \emph{programmation différentiable}.
+
 \begin{aitip}
-Ce chapitre est en cours de rédaction. Le cours est esquissé ci-dessous ; le texte complet sera publié dans la prochaine itération de l'atelier. Le syllabus et le notebook de TP de cette journée sont déjà disponibles.
+Vous n'écrirez jamais la passe arrière pour un modèle de production. Mais vous devez comprendre ce qu'elle est, car presque chaque échec d'entraînement --- gradients qui s'évanouissent, gradients qui explosent, ReLU mortes, compromis de \emph{gradient checkpointing} --- est une histoire de rétropropagation. \og Ma perte vaut NaN \fg\ est une histoire de rétropropagation.
 \end{aitip}
 
-\section*{Sections prévues}
+\section{Descente de gradient stochastique}
+
+La perte est une somme sur le jeu de données :
+\[
+\mathcal{L}(\theta) = \frac{1}{N} \sum_{i=1}^N \ell_i(\theta).
+\]
+Calculer $\nabla \mathcal{L}$ exactement nécessite une passe complète sur le jeu de données. Pour MNIST, c'est 60\,000 exemples par étape. Pour ImageNet, 1,2 million. Pour un LLM pré-entraîné sur $10^{12}$ jetons, le nombre n'a plus de sens.
+
+\begin{definition}[Descente de gradient stochastique, SGD]
+À chaque étape, échantillonner un petit lot $B \subset \{1, \ldots, N\}$ et mettre à jour avec le gradient du lot :
+\[
+\theta_{t+1} = \theta_t - \eta \cdot \frac{1}{|B|} \sum_{i \in B} \nabla \ell_i(\theta_t).
+\]
+Le gradient du lot est une estimation bruitée mais non biaisée du gradient complet.
+\end{definition}
+
+Deux choses font que la SGD fonctionne en pratique :
+
+\begin{enumerate}
+  \item \textbf{Calcul.} Un lot de 128 tient en mémoire, s'exécute en millisecondes, et donne un pas utilisable. La descente de gradient complète serait cent fois plus lente par étape pour le même budget de calcul.
+  \item \textbf{Statistique.} Le bruit dans l'estimation du gradient agit comme une régularisation implicite, aidant l'optimiseur à s'échapper des minima étroits. C'est en partie pourquoi les réseaux de neurones généralisent (Hardt et al., 2016 ; Keskar et al., 2017).
+\end{enumerate}
+
+\section{Adam : moment et taux d'apprentissage adaptatifs}
+
+La SGD simple est l'optimiseur le plus simple, mais rarement le meilleur en pratique. Adam (Kingma \& Ba, 2015) ajoute deux ingrédients :
+
+\paragraph{Moment.} Au lieu de faire un pas dans la direction du gradient courant, faire un pas dans la direction d'une moyenne exponentiellement pondérée des gradients récents. Cela lisse le bruit et accélère la progression selon les directions cohérentes.
+
+\paragraph{Taux d'apprentissage par paramètre.} Chaque paramètre reçoit son propre taux d'apprentissage effectif, basé sur une estimation glissante de la magnitude de \emph{ses} gradients récents. Les paramètres aux gradients constamment petits font des pas plus grands ; les paramètres aux gradients constamment grands font des pas plus petits.
+
+La règle de mise à jour, avec $\beta_1 = 0,9$, $\beta_2 = 0,999$, $\epsilon = 10^{-8}$ :
+\begin{align*}
+\bm{m}_t &= \beta_1 \bm{m}_{t-1} + (1 - \beta_1) \nabla \mathcal{L}(\theta_t) &\text{(moment)} \\
+\bm{v}_t &= \beta_2 \bm{v}_{t-1} + (1 - \beta_2) (\nabla \mathcal{L}(\theta_t))^2 &\text{(moyenne glissante du gradient au carré)} \\
+\theta_{t+1} &= \theta_t - \eta \cdot \frac{\hat{\bm{m}}_t}{\sqrt{\hat{\bm{v}}_t} + \epsilon}
+\end{align*}
+où $\hat{\bm{m}}, \hat{\bm{v}}$ sont des versions corrigées du biais de $\bm{m}, \bm{v}$. La racine carrée et la division sont élément par élément.
+
+Adam est l'optimiseur par défaut pour presque tous les réseaux modernes. La SGD avec moment bat encore Adam sur certains benchmarks de vision (Wilson et al., 2017), mais c'est la tolérance d'Adam aux mauvais choix d'hyperparamètres qui en fait le défaut pratique.
+
+\section{Lire une courbe d'apprentissage}
+
+Une courbe d'apprentissage trace la perte (ou la précision) en fonction du pas d'entraînement. C'est l'instrument de diagnostic du deep learning. Quatre formes caractéristiques :
+
 \begin{itemize}
-  \item Dérivées multivariées et règle de la chaîne.
-  \item Descente de gradient, descente de gradient stochastique, Adam.
-  \item Rétropropagation comme règle de la chaîne sur un graphe de calcul.
-  \item Programmation différentiable : pourquoi un framework moderne calcule des gradients que vous n'avez pas écrits.
-  \item Taux d'apprentissage, hyperparamètres et lecture d'une courbe d'apprentissage.
+  \item \textbf{Saine :} la perte d'entraînement diminue régulièrement, la perte de validation diminue aussi et la suit à faible écart. Le modèle apprend, et ce qu'il apprend se généralise.
+  \item \textbf{Sur-apprentissage :} la perte d'entraînement diminue, la perte de validation diminue un moment puis remonte. Le modèle mémorise les exemples d'entraînement au lieu d'apprendre le motif sous-jacent. Le Jour 5 y revient.
+  \item \textbf{Sous-apprentissage :} les deux pertes plafonnent en haut. Le modèle manque de capacité, l'optimiseur est bloqué, ou le taux d'apprentissage est mauvais.
+  \item \textbf{Divergence :} la perte explose vers le haut, souvent vers l'infini. Le taux d'apprentissage est trop grand, ou la perte est calculée sur une région non différentiable (log de zéro, division par zéro dans l'attention).
 \end{itemize}
 
+\begin{intuition}
+Lire la courbe d'apprentissage est la première chose à faire quand l'entraînement ne fonctionne pas. La plupart des pathologies ont une forme caractéristique, et la courbe vous dit laquelle vous regardez en quelques secondes. Le TP d'aujourd'hui produit chacune de ces formes délibérément, pour que vous les reconnaissiez la prochaine fois.
+\end{intuition}
+
+\section{Ce que vous avez vu}
+
+Entraîner un réseau de neurones, c'est la descente de gradient sur un paysage de perte de grande dimension, rendue tractable par la règle de la chaîne (rétropropagation) et rendue pratique par les mini-lots stochastiques et les optimiseurs adaptatifs comme Adam. La mathématique est le calcul différentiel ; l'ingénierie est la différentiation automatique. Chaque framework moderne vous donne la seconde gratuitement, mais seule la première vous laisse raisonner sur ce qui va mal quand quelque chose va mal.
+
+Le Jour 3 ajoute l'ingrédient manquant : la probabilité. Nous avons parlé de \og prédire \fg\ des sorties et de \og faire correspondre \fg\ des cibles, mais les modèles génératifs font quelque chose de plus étrange --- ils apprennent une distribution de probabilités entière et y échantillonnent. Cela exige de prendre la fonction de perte au sérieux comme une vraisemblance.
+
 \section*{Travail pratique}
-Le notebook du Jour 2 (\texttt{Day2\_Calculus\_Optimization.ipynb}) parcourt l'implémentation de la rétropropagation à la main en NumPy pour le MLP du Jour 1, puis entraîne un réseau PyTorch plus profond de bout en bout et inspecte les courbes d'apprentissage qui en résultent.
+
+Ouvrez le notebook du Jour 2 (\texttt{Day2\_Calculus\_Optimization.ipynb}). Vous allez :
+
+\begin{enumerate}
+  \item Calculer le gradient d'une petite fonction à la main, puis vérifier contre l'autograd de PyTorch.
+  \item Ajouter une passe arrière manuelle au MLP NumPy du Jour 1, puis vérifier chaque gradient contre l'autograd de PyTorch à la dernière décimale --- la \emph{gradient check} standard utilisée pour déboguer une nouvelle couche.
+  \item Entraîner le MLP manuel sur MNIST avec une SGD simple et votre propre boucle d'entraînement. Aucun framework.
+  \item Remplacer la boucle d'entraînement manuelle par PyTorch + Adam et observer la différence.
+  \item Balayer le taux d'apprentissage sur $\{10^{-1}, 10^{-2}, 10^{-3}, 10^{-4}\}$ et tracer les courbes d'apprentissage résultantes sur un seul axe. Vous verrez les quatre formes caractéristiques ci-dessus.
+\end{enumerate}
+
+À la fin du TP, vous aurez écrit et vérifié une passe arrière, entraîné un réseau à partir de premiers principes, et pris l'habitude de regarder la courbe d'apprentissage \emph{avant} d'accuser le modèle.
