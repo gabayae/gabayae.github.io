@@ -227,6 +227,14 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 <a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/mlops-in-practice" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Matériel</a>
 <a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/mlops-in-practice" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
 </div></div></div>
+
+<div class="col"><div class="card hoverable h-100"><div class="card-body">
+<h5 class="card-title">Fondations mathématiques de l'IA moderne</h5>
+<p class="card-text"><strong>5 jours</strong> — Les structures mathématiques derrière les modèles modernes : algèbre linéaire et architectures de réseaux, calcul différentiel et apprentissage par gradient, probabilités et modèles de diffusion, biais inductif, évaluation et généralisation. Destiné aux professionnels qui utilisent l'IA et veulent comprendre ce qui se passe sous le capot. Aucun prérequis mathématique avancé.</p>
+<a href="/workshops/math-foundations-modern-ai/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Syllabus</a>
+<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/math-foundations-modern-ai/notebooks" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
+<a href="{{ '/workshops/math-foundations-modern-ai/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-file-pdf" style="margin-right: 0.3rem;"></i>PDF FR</a>
+</div></div></div>
 </div>
 
 <h4 style="margin-top: 1.5rem; margin-bottom: 0.75rem;"><i class="fa-solid fa-flask" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Mathématiques & recherche</h4>

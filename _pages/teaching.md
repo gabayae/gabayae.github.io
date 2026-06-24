@@ -292,6 +292,14 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 <a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/mlops-in-practice" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Materials</a>
 <a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/mlops-in-practice" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
 </div></div></div>
+
+<div class="col"><div class="card hoverable h-100"><div class="card-body">
+<h5 class="card-title">Mathematical Foundations of Modern AI</h5>
+<p class="card-text"><strong>5 days</strong> — The mathematical structures behind modern models: linear algebra and network architectures, calculus and gradient-based learning, probability and diffusion models, inductive bias, evaluation and generalization. For professionals who use AI and want to understand what is happening under the hood. No advanced math required.</p>
+<a href="/workshops/math-foundations-modern-ai/en/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Syllabus</a>
+<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/math-foundations-modern-ai/notebooks" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
+<a href="{{ '/workshops/math-foundations-modern-ai/en/notes.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-file-pdf" style="margin-right: 0.3rem;"></i>PDF EN</a>
+</div></div></div>
 </div>
 
 <h4 style="margin-top: 1.5rem; margin-bottom: 0.75rem;"><i class="fa-solid fa-flask" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Mathematics & research</h4>
