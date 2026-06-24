@@ -1,17 +1,133 @@
 \chapter{Evaluating AI models}
 \label{ch:day5}
 
-\begin{aitip}
-This chapter is forthcoming. The lecture is outlined below; the full text will be released as part of the next workshop iteration. The syllabus and lab notebook for this day are already available.
-\end{aitip}
+\begin{quote}
+\emph{``A model with 99\% test accuracy is not done. A model is done when you can defend, in front of a stakeholder, both the cases where it works and the cases where it fails.''}
+\end{quote}
 
-\section*{Planned sections}
+% ============================================================
+We have a trained model. It is a stack of affine maps and non-linearities (Day 1), fitted to data by gradient descent on a likelihood-derived loss (Days 2 and 3), with an architecture chosen to match the structure of the data (Day 4). The training loss is small. The test loss is small. Is the model done?
+
+The honest answer is: usually no. Evaluation is the part of machine learning that gets the least attention in courses and the most attention in real projects. Every production failure of an ML system in the last decade --- a self-driving car that did not recognize a white truck against a bright sky, a hiring tool that systematically downranked women, a medical model that learned to predict the hospital instead of the disease --- is a story about evaluation gone wrong. This chapter is about how to do evaluation right, what the standard failure modes look like, and how to decide whether a model should ship or go back to the drawing board.
+
+\section{What test accuracy actually measures}
+
+A test accuracy is one number. It measures the fraction of correct predictions on a single held-out set, drawn from the same distribution as the training set, evaluated with the same metric used during model selection. Each of these qualifications matters:
+
 \begin{itemize}
-  \item Basic statistics, the bias--variance decomposition, the meaning of overfitting.
-  \item Validation strategies, calibration, uncertainty quantification.
-  \item Adversarial examples and out-of-distribution data --- why a lab-perfect model fails in production.
-  \item The decision framework: when to ship a model, when to collect more data, when to redesign the problem.
+  \item \textbf{One number.} A single scalar collapses everything you might care about into one summary. Where does the model fail? On which classes? Under which inputs? At which thresholds? Test accuracy says nothing.
+  \item \textbf{Single held-out set.} The fluctuation across different held-out sets is real, especially for small test sets. A reported 92\% can be 87\% next week.
+  \item \textbf{Same distribution.} Test data drawn from the same distribution as training data tells you about \emph{interpolation}, not about generalization to the cases you care about in deployment.
+  \item \textbf{Same metric used during model selection.} If you picked the model that maximized test accuracy across many tries, the test set has effectively become a training set, and you have overfit it.
 \end{itemize}
 
+\begin{intuition}
+Test accuracy is a necessary statistic, not a sufficient one. It tells you the model fits the test set. It does not tell you the model has learned the underlying task. Distinguishing these two is essentially what this chapter is about.
+\end{intuition}
+
+\section{The bias-variance decomposition}
+
+For a regression problem with squared-error loss and a fixed test point $\bm{x}_0$, the expected loss of a model $\hat{f}(\bm{x}_0)$ trained on a random training set decomposes as:
+\[
+\mathbb{E}\bigl[(y_0 - \hat{f}(\bm{x}_0))^2\bigr] = \underbrace{(f(\bm{x}_0) - \mathbb{E}[\hat{f}(\bm{x}_0)])^2}_{\text{bias}^2} + \underbrace{\mathrm{Var}(\hat{f}(\bm{x}_0))}_{\text{variance}} + \underbrace{\sigma^2}_{\text{irreducible noise}}
+\]
+where $f$ is the unknown true function and $\sigma^2$ is the variance of the label noise. The expectation is over both the random training set and the random test label.
+
+\begin{itemize}
+  \item \textbf{Bias} is how wrong the model is, on average, across many training runs. A model too simple to capture the truth has high bias --- underfitting.
+  \item \textbf{Variance} is how much the model fluctuates from one training run to another. A model too flexible relative to the dataset size has high variance --- overfitting.
+  \item \textbf{Irreducible noise} is what no model can reduce, because the label itself is noisy.
+\end{itemize}
+
+The classical picture says: as model capacity grows, bias decreases and variance increases. The sweet spot is somewhere in the middle. The lab today produces this picture explicitly by fitting polynomials of varying degree to a small dataset.
+
+\begin{aitip}
+For large neural networks the classical picture breaks down. The \emph{double descent} phenomenon (Belkin et al., 2019) shows test error first rising and then falling again as model capacity passes the dataset size. Modern deep learning operates in a regime where extra capacity does not consistently hurt generalization. This is empirical, not yet fully understood theoretically, and is one of the open questions of the field.
+\end{aitip}
+
+\section{Splits: training, validation, test, and what each is for}
+
+To estimate generalization without contaminating the model selection process, the standard discipline is three disjoint datasets:
+
+\begin{itemize}
+  \item \textbf{Training set} ($\sim 60$--$80\%$). The data the model sees and fits.
+  \item \textbf{Validation set} ($\sim 10$--$20\%$). The data used to choose between candidate models, hyperparameters, architectures. Held out from training, but the modeler interacts with it heavily.
+  \item \textbf{Test set} ($\sim 10$--$20\%$). The data used to estimate final generalization. Touched once, after all decisions have been made.
+\end{itemize}
+
+\begin{warningbox}
+The test set is contaminated the moment you make any decision based on its performance. ``We tried 50 architectures and picked the one with the best test accuracy'' has effectively made the test set a validation set. The reported test accuracy is then biased upward, often substantially. The fix is discipline --- a true held-out set the modeler does not look at until the very end --- and, where possible, an external test set the team cannot iterate on.
+\end{warningbox}
+
+For small datasets, $k$-fold cross-validation rotates the validation role through different splits so that every example serves as validation once. This gives a better estimate of generalization at the cost of $k$ times more training. For datasets above a few tens of thousands of examples, a single train/val/test split is usually enough.
+
+\section{Calibration: confident is not the same as right}
+
+A classifier returns a probability per class. ``90\%'' should mean that across all predictions made with 90\% confidence, 90\% are correct. \emph{Calibration} is whether that is true. Modern deep networks tend to be \emph{overconfident}: they say 99\% when they should say 80\%.
+
+\begin{definition}[Reliability diagram]
+Group predictions into bins by their confidence (say, 0.0--0.1, 0.1--0.2, \ldots). For each bin, plot (mean confidence in the bin, fraction correct in the bin). A perfectly calibrated model lies on the diagonal.
+\end{definition}
+
+The Expected Calibration Error (ECE) is the average distance from the diagonal, weighted by bin population. It is a single number that summarizes how miscalibrated the model is.
+
+\begin{intuition}
+Calibration matters when the downstream decision depends on the probability, not just the argmax. A medical triage system that flags ``70\% probability of sepsis'' had better mean it --- the physician will treat differently than for ``95\% probability.'' A search ranker can be wildly miscalibrated and nobody notices, because only the ordering matters. Decide whether your application needs calibrated probabilities, and measure if so.
+\end{intuition}
+
+Temperature scaling (Guo et al., 2017) is the simplest fix. After training, divide the pre-softmax logits by a scalar temperature $T$, chosen on a validation set to minimize negative log-likelihood. One scalar. Fixes most modern-network calibration problems with no retraining.
+
+\section{Distribution shift: when the test set is not the deployment set}
+
+Test accuracy estimates performance on data \emph{from the same distribution as training data}. Deployed models see data from a different distribution --- because the world changes, because the data collection process is different, because users behave differently than the dataset suggested.
+
+Three common shifts:
+
+\begin{itemize}
+  \item \textbf{Covariate shift.} $p_{\text{deploy}}(\bm{x}) \neq p_{\text{train}}(\bm{x})$, but $p(y \mid \bm{x})$ is unchanged. The kinds of inputs change; the labeling rule does not. Camera-quality changes between training and deployment are a common example.
+  \item \textbf{Label shift.} $p_{\text{deploy}}(y) \neq p_{\text{train}}(y)$, but $p(\bm{x} \mid y)$ is unchanged. Class prevalence changes; the appearance of each class does not. A model trained on a balanced dataset and deployed on imbalanced data fails this way.
+  \item \textbf{Concept shift.} $p(y \mid \bm{x})$ itself changes. The labeling rule has changed. Recommender systems suffer this constantly --- what users \emph{want} this year is not what they wanted last year.
+\end{itemize}
+
+The lab today produces a covariate-shift experiment by rotating the test set and measuring the drop in accuracy. The drop is dramatic for the MLP from Day 4, less so for the CNN. This is exactly the inductive-bias story from yesterday, told from the evaluation side.
+
+\section{Adversarial examples and out-of-distribution detection}
+
+Some failures are more pointed than gradual distribution shift. Adversarial examples (Szegedy et al., 2014; Goodfellow et al., 2015) are inputs constructed specifically to fool the model --- imperceptibly small perturbations that flip a confident correct prediction to a confident wrong one. They reveal that the model has learned a function that agrees with the data on natural inputs but diverges from it elsewhere.
+
+Out-of-distribution (OOD) inputs are not adversarial, just unfamiliar: a model trained on cats and dogs being asked to classify a fish. A well-behaved model should signal ``I do not know.'' Most modern networks do the opposite: they confidently assign one of the trained classes.
+
+\begin{intuition}
+A model trained on a closed set of classes has no representation of ``other.'' Detecting that an input is OOD is a separate problem, typically tackled by examining the softmax confidence (low confidence sometimes means OOD), the energy of the logits, or distance in feature space to the nearest training example. The lab today shows the failure mode using a softmax-confidence detector on Fashion-MNIST inputs to an MNIST-trained classifier.
+\end{intuition}
+
+\section{The decision framework: ship, collect, or redesign}
+
+Evaluation outputs a decision. There are three:
+
+\begin{enumerate}
+  \item \textbf{Ship.} Test performance is acceptable on the relevant population, calibration is adequate for the downstream use, and the failure modes you have measured are tolerable. Deploy with monitoring.
+  \item \textbf{Collect more data.} The model has the right structure but not enough examples. Cross-validation curves are still rising; test loss is plateauing for the right reason. Add labeled data and continue.
+  \item \textbf{Redesign.} The model is wrong about something structural --- the architecture mismatches the task, the loss does not capture what users want, the targets are not what was supposed to be learned. No amount of data fixes this. Go back to the framing.
+\end{enumerate}
+
+The two failure modes of this decision: \emph{shipping when you should redesign} (the model looks fine on the test set but is solving the wrong problem) and \emph{collecting when you should ship} (perfectionism delays a model that would already be useful). Real evaluation discipline is about distinguishing these cases, and the only way to do it is to know your model's failure modes well enough that you can defend the decision to a skeptical stakeholder.
+
+\section{What we have built across the five days}
+
+The workshop began with vectors. A model in modern AI is a function from one vector space to another, built out of affine maps and non-linearities (Day 1). It learns by gradient descent on a loss function that summarizes how wrong it is; the chain rule makes this computable for million-parameter networks (Day 2). When the goal is generation rather than prediction, the loss becomes a likelihood and the model becomes a distribution we can sample from --- the unifying picture behind VAEs, language models, and diffusion (Day 3). The architecture encodes a prior on which functions are easy to learn; CNNs, GNNs, and Transformers are three different priors for three different kinds of data (Day 4). And evaluation is the discipline that tells us whether all of the above is actually doing the right thing, or merely something that looks right on a test set (Day 5).
+
+The same five ideas --- vectors and linear maps, gradient-based learning, likelihood, inductive bias, evaluation discipline --- power every model used in production today, from a logistic regression to GPT-class systems. The implementations get bigger; the structures do not change. What you have built across these five days is the vocabulary to read a paper, evaluate a vendor, audit a deployed system, and decide when an AI tool is the right answer to the problem in front of you.
+
 \section*{Lab}
-The Day 5 notebook (\texttt{Day5\_Evaluation\_Generalization.ipynb}) compares several model architectures under controlled distribution shifts, building intuition for which failures generalize and which do not.
+
+Open the Day 5 notebook (\texttt{Day5\_Evaluation\_Generalization.ipynb}). You will:
+
+\begin{enumerate}
+  \item Fit polynomials of degree 1, 3, 9, 15 to the same small dataset, repeated over many random training sets. Plot bias and variance separately to see the decomposition in action.
+  \item Train a classifier on MNIST and produce its reliability diagram. Compute the Expected Calibration Error. Apply temperature scaling on a validation split and re-measure.
+  \item Take a CNN trained on MNIST and evaluate it on rotated MNIST. Measure the accuracy drop as the rotation angle grows.
+  \item Use the same CNN's softmax confidence as an out-of-distribution detector on Fashion-MNIST. Plot the distribution of confidences for in-distribution vs OOD inputs and see how separable (or not) they are.
+\end{enumerate}
+
+By the end of the lab you will have seen, with your own numbers, each of the failure modes named in this chapter, and you will have the tools to detect them in your own models.
