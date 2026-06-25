@@ -132,7 +132,7 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Fondations mathématiques de l'IA moderne</h5>
 <p class="card-text"><strong>5 jours</strong> — Les structures mathématiques derrière les modèles modernes : algèbre linéaire et architectures de réseaux, calcul différentiel et apprentissage par gradient, probabilités et modèles de diffusion, biais inductif, évaluation et généralisation. Destiné aux professionnels qui utilisent l'IA et veulent comprendre ce qui se passe sous le capot. Aucun prérequis mathématique avancé.</p>
-<a href="/workshops/math-foundations-modern-ai/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Syllabus</a>
+<a href="/workshops/math-foundations-modern-ai/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Plus sur l'atelier</a>
 <a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/math-foundations-modern-ai/notebooks" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
 <a href="{{ '/workshops/math-foundations-modern-ai/fr/cours.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-file-pdf" style="margin-right: 0.3rem;"></i>PDF FR</a>
 </div></div></div>
@@ -151,14 +151,14 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Apprentissage géométrique profond</h5>
 <p class="card-text"><strong>4 jours</strong> — Réseaux de neurones sur graphes, apprentissage sur variétés, architectures équivariantes. Applications en sciences moléculaires, réseaux sociaux et nuages de points.</p>
-<a href="/workshops/geometric-deep-learning/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Syllabus</a>
+<a href="/workshops/geometric-deep-learning/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Plus sur l'atelier</a>
 <a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/geometric-deep-learning" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Statistique bayésienne appliquée</h5>
 <p class="card-text"><strong>4 jours</strong> — Modélisation bayésienne, MCMC, Stan/PyMC, modèles hiérarchiques. Applications en santé, finance et sciences sociales.</p>
-<a href="/workshops/bayesian-statistics/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Syllabus</a>
+<a href="/workshops/bayesian-statistics/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Plus sur l'atelier</a>
 <a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/bayesian-statistics" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
 </div></div></div>
 </div>
@@ -169,21 +169,21 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Python pour la science des données</h5>
 <p class="card-text"><strong>5 jours</strong> — De zéro à l'analyse : Pandas, visualisation, nettoyage de données, analyse exploratoire et premiers modèles ML avec scikit-learn.</p>
-<a href="/workshops/python-data-science/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Syllabus</a>
+<a href="/workshops/python-data-science/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Plus sur l'atelier</a>
 <a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/python-data-science" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">R pour l'analyse statistique</h5>
 <p class="card-text"><strong>4 jours</strong> — Tidyverse, ggplot2, modélisation statistique, rapports reproductibles avec R Markdown. Compagnon de <a href="https://nostarch.com/shapeofdata"><em>The Shape of Data</em></a>.</p>
-<a href="/workshops/r-statistical-analysis/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Syllabus</a>
+<a href="/workshops/r-statistical-analysis/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Plus sur l'atelier</a>
 <a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/r-statistical-analysis" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Rédaction scientifique avec LaTeX, Overleaf & Prism</h5>
 <p class="card-text"><strong>3 jours</strong> — Rédiger articles, mémoires et thèses avec LaTeX. Édition collaborative sur <a href="https://www.overleaf.com/">Overleaf</a> et rédaction scientifique assistée par IA avec <a href="https://openai.com/prism/">OpenAI Prism</a>.</p>
-<a href="/workshops/scientific-writing/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Syllabus</a>
+<a href="/workshops/scientific-writing/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Plus sur l'atelier</a>
 <a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/scientific-writing" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Templates</a>
 </div></div></div>
 </div>
@@ -212,7 +212,7 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 
 <p class="card-text" style="font-size: 0.92rem;"><strong>Format :</strong> 100 % en ligne, synchrone. Sessions de cohorte en direct, ateliers Python pratiques, permanences hebdomadaires, projet capstone évalué par des praticiens du ML.</p>
 
-<a href="/workshops/ml-ai-bootcamp/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Syllabus</a>
+<a href="/workshops/ml-ai-bootcamp/fr/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Plus sur l'atelier</a>
 <a href="mailto:gabayae2@gmail.com?subject=Bootcamp%20ML%20%26%20IA%20%E2%80%94%20renseignements%20cohorte" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-envelope" style="margin-right: 0.3rem;"></i>Renseignements cohorte</a>
 </div>
 </div>
