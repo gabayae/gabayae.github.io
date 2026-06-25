@@ -1,16 +1,27 @@
 ---
-layout: page
+layout: workshop
 permalink: /workshops/reinforcement-learning/fr/
-title: "Apprentissage par Renforcement : de la Théorie à la Pratique — Atelier de 5 jours"
-description: "Atelier de 5 jours : MDPs, Q-learning, DQN, policy gradients, acteur-critique."
 lang: fr
----
+title: "Apprentissage par Renforcement : de la Théorie à la Pratique"
+tagline: "Des MDPs et de la théorie du point fixe à DQN, PPO et aux perspectives topologiques sur la convergence — implémenté depuis zéro."
+description: "Atelier de 5 jours : MDPs, Q-learning, DQN, policy gradients, acteur-critique."
 
-**Formateur :** Dr. Yaé Ulrich Gaba
-**Durée :** 5 jours (30 heures)
-**Niveau :** Intermédiaire à Avancé
-**Langue :** Français
+# --- Métadonnées de la barre latérale ---
+instructor: "Dr. Yaé Ulrich Gaba"
+duration: "5 jours (≈ 30 heures)"
+level: "Intermédiaire à Avancé"
+format: "Sur site, en ligne en direct, ou hybride"
+languages: "Français &amp; anglais"
+next_session: "Sur demande"
+pricing: "Honoraires pour conférences / institutions académiques ; tarifs entreprise sur demande"
+certificate: "Certificat de complétion"
 
+# --- Liens des supports ---
+notebooks_url: https://github.com/gabayae/gabayae.github.io/tree/main/workshops/reinforcement-learning
+
+# --- Contact ---
+contact_email: gabayae2@gmail.com
+contact_subject: "Demande d'atelier — Apprentissage par Renforcement : de la Théorie à la Pratique"
 ---
 
 ## Présentation

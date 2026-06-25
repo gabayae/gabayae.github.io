@@ -1,16 +1,27 @@
 ---
-layout: page
+layout: workshop
 permalink: /workshops/bayesian-statistics/fr/
-title: "Statistique Bayésienne Appliquée — Atelier de 4 jours"
-description: "Atelier de 4 jours sur la statistique bayésienne appliquée : PyMC, MCMC, modèles hiérarchiques."
 lang: fr
----
+title: "Statistique Bayésienne Appliquée"
+tagline: "Pensée probabiliste, PyMC, diagnostics MCMC et modélisation hiérarchique — des priors aux décisions a posteriori."
+description: "Atelier de 4 jours sur la statistique bayésienne appliquée : PyMC, MCMC, modèles hiérarchiques."
 
-**Formateur :** Dr. Yaé Ulrich Gaba
-**Durée :** 4 jours (24 heures)
-**Niveau :** Intermédiaire à Avancé
-**Langue :** Français
+# --- Métadonnées de la barre latérale ---
+instructor: "Dr. Yaé Ulrich Gaba"
+duration: "4 jours (≈ 24 heures)"
+level: "Intermédiaire à Avancé"
+format: "Sur site, en ligne en direct, ou hybride"
+languages: "Français &amp; anglais"
+next_session: "Sur demande"
+pricing: "Honoraires pour conférences / institutions académiques ; tarifs entreprise sur demande"
+certificate: "Certificat de complétion"
 
+# --- Liens des supports ---
+notebooks_url: https://github.com/gabayae/gabayae.github.io/tree/main/workshops/bayesian-statistics
+
+# --- Contact ---
+contact_email: gabayae2@gmail.com
+contact_subject: "Demande d'atelier — Statistique Bayésienne Appliquée"
 ---
 
 ## Présentation

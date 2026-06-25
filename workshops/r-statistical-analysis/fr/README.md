@@ -1,16 +1,27 @@
 ---
-layout: page
+layout: workshop
 permalink: /workshops/r-statistical-analysis/fr/
-title: "R pour l'Analyse Statistique — Atelier de 4 jours"
-description: "Atelier de 4 jours : Tidyverse, ggplot2, modélisation statistique, R Markdown."
 lang: fr
----
+title: "R pour l'Analyse Statistique"
+tagline: "Tidyverse, ggplot2, modélisation statistique et rapports reproductibles — un compagnon pratique de The Shape of Data."
+description: "Atelier de 4 jours : Tidyverse, ggplot2, modélisation statistique, R Markdown."
 
-**Formateur :** Dr. Yaé Ulrich Gaba
-**Durée :** 4 jours (24 heures)
-**Niveau :** Débutant à Intermédiaire
-**Langue :** Français
+# --- Métadonnées de la barre latérale ---
+instructor: "Dr. Yaé Ulrich Gaba"
+duration: "4 jours (≈ 24 heures)"
+level: "Débutant à Intermédiaire"
+format: "Sur site, en ligne en direct, ou hybride"
+languages: "Français &amp; anglais"
+next_session: "Sur demande"
+pricing: "Honoraires pour conférences / institutions académiques ; tarifs entreprise sur demande"
+certificate: "Certificat de complétion"
 
+# --- Liens des supports ---
+notebooks_url: https://github.com/gabayae/gabayae.github.io/tree/main/workshops/r-statistical-analysis
+
+# --- Contact ---
+contact_email: gabayae2@gmail.com
+contact_subject: "Demande d'atelier — R pour l'Analyse Statistique"
 ---
 
 ## Présentation

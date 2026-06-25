@@ -1,16 +1,27 @@
 ---
-layout: page
+layout: workshop
 permalink: /workshops/data-science-decision-makers/fr/
-title: "Data Science pour Décideurs — Atelier de 3 jours"
-description: "Formation de 3 jours pour managers : comprendre l'IA, cas d'usage, ROI, pilotage de projet data."
 lang: fr
----
+title: "Data Science pour Décideurs"
+tagline: "Comprendre l'IA et la donnée assez pour évaluer des propositions, piloter des projets et poser les bonnes questions — sans une ligne de code."
+description: "Formation de 3 jours pour managers : comprendre l'IA, cas d'usage, ROI, pilotage de projet data."
 
-**Formateur :** Dr. Yaé Ulrich Gaba
-**Durée :** 3 jours (18 heures)
-**Niveau :** Non-Technique / Direction
-**Langue :** Français
+# --- Métadonnées de la barre latérale ---
+instructor: "Dr. Yaé Ulrich Gaba"
+duration: "3 jours (≈ 18 heures)"
+level: "Non-Technique / Direction"
+format: "Sur site, en ligne en direct, ou hybride"
+languages: "Français &amp; anglais"
+next_session: "Sur demande"
+pricing: "Honoraires pour conférences / institutions académiques ; tarifs entreprise sur demande"
+certificate: "Certificat de complétion"
 
+# --- Liens des supports ---
+notebooks_url: https://github.com/gabayae/gabayae.github.io/tree/main/workshops/data-science-decision-makers
+
+# --- Contact ---
+contact_email: gabayae2@gmail.com
+contact_subject: "Demande d'atelier — Data Science pour Décideurs"
 ---
 
 ## Présentation

@@ -1,16 +1,27 @@
 ---
-layout: page
+layout: workshop
 permalink: /workshops/python-data-science/fr/
-title: "Python pour la Science des Données — Atelier de 5 jours"
-description: "Atelier de 5 jours : Pandas, visualisation, ML avec scikit-learn."
 lang: fr
----
+title: "Python pour la Science des Données"
+tagline: "De zéro en Python à vos premiers modèles de machine learning — ateliers de code quotidiens sur des jeux de données réels."
+description: "Atelier de 5 jours : Pandas, visualisation, ML avec scikit-learn."
 
-**Formateur :** Dr. Yaé Ulrich Gaba
-**Durée :** 5 jours (30 heures)
-**Niveau :** Débutant à Intermédiaire
-**Langue :** Français
+# --- Métadonnées de la barre latérale ---
+instructor: "Dr. Yaé Ulrich Gaba"
+duration: "5 jours (≈ 30 heures)"
+level: "Débutant à Intermédiaire"
+format: "Sur site, en ligne en direct, ou hybride"
+languages: "Français &amp; anglais"
+next_session: "Sur demande"
+pricing: "Honoraires pour conférences / institutions académiques ; tarifs entreprise sur demande"
+certificate: "Certificat de complétion"
 
+# --- Liens des supports ---
+notebooks_url: https://github.com/gabayae/gabayae.github.io/tree/main/workshops/python-data-science
+
+# --- Contact ---
+contact_email: gabayae2@gmail.com
+contact_subject: "Demande d'atelier — Python pour la Science des Données"
 ---
 
 ## Présentation

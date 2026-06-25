@@ -112,29 +112,25 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Introduction to generative AI & LLMs</h5>
 <p class="card-text"><strong>3 days</strong> — Prompt engineering, fine-tuning, Retrieval-Augmented Generation (RAG), deployment. Hands-on with OpenAI API and open-source models.</p>
-<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/generative-ai-llms" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Materials</a>
-<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/generative-ai-llms" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
+<a href="/workshops/generative-ai-llms/en/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>More on the workshop</a>
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Data science for decision-makers</h5>
 <p class="card-text"><strong>3 days</strong> — Non-technical training for managers and executives: understanding AI, identifying use cases, steering data projects, evaluating ROI.</p>
-<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/data-science-decision-makers" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Materials</a>
+<a href="/workshops/data-science-decision-makers/en/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>More on the workshop</a>
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">MLOps in practice</h5>
 <p class="card-text"><strong>4 days</strong> — From notebook to production: Docker, CI/CD pipelines, model monitoring, experiment tracking (MLflow), versioning (DVC).</p>
-<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/mlops-in-practice" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Materials</a>
-<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/mlops-in-practice" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
+<a href="/workshops/mlops-in-practice/en/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>More on the workshop</a>
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Mathematical Foundations of Modern AI</h5>
 <p class="card-text"><strong>5 days</strong> — The mathematical structures behind modern models: linear algebra and network architectures, calculus and gradient-based learning, probability and diffusion models, inductive bias, evaluation and generalization. For professionals who use AI and want to understand what is happening under the hood. No advanced math required.</p>
 <a href="/workshops/math-foundations-modern-ai/en/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>More on the workshop</a>
-<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/math-foundations-modern-ai/notebooks" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
-<a href="{{ '/workshops/math-foundations-modern-ai/en/notes.pdf' | relative_url }}" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-file-pdf" style="margin-right: 0.3rem;"></i>PDF EN</a>
 </div></div></div>
 </div>
 
@@ -144,22 +140,19 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Reinforcement learning: from theory to practice</h5>
 <p class="card-text"><strong>5 days</strong> — MDPs, Q-learning, DQN, policy gradients, actor-critic methods. Applications in resource allocation, game playing, and optimization.</p>
-<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/reinforcement-learning" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>Materials</a>
-<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/reinforcement-learning" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
+<a href="/workshops/reinforcement-learning/en/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>More on the workshop</a>
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Geometric Deep Learning</h5>
 <p class="card-text"><strong>4 days</strong> — Graph neural networks, learning on manifolds, equivariant architectures. Applications in molecular science, social networks, and point clouds.</p>
 <a href="/workshops/geometric-deep-learning/en/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>More on the workshop</a>
-<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/geometric-deep-learning" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Applied Bayesian statistics</h5>
 <p class="card-text"><strong>4 days</strong> — Bayesian modelling, MCMC, Stan/PyMC, hierarchical models. Applications in health, finance, and social science.</p>
 <a href="/workshops/bayesian-statistics/en/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>More on the workshop</a>
-<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/bayesian-statistics" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
 </div></div></div>
 </div>
 
@@ -170,21 +163,18 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 <h5 class="card-title">Python for data science</h5>
 <p class="card-text"><strong>5 days</strong> — From zero to analysis: Pandas, data visualization, cleaning, exploratory analysis, and first ML models with scikit-learn.</p>
 <a href="/workshops/python-data-science/en/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>More on the workshop</a>
-<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/python-data-science" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">R for statistical analysis</h5>
 <p class="card-text"><strong>4 days</strong> — Tidyverse, ggplot2, statistical modelling, reproducible reports with R Markdown. Companion to <a href="https://nostarch.com/shapeofdata"><em>The Shape of Data</em></a>.</p>
 <a href="/workshops/r-statistical-analysis/en/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>More on the workshop</a>
-<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/r-statistical-analysis" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Notebooks</a>
 </div></div></div>
 
 <div class="col"><div class="card hoverable h-100"><div class="card-body">
 <h5 class="card-title">Scientific writing with LaTeX, Overleaf & Prism</h5>
 <p class="card-text"><strong>3 days</strong> — Writing articles, theses, and dissertations with LaTeX. Collaborative editing on <a href="https://www.overleaf.com/">Overleaf</a> and AI-assisted scientific writing with <a href="https://openai.com/prism/">OpenAI Prism</a>.</p>
 <a href="/workshops/scientific-writing/en/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-book-open" style="margin-right: 0.3rem;"></i>More on the workshop</a>
-<a href="https://github.com/gabayae/gabayae.github.io/tree/main/workshops/scientific-writing" class="btn btn-sm btn-outline-secondary"><i class="fa-brands fa-github" style="margin-right: 0.3rem;"></i>Templates</a>
 </div></div></div>
 </div>
 

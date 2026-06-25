@@ -1,16 +1,27 @@
 ---
-layout: page
+layout: workshop
 permalink: /workshops/generative-ai-llms/en/
-title: "Introduction to Generative AI & LLMs — 3-Day Workshop"
-description: "3-day workshop: LLMs, prompt engineering, fine-tuning (LoRA), RAG, deployment."
 lang: en
----
+title: "Introduction to Generative AI & LLMs"
+tagline: "A practical, hands-on path through prompt engineering, RAG, fine-tuning, and responsible deployment of modern LLMs."
+description: "3-day workshop: LLMs, prompt engineering, fine-tuning (LoRA), RAG, deployment."
 
-**Instructor:** Dr. Yaé Ulrich Gaba
-**Duration:** 3 days (18 hours)
-**Level:** Intermediate
-**Language:** English
+# --- Sidebar metadata ---
+instructor: "Dr. Yaé Ulrich Gaba"
+duration: "3 days (≈ 18 hours)"
+level: "Intermediate"
+format: "On-site, live online, or hybrid"
+languages: "English &amp; French"
+next_session: "By arrangement"
+pricing: "Honorarium-based for conferences / academic institutions; corporate rates on request"
+certificate: "Certificate of completion"
 
+# --- Materials links shown in the sidebar ---
+notebooks_url: https://github.com/gabayae/gabayae.github.io/tree/main/workshops/generative-ai-llms
+
+# --- Contact ---
+contact_email: gabayae2@gmail.com
+contact_subject: "Workshop inquiry — Introduction to Generative AI & LLMs"
 ---
 
 ## Overview

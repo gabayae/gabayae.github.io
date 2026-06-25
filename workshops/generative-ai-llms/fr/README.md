@@ -1,16 +1,27 @@
 ---
-layout: page
+layout: workshop
 permalink: /workshops/generative-ai-llms/fr/
-title: "Introduction à l'IA Générative & aux LLMs — Atelier de 3 jours"
-description: "Atelier de 3 jours : LLMs, prompt engineering, fine-tuning (LoRA), RAG, déploiement."
 lang: fr
----
+title: "Introduction à l'IA Générative & aux LLMs"
+tagline: "Un parcours pratique : prompt engineering, RAG, fine-tuning et déploiement responsable des LLMs modernes."
+description: "Atelier de 3 jours : LLMs, prompt engineering, fine-tuning (LoRA), RAG, déploiement."
 
-**Formateur :** Dr. Yaé Ulrich Gaba
-**Durée :** 3 jours (18 heures)
-**Niveau :** Intermédiaire
-**Langue :** Français
+# --- Métadonnées de la barre latérale ---
+instructor: "Dr. Yaé Ulrich Gaba"
+duration: "3 jours (≈ 18 heures)"
+level: "Intermédiaire"
+format: "Sur site, en ligne en direct, ou hybride"
+languages: "Français &amp; anglais"
+next_session: "Sur demande"
+pricing: "Honoraires pour conférences / institutions académiques ; tarifs entreprise sur demande"
+certificate: "Certificat de complétion"
 
+# --- Liens des supports ---
+notebooks_url: https://github.com/gabayae/gabayae.github.io/tree/main/workshops/generative-ai-llms
+
+# --- Contact ---
+contact_email: gabayae2@gmail.com
+contact_subject: "Demande d'atelier — Introduction à l'IA Générative & aux LLMs"
 ---
 
 ## Présentation

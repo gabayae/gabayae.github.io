@@ -1,20 +1,27 @@
 ---
-layout: page
+layout: workshop
 permalink: /workshops/ml-ai-bootcamp/fr/
-title: "Bootcamp Machine Learning & IA — Programme"
-description: "Programme en cohorte AIRINA Labs. 10 semaines à temps plein / 20 semaines à temps partiel. Dix modules, de Python au MLOps, capstone, portfolio."
 lang: fr
+title: "Bootcamp Machine Learning & IA"
+tagline: "Un programme en cohorte de 10 semaines, par la pratique — dix modules de Python au MLOps, capstone déployé, portfolio public."
+description: "Programme en cohorte AIRINA Labs. 10 semaines à temps plein / 20 semaines à temps partiel. Dix modules, de Python au MLOps, capstone, portfolio."
+
+# --- Métadonnées de la barre latérale ---
+instructor: "Dr. Yaé Ulrich Gaba"
+duration: "10 semaines temps plein / 20 semaines temps partiel (≈ 200 heures de cours)"
+level: "Intermédiaire à Avancé"
+format: "Sur site, en ligne en direct, ou hybride"
+languages: "Français &amp; anglais"
+next_session: "Sur demande"
+pricing: "Honoraires pour conférences / institutions académiques ; tarifs entreprise sur demande"
+certificate: "Certificat de complétion"
+
+# --- Contact ---
+contact_email: gabayae2@gmail.com
+contact_subject: "Demande d'atelier — Bootcamp Machine Learning & IA"
 ---
 
-**Programme :** Bootcamp Machine Learning &amp; IA — *Une approche par la pratique*
-**Opéré par :** [AIRINA Labs](https://github.com/AI-Technipreneurs)
-**Instructeur principal :** Dr. Yaé Ulrich Gaba
-**Format :** 100 % en ligne, synchrone, en cohorte
-**Langue :** Anglais (cohorte FR disponible sur demande)
-**Cadence :** 10 semaines à temps plein ou 20 semaines à temps partiel
-**Taille de cohorte :** 12 à 24 participants par session
-
-**Pages opérationnelles.** &nbsp; [Calendrier hebdomadaire (EN)]({{ '/workshops/ml-ai-bootcamp/en/schedule/' | relative_url }}) &nbsp;|&nbsp; [Brief du capstone]({{ '/workshops/ml-ai-bootcamp/CAPSTONE/' | relative_url }})
+**Pages opérationnelles.** [Calendrier hebdomadaire (EN)]({{ '/workshops/ml-ai-bootcamp/en/schedule/' | relative_url }}) | [Brief du capstone]({{ '/workshops/ml-ai-bootcamp/CAPSTONE/' | relative_url }})
 
 *Note : le calendrier opérationnel et les pages hebdomadaires sont en anglais. La traduction française suivra après la première cohorte, une fois la structure stabilisée par le retour des participants.*
 

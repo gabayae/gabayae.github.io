@@ -1,22 +1,27 @@
 ---
-layout: page
+layout: workshop
 permalink: /workshops/ml-ai-bootcamp/en/
-title: "Machine Learning & AI Bootcamp — Syllabus"
-description: "AIRINA Labs cohort program. 10 weeks full-time / 20 weeks part-time. Ten modules from Python through MLOps, capstone, portfolio."
 lang: en
+title: "Machine Learning & AI Bootcamp"
+tagline: "A 10-week experiential cohort program — ten modules from Python through MLOps, deployed capstone, public portfolio."
+description: "AIRINA Labs cohort program. 10 weeks full-time / 20 weeks part-time. Ten modules from Python through MLOps, capstone, portfolio."
+
+# --- Sidebar metadata ---
+instructor: "Dr. Yaé Ulrich Gaba"
+duration: "10 weeks full-time / 20 weeks part-time (≈ 200 course hours)"
+level: "Intermediate to Advanced"
+format: "On-site, live online, or hybrid"
+languages: "English &amp; French"
+next_session: "By arrangement"
+pricing: "Honorarium-based for conferences / academic institutions; corporate rates on request"
+certificate: "Certificate of completion"
+
+# --- Contact ---
+contact_email: gabayae2@gmail.com
+contact_subject: "Workshop inquiry — Machine Learning & AI Bootcamp"
 ---
 
-**Program:** Machine Learning &amp; AI Bootcamp — *An experiential approach*
-**Delivered by:** [AIRINA Labs](https://github.com/AI-Technipreneurs)
-**Lead instructor:** Dr. Yaé Ulrich Gaba
-**Format:** 100% online, synchronous, cohort-based
-**Language:** English (FR cohort available on request)
-**Cadence:** 10 weeks full-time or 20 weeks part-time
-**Cohort size:** 12–24 participants per intake
-
-**Operational pages.** &nbsp; [Weekly schedule]({{ '/workshops/ml-ai-bootcamp/en/schedule/' | relative_url }}) &nbsp;|&nbsp; [Capstone brief]({{ '/workshops/ml-ai-bootcamp/CAPSTONE/' | relative_url }})
-
----
+**Operational pages.** [Weekly schedule]({{ '/workshops/ml-ai-bootcamp/en/schedule/' | relative_url }}) | [Capstone brief]({{ '/workshops/ml-ai-bootcamp/CAPSTONE/' | relative_url }})
 
 In January 2023, BioNTech acquired InstaDeep — a machine-learning company founded in Tunis with offices in Lagos, Nairobi, and Paris — for $562 million. The deal made public what recruiters across the continent had been observing for years: global demand for production-ready ML engineers far exceeds trained supply, and the gap is wider in Africa than anywhere else. Most African undergraduate computer-science curricula end before deep learning; the MOOCs that fill the void are calibrated to North-American prerequisites and usually presume a prior software-engineering job. This bootcamp targets that gap directly. It takes quantitatively trained graduates — mathematics, statistics, computer science, quantitative finance, scientific engineering — and brings them in ten weeks to the production-ready level that African and international ML teams now hire for.
 

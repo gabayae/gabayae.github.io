@@ -1,16 +1,27 @@
 ---
-layout: page
+layout: workshop
 permalink: /workshops/geometric-deep-learning/en/
-title: "Geometric Deep Learning — 4-Day Workshop"
-description: "4-day workshop: GNNs, manifold learning, equivariant architectures."
 lang: en
----
+title: "Geometric Deep Learning"
+tagline: "Neural networks on graphs, manifolds, and point clouds — grounded in group theory, differential geometry, and topology."
+description: "4-day workshop: GNNs, manifold learning, equivariant architectures."
 
-**Instructor:** Dr. Yaé Ulrich Gaba
-**Duration:** 4 days (24 hours)
-**Level:** Advanced
-**Language:** English
+# --- Sidebar metadata ---
+instructor: "Dr. Yaé Ulrich Gaba"
+duration: "4 days (≈ 24 hours)"
+level: "Advanced"
+format: "On-site, live online, or hybrid"
+languages: "English &amp; French"
+next_session: "By arrangement"
+pricing: "Honorarium-based for conferences / academic institutions; corporate rates on request"
+certificate: "Certificate of completion"
 
+# --- Materials links shown in the sidebar ---
+notebooks_url: https://github.com/gabayae/gabayae.github.io/tree/main/workshops/geometric-deep-learning
+
+# --- Contact ---
+contact_email: gabayae2@gmail.com
+contact_subject: "Workshop inquiry — Geometric Deep Learning"
 ---
 
 ## Overview

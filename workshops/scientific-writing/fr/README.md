@@ -1,16 +1,27 @@
 ---
-layout: page
+layout: workshop
 permalink: /workshops/scientific-writing/fr/
-title: "Rédaction Scientifique avec LaTeX, Overleaf & OpenAI Prism — Atelier de 3 jours"
-description: "Atelier de 3 jours : rédaction LaTeX, Overleaf, rédaction assistée par IA (Prism)."
 lang: fr
----
+title: "Rédaction Scientifique avec LaTeX, Overleaf & OpenAI Prism"
+tagline: "Du premier document LaTeX à la rédaction assistée par IA : la boîte à outils moderne pour écrire en science."
+description: "Atelier de 3 jours : rédaction LaTeX, Overleaf, rédaction assistée par IA (Prism)."
 
-**Formateur :** Dr. Yaé Ulrich Gaba
-**Durée :** 3 jours (18 heures)
-**Niveau :** Débutant à Intermédiaire
-**Langue :** Français
+# --- Métadonnées de la barre latérale ---
+instructor: "Dr. Yaé Ulrich Gaba"
+duration: "3 jours (≈ 18 heures)"
+level: "Débutant à Intermédiaire"
+format: "Sur site, en ligne en direct, ou hybride"
+languages: "Français &amp; anglais"
+next_session: "Sur demande"
+pricing: "Honoraires pour conférences / institutions académiques ; tarifs entreprise sur demande"
+certificate: "Certificat de complétion"
 
+# --- Liens des supports ---
+notebooks_url: https://github.com/gabayae/gabayae.github.io/tree/main/workshops/scientific-writing
+
+# --- Contact ---
+contact_email: gabayae2@gmail.com
+contact_subject: "Demande d'atelier — Rédaction Scientifique avec LaTeX, Overleaf & OpenAI Prism"
 ---
 
 ## Présentation

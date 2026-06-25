@@ -1,16 +1,27 @@
 ---
-layout: page
+layout: workshop
 permalink: /workshops/reinforcement-learning/en/
-title: "Reinforcement Learning: From Theory to Practice — 5-Day Workshop"
-description: "5-day workshop: MDPs, Q-learning, DQN, policy gradients, actor-critic methods."
 lang: en
----
+title: "Reinforcement Learning: From Theory to Practice"
+tagline: "From MDPs and fixed-point theory to DQN, PPO, and topological perspectives on convergence — implemented from scratch."
+description: "5-day workshop: MDPs, Q-learning, DQN, policy gradients, actor-critic methods."
 
-**Instructor:** Dr. Yaé Ulrich Gaba
-**Duration:** 5 days (30 hours)
-**Level:** Intermediate to Advanced
-**Language:** English
+# --- Sidebar metadata ---
+instructor: "Dr. Yaé Ulrich Gaba"
+duration: "5 days (≈ 30 hours)"
+level: "Intermediate to Advanced"
+format: "On-site, live online, or hybrid"
+languages: "English &amp; French"
+next_session: "By arrangement"
+pricing: "Honorarium-based for conferences / academic institutions; corporate rates on request"
+certificate: "Certificate of completion"
 
+# --- Materials links shown in the sidebar ---
+notebooks_url: https://github.com/gabayae/gabayae.github.io/tree/main/workshops/reinforcement-learning
+
+# --- Contact ---
+contact_email: gabayae2@gmail.com
+contact_subject: "Workshop inquiry — Reinforcement Learning: From Theory to Practice"
 ---
 
 ## Overview

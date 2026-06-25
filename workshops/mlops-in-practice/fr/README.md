@@ -1,16 +1,27 @@
 ---
-layout: page
+layout: workshop
 permalink: /workshops/mlops-in-practice/fr/
-title: "MLOps en Pratique — Atelier de 4 jours"
-description: "Atelier de 4 jours : Docker, CI/CD, monitoring, MLflow, DVC — du notebook à la production."
 lang: fr
----
+title: "MLOps en Pratique"
+tagline: "Du notebook à la production : packager, déployer, surveiller et maintenir des systèmes ML avec les outils standards de l'industrie."
+description: "Atelier de 4 jours : Docker, CI/CD, monitoring, MLflow, DVC — du notebook à la production."
 
-**Formateur :** Dr. Yaé Ulrich Gaba
-**Durée :** 4 jours (24 heures)
-**Niveau :** Intermédiaire à Avancé
-**Langue :** Français
+# --- Métadonnées de la barre latérale ---
+instructor: "Dr. Yaé Ulrich Gaba"
+duration: "4 jours (≈ 24 heures)"
+level: "Intermédiaire à Avancé"
+format: "Sur site, en ligne en direct, ou hybride"
+languages: "Français &amp; anglais"
+next_session: "Sur demande"
+pricing: "Honoraires pour conférences / institutions académiques ; tarifs entreprise sur demande"
+certificate: "Certificat de complétion"
 
+# --- Liens des supports ---
+notebooks_url: https://github.com/gabayae/gabayae.github.io/tree/main/workshops/mlops-in-practice
+
+# --- Contact ---
+contact_email: gabayae2@gmail.com
+contact_subject: "Demande d'atelier — MLOps en Pratique"
 ---
 
 ## Présentation

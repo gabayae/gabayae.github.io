@@ -1,16 +1,27 @@
 ---
-layout: page
+layout: workshop
 permalink: /workshops/geometric-deep-learning/fr/
-title: "Apprentissage Géométrique Profond — Atelier de 4 jours"
-description: "Atelier de 4 jours : GNNs, apprentissage sur variétés, architectures équivariantes."
 lang: fr
----
+title: "Apprentissage Géométrique Profond"
+tagline: "Des réseaux de neurones sur graphes, variétés et nuages de points — ancrés dans la théorie des groupes, la géométrie différentielle et la topologie."
+description: "Atelier de 4 jours : GNNs, apprentissage sur variétés, architectures équivariantes."
 
-**Formateur :** Dr. Yaé Ulrich Gaba
-**Durée :** 4 jours (24 heures)
-**Niveau :** Avancé
-**Langue :** Français
+# --- Métadonnées de la barre latérale ---
+instructor: "Dr. Yaé Ulrich Gaba"
+duration: "4 jours (≈ 24 heures)"
+level: "Avancé"
+format: "Sur site, en ligne en direct, ou hybride"
+languages: "Français &amp; anglais"
+next_session: "Sur demande"
+pricing: "Honoraires pour conférences / institutions académiques ; tarifs entreprise sur demande"
+certificate: "Certificat de complétion"
 
+# --- Liens des supports ---
+notebooks_url: https://github.com/gabayae/gabayae.github.io/tree/main/workshops/geometric-deep-learning
+
+# --- Contact ---
+contact_email: gabayae2@gmail.com
+contact_subject: "Demande d'atelier — Apprentissage Géométrique Profond"
 ---
 
 ## Présentation
