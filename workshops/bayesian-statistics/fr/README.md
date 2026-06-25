@@ -12,8 +12,6 @@ duration: "4 jours (≈ 24 heures)"
 level: "Intermédiaire à Avancé"
 format: "Sur site, en ligne en direct, ou hybride"
 languages: "Français &amp; anglais"
-next_session: "Sur demande"
-pricing: "Honoraires pour conférences / institutions académiques ; tarifs entreprise sur demande"
 certificate: "Certificat de complétion"
 
 # --- Liens des supports ---
@@ -24,135 +22,75 @@ contact_email: gabayae2@gmail.com
 contact_subject: "Demande d'atelier — Statistique Bayésienne Appliquée"
 ---
 
-## Présentation
+## Présentation du programme
 
 Cet atelier offre une introduction pratique à la statistique bayésienne avec un accent sur la modélisation, le calcul et les applications réelles. Les participants apprennent la pensée bayésienne, construisent des modèles probabilistes avec PyMC et appliquent des méthodes hiérarchiques à des problèmes de santé, finance et sciences sociales.
 
-## Prérequis
-
-- Bases de probabilités et statistiques (distributions, vraisemblance, probabilité conditionnelle, théorème de Bayes)
-- Programmation Python (NumPy, Matplotlib)
-- Une familiarité avec la régression (linéaire/logistique) est utile
-- Aucune expérience bayésienne préalable requise
-
-## Objectifs Pédagogiques
-
-À la fin de cet atelier, les participants seront capables de :
-
-1. Penser de manière probabiliste et formuler des problèmes dans un cadre bayésien
-2. Spécifier des distributions a priori et comprendre leur impact sur l'inférence
-3. Construire et ajuster des modèles bayésiens avec PyMC
-4. Comprendre et diagnostiquer l'échantillonnage MCMC (traces, R-hat, taille d'échantillon effective)
-5. Construire des modèles hiérarchiques (multiniveaux)
-6. Effectuer la comparaison de modèles et les vérifications prédictives a posteriori
-7. Appliquer les méthodes bayésiennes à des problèmes spécifiques à un domaine
-
-## Logiciels Requis
+### Logiciels requis
 
 - Python 3.10+
 - Bibliothèques : pymc (v5+), arviz, numpy, matplotlib, seaborn, pandas, scipy
 - Optionnel : Stan (via cmdstanpy), bambi (modèles bayésiens par formule)
 
----
+### Jour 1 — Pensée bayésienne & premiers modèles
 
-## Programme Jour par Jour
+**Objectifs :** comprendre le paradigme bayésien et construire les premiers modèles probabilistes.
 
-### Jour 1 : Pensée Bayésienne & Premiers Modèles
+- **Pourquoi le bayésien ?** — philosophie fréquentiste vs. bayésienne, la probabilité comme croyance, avantages : quantification de l'incertitude, petits échantillons, incorporation de connaissances a priori.
+- **Théorème de Bayes en pratique** — Prior × Vraisemblance = Postérieur (à normalisation près). Priors conjugués, exemples analytiques : Beta-Binomial, Normal-Normal.
+- **Choisir les priors** — priors informatifs vs. faiblement informatifs vs. non informatifs. Vérifications prédictives a priori : le prior génère-t-il des données plausibles ? Priors courants pour les paramètres standards.
+- **Introduction à PyMC** — spécification de modèle, variables aléatoires, données observées, échantillonnage avec NUTS, traces, ArviZ pour les diagnostics et la visualisation.
+- **Régression linéaire bayésienne** — vraisemblance normale, priors sur les coefficients et la variance, interprétation du postérieur, intervalles de crédibilité vs. confiance, distribution prédictive a posteriori.
 
-**Objectifs :** Comprendre le paradigme bayésien et construire les premiers modèles probabilistes.
+**TP 1 :** construire un modèle de régression linéaire bayésienne dans PyMC : prédire un résultat de santé (ex. : tension artérielle ~ âge + IMC). Explorer l'effet de différents priors, visualiser le postérieur, comparer avec les MCO fréquentistes.
 
-| Horaire | Sujet |
-|---------|-------|
-| 09:00–10:00 | **Pourquoi le Bayésien ?** — Philosophie fréquentiste vs. bayésienne, la probabilité comme croyance, avantages : quantification de l'incertitude, petits échantillons, incorporation de connaissances a priori |
-| 10:00–10:45 | **Théorème de Bayes en Pratique** — Prior × Vraisemblance = Postérieur (à normalisation près). Priors conjugués, exemples analytiques : Beta-Binomial, Normal-Normal |
-| 10:45–11:00 | *Pause* |
-| 11:00–12:30 | **Choisir les Priors** — Priors informatifs vs. faiblement informatifs vs. non informatifs. Vérifications prédictives a priori : le prior génère-t-il des données plausibles ? Priors courants pour les paramètres standards |
-| 12:30–14:00 | *Déjeuner* |
-| 14:00–15:30 | **Introduction à PyMC** — Spécification de modèle, variables aléatoires, données observées, échantillonnage avec NUTS, traces, ArviZ pour les diagnostics et la visualisation |
-| 15:30–15:45 | *Pause* |
-| 15:45–17:00 | **Régression Linéaire Bayésienne** — Vraisemblance normale, priors sur les coefficients et la variance, interprétation du postérieur, intervalles de crédibilité vs. confiance, distribution prédictive a posteriori |
+### Jour 2 — MCMC, diagnostics & modèles généralisés
 
-**TP 1 :** Construire un modèle de régression linéaire bayésienne dans PyMC : prédire un résultat de santé (ex. : tension artérielle ~ âge + IMC). Explorer l'effet de différents priors, visualiser le postérieur, comparer avec les MCO fréquentistes.
+**Objectifs :** comprendre le fonctionnement du MCMC et étendre les modèles bayésiens au-delà de la régression linéaire.
 
-**Devoir :** Ajuster une régression bayésienne sur un jeu de données de votre choix. Expérimenter la sensibilité au prior.
+- **Comment fonctionne le MCMC** — le problème d'échantillonnage, Metropolis-Hastings (intuition), Monte Carlo Hamiltonien (HMC), NUTS. Pourquoi NUTS est le défaut.
+- **Diagnostiquer le MCMC** — traces, autocorrélation, R-hat (convergence), taille d'échantillon effective (ESS), divergences HMC. Que faire quand l'échantillonnage échoue : reparamétrisation, paramétrisation non centrée.
+- **Critique du modèle** — vérifications prédictives a posteriori : le modèle génère-t-il des données semblables aux données réelles ? Analyse des résidus, calibration.
+- **Régression logistique bayésienne** — vraisemblance Bernoulli/Binomiale, lien logit, priors pour les coefficients, interprétation des rapports de cotes a posteriori, classification avec incertitude.
+- **GLM bayésiens** — régression de Poisson pour les données de comptage, binomiale négative pour la surdispersion, choisir la bonne famille de vraisemblance.
 
----
+**TP 2 :** construire une régression logistique bayésienne pour le diagnostic de maladie (ex. : prédiction du diabète). Effectuer les diagnostics MCMC complets, les vérifications prédictives a posteriori, et comparer les probabilités prédites avec une régression logistique fréquentiste.
 
-### Jour 2 : MCMC, Diagnostics & Modèles Généralisés
+### Jour 3 — Modèles hiérarchiques
 
-**Objectifs :** Comprendre le fonctionnement du MCMC et étendre les modèles bayésiens au-delà de la régression linéaire.
+**Objectifs :** construire des modèles multiniveaux qui partagent l'information entre les groupes.
 
-| Horaire | Sujet |
-|---------|-------|
-| 09:00–09:30 | **Revue du devoir** |
-| 09:30–10:30 | **Comment Fonctionne le MCMC** — Le problème d'échantillonnage, Metropolis-Hastings (intuition), Monte Carlo Hamiltonien (HMC), NUTS. Pourquoi NUTS est le défaut |
-| 10:30–10:45 | *Pause* |
-| 10:45–12:00 | **Diagnostiquer le MCMC** — Traces, autocorrélation, R-hat (convergence), taille d'échantillon effective (ESS), divergences HMC. Que faire quand l'échantillonnage échoue : reparamétrisation, paramétrisation non centrée |
-| 12:00–12:30 | **Critique du Modèle** — Vérifications prédictives a posteriori : le modèle génère-t-il des données semblables aux données réelles ? Analyse des résidus, calibration |
-| 12:30–14:00 | *Déjeuner* |
-| 14:00–15:30 | **Régression Logistique Bayésienne** — Vraisemblance Bernoulli/Binomiale, lien logit, priors pour les coefficients, interprétation des rapports de cotes a posteriori, classification avec incertitude |
-| 15:30–15:45 | *Pause* |
-| 15:45–17:00 | **GLM Bayésiens** — Régression de Poisson pour les données de comptage, binomiale négative pour la surdispersion, choisir la bonne famille de vraisemblance |
+- **Pourquoi le hiérarchique ?** — le problème : trop de groupes, trop peu de données par groupe. Pooling complet vs. pas de pooling vs. pooling partiel. Rétrécissement et le phénomène de James-Stein.
+- **Modèles linéaires hiérarchiques** — intercepts variables, pentes variables, prédicteurs de niveau groupe. La paramétrisation non centrée pour un échantillonnage efficace. Visualiser le pooling partiel.
+- **Modèles hiérarchiques sur données réelles** — données de santé multi-pays : estimer les effets par pays avec pooling partiel. Structures croisées et emboîtées.
+- **Comparaison de modèles** — WAIC, LOO-CV avec ArviZ, comparer des modèles avec différentes structures, interprétation des critères d'information.
 
-**TP 2 :** Construire une régression logistique bayésienne pour le diagnostic de maladie (ex. : prédiction du diabète). Effectuer les diagnostics MCMC complets, les vérifications prédictives a posteriori, et comparer les probabilités prédites avec une régression logistique fréquentiste.
+**TP 3 :** construire un modèle hiérarchique pour les résultats éducatifs à travers les pays africains : scores de test d'étudiants emboîtés dans des écoles dans des pays. Comparer pooling complet, pas de pooling et estimations hiérarchiques. Visualiser le rétrécissement.
 
-**Devoir :** Ajuster un modèle de Poisson à des données de comptage (ex. : nombre de visites médicales) et vérifier la surdispersion.
+### Jour 4 — Sujets avancés & applications
 
----
+**Objectifs :** appliquer les méthodes bayésiennes à des problèmes spécifiques et explorer des techniques avancées.
 
-### Jour 3 : Modèles Hiérarchiques
+- **Séries temporelles bayésiennes** — priors autorégressifs, processus gaussiens pour les séries temporelles, modèles structurels, détection de points de changement.
+- **Modèles de mélange & clustering** — modèles de mélange gaussien, non-paramétrique bayésien (intuition du processus de Dirichlet), modèles à variables latentes.
+- **Tests A/B bayésiens** — comparer des traitements/interventions, probabilité a posteriori de supériorité, prise de décision sous incertitude, avantages par rapport aux p-values.
+- **Applications par domaine** — études de cas : analyse d'essais cliniques, modélisation du risque de crédit, modélisation épidémiologique (SIR avec inférence bayésienne), analyse de données d'enquête.
+- **Travail sur le projet final** — compléter une analyse bayésienne sur un jeu de données choisi.
+- **Présentations & bilan** — présentations des projets, résumé du workflow bayésien, ressources, certificats.
 
-**Objectifs :** Construire des modèles multiniveaux qui partagent l'information entre les groupes.
+**TP 4 (projet final) :** choisir un projet :
+- **Santé :** estimation bayésienne de la prévalence d'une maladie avec modèles hiérarchiques par région.
+- **Finance :** modélisation du défaut de crédit avec régression logistique bayésienne et quantification de l'incertitude.
+- **Éducation :** modèle multiniveau de la performance des étudiants avec effets école et pays.
+- **Personnalisé :** appliquer les méthodes bayésiennes à un problème de votre propre domaine.
 
-| Horaire | Sujet |
-|---------|-------|
-| 09:00–09:30 | **Revue du devoir** |
-| 09:30–10:30 | **Pourquoi le Hiérarchique ?** — Le problème : trop de groupes, trop peu de données par groupe. Pooling complet vs. pas de pooling vs. pooling partiel. Rétrécissement et le phénomène de James-Stein |
-| 10:30–10:45 | *Pause* |
-| 10:45–12:30 | **Modèles Linéaires Hiérarchiques** — Intercepts variables, pentes variables, prédicteurs de niveau groupe. La paramétrisation non centrée pour un échantillonnage efficace. Visualiser le pooling partiel |
-| 12:30–14:00 | *Déjeuner* |
-| 14:00–15:30 | **Modèles Hiérarchiques sur Données Réelles** — Données de santé multi-pays : estimer les effets par pays avec pooling partiel. Structures croisées et emboîtées |
-| 15:30–15:45 | *Pause* |
-| 15:45–17:00 | **Comparaison de Modèles** — WAIC, LOO-CV avec ArviZ, comparer des modèles avec différentes structures, interprétation des critères d'information |
+### Évaluation
 
-**TP 3 :** Construire un modèle hiérarchique pour les résultats éducatifs à travers les pays africains : scores de test d'étudiants emboîtés dans des écoles dans des pays. Comparer pooling complet, pas de pooling et estimations hiérarchiques. Visualiser le rétrécissement.
+- **TPs quotidiens** (40 %) — modèles fonctionnels avec diagnostics appropriés.
+- **Projet final** (40 %) — analyse bayésienne complète avec interprétation.
+- **Participation** (20 %) — engagement, devoirs et discussions.
 
-**Devoir :** Étendre le modèle hiérarchique avec un prédicteur de niveau groupe (ex. : niveau de financement de l'école).
-
----
-
-### Jour 4 : Sujets Avancés & Applications
-
-**Objectifs :** Appliquer les méthodes bayésiennes à des problèmes spécifiques et explorer des techniques avancées.
-
-| Horaire | Sujet |
-|---------|-------|
-| 09:00–09:30 | **Revue du devoir** |
-| 09:30–10:30 | **Séries Temporelles Bayésiennes** — Priors autorégressifs, processus gaussiens pour les séries temporelles, modèles structurels, détection de points de changement |
-| 10:30–10:45 | *Pause* |
-| 10:45–12:00 | **Modèles de Mélange & Clustering** — Modèles de mélange gaussien, non-paramétrique bayésien (intuition du processus de Dirichlet), modèles à variables latentes |
-| 12:00–12:30 | **Tests A/B Bayésiens** — Comparer des traitements/interventions, probabilité a posteriori de supériorité, prise de décision sous incertitude, avantages par rapport aux p-values |
-| 12:30–14:00 | *Déjeuner* |
-| 14:00–15:00 | **Applications par Domaine** — Études de cas : analyse d'essais cliniques, modélisation du risque de crédit, modélisation épidémiologique (SIR avec inférence bayésienne), analyse de données d'enquête |
-| 15:00–15:15 | *Pause* |
-| 15:15–16:15 | **Travail sur le Projet Final** — Compléter une analyse bayésienne sur un jeu de données choisi |
-| 16:15–17:00 | **Présentations & Bilan** — Présentations des projets, résumé du workflow bayésien, ressources, certificats |
-
-**TP 4 (Projet Final) :** Choisir un projet :
-- **Santé :** Estimation bayésienne de la prévalence d'une maladie avec modèles hiérarchiques par région
-- **Finance :** Modélisation du défaut de crédit avec régression logistique bayésienne et quantification de l'incertitude
-- **Éducation :** Modèle multiniveau de la performance des étudiants avec effets école et pays
-- **Personnalisé :** Appliquer les méthodes bayésiennes à un problème de votre propre domaine
-
----
-
-## Évaluation
-
-- **TPs quotidiens** (40 %) — Modèles fonctionnels avec diagnostics appropriés
-- **Projet final** (40 %) — Analyse bayésienne complète avec interprétation
-- **Participation** (20 %) — Engagement, devoirs et discussions
-
-## Ressources
+### Ressources
 
 - [Bayesian Analysis with Python (3e éd.) — Osvaldo Martin](https://www.packtpub.com/product/bayesian-analysis-with-python-third-edition/9781805127161)
 - [Statistical Rethinking (2e éd.) — Richard McElreath](https://xcelab.net/rm/statistical-rethinking/)
@@ -160,6 +98,31 @@ Cet atelier offre une introduction pratique à la statistique bayésienne avec u
 - [Documentation ArviZ](https://python.arviz.org/en/stable/)
 - [Bayesian Data Analysis (Gelman et al.)](http://www.stat.columbia.edu/~gelman/book/)
 
-## Certificat
+## Objectifs pédagogiques
 
-Les participants ayant complété tous les TPs et le projet final reçoivent un certificat de complétion.
+À la fin de cet atelier, les participants seront capables de :
+
+1. Penser de manière probabiliste et formuler des problèmes dans un cadre bayésien.
+2. Spécifier des distributions a priori et comprendre leur impact sur l'inférence.
+3. Construire et ajuster des modèles bayésiens avec PyMC.
+4. Comprendre et diagnostiquer l'échantillonnage MCMC (traces, R-hat, taille d'échantillon effective).
+5. Construire des modèles hiérarchiques (multiniveaux).
+6. Effectuer la comparaison de modèles et les vérifications prédictives a posteriori.
+7. Appliquer les méthodes bayésiennes à des problèmes spécifiques à un domaine.
+
+## Public visé
+
+Data scientists, statisticiens et chercheurs quantitatifs en santé, finance, sciences sociales ou politiques publiques qui veulent dépasser les p-values et rapporter l'incertitude honnêtement. Étudiants de master/doctorat dont la recherche dépend d'inférence sur des échantillons petits ou bruités. Praticiens qui utilisent déjà la régression et veulent une manière rigoureuse d'incorporer des connaissances a priori et de propager l'incertitude dans les décisions.
+
+**Prérequis :**
+
+- Bases de probabilités et statistiques (distributions, vraisemblance, probabilité conditionnelle, théorème de Bayes).
+- Programmation Python (NumPy, Matplotlib).
+- Une familiarité avec la régression (linéaire/logistique) est utile.
+- Aucune expérience bayésienne préalable requise.
+
+## Plaquette
+
+Les notes de cours et notebooks sont accessibles depuis la barre latérale.
+
+Pour une plaquette d'une page, à transmettre à un comité de programme, un organisateur de conférence ou une équipe formation interne, écrivez à <a href="mailto:gabayae2@gmail.com?subject=Demande%20de%20plaquette%20%E2%80%94%20Statistique%20Bay%C3%A9sienne%20Appliqu%C3%A9e">gabayae2@gmail.com</a> en précisant la taille de l'audience et les dates envisagées.
