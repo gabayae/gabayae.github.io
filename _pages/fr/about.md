@@ -82,7 +82,7 @@ Mes fondements mathématiques sont en <span class="kw">topologie asymétrique</s
 
 </div>
 
-Co-auteur de <a href="https://nostarch.com/shapeofdata" target="_blank"><em>The Shape of Data</em></a> (No Starch Press). Actuellement à <a href="https://airina-labs.github.io/AIRINA-Labs/" target="_blank">AIRINA Labs</a> et au <a href="https://acas-yde.org/" target="_blank">ACAS</a>. Précédemment à <a href="https://quantumleapafrica.org/" target="_blank">Quantum Leap Africa</a>, <a href="https://www.nwu.ac.za/" target="_blank">North-West University</a> et <a href="https://imsp-benin.com/" target="_blank">IMSP</a>.
+Co-auteur de <a href="https://nostarch.com/shapeofdata" target="_blank" style="color: var(--global-theme-color);"><em>The Shape of Data</em></a> (No Starch Press). Actuellement à <a href="https://airina-labs.github.io/AIRINA-Labs/" target="_blank">AIRINA Labs</a> et au <a href="https://acas-yde.org/" target="_blank">ACAS</a>. Précédemment à <a href="https://quantumleapafrica.org/" target="_blank">Quantum Leap Africa</a>, <a href="https://www.nwu.ac.za/" target="_blank">North-West University</a> et <a href="https://imsp-benin.com/" target="_blank">IMSP</a>.
 
 <div class="profile-links">
 <a href="{{ '/fr/publications/' | relative_url }}"><i class="fa-solid fa-file-lines"></i> Publications</a>
