@@ -98,7 +98,7 @@ Four pillars, in the vocabulary advanced-analytics consultant briefs tend to use
 <div class="card-body">
 <h4 class="card-title"><i class="fa-solid fa-people-group" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Collaboration & governance</h4>
 <p class="card-text">Research across mathematics, engineering, and business teams. MSc and PhD supervision at AIMS, the AI.Technipreneurs workshop series for African institutions, ACAS mentoring, 20+ co-authored peer-reviewed papers. Used to translating between data engineers, AI scientists, and the people who have to act on what the model says.</p>
-<p class="card-text" style="font-size: 0.85rem;"><em>Evidence: <a href="/en/teaching/">teaching & workshops</a>, <a href="/en/publications/">150+ publications, h-index 12</a>.</em></p>
+<p class="card-text" style="font-size: 0.85rem;"><em>Evidence: <a href="/en/teaching/">teaching & workshops</a>, <a href="/en/publications/">20+ publications, h-index 12</a>.</em></p>
 </div>
 </div>
 </div>

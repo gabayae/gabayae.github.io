@@ -98,7 +98,7 @@ Quatre piliers, dans le vocabulaire que les fiches de poste de consultant analyt
 <div class="card-body">
 <h4 class="card-title"><i class="fa-solid fa-people-group" style="color: var(--global-hover-color); margin-right: 0.5rem;"></i>Collaboration & gouvernance</h4>
 <p class="card-text">Recherche au croisement des mathématiques, de l'ingénierie et des équipes métier. Supervision MSc et PhD à AIMS, série d'ateliers AI.Technipreneurs pour les institutions africaines, mentorat ACAS, plus de 20 articles co-signés évalués par les pairs. Habitué à faire la traduction entre ingénieurs données, chercheurs IA et celles et ceux qui doivent agir à partir de ce que dit le modèle.</p>
-<p class="card-text" style="font-size: 0.85rem;"><em>Preuves : <a href="/fr/teaching/">enseignement & ateliers</a>, <a href="/fr/publications/">150+ publications, h-index 12</a>.</em></p>
+<p class="card-text" style="font-size: 0.85rem;"><em>Preuves : <a href="/fr/teaching/">enseignement & ateliers</a>, <a href="/fr/publications/">20+ publications, h-index 12</a>.</em></p>
 </div>
 </div>
 </div>
