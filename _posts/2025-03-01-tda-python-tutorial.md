@@ -1,5 +1,6 @@
 ---
 layout: post
+published: false
 title: "Getting started with TDA in Python"
 date: 2025-03-01
 description: "A practical introduction to Topological Data Analysis using Python — from point clouds to persistence diagrams."

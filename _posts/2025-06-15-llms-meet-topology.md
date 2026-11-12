@@ -1,5 +1,6 @@
 ---
 layout: post
+published: false
 title: "LLMs meet topology: can TDA improve language model interpretability?"
 date: 2025-06-15
 description: "Exploring how topological data analysis can shed light on the inner workings of large language models — from attention geometry to representation topology."

@@ -1,5 +1,6 @@
 ---
 layout: post
+published: false
 title: "Why topology matters for machine learning"
 date: 2025-01-15
 description: "What persistent homology and geometric deep learning bring to machine learning, written from the perspective of a working topologist."

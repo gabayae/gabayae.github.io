@@ -1,5 +1,6 @@
 ---
 layout: post
+published: false
 title: "Building AI research labs in Africa: lessons from AIRINA Labs"
 date: 2025-07-01
 description: "Reflections on founding and growing an AI research lab on the continent — what works, what's hard, and why it matters."

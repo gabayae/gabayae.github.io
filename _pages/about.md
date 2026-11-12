@@ -33,7 +33,7 @@ announcements:
   limit: 3
 
 latest_posts:
-  enabled: true
+  enabled: false  # blog temporarily off the site — flip back to true when posts are refreshed
   scrollable: true
   limit: 3
 ---

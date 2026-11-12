@@ -1,5 +1,6 @@
 ---
 layout: post
+published: false
 title: "Announcing: The Shape of Data"
 date: 2025-05-01
 description: "Our book on geometry-based machine learning is now available from No Starch Press."

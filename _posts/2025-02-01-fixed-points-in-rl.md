@@ -1,5 +1,6 @@
 ---
 layout: post
+published: false
 title: "Fixed points and convergence in reinforcement learning"
 date: 2025-02-01
 description: "How the Banach fixed point theorem explains why RL algorithms converge — bridging topology and decision-making."
