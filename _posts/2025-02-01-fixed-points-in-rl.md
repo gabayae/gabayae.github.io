@@ -5,7 +5,7 @@ date: 2025-02-01
 description: "How the Banach fixed point theorem explains why RL algorithms converge — bridging topology and decision-making."
 tags: [topology, reinforcement-learning, machine-learning]
 categories: [research]
-giscus_comments: true
+giscus_comments: false
 related_posts: true
 toc:
   sidebar: left

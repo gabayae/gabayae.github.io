@@ -210,10 +210,10 @@ I teach courses spanning <strong>pure mathematics</strong>, <strong>applied math
 <div style="background: linear-gradient(135deg, rgba(59,111,212,0.10), rgba(59,111,212,0.03)); border: 1px solid rgba(59,111,212,0.35); border-radius: 12px; padding: 22px 24px; margin-top: 28px; text-align: center;">
 <p style="font-size: 1.05rem; margin-bottom: 14px;">
 <i class="fa-solid fa-book-open" style="margin-right: 8px; color: var(--global-theme-color);"></i>
-Looking for the full catalogue of <strong>38 courses</strong> with lecture notes, exercises, and code? The materials are bilingual (FR + EN) and filterable by domain and level.
+Looking for the full catalogue of <strong>43 courses</strong> with lecture notes, worked exercises, and — where it earns its place — runnable code? The materials are bilingual (FR + EN) and filterable by domain and level.
 </p>
 <a href="{{ '/courses/' | relative_url }}" class="btn btn-primary" style="font-weight: 600; padding: 8px 22px; border-radius: 8px;">
-<i class="fa-solid fa-arrow-right" style="margin-right: 8px;"></i> Browse all 38 courses
+<i class="fa-solid fa-arrow-right" style="margin-right: 8px;"></i> Browse all 43 courses
 </a>
 </div>
 

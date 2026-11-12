@@ -5,7 +5,7 @@ date: 2025-03-01
 description: "A practical introduction to Topological Data Analysis using Python — from point clouds to persistence diagrams."
 tags: [TDA, data-science, machine-learning]
 categories: [tutorials]
-giscus_comments: true
+giscus_comments: false
 related_posts: true
 toc:
   sidebar: left

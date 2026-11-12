@@ -5,7 +5,7 @@ date: 2025-07-01
 description: "Reflections on founding and growing an AI research lab on the continent — what works, what's hard, and why it matters."
 tags: [Africa, AI, research, data-science]
 categories: [research]
-giscus_comments: true
+giscus_comments: false
 related_posts: true
 toc:
   sidebar: left

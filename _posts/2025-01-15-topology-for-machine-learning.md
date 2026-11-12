@@ -5,7 +5,7 @@ date: 2025-01-15
 description: "What persistent homology and geometric deep learning bring to machine learning, written from the perspective of a working topologist."
 tags: [topology, TDA, machine-learning]
 categories: [research]
-giscus_comments: true
+giscus_comments: false
 related_posts: true
 toc:
   sidebar: left

@@ -210,10 +210,10 @@ J'enseigne des cours couvrant les <strong>mathématiques pures</strong>, les <st
 <div style="background: linear-gradient(135deg, rgba(59,111,212,0.10), rgba(59,111,212,0.03)); border: 1px solid rgba(59,111,212,0.35); border-radius: 12px; padding: 22px 24px; margin-top: 28px; text-align: center;">
 <p style="font-size: 1.05rem; margin-bottom: 14px;">
 <i class="fa-solid fa-book-open" style="margin-right: 8px; color: var(--global-theme-color);"></i>
-Vous cherchez le catalogue complet des <strong>38 cours</strong> avec notes, exercices et code ? Les supports sont bilingues (FR + EN) et filtrables par domaine et par niveau.
+Vous cherchez le catalogue complet des <strong>43 cours</strong> avec notes de cours, exercices corrigés et — quand c'est pertinent — code exécutable ? Les supports sont bilingues (FR + EN) et filtrables par domaine et par niveau.
 </p>
 <a href="{{ '/courses/' | relative_url }}" class="btn btn-primary" style="font-weight: 600; padding: 8px 22px; border-radius: 8px;">
-<i class="fa-solid fa-arrow-right" style="margin-right: 8px;"></i> Parcourir les 38 cours
+<i class="fa-solid fa-arrow-right" style="margin-right: 8px;"></i> Parcourir les 43 cours
 </a>
 </div>
 

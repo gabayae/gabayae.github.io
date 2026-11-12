@@ -15,7 +15,9 @@ languages: "Français &amp; anglais"
 certificate: "Certificat de complétion"
 
 # --- Liens des supports ---
-notebooks_url: https://github.com/gabayae/gabayae.github.io/tree/main/workshops/data-science-decision-makers
+# Pas de notebooks pour cette formation exécutive — les participants travaillent
+# sur des études de cas et une feuille de route stratégique, pas sur du code.
+# Brochure disponible sur demande (voir en bas).
 
 # --- Contact ---
 contact_email: gabayae2@gmail.com
@@ -105,6 +107,6 @@ Managers, dirigeants, chefs de projets et professionnels non-techniques qui doiv
 
 ## Plaquette
 
-Les notes de cours et notebooks sont accessibles depuis la barre latérale.
+Supports distribués le jour même — études de cas, grilles d'évaluation, gabarits de feuille de route. Format discussion-driven pour un public exécutif, sans composante code.
 
 Pour une plaquette d'une page, à transmettre à un comité de programme, un organisateur de conférence ou une équipe formation interne, écrivez à <a href="mailto:gabayae2@gmail.com?subject=Demande%20de%20plaquette%20%E2%80%94%20Data%20Science%20pour%20D%C3%A9cideurs">gabayae2@gmail.com</a> en précisant la taille de l'audience et les dates envisagées.

@@ -5,7 +5,7 @@ date: 2025-04-01
 description: "Reflections on building AI research capacity across Africa — from AIMS to Data Science Africa and beyond."
 tags: [data-science, Africa, machine-learning]
 categories: [research]
-giscus_comments: true
+giscus_comments: false
 related_posts: true
 ---
 

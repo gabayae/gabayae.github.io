@@ -15,7 +15,8 @@ languages: "English &amp; French"
 certificate: "Certificate of completion"
 
 # --- Materials links shown in the sidebar ---
-notebooks_url: https://github.com/gabayae/gabayae.github.io/tree/main/workshops/data-science-decision-makers
+# No notebooks for this executive track — participants work on case studies and
+# a strategy roadmap, not code. Brochure is available on request (see bottom).
 
 # --- Contact ---
 contact_email: gabayae2@gmail.com
@@ -105,6 +106,6 @@ Managers, executives, project leads, and non-technical professionals who need to
 
 ## Brochure
 
-Lecture notes and lab notebooks are linked in the sidebar.
+Workshop handouts, case-study briefs, and roadmap templates are provided on the day — this is a discussion-driven executive format with no coding component.
 
 For a printable one-page brochure suitable for forwarding to a program committee, conference organizer, or corporate L&D team, write to <a href="mailto:gabayae2@gmail.com?subject=Brochure%20request%20%E2%80%94%20Data%20Science%20for%20Decision-Makers">gabayae2@gmail.com</a> with the audience size and intended delivery dates.

@@ -5,7 +5,7 @@ date: 2025-06-15
 description: "Exploring how topological data analysis can shed light on the inner workings of large language models — from attention geometry to representation topology."
 tags: [topology, TDA, LLMs, interpretability, machine-learning]
 categories: [research]
-giscus_comments: true
+giscus_comments: false
 related_posts: true
 toc:
   sidebar: left

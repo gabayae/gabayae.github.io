@@ -5,7 +5,7 @@ date: 2025-05-01
 description: "Our book on geometry-based machine learning is now available from No Starch Press."
 tags: [TDA, data-science, machine-learning, topology]
 categories: [research]
-giscus_comments: true
+giscus_comments: false
 related_posts: true
 ---
 
