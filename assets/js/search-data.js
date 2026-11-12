@@ -37,20 +37,6 @@ ninja.data = [{
           handler: () => {
             window.location.href = "/en/projects/";
           },
-        },{id: "nav-blog",
-          title: "blog",
-          description: "",
-          section: "Navigation",
-          handler: () => {
-            window.location.href = "/blog/";
-          },
-        },{id: "nav-blog",
-          title: "blog",
-          description: "",
-          section: "Navigation",
-          handler: () => {
-            window.location.href = "/blog/";
-          },
         },{id: "nav-livres",
           title: "livres",
           description: "",
@@ -78,6 +64,20 @@ ninja.data = [{
           section: "Navigation",
           handler: () => {
             window.location.href = "/en/teaching/";
+          },
+        },{id: "nav-encadrement",
+          title: "encadrement",
+          description: "Mémoires de licence, mémoires de master et thèses de doctorat encadrés ou co-encadrés.",
+          section: "Navigation",
+          handler: () => {
+            window.location.href = "/fr/supervision/";
+          },
+        },{id: "nav-supervision",
+          title: "supervision",
+          description: "Honors essays, master&#39;s dissertations, and doctoral theses supervised or co-supervised.",
+          section: "Navigation",
+          handler: () => {
+            window.location.href = "/en/supervision/";
           },
         },{id: "nav-cv",
           title: "CV",
@@ -114,95 +114,7 @@ ninja.data = [{
           handler: () => {
             window.location.href = "/en/consulting/";
           },
-        },{id: "post-persistence-landscapes-as-ml-features-a-complete-pipeline",
-        
-          title: "Persistence landscapes as ML features: a complete pipeline",
-        
-        description: "A step-by-step guide to computing persistence landscapes and using them as features in machine learning pipelines.",
-        section: "Posts",
-        handler: () => {
-          
-            window.location.href = "/blog/2025/persistence-landscapes-ml-pipeline/";
-          
-        },
-      },{id: "post-building-ai-research-labs-in-africa-lessons-from-airina-labs",
-        
-          title: "Building AI research labs in Africa: lessons from AIRINA Labs",
-        
-        description: "Reflections on founding and growing an AI research lab on the continent — what works, what&#39;s hard, and why it matters.",
-        section: "Posts",
-        handler: () => {
-          
-            window.location.href = "/blog/2025/building-ai-research-africa/";
-          
-        },
-      },{id: "post-llms-meet-topology-can-tda-improve-language-model-interpretability",
-        
-          title: "LLMs meet topology: can TDA improve language model interpretability?",
-        
-        description: "Exploring how topological data analysis can shed light on the inner workings of large language models — from attention geometry to representation topology.",
-        section: "Posts",
-        handler: () => {
-          
-            window.location.href = "/blog/2025/llms-meet-topology/";
-          
-        },
-      },{id: "post-announcing-the-shape-of-data",
-        
-          title: "Announcing: The Shape of Data",
-        
-        description: "Our book on geometry-based machine learning is now available from No Starch Press.",
-        section: "Posts",
-        handler: () => {
-          
-            window.location.href = "/blog/2025/shape-of-data-announcement/";
-          
-        },
-      },{id: "post-the-african-ai-landscape-opportunities-and-challenges",
-        
-          title: "The African AI landscape: opportunities and challenges",
-        
-        description: "Reflections on building AI research capacity across Africa — from AIMS to Data Science Africa and beyond.",
-        section: "Posts",
-        handler: () => {
-          
-            window.location.href = "/blog/2025/african-ai-landscape/";
-          
-        },
-      },{id: "post-getting-started-with-tda-in-python",
-        
-          title: "Getting started with TDA in Python",
-        
-        description: "A practical introduction to Topological Data Analysis using Python — from point clouds to persistence diagrams.",
-        section: "Posts",
-        handler: () => {
-          
-            window.location.href = "/blog/2025/tda-python-tutorial/";
-          
-        },
-      },{id: "post-fixed-points-and-convergence-in-reinforcement-learning",
-        
-          title: "Fixed points and convergence in reinforcement learning",
-        
-        description: "How the Banach fixed point theorem explains why RL algorithms converge — bridging topology and decision-making.",
-        section: "Posts",
-        handler: () => {
-          
-            window.location.href = "/blog/2025/fixed-points-in-rl/";
-          
-        },
-      },{id: "post-why-topology-matters-for-machine-learning",
-        
-          title: "Why topology matters for machine learning",
-        
-        description: "What persistent homology and geometric deep learning bring to machine learning, written from the perspective of a working topologist.",
-        section: "Posts",
-        handler: () => {
-          
-            window.location.href = "/blog/2025/topology-for-machine-learning/";
-          
-        },
-      },{id: "books-the-shape-of-data-geometry-based-machine-learning-and-data-analysis-in-r",
+        },{id: "books-the-shape-of-data-geometry-based-machine-learning-and-data-analysis-in-r",
           title: 'The Shape of Data: Geometry-Based Machine Learning and Data Analysis in R',
           description: "",
           section: "Books",handler: () => {
