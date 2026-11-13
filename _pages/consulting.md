@@ -111,14 +111,14 @@ Four pillars, in the vocabulary advanced-analytics consultant briefs tend to use
 The stack behind the capabilities. Python-first for modeling, R and Julia for statistical and scientific work, PostgreSQL for data engineering, LaTeX for deliverables, arXiv for the research trail.
 
 <div class="row row-cols-4 row-cols-md-8 g-3 mb-5 text-center toolkit-strip">
-  <div class="col"><div class="toolkit-item"><img src="https://cdn.simpleicons.org/python/3776AB" alt="Python" loading="lazy" width="48" height="48"><div class="toolkit-label">Python</div></div></div>
-  <div class="col"><div class="toolkit-item"><img src="https://cdn.simpleicons.org/r/276DC3" alt="R" loading="lazy" width="48" height="48"><div class="toolkit-label">R</div></div></div>
-  <div class="col"><div class="toolkit-item"><img src="https://cdn.simpleicons.org/postgresql/4169E1" alt="PostgreSQL" loading="lazy" width="48" height="48"><div class="toolkit-label">SQL</div></div></div>
-  <div class="col"><div class="toolkit-item"><img src="https://cdn.simpleicons.org/julia/9558B2" alt="Julia" loading="lazy" width="48" height="48"><div class="toolkit-label">Julia</div></div></div>
-  <div class="col"><div class="toolkit-item"><img src="https://cdn.simpleicons.org/pytorch/EE4C2C" alt="PyTorch" loading="lazy" width="48" height="48"><div class="toolkit-label">PyTorch</div></div></div>
-  <div class="col"><div class="toolkit-item"><img src="https://cdn.simpleicons.org/scikitlearn/F7931E" alt="scikit-learn" loading="lazy" width="48" height="48"><div class="toolkit-label">scikit-learn</div></div></div>
-  <div class="col"><div class="toolkit-item"><img src="https://cdn.simpleicons.org/latex/008080" alt="LaTeX" loading="lazy" width="48" height="48"><div class="toolkit-label">LaTeX</div></div></div>
-  <div class="col"><div class="toolkit-item"><img src="https://cdn.simpleicons.org/arxiv/B31B1B" alt="arXiv" loading="lazy" width="48" height="48"><div class="toolkit-label">arXiv</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/python.svg' | relative_url }}" alt="Python" loading="lazy" width="48" height="48"><div class="toolkit-label">Python</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/r.svg' | relative_url }}" alt="R" loading="lazy" width="48" height="48"><div class="toolkit-label">R</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/postgresql.svg' | relative_url }}" alt="PostgreSQL" loading="lazy" width="48" height="48"><div class="toolkit-label">SQL</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/julia.svg' | relative_url }}" alt="Julia" loading="lazy" width="48" height="48"><div class="toolkit-label">Julia</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/pytorch.svg' | relative_url }}" alt="PyTorch" loading="lazy" width="48" height="48"><div class="toolkit-label">PyTorch</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/scikitlearn.svg' | relative_url }}" alt="scikit-learn" loading="lazy" width="48" height="48"><div class="toolkit-label">scikit-learn</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/latex.svg' | relative_url }}" alt="LaTeX" loading="lazy" width="48" height="48"><div class="toolkit-label">LaTeX</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/arxiv.svg' | relative_url }}" alt="arXiv" loading="lazy" width="48" height="48"><div class="toolkit-label">arXiv</div></div></div>
 </div>
 
 <style>
