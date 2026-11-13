@@ -22,6 +22,23 @@ contact_email: gabayae2@gmail.com
 contact_subject: "Demande d'atelier — Apprentissage par Renforcement : de la Théorie à la Pratique"
 ---
 
+<p class="workshop-stack-label">Stack principale couverte</p>
+
+<div class="row row-cols-4 row-cols-md-4 g-2 mb-4 text-center workshop-stack">
+  <div class="col"><a href="https://www.python.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/python.svg' | relative_url }}" alt="Python" loading="lazy" width="36" height="36"><div class="toolkit-label">Python</div></a></div>
+  <div class="col"><a href="https://pytorch.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/pytorch.svg' | relative_url }}" alt="PyTorch" loading="lazy" width="36" height="36"><div class="toolkit-label">PyTorch</div></a></div>
+  <div class="col"><a href="https://numpy.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/numpy.svg' | relative_url }}" alt="NumPy" loading="lazy" width="36" height="36"><div class="toolkit-label">NumPy</div></a></div>
+  <div class="col"><a href="https://gymnasium.farama.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/openaigym.svg' | relative_url }}" alt="Gymnasium" loading="lazy" width="36" height="36"><div class="toolkit-label">Gymnasium</div></a></div>
+</div>
+
+<style>
+.workshop-stack-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--global-text-color-light); margin-top: 0; margin-bottom: 0.5rem; font-weight: 600; }
+.workshop-stack .toolkit-item { display: block; padding: 0.3rem; color: inherit; text-decoration: none; transition: transform 0.15s ease; }
+.workshop-stack .toolkit-item:hover { transform: translateY(-2px); text-decoration: none; }
+.workshop-stack img { max-width: 36px; height: auto; }
+.workshop-stack .toolkit-label { font-size: 0.72rem; margin-top: 0.3rem; color: var(--global-text-color); font-weight: 500; }
+</style>
+
 ## Présentation du programme
 
 Cet atelier offre une introduction rigoureuse et pratique à l'apprentissage par renforcement (RL), reliant les fondements mathématiques — y compris les perspectives topologiques et métriques — aux algorithmes modernes de deep RL. Les participants implémentent des méthodes RL classiques et profondes depuis zéro, les appliquent à des problèmes concrets et acquièrent une compréhension des structures mathématiques sous-jacentes à la convergence et l'optimalité.

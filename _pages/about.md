@@ -135,11 +135,30 @@ I advise research teams and startups on applying topological and geometric metho
 
 <div class="profile-section">
 <div class="profile-section-header">
+<div class="profile-icon"><i class="fa-solid fa-seedling"></i></div>
+<h3>Mentor</h3>
+</div>
+
+I supervise theses at IMSP and AIMS, mentor early-career African researchers through ACAS, and stay in touch with bootcamp alumni after their cohort ends. This is the slow, long-horizon part of the work; it's also the part I value most.
+
+- <span class="kw">Thesis supervision</span>: MSc and PhD candidates at IMSP and the AIMS centres — topology-and-data, fixed-point theory, geometric ML, applied AI on African problems
+- <span class="kw">Early-career research mentoring</span>: through <a href="https://acas-yde.org/" target="_blank">ACAS</a>, for African scholars at the postdoc and early-faculty stage working in AI, mathematics, and quantitative research
+- <span class="kw">Bootcamp &amp; alumni follow-up</span>: Bootcamp participants retain a peer Slack channel and 1-on-1 instructor access for 3 months after their cohort
+
+<div class="profile-links">
+<a href="https://acas-yde.org/" target="_blank"><i class="fa-solid fa-graduation-cap"></i> ACAS — research mentoring</a>
+<a href="{{ '/workshops/ml-ai-bootcamp/en/' | relative_url }}"><i class="fa-solid fa-rocket"></i> ML &amp; AI Bootcamp syllabus</a>
+<a href="mailto:gabayae2@gmail.com?subject=Research%20Supervision%20Inquiry"><i class="fa-solid fa-envelope"></i> Thesis supervision inquiry</a>
+</div>
+</div>
+
+<div class="profile-section">
+<div class="profile-section-header">
 <div class="profile-icon"><i class="fa-solid fa-toolbox"></i></div>
 <h3>Toolkit</h3>
 </div>
 
-The stack behind the research, teaching, and consulting work. [Python](https://www.python.org/)-first for modeling, [R](https://www.r-project.org/) and [Julia](https://julialang.org/) for statistical and scientific computation, [PostgreSQL](https://www.postgresql.org/) for data engineering, [LaTeX](https://www.latex-project.org/) for deliverables, [arXiv](https://arxiv.org/) for the preprint trail.
+<p>The stack behind the research, teaching, and consulting work. <a href="https://www.python.org/" target="_blank" rel="noopener">Python</a>-first for modeling, <a href="https://www.r-project.org/" target="_blank" rel="noopener">R</a> and <a href="https://julialang.org/" target="_blank" rel="noopener">Julia</a> for statistical and scientific computation, <a href="https://www.postgresql.org/" target="_blank" rel="noopener">PostgreSQL</a> for data engineering, <a href="https://www.latex-project.org/" target="_blank" rel="noopener">LaTeX</a> for deliverables, <a href="https://arxiv.org/" target="_blank" rel="noopener">arXiv</a> for the preprint trail.</p>
 
 <div class="row row-cols-4 row-cols-md-6 g-3 mb-4 text-center toolkit-strip">
   <div class="col"><a href="https://www.python.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/python.svg' | relative_url }}" alt="Python" loading="lazy" width="48" height="48"><div class="toolkit-label">Python</div></a></div>
@@ -162,25 +181,6 @@ The stack behind the research, teaching, and consulting work. [Python](https://w
 .toolkit-strip img { max-width: 48px; height: auto; }
 .toolkit-strip .toolkit-label { font-size: 0.8rem; margin-top: 0.4rem; color: var(--global-text-color); font-weight: 500; }
 </style>
-</div>
-
-<div class="profile-section">
-<div class="profile-section-header">
-<div class="profile-icon"><i class="fa-solid fa-seedling"></i></div>
-<h3>Mentor</h3>
-</div>
-
-I supervise theses at IMSP and AIMS, mentor early-career African researchers through ACAS, and stay in touch with bootcamp alumni after their cohort ends. This is the slow, long-horizon part of the work; it's also the part I value most.
-
-- <span class="kw">Thesis supervision</span>: MSc and PhD candidates at IMSP and the AIMS centres — topology-and-data, fixed-point theory, geometric ML, applied AI on African problems
-- <span class="kw">Early-career research mentoring</span>: through <a href="https://acas-yde.org/" target="_blank">ACAS</a>, for African scholars at the postdoc and early-faculty stage working in AI, mathematics, and quantitative research
-- <span class="kw">Bootcamp &amp; alumni follow-up</span>: Bootcamp participants retain a peer Slack channel and 1-on-1 instructor access for 3 months after their cohort
-
-<div class="profile-links">
-<a href="https://acas-yde.org/" target="_blank"><i class="fa-solid fa-graduation-cap"></i> ACAS — research mentoring</a>
-<a href="{{ '/workshops/ml-ai-bootcamp/en/' | relative_url }}"><i class="fa-solid fa-rocket"></i> ML &amp; AI Bootcamp syllabus</a>
-<a href="mailto:gabayae2@gmail.com?subject=Research%20Supervision%20Inquiry"><i class="fa-solid fa-envelope"></i> Thesis supervision inquiry</a>
-</div>
 </div>
 
 </div>

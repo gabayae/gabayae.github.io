@@ -22,6 +22,24 @@ contact_email: gabayae2@gmail.com
 contact_subject: "Workshop inquiry — Python for Data Science"
 ---
 
+<p class="workshop-stack-label">Core stack covered</p>
+
+<div class="row row-cols-5 row-cols-md-5 g-2 mb-4 text-center workshop-stack">
+  <div class="col"><a href="https://www.python.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/python.svg' | relative_url }}" alt="Python" loading="lazy" width="36" height="36"><div class="toolkit-label">Python</div></a></div>
+  <div class="col"><a href="https://jupyter.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/jupyter.svg' | relative_url }}" alt="Jupyter" loading="lazy" width="36" height="36"><div class="toolkit-label">Jupyter</div></a></div>
+  <div class="col"><a href="https://numpy.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/numpy.svg' | relative_url }}" alt="NumPy" loading="lazy" width="36" height="36"><div class="toolkit-label">NumPy</div></a></div>
+  <div class="col"><a href="https://pandas.pydata.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/pandas.svg' | relative_url }}" alt="pandas" loading="lazy" width="36" height="36"><div class="toolkit-label">pandas</div></a></div>
+  <div class="col"><a href="https://scikit-learn.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/scikitlearn.svg' | relative_url }}" alt="scikit-learn" loading="lazy" width="36" height="36"><div class="toolkit-label">scikit-learn</div></a></div>
+</div>
+
+<style>
+.workshop-stack-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--global-text-color-light); margin-top: 0; margin-bottom: 0.5rem; font-weight: 600; }
+.workshop-stack .toolkit-item { display: block; padding: 0.3rem; color: inherit; text-decoration: none; transition: transform 0.15s ease; }
+.workshop-stack .toolkit-item:hover { transform: translateY(-2px); text-decoration: none; }
+.workshop-stack img { max-width: 36px; height: auto; }
+.workshop-stack .toolkit-label { font-size: 0.72rem; margin-top: 0.3rem; color: var(--global-text-color); font-weight: 500; }
+</style>
+
 ## Program Overview
 
 This hands-on workshop takes participants from zero Python experience to building their first machine learning models. Through daily coding labs, real-world datasets, and progressive projects, learners develop practical data science skills grounded in solid programming fundamentals.

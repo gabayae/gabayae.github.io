@@ -135,11 +135,30 @@ Je conseille des équipes de recherche et des startups sur l'application de mét
 
 <div class="profile-section">
 <div class="profile-section-header">
+<div class="profile-icon"><i class="fa-solid fa-seedling"></i></div>
+<h3>Mentor</h3>
+</div>
+
+J'encadre des thèses à l'IMSP et à AIMS, j'accompagne de jeunes chercheurs africains via l'ACAS, et je reste en lien avec les anciens des cohortes après leur sortie du bootcamp. C'est la partie lente, à horizon long, du métier ; c'est aussi celle à laquelle je tiens le plus.
+
+- <span class="kw">Supervision de mémoire</span> : étudiants de master à l'IMSP — topologie appliquée aux données, théorie des points fixes, ML géométrique, IA appliquée aux problèmes africains
+- <span class="kw">Accompagnement de jeunes chercheurs</span> : via <a href="https://acas-yde.org/" target="_blank">l'ACAS</a>, pour des chercheurs africains au stade postdoctoral et en début de carrière universitaire, en IA, mathématiques et recherche quantitative
+- <span class="kw">Suivi des anciens du bootcamp</span> : les participants au Bootcamp conservent l'accès à un canal Slack de pairs et à un échange 1-à-1 avec l'instructeur pendant 3 mois après leur cohorte
+
+<div class="profile-links">
+<a href="https://acas-yde.org/" target="_blank"><i class="fa-solid fa-graduation-cap"></i> ACAS — accompagnement à la recherche</a>
+<a href="{{ '/workshops/ml-ai-bootcamp/fr/' | relative_url }}"><i class="fa-solid fa-rocket"></i> Programme du Bootcamp ML &amp; IA</a>
+<a href="mailto:gabayae2@gmail.com?subject=Direction%20de%20recherche%20%E2%80%94%20renseignements"><i class="fa-solid fa-envelope"></i> Renseignements direction de thèse</a>
+</div>
+</div>
+
+<div class="profile-section">
+<div class="profile-section-header">
 <div class="profile-icon"><i class="fa-solid fa-toolbox"></i></div>
 <h3>Boîte à outils</h3>
 </div>
 
-La stack derrière la recherche, l'enseignement et le conseil. [Python](https://www.python.org/) en priorité pour la modélisation, [R](https://www.r-project.org/) et [Julia](https://julialang.org/) pour le calcul statistique et scientifique, [PostgreSQL](https://www.postgresql.org/) pour l'ingénierie des données, [LaTeX](https://www.latex-project.org/) pour les livrables, [arXiv](https://arxiv.org/) pour la trace des préprints.
+<p>La stack derrière la recherche, l'enseignement et le conseil. <a href="https://www.python.org/" target="_blank" rel="noopener">Python</a> en priorité pour la modélisation, <a href="https://www.r-project.org/" target="_blank" rel="noopener">R</a> et <a href="https://julialang.org/" target="_blank" rel="noopener">Julia</a> pour le calcul statistique et scientifique, <a href="https://www.postgresql.org/" target="_blank" rel="noopener">PostgreSQL</a> pour l'ingénierie des données, <a href="https://www.latex-project.org/" target="_blank" rel="noopener">LaTeX</a> pour les livrables, <a href="https://arxiv.org/" target="_blank" rel="noopener">arXiv</a> pour la trace des préprints.</p>
 
 <div class="row row-cols-4 row-cols-md-6 g-3 mb-4 text-center toolkit-strip">
   <div class="col"><a href="https://www.python.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/python.svg' | relative_url }}" alt="Python" loading="lazy" width="48" height="48"><div class="toolkit-label">Python</div></a></div>
@@ -162,25 +181,6 @@ La stack derrière la recherche, l'enseignement et le conseil. [Python](https://
 .toolkit-strip img { max-width: 48px; height: auto; }
 .toolkit-strip .toolkit-label { font-size: 0.8rem; margin-top: 0.4rem; color: var(--global-text-color); font-weight: 500; }
 </style>
-</div>
-
-<div class="profile-section">
-<div class="profile-section-header">
-<div class="profile-icon"><i class="fa-solid fa-seedling"></i></div>
-<h3>Mentor</h3>
-</div>
-
-J'encadre des thèses à l'IMSP et à AIMS, j'accompagne de jeunes chercheurs africains via l'ACAS, et je reste en lien avec les anciens des cohortes après leur sortie du bootcamp. C'est la partie lente, à horizon long, du métier ; c'est aussi celle à laquelle je tiens le plus.
-
-- <span class="kw">Supervision de mémoire</span> : étudiants de master à l'IMSP — topologie appliquée aux données, théorie des points fixes, ML géométrique, IA appliquée aux problèmes africains
-- <span class="kw">Accompagnement de jeunes chercheurs</span> : via <a href="https://acas-yde.org/" target="_blank">l'ACAS</a>, pour des chercheurs africains au stade postdoctoral et en début de carrière universitaire, en IA, mathématiques et recherche quantitative
-- <span class="kw">Suivi des anciens du bootcamp</span> : les participants au Bootcamp conservent l'accès à un canal Slack de pairs et à un échange 1-à-1 avec l'instructeur pendant 3 mois après leur cohorte
-
-<div class="profile-links">
-<a href="https://acas-yde.org/" target="_blank"><i class="fa-solid fa-graduation-cap"></i> ACAS — accompagnement à la recherche</a>
-<a href="{{ '/workshops/ml-ai-bootcamp/fr/' | relative_url }}"><i class="fa-solid fa-rocket"></i> Programme du Bootcamp ML &amp; IA</a>
-<a href="mailto:gabayae2@gmail.com?subject=Direction%20de%20recherche%20%E2%80%94%20renseignements"><i class="fa-solid fa-envelope"></i> Renseignements direction de thèse</a>
-</div>
 </div>
 
 </div>

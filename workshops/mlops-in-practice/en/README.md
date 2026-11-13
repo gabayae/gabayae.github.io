@@ -22,6 +22,23 @@ contact_email: gabayae2@gmail.com
 contact_subject: "Workshop inquiry — MLOps in Practice"
 ---
 
+<p class="workshop-stack-label">Core stack covered</p>
+
+<div class="row row-cols-4 row-cols-md-4 g-2 mb-4 text-center workshop-stack">
+  <div class="col"><a href="https://www.python.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/python.svg' | relative_url }}" alt="Python" loading="lazy" width="36" height="36"><div class="toolkit-label">Python</div></a></div>
+  <div class="col"><a href="https://www.docker.com/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/docker.svg' | relative_url }}" alt="Docker" loading="lazy" width="36" height="36"><div class="toolkit-label">Docker</div></a></div>
+  <div class="col"><a href="https://mlflow.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/mlflow.svg' | relative_url }}" alt="MLflow" loading="lazy" width="36" height="36"><div class="toolkit-label">MLflow</div></a></div>
+  <div class="col"><a href="https://dvc.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/dvc.svg' | relative_url }}" alt="DVC" loading="lazy" width="36" height="36"><div class="toolkit-label">DVC</div></a></div>
+</div>
+
+<style>
+.workshop-stack-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--global-text-color-light); margin-top: 0; margin-bottom: 0.5rem; font-weight: 600; }
+.workshop-stack .toolkit-item { display: block; padding: 0.3rem; color: inherit; text-decoration: none; transition: transform 0.15s ease; }
+.workshop-stack .toolkit-item:hover { transform: translateY(-2px); text-decoration: none; }
+.workshop-stack img { max-width: 36px; height: auto; }
+.workshop-stack .toolkit-label { font-size: 0.72rem; margin-top: 0.3rem; color: var(--global-text-color); font-weight: 500; }
+</style>
+
 ## Program Overview
 
 This workshop bridges the gap between notebook experiments and production ML systems. Participants learn to package, deploy, monitor, and maintain machine learning models using industry-standard tools. The emphasis is on practical, reproducible workflows that work in resource-constrained environments — including cloud-free and low-infrastructure setups relevant to African contexts.
