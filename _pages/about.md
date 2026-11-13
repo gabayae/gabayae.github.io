@@ -139,11 +139,11 @@ I advise research teams and startups on applying topological and geometric metho
 <h3>Mentor</h3>
 </div>
 
-I supervise theses at IMSP and AIMS, mentor early-career African researchers through ACAS, and stay in touch with bootcamp alumni after their cohort ends. This is the slow, long-horizon part of the work; it's also the part I value most.
+I supervise theses, mentor early-career researchers, and stay in touch with the alumni of the cohorts I've trained. This is the slow, long-horizon part of the work; it's also the part I value most.
 
-- <span class="kw">Thesis supervision</span>: MSc and PhD candidates at IMSP and the AIMS centres — topology-and-data, fixed-point theory, geometric ML, applied AI on African problems
-- <span class="kw">Early-career research mentoring</span>: through <a href="https://acas-yde.org/" target="_blank">ACAS</a>, for African scholars at the postdoc and early-faculty stage working in AI, mathematics, and quantitative research
-- <span class="kw">Bootcamp &amp; alumni follow-up</span>: Bootcamp participants retain a peer Slack channel and 1-on-1 instructor access for 3 months after their cohort
+- <span class="kw">Thesis supervision</span>: master's and PhD candidates — topology and data, fixed-point theory, geometric ML, applied AI on African problems.
+- <span class="kw">Early-career mentoring</span>: for African scholars at the postdoc and early-faculty stage working in AI, mathematics, and quantitative research.
+- <span class="kw">Alumni follow-up</span>: former participants keep access to a peer Slack channel and 1-on-1 instructor access for 3 months after their cohort ends.
 
 <div class="profile-links">
 <a href="https://acas-yde.org/" target="_blank"><i class="fa-solid fa-graduation-cap"></i> ACAS — research mentoring</a>
