@@ -108,7 +108,7 @@ Four pillars, in the vocabulary advanced-analytics consultant briefs tend to use
 
 ## Toolkit
 
-The stack behind the capabilities. Python-first for modeling, R and Julia for statistical and scientific work, PostgreSQL for data engineering, LaTeX for deliverables, arXiv for the research trail.
+The stack behind the capabilities. [Python](https://www.python.org/)-first for modeling, [R](https://www.r-project.org/) and [Julia](https://julialang.org/) for statistical and scientific work, [PostgreSQL](https://www.postgresql.org/) for data engineering, [LaTeX](https://www.latex-project.org/) for deliverables, [arXiv](https://arxiv.org/) for the research trail.
 
 <div class="row row-cols-4 row-cols-md-6 g-3 mb-5 text-center toolkit-strip">
   <div class="col"><a href="https://www.python.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/python.svg' | relative_url }}" alt="Python" loading="lazy" width="48" height="48"><div class="toolkit-label">Python</div></a></div>

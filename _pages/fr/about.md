@@ -139,7 +139,7 @@ Je conseille des équipes de recherche et des startups sur l'application de mét
 <h3>Boîte à outils</h3>
 </div>
 
-La stack derrière la recherche, l'enseignement et le conseil. Python en priorité pour la modélisation, R et Julia pour le calcul statistique et scientifique, PostgreSQL pour l'ingénierie des données, LaTeX pour les livrables, arXiv pour la trace des préprints.
+La stack derrière la recherche, l'enseignement et le conseil. [Python](https://www.python.org/) en priorité pour la modélisation, [R](https://www.r-project.org/) et [Julia](https://julialang.org/) pour le calcul statistique et scientifique, [PostgreSQL](https://www.postgresql.org/) pour l'ingénierie des données, [LaTeX](https://www.latex-project.org/) pour les livrables, [arXiv](https://arxiv.org/) pour la trace des préprints.
 
 <div class="row row-cols-4 row-cols-md-6 g-3 mb-4 text-center toolkit-strip">
   <div class="col"><a href="https://www.python.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/python.svg' | relative_url }}" alt="Python" loading="lazy" width="48" height="48"><div class="toolkit-label">Python</div></a></div>
