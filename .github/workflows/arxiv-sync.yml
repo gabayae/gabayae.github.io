@@ -1,0 +1,71 @@
+name: Sync arXiv preprints to papers.bib
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # daily, 06:00 UTC (= 07:00 Benin time)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.13"
+
+      - name: Record pre-sync bib hash
+        id: before
+        run: |
+          sha=$(sha256sum _bibliography/papers.bib | awk '{print $1}')
+          echo "sha=$sha" >> $GITHUB_OUTPUT
+          echo "📝 SHA before: $sha"
+
+      - name: Run arXiv sync
+        run: |
+          echo "🚀 Syncing arxiv.org/a/gaba_y_1 into _bibliography/papers.bib..."
+          python _scripts/arxiv_sync.py
+
+      - name: Record post-sync bib hash
+        id: after
+        run: |
+          sha=$(sha256sum _bibliography/papers.bib | awk '{print $1}')
+          echo "sha=$sha" >> $GITHUB_OUTPUT
+          echo "📝 SHA after: $sha"
+
+      - name: Summarise outcome
+        run: |
+          if [ "${{ steps.before.outputs.sha }}" != "${{ steps.after.outputs.sha }}" ]; then
+            echo "✅ New arXiv preprint(s) added to _bibliography/papers.bib" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ No new arXiv preprints — bib unchanged" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Configure Git
+        if: steps.before.outputs.sha != steps.after.outputs.sha
+        run: |
+          git config --local user.email "actions@github.com"
+          git config --local user.name "GitHub Actions"
+
+      - name: Commit and push bib update
+        if: steps.before.outputs.sha != steps.after.outputs.sha
+        run: |
+          git add _bibliography/papers.bib
+          git commit -m "bib: sync new preprint(s) from arXiv feed"
+          git push
+
+      - name: Trigger site rebuild
+        if: steps.before.outputs.sha != steps.after.outputs.sha
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "📤 Dispatching deploy.yml to rebuild the site..."
+          gh workflow run deploy.yml --ref main
