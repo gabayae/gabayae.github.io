@@ -135,6 +135,32 @@ I advise research teams and startups on applying topological and geometric metho
 
 <div class="profile-section">
 <div class="profile-section-header">
+<div class="profile-icon"><i class="fa-solid fa-toolbox"></i></div>
+<h3>Toolkit</h3>
+</div>
+
+The stack behind the research, teaching, and consulting work. Python-first for modeling, R and Julia for statistical and scientific computation, PostgreSQL for data engineering, LaTeX for deliverables, arXiv for the preprint trail.
+
+<div class="row row-cols-4 row-cols-md-8 g-3 mb-4 text-center toolkit-strip">
+  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/python.svg' | relative_url }}" alt="Python" loading="lazy" width="48" height="48"><div class="toolkit-label">Python</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/r.svg' | relative_url }}" alt="R" loading="lazy" width="48" height="48"><div class="toolkit-label">R</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/postgresql.svg' | relative_url }}" alt="PostgreSQL" loading="lazy" width="48" height="48"><div class="toolkit-label">SQL</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/julia.svg' | relative_url }}" alt="Julia" loading="lazy" width="48" height="48"><div class="toolkit-label">Julia</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/pytorch.svg' | relative_url }}" alt="PyTorch" loading="lazy" width="48" height="48"><div class="toolkit-label">PyTorch</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/scikitlearn.svg' | relative_url }}" alt="scikit-learn" loading="lazy" width="48" height="48"><div class="toolkit-label">scikit-learn</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/latex.svg' | relative_url }}" alt="LaTeX" loading="lazy" width="48" height="48"><div class="toolkit-label">LaTeX</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/arxiv.svg' | relative_url }}" alt="arXiv" loading="lazy" width="48" height="48"><div class="toolkit-label">arXiv</div></div></div>
+</div>
+
+<style>
+.toolkit-strip .toolkit-item { padding: 0.5rem; }
+.toolkit-strip img { max-width: 48px; height: auto; }
+.toolkit-strip .toolkit-label { font-size: 0.8rem; margin-top: 0.4rem; color: var(--global-text-color); font-weight: 500; }
+</style>
+</div>
+
+<div class="profile-section">
+<div class="profile-section-header">
 <div class="profile-icon"><i class="fa-solid fa-seedling"></i></div>
 <h3>Mentor</h3>
 </div>
