@@ -110,19 +110,24 @@ Quatre piliers, dans le vocabulaire que les fiches de poste de consultant analyt
 
 La stack derrière les compétences. Python en priorité pour la modélisation, R et Julia pour le travail statistique et scientifique, PostgreSQL pour l'ingénierie des données, LaTeX pour les livrables, arXiv pour la trace de recherche.
 
-<div class="row row-cols-4 row-cols-md-8 g-3 mb-5 text-center toolkit-strip">
-  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/python.svg' | relative_url }}" alt="Python" loading="lazy" width="48" height="48"><div class="toolkit-label">Python</div></div></div>
-  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/r.svg' | relative_url }}" alt="R" loading="lazy" width="48" height="48"><div class="toolkit-label">R</div></div></div>
-  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/postgresql.svg' | relative_url }}" alt="PostgreSQL" loading="lazy" width="48" height="48"><div class="toolkit-label">SQL</div></div></div>
-  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/julia.svg' | relative_url }}" alt="Julia" loading="lazy" width="48" height="48"><div class="toolkit-label">Julia</div></div></div>
-  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/pytorch.svg' | relative_url }}" alt="PyTorch" loading="lazy" width="48" height="48"><div class="toolkit-label">PyTorch</div></div></div>
-  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/scikitlearn.svg' | relative_url }}" alt="scikit-learn" loading="lazy" width="48" height="48"><div class="toolkit-label">scikit-learn</div></div></div>
-  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/latex.svg' | relative_url }}" alt="LaTeX" loading="lazy" width="48" height="48"><div class="toolkit-label">LaTeX</div></div></div>
-  <div class="col"><div class="toolkit-item"><img src="{{ '/assets/img/toolkit/arxiv.svg' | relative_url }}" alt="arXiv" loading="lazy" width="48" height="48"><div class="toolkit-label">arXiv</div></div></div>
+<div class="row row-cols-4 row-cols-md-6 g-3 mb-5 text-center toolkit-strip">
+  <div class="col"><a href="https://www.python.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/python.svg' | relative_url }}" alt="Python" loading="lazy" width="48" height="48"><div class="toolkit-label">Python</div></a></div>
+  <div class="col"><a href="https://www.r-project.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/r.svg' | relative_url }}" alt="R" loading="lazy" width="48" height="48"><div class="toolkit-label">R</div></a></div>
+  <div class="col"><a href="https://www.postgresql.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/postgresql.svg' | relative_url }}" alt="PostgreSQL" loading="lazy" width="48" height="48"><div class="toolkit-label">SQL</div></a></div>
+  <div class="col"><a href="https://julialang.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/julia.svg' | relative_url }}" alt="Julia" loading="lazy" width="48" height="48"><div class="toolkit-label">Julia</div></a></div>
+  <div class="col"><a href="https://pytorch.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/pytorch.svg' | relative_url }}" alt="PyTorch" loading="lazy" width="48" height="48"><div class="toolkit-label">PyTorch</div></a></div>
+  <div class="col"><a href="https://scikit-learn.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/scikitlearn.svg' | relative_url }}" alt="scikit-learn" loading="lazy" width="48" height="48"><div class="toolkit-label">scikit-learn</div></a></div>
+  <div class="col"><a href="https://jupyter.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/jupyter.svg' | relative_url }}" alt="Jupyter" loading="lazy" width="48" height="48"><div class="toolkit-label">Jupyter</div></a></div>
+  <div class="col"><a href="https://streamlit.io/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/streamlit.svg' | relative_url }}" alt="Streamlit" loading="lazy" width="48" height="48"><div class="toolkit-label">Streamlit</div></a></div>
+  <div class="col"><a href="https://huggingface.co/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/huggingface.svg' | relative_url }}" alt="Hugging Face" loading="lazy" width="48" height="48"><div class="toolkit-label">Hugging Face</div></a></div>
+  <div class="col"><a href="https://www.docker.com/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/docker.svg' | relative_url }}" alt="Docker" loading="lazy" width="48" height="48"><div class="toolkit-label">Docker</div></a></div>
+  <div class="col"><a href="https://www.latex-project.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/latex.svg' | relative_url }}" alt="LaTeX" loading="lazy" width="48" height="48"><div class="toolkit-label">LaTeX</div></a></div>
+  <div class="col"><a href="https://arxiv.org/" target="_blank" rel="noopener" class="toolkit-item"><img src="{{ '/assets/img/toolkit/arxiv.svg' | relative_url }}" alt="arXiv" loading="lazy" width="48" height="48"><div class="toolkit-label">arXiv</div></a></div>
 </div>
 
 <style>
-.toolkit-strip .toolkit-item { padding: 0.5rem; }
+.toolkit-strip .toolkit-item { display: block; padding: 0.5rem; color: inherit; text-decoration: none; transition: transform 0.15s ease; }
+.toolkit-strip .toolkit-item:hover { transform: translateY(-2px); text-decoration: none; }
 .toolkit-strip img { max-width: 48px; height: auto; }
 .toolkit-strip .toolkit-label { font-size: 0.8rem; margin-top: 0.4rem; color: var(--global-text-color); font-weight: 500; }
 </style>
