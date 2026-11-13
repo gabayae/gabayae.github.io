@@ -106,6 +106,29 @@ Quatre piliers, dans le vocabulaire que les fiches de poste de consultant analyt
 
 ---
 
+## Boîte à outils
+
+La stack derrière les compétences. Python en priorité pour la modélisation, R et Julia pour le travail statistique et scientifique, PostgreSQL pour l'ingénierie des données, LaTeX pour les livrables, arXiv pour la trace de recherche.
+
+<div class="row row-cols-4 row-cols-md-8 g-3 mb-5 text-center toolkit-strip">
+  <div class="col"><div class="toolkit-item"><img src="https://cdn.simpleicons.org/python/3776AB" alt="Python" loading="lazy" width="48" height="48"><div class="toolkit-label">Python</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="https://cdn.simpleicons.org/r/276DC3" alt="R" loading="lazy" width="48" height="48"><div class="toolkit-label">R</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="https://cdn.simpleicons.org/postgresql/4169E1" alt="PostgreSQL" loading="lazy" width="48" height="48"><div class="toolkit-label">SQL</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="https://cdn.simpleicons.org/julia/9558B2" alt="Julia" loading="lazy" width="48" height="48"><div class="toolkit-label">Julia</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="https://cdn.simpleicons.org/pytorch/EE4C2C" alt="PyTorch" loading="lazy" width="48" height="48"><div class="toolkit-label">PyTorch</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="https://cdn.simpleicons.org/scikitlearn/F7931E" alt="scikit-learn" loading="lazy" width="48" height="48"><div class="toolkit-label">scikit-learn</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="https://cdn.simpleicons.org/latex/008080" alt="LaTeX" loading="lazy" width="48" height="48"><div class="toolkit-label">LaTeX</div></div></div>
+  <div class="col"><div class="toolkit-item"><img src="https://cdn.simpleicons.org/arxiv/B31B1B" alt="arXiv" loading="lazy" width="48" height="48"><div class="toolkit-label">arXiv</div></div></div>
+</div>
+
+<style>
+.toolkit-strip .toolkit-item { padding: 0.5rem; }
+.toolkit-strip img { max-width: 48px; height: auto; }
+.toolkit-strip .toolkit-label { font-size: 0.8rem; margin-top: 0.4rem; color: var(--global-text-color); font-weight: 500; }
+</style>
+
+---
+
 ## Secteurs d'intervention
 
 Je travaille dans plusieurs secteurs. La constante : je me soucie davantage de savoir si le modèle est juste que de savoir s'il impressionne. Secteurs dans lesquels je prends des missions :
