@@ -9,10 +9,10 @@ subtitle: >
   <a href='https://acas-yde.org/'>African Centre for Advanced Studies (ACAS)</a>
 
 stats:
-  - icon: fa-laptop-code
-    text: "<a href='https://gabayae.github.io/data-portfolio/' target='_blank' style='color: inherit; font-weight: 600;'>Data-science portfolio →</a>"
   - icon: fa-building-columns
     text: Head of R&D · AIRINA Labs
+  - icon: fa-laptop-code
+    text: "<a href='https://gabayae.github.io/data-portfolio/' target='_blank' style='color: inherit; font-weight: 600;'>Data-science portfolio →</a>"
 
 profile:
   align: right
