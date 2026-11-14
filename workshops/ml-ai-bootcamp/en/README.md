@@ -222,6 +222,26 @@ You will get more out of this if you arrive with comfortable Python syntax (func
 
 If you are not sure whether you have the prerequisites, the application includes a short technical screen. Honest self-assessment up front is better than scrambling in week 1.
 
+## Frequently asked questions
+
+**Can I take the bootcamp part-time while working?**
+Yes. A 20-week part-time format at roughly 10 hours per week runs in parallel with the 10-week full-time intensive. Same material, different cadence.
+
+**What is the selection process?**
+Application form plus a short technical test (see *Prerequisites* above). An honest self-assessment up front reduces the risk of dropping out in week 1 — a no to yourself before enrolling costs less than an abandoned cohort.
+
+**Are there scholarships or an Africa-adjusted price?**
+To be discussed on request. Write to the instructor describing your context; there is no public grid at the first cohort launch.
+
+**What happens if I miss a week?**
+Live sessions are recorded and the labs stay accessible for the entire cohort window. Catch-up with the teaching assistants in weekly office hours. If a long absence is foreseeable from the start (travel, deadline), flag it before kickoff.
+
+**Does the certificate help with hiring?**
+The certificate is a completion attestation, not an accredited degree. What is credible to a technical recruiter is your **deployed capstone** (a public, visitable link) and your **GitHub portfolio**. The bootcamp explicitly builds both; the certificate is a complement.
+
+**Do the industry speakers recruit?**
+No. Speakers share a working reality; they do not pitch products and do not recruit. They are picked for their domain competence, not for a hiring function.
+
 ## Brochure
 
 For a printable one-page brochure suitable for forwarding to a corporate L&D team, university department, or admissions committee, write to <a href="mailto:gabayae2@gmail.com?subject=Brochure%20request%20%E2%80%94%20ML%20%26%20AI%20Bootcamp">gabayae2@gmail.com</a> with the audience size and intended cohort window.

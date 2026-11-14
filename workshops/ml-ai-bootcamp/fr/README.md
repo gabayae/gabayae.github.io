@@ -224,6 +224,26 @@ Vous tirerez davantage du programme si vous arrivez avec une syntaxe Python à l
 
 Si vous n'êtes pas sûr d'avoir les prérequis, le dossier de candidature inclut un court test technique. Une auto-évaluation honnête en amont vaut mieux qu'une semaine 1 stressante.
 
+## Questions fréquentes
+
+**Peut-on suivre le bootcamp à temps partiel ?**
+Oui. Un format 20 semaines à environ 10 heures par semaine fonctionne en parallèle du format intensif 10 semaines. La logique est la même, le rythme change.
+
+**Quelle est la procédure de sélection ?**
+Dossier de candidature plus un court test technique (voir *Prérequis* ci-dessus). L'auto-évaluation honnête en amont réduit le risque de décrochage en semaine 1 — un non à soi-même avant inscription coûte moins cher qu'un abandon à la cohorte.
+
+**Y a-t-il des bourses ou un tarif adapté aux profils africains ?**
+À préciser à la demande. Écrivez directement à l'instructeur en mentionnant votre contexte ; aucune grille publique par défaut au premier lancement.
+
+**Et si je manque une semaine ?**
+Les sessions en direct sont enregistrées et les ateliers restent accessibles toute la durée de la cohorte. Rattrapage avec les assistants d'enseignement en permanences hebdomadaires. Si un décrochage long est prévisible dès le départ (voyage, deadline), prévenez avant le lancement.
+
+**Le certificat aide-t-il à l'embauche ?**
+Le certificat est une attestation de réalisation, pas un diplôme accrédité. Ce qui est crédible auprès d'un recruteur technique : votre **capstone déployé** (lien public visitable) et votre **portfolio GitHub**. Le bootcamp construit explicitement les deux ; le certificat vient en complément.
+
+**Les intervenants industriels recrutent-ils ?**
+Non. Les intervenants partagent une réalité métier ; ils ne font pas de pitch produit et ne recrutent pas. Ils sont choisis pour leur compétence, pas pour leur fonction RH.
+
 ## Plaquette
 
 Pour une plaquette d'une page, à transmettre à une équipe formation interne d'entreprise, un département universitaire ou un comité d'admission, écrivez à <a href="mailto:gabayae2@gmail.com?subject=Demande%20de%20plaquette%20%E2%80%94%20Bootcamp%20ML%20%26%20IA">gabayae2@gmail.com</a> en précisant la taille de l'audience et la fenêtre temporelle envisagée pour la cohorte.
