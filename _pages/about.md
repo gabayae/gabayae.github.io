@@ -61,7 +61,7 @@ My mathematical foundations are in <span class="kw">asymmetric topology</span> a
 <div class="research-thrust">
 <div class="thrust-header"><i class="fa-solid fa-shield-halved"></i> <strong>TDA for robust machine learning</strong></div>
 <p class="thrust-desc">Persistent homology and sheaf-theoretic features for anomaly detection and interpretable ML. Two application areas I work on: cybersecurity (network intrusion as a topological signal) and clinical/biomedical pipelines where the geometric structure of the data carries diagnostic information that statistical baselines miss.</p>
-<p class="thrust-plain"><em>Plain version: when statistical methods can't see the pattern, the shape of the data sometimes can.</em></p>
+<p class="thrust-plain"><em>Plain version: topological features surface structure that correlation and variance miss.</em></p>
 <div class="thrust-tags"><span>Persistent Homology</span> <span>Anomaly Detection</span> <span>Cybersecurity</span></div>
 </div>
 
