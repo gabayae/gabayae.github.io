@@ -27,6 +27,10 @@ contact_subject: "Demande d'atelier — Bootcamp Machine Learning & IA"
 
 En janvier 2023, BioNTech a racheté InstaDeep — une entreprise d'apprentissage automatique fondée à Tunis et exploitant des bureaux à Lagos, Nairobi et Paris — pour 562 millions de dollars. L'opération a rendu public ce que les recruteurs du secteur en Afrique observaient depuis plusieurs années : la demande mondiale d'ingénieurs ML déployables en production dépasse très largement l'offre formée, et l'écart est plus marqué sur le continent qu'ailleurs. La plupart des cursus universitaires africains en informatique se terminent avant le deep learning ; les MOOC qui comblent le vide sont calibrés pour des prérequis nord-américains et supposent généralement un premier emploi en ingénierie logicielle. Ce bootcamp cible exactement ce trou. Il prend des diplômés quantitatifs — mathématiques, statistique, informatique, finance quantitative, génie scientifique — et les amène en dix semaines au niveau de mise en production que recherchent les équipes ML africaines et internationales qui les recrutent.
 
+<div style="background: var(--global-code-bg-color, #f6f8fa); border-left: 3px solid var(--global-theme-color); padding: 0.9rem 1.1rem; margin: 1.5rem 0; border-radius: 0 6px 6px 0;">
+<strong>Candidatures ouvertes pour la cohorte à venir.</strong> Dates et tarif annoncés dès la confirmation. <a href="mailto:gabayae2@gmail.com?subject=Bootcamp%20ML%20%26%20IA%20%E2%80%94%20candidature%20cohorte%20ouverte"><strong>Candidater à une cohorte &rarr;</strong></a> &middot; <a href="mailto:gabayae2@gmail.com?subject=Demande%20de%20plaquette%20%E2%80%94%20Bootcamp%20ML%20%26%20IA">Demander la plaquette</a>
+</div>
+
 ### Le programme en bref
 
 | | |
