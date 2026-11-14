@@ -38,6 +38,7 @@ In January 2023, BioNTech acquired InstaDeep — a machine-learning company foun
 | **Office hours** | Weekly, with teaching assistants |
 | **Final deliverable** | Deployed capstone + portfolio piece |
 | **Certificate** | Yes, on completion of all modules + capstone |
+| **Next cohort** | Dates to be announced · pricing on request |
 
 The 200 course hours are split roughly 60 % live (lectures, labs, code-along sessions, capstone reviews) and 40 % structured asynchronous work (reading, lab notebooks, problem sets). The 60+ live sessions include lectures, hands-on labs, industry-speaker sessions, office hours, capstone milestone reviews, and the final showcase.
 

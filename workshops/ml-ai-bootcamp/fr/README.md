@@ -40,6 +40,7 @@ En janvier 2023, BioNTech a racheté InstaDeep — une entreprise d'apprentissag
 | **Permanences** | Hebdomadaires, avec assistants d'enseignement |
 | **Livrable final** | Capstone déployé + pièce de portfolio |
 | **Certificat** | Oui, à l'issue de tous les modules et du capstone |
+| **Prochaine cohorte** | Dates à venir · tarif sur demande |
 
 Les 200 heures de cours se répartissent environ 60 % en direct (cours magistraux, ateliers, code-along, revues de capstone) et 40 % en travail structuré asynchrone (lectures, notebooks, problèmes). Les 60+ sessions en direct couvrent les cours, les ateliers pratiques, les interventions industriels, les permanences, les revues de capstone et la présentation finale.
 
