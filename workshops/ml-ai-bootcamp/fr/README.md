@@ -3,7 +3,7 @@ layout: workshop
 permalink: /workshops/ml-ai-bootcamp/fr/
 lang: fr
 title: "Bootcamp Machine Learning & IA"
-tagline: "Un programme en cohorte de 10 semaines, par la pratique — dix modules de Python au MLOps, capstone déployé, portfolio public."
+tagline: "Programme en cohorte de 10 semaines. Dix modules de Python au MLOps, capstone déployé, portfolio public."
 description: "Programme en cohorte AIRINA Labs. 10 semaines à temps plein / 20 semaines à temps partiel. Dix modules, de Python au MLOps, capstone, portfolio."
 
 # --- Métadonnées de la barre latérale ---
@@ -61,7 +61,7 @@ Chaque module ci-dessous renvoie aux supports existants du [catalogue de cours](
 
 #### Module 1 — Python pour le travail sur données
 
-*En une phrase.* Prendre le Python que vous connaissez à moitié et le rendre assez précis pour livrer en production.
+*En une phrase.* Passer d'un Python de script à un Python livrable en production.
 
 **Sujets.** Types et contrôle de flux · fonctions, portée, closures · classes et protocoles · tableaux NumPy, broadcasting, indexation · Series et DataFrames Pandas, jointures, group-by, reshape · matplotlib et seaborn pour la visualisation · environnements virtuels et gestion de dépendances · bases de Git pour code et notebooks.
 
@@ -103,7 +103,7 @@ Chaque module ci-dessous renvoie aux supports existants du [catalogue de cours](
 
 *En une phrase.* Le deep learning de bout en bout, avec assez de théorie pour savoir quand *ne pas* l'utiliser.
 
-**Sujets.** Réseaux feed-forward, rétropropagation, optimisation (SGD, Adam, AdamW) · régularisation (dropout, batch norm, weight decay, early stopping) · CNN (LeNet, AlexNet, ResNet, architectures modernes) · RNN, LSTM, GRU · l'attention comme primitive · apprentissage de représentations · les leçons amères du deep learning.
+**Sujets.** Réseaux feed-forward, rétropropagation, optimisation (SGD, Adam, AdamW) · régularisation (dropout, batch norm, weight decay, early stopping) · CNN (LeNet, AlexNet, ResNet, architectures modernes) · RNN, LSTM, GRU · l'attention comme primitive · apprentissage de représentations · les « bitter lessons » de R. Sutton.
 
 **Ateliers.** (1) Construire un MLP à 2 couches à partir de zéro en NumPy, puis le porter en PyTorch. (2) Classification d'images sur un jeu d'imagerie médicale publique. (3) Prédiction de séquence sur des séries temporelles financières avec un LSTM.
 
@@ -111,7 +111,7 @@ Chaque module ci-dessous renvoie aux supports existants du [catalogue de cours](
 
 *En une phrase.* Ce qu'il y a sous le capot de GPT/Claude/LLaMA, ce qu'on peut vraiment en faire, et où ils échouent.
 
-**Sujets.** Le transformer, mécanisme d'attention, scaling laws · pré-entraînement, fine-tuning, RLHF/DPO au niveau survol · prompt engineering, sortie structurée, function calling · fine-tuning par paramètres (LoRA, QLoRA, PEFT) · RAG : chunking, embedding, retrieval, reranking, génération · modèles de diffusion · évaluation : BLEU, ROUGE, LLM-as-judge, évaluation humaine · systèmes agentiques et tool use · sûreté, alignement, hallucination, biais.
+**Sujets.** Le transformer, mécanisme d'attention, scaling laws · pré-entraînement, fine-tuning, aperçu de RLHF/DPO · prompt engineering, sortie structurée, function calling · fine-tuning par paramètres (LoRA, QLoRA, PEFT) · RAG : chunking, embedding, retrieval, reranking, génération · modèles de diffusion · évaluation : BLEU, ROUGE, LLM-as-judge, évaluation humaine · systèmes agentiques et tool use · sûreté, alignement, hallucination, biais.
 
 **Ateliers.** (1) Construire un RAG sur un corpus de domaine (rapports OMS/AFRO par exemple) avec ChromaDB et un LLM local ou via API. (2) Fine-tuner un modèle ouvert 1-7B paramètres avec LoRA sur une tâche de domaine. (3) Construire un agent multi-étape avec tool use (recherche, calculatrice, exécution de code) via LangChain ou LangGraph.
 
@@ -156,7 +156,7 @@ Les cohortes à temps partiel parcourent le même contenu sur 20 semaines avec u
 
 ### Pédagogie
 
-L'« approche par la pratique » n'est pas du marketing — c'est un choix délibéré avec deux conséquences concrètes :
+« Approche par la pratique » recouvre ici deux choix concrets :
 
 1. **Chaque module a un vrai jeu de données et un livrable déployable.** Pas un jeu de tutoriel choisi pour la propreté pédagogique, mais des données que les participants rencontreront plausiblement dans leur propre travail : dossiers bancaires africains, données d'établissements de santé, CDR télécom, imagerie satellite, texte multilingue. Le livrable en fin de module est quelque chose qu'un participant pourrait mettre sur GitHub.
 
