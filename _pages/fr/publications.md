@@ -2,7 +2,7 @@
 layout: page
 permalink: /fr/publications/
 title: publications
-description: Publications par catégories en ordre chronologique inversé.
+description: Publications du Dr. Yaé Ulrich Gaba — théorie des points fixes, topologie asymétrique, machine learning géométrique et topologique, IA appliquée. Inclut le livre co-auteur *The Shape of Data* (No Starch Press). Groupées par catégorie en ordre chronologique inversé.
 nav: true
 nav_order: 2
 lang: fr

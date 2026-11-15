@@ -2,7 +2,7 @@
 layout: page
 permalink: /en/publications/
 title: publications
-description: Publications by categories in reversed chronological order.
+description: Publications by Dr. Yaé Ulrich Gaba — fixed-point theory, asymmetric topology, geometric and topological machine learning, applied AI. Includes the co-authored book *The Shape of Data* (No Starch Press). Grouped by category in reverse chronological order.
 nav: true
 nav_order: 2
 lang: en
