@@ -19,8 +19,7 @@ profile:
   image_alt: "Yaé Ulrich Gaba, PhD — mathematician and AI researcher, Cotonou, Benin"
   image_circular: false
   more_info: >
-    <p>Research · Teaching · Consulting</p>
-    <p>Cotonou, Benin</p>
+    <p>Research · Teaching · Consulting · Cotonou, Benin</p>
 
 selected_papers: true
 social: true
