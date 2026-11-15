@@ -12,8 +12,6 @@ subtitle: >
 stats:
   - icon: fa-building-columns
     text: Head of R&D · AIRINA Labs
-  - icon: fa-laptop-code
-    text: "<a href='https://gabayae.github.io/data-portfolio/' target='_blank' style='color: inherit; font-weight: 600;'>Data-science portfolio →</a>"
 
 profile:
   align: right
@@ -182,6 +180,11 @@ I supervise theses, mentor early-career researchers, and stay in touch with the 
 .toolkit-strip img { max-width: 48px; height: auto; }
 .toolkit-strip .toolkit-label { font-size: 0.8rem; margin-top: 0.4rem; color: var(--global-text-color); font-weight: 500; }
 </style>
+</div>
+
+<div style="margin-top: 2.5rem; padding: 1.4rem 1.8rem; background: var(--global-code-bg-color); border-left: 4px solid var(--global-hover-color); border-radius: 0 8px 8px 0;">
+<p style="margin: 0 0 0.5rem 0; font-size: 0.78rem; color: var(--global-text-color); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; opacity: 0.7;">Also on this site</p>
+<a href="https://gabayae.github.io/data-portfolio/" target="_blank" style="font-size: 1.05rem; font-weight: 600; color: var(--global-hover-color); text-decoration: none;">Data-science portfolio — 13 projects, 5 case studies →</a>
 </div>
 
 </div>
