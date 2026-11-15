@@ -12,6 +12,12 @@ subtitle: >
 stats:
   - icon: fa-building-columns
     text: Directeur R&D · AIRINA Labs
+  - icon: fa-book
+    text: "Co-auteur · <em>The Shape of Data</em> (No Starch, 2024)"
+  - icon: fa-chart-line
+    text: "h-index 12 · 584+ citations · 18+ articles évalués par les pairs"
+  - icon: fa-user-graduate
+    text: "39 étudiants encadrés · 1 doctorat · 28 masters · 10 licences"
 
 profile:
   align: right
@@ -36,6 +42,8 @@ latest_posts:
 ---
 
 Je développe des méthodes mathématiques pour la forme et la structure des données, dans trois modes : <span class="kw">recherche</span>, <span class="kw">enseignement</span> et <span class="kw">conseil</span>. Doctorat en topologie (<a href="https://www.uct.ac.za/" target="_blank">UCT</a>), Master de l'<a href="https://www.aust.edu.ng/" target="_blank">AUST</a>. Mes travaux actuels appliquent les méthodes topologiques et géométriques à l'apprentissage automatique, à la sûreté de l'IA et au calcul quantique-classique, sur des problèmes qui se posent dans des contextes africains — surveillance épidémiologique, scoring de crédit pour les populations non bancarisées, prévision de la demande énergétique. En tant que Directeur R&D d'<a href="https://airina-labs.github.io/AIRINA-Labs/" target="_blank">AIRINA Labs</a>, je dirige une équipe de plus de 10 chercheurs répartie sur six pays africains ; les secteurs couverts incluent banque, énergie, assurance, IT et retail. Je suis également co-fondateur d'<a href="https://ai-technipreneurs.com/" target="_blank">AI-Technipreneurs</a>, une société basée au Bénin avec des bureaux au Togo, qui développe des logiciels sur mesure, des plateformes de données et d'analyse, et des formations à la transformation numérique pour les entreprises africaines. La recherche et le conseil se nourrissent l'un l'autre ; aucun des deux n'est une activité annexe.
+
+<p class="now-line" style="border-left: 3px solid var(--global-hover-color); padding-left: 0.9rem; margin: 1.2rem 0 1.5rem; color: var(--global-text-color);"><strong>Actuellement :</strong> préparation de la cohorte fondatrice du <a href="{{ '/workshops/ml-ai-bootcamp/fr/' | relative_url }}">Bootcamp ML &amp; IA</a> (février 2027), co-encadrement de travaux de thèse en topologie et données à l'IMSP et dans le réseau AIMS, et avancée de trois axes de recherche à AIRINA Labs — fondements topologiques du RL, ATD pour la détection d'anomalies, et méthodes quantique-topologiques pour la finance quantitative.</p>
 
 <div class="profile-sections">
 
@@ -79,7 +87,10 @@ Mes fondements mathématiques sont en <span class="kw">topologie asymétrique</s
 
 </div>
 
-Co-auteur de <a href="https://nostarch.com/shapeofdata" target="_blank" style="color: var(--global-hover-color);"><em>The Shape of Data</em></a> (No Starch Press). Actuellement à <a href="https://airina-labs.github.io/AIRINA-Labs/" target="_blank">AIRINA Labs</a> et au <a href="https://acas-yde.org/" target="_blank">ACAS</a>. Précédemment à <a href="https://quantumleapafrica.org/" target="_blank">Quantum Leap Africa</a>, <a href="https://www.nwu.ac.za/" target="_blank">North-West University</a> et <a href="https://imsp-benin.com/" target="_blank">IMSP</a>.
+<a href="https://nostarch.com/shapeofdata" target="_blank"><img src="{{ '/assets/img/book_covers/shape_of_data.svg' | relative_url }}" alt="Couverture du livre The Shape of Data" style="float: right; width: 130px; height: auto; margin: 0.2rem 0 1rem 1.5rem; border: 1px solid var(--global-divider-color); box-shadow: 0 4px 12px rgba(0,0,0,0.08);"></a>
+
+Co-auteur de <a href="https://nostarch.com/shapeofdata" target="_blank" style="color: var(--global-hover-color);"><em>The Shape of Data: Geometry-Based Machine Learning and Data Analysis in R</em></a> avec Colleen M. Farrelly (No Starch Press, 2024). Précédemment à <a href="https://quantumleapafrica.org/" target="_blank">Quantum Leap Africa</a>, <a href="https://www.nwu.ac.za/" target="_blank">North-West University</a> et <a href="https://imsp-benin.com/" target="_blank">IMSP</a>.
+<div style="clear: right;"></div>
 
 <div class="profile-links">
 <a href="{{ '/fr/publications/' | relative_url }}"><i class="fa-solid fa-file-lines"></i> Publications</a>

@@ -12,6 +12,12 @@ subtitle: >
 stats:
   - icon: fa-building-columns
     text: Head of R&D · AIRINA Labs
+  - icon: fa-book
+    text: "Co-author · <em>The Shape of Data</em> (No Starch, 2024)"
+  - icon: fa-chart-line
+    text: "h-index 12 · 584+ citations · 18+ peer-reviewed papers"
+  - icon: fa-user-graduate
+    text: "39 students supervised · 1 PhD · 28 MSc · 10 honors"
 
 profile:
   align: right
@@ -36,6 +42,8 @@ latest_posts:
 ---
 
 I develop mathematical methods for the shape and structure of data, and I work in three modes: <span class="kw">research</span>, <span class="kw">teaching</span>, and <span class="kw">consulting</span>. PhD in topology (<a href="https://www.uct.ac.za/" target="_blank">UCT</a>), MSc from <a href="https://www.aust.edu.ng/" target="_blank">AUST</a>. My current work applies topological and geometric methods to machine learning, AI safety, and quantum-classical computation, on problems that show up in African contexts — epidemic surveillance, credit risk for unbanked populations, energy demand forecasting. As Head of R&D at <a href="https://airina-labs.github.io/AIRINA-Labs/" target="_blank">AIRINA Labs</a>, I lead a team of over 10 researchers across six African countries; sector coverage includes banking, energy, insurance, IT, and retail. I am also co-founder of <a href="https://ai-technipreneurs.com/" target="_blank">AI-Technipreneurs</a>, a Benin-based firm with offices in Togo, building custom software, data and analytics platforms, and digital-transformation training for African enterprises. The research and the consulting feed each other; neither is a side activity.
+
+<p class="now-line" style="border-left: 3px solid var(--global-hover-color); padding-left: 0.9rem; margin: 1.2rem 0 1.5rem; color: var(--global-text-color);"><strong>Currently:</strong> preparing the founding cohort of the <a href="{{ '/workshops/ml-ai-bootcamp/en/' | relative_url }}">ML &amp; AI Bootcamp</a> (February 2027), co-supervising dissertation work in topology-and-data at IMSP and in the AIMS network, and pushing forward three research threads at AIRINA Labs — topological foundations of RL, TDA for anomaly detection, and quantum-topological methods for quantitative finance.</p>
 
 <div class="profile-sections">
 
@@ -79,7 +87,10 @@ My mathematical foundations are in <span class="kw">asymmetric topology</span> a
 
 </div>
 
-Co-author of <a href="https://nostarch.com/shapeofdata" target="_blank" style="color: var(--global-hover-color);"><em>The Shape of Data</em></a> (No Starch Press). Currently at <a href="https://airina-labs.github.io/AIRINA-Labs/" target="_blank">AIRINA Labs</a> and <a href="https://acas-yde.org/" target="_blank">ACAS</a>. Previously at <a href="https://quantumleapafrica.org/" target="_blank">Quantum Leap Africa</a>, <a href="https://www.nwu.ac.za/" target="_blank">North-West University</a>, and <a href="https://imsp-benin.com/" target="_blank">IMSP</a>.
+<a href="https://nostarch.com/shapeofdata" target="_blank"><img src="{{ '/assets/img/book_covers/shape_of_data.svg' | relative_url }}" alt="The Shape of Data book cover" style="float: right; width: 130px; height: auto; margin: 0.2rem 0 1rem 1.5rem; border: 1px solid var(--global-divider-color); box-shadow: 0 4px 12px rgba(0,0,0,0.08);"></a>
+
+Co-author of <a href="https://nostarch.com/shapeofdata" target="_blank" style="color: var(--global-hover-color);"><em>The Shape of Data: Geometry-Based Machine Learning and Data Analysis in R</em></a> with Colleen M. Farrelly (No Starch Press, 2024). Currently at <a href="https://airina-labs.github.io/AIRINA-Labs/" target="_blank">AIRINA Labs</a> and <a href="https://acas-yde.org/" target="_blank">ACAS</a>. Previously at <a href="https://quantumleapafrica.org/" target="_blank">Quantum Leap Africa</a>, <a href="https://www.nwu.ac.za/" target="_blank">North-West University</a>, and <a href="https://imsp-benin.com/" target="_blank">IMSP</a>.
+<div style="clear: right;"></div>
 
 <div class="profile-links">
 <a href="{{ '/en/publications/' | relative_url }}"><i class="fa-solid fa-file-lines"></i> Publications</a>
