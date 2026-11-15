@@ -3,6 +3,7 @@ layout: about
 title: à propos
 permalink: /fr/
 lang: fr
+description: Dr. Yaé Ulrich Gaba — mathématicien et chercheur en IA à l'intersection de la topologie, la géométrie et l'apprentissage automatique. Responsable R&D à AIRINA Labs. Basé à Cotonou, Bénin.
 subtitle: >
   Chercheur · Enseignant · Consultant —
   <a href='https://airina-labs.github.io/AIRINA-Labs/'>AIRINA Labs</a> ·
