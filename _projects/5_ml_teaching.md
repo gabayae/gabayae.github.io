@@ -2,6 +2,8 @@
 layout: page
 title: "ML teaching materials"
 description: "Open-source machine learning teaching materials and Jupyter notebooks for beginners."
+title_fr: "Matériel pédagogique ML"
+description_fr: "Supports de cours open-source et notebooks Jupyter de machine learning pour débutants."
 img: assets/img/publication_preview/shape-of-data.svg
 importance: 5
 category: teaching & outreach

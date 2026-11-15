@@ -2,6 +2,8 @@
 layout: page
 title: Topological foundations of reinforcement learning
 description: Applying algebraic topology to understand the structure of RL state, action, and policy spaces.
+title_fr: "Fondements topologiques de l'apprentissage par renforcement"
+description_fr: "Topologie algébrique appliquée à la structure des espaces d'états, d'actions et de politiques en RL."
 img: assets/img/publication_preview/topo-rl.svg
 importance: 1
 category: research

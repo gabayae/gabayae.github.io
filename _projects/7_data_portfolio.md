@@ -2,6 +2,8 @@
 layout: page
 title: "Data-Science Portfolio"
 description: "13 end-to-end data-science projects on real public data, with 5 long-form bilingual case studies. Bilingual EN/FR."
+title_fr: "Portfolio data science"
+description_fr: "13 projets data science de bout en bout sur données publiques réelles, avec 5 études de cas longues bilingues. EN / FR."
 img: assets/img/publication_preview/shape-of-data.svg
 importance: 1
 category: teaching & outreach

@@ -2,6 +2,8 @@
 layout: page
 title: "WoComToQC Workshop"
 description: "Workshop on Computational Topology & Quantum Computing — interdisciplinary research event."
+title_fr: "Atelier WoComToQC"
+description_fr: "Workshop on Computational Topology & Quantum Computing — rencontre interdisciplinaire de recherche."
 img: assets/img/publication_preview/quasi-uniform.svg
 importance: 3
 category: research

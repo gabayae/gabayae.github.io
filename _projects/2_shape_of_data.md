@@ -2,6 +2,8 @@
 layout: page
 title: "The Shape of Data"
 description: "Geometry-Based Machine Learning and Data Analysis in R — co-authored book published by No Starch Press."
+title_fr: "The Shape of Data"
+description_fr: "Machine learning et analyse de données fondés sur la géométrie, en R — livre co-auteur chez No Starch Press."
 img: assets/img/publication_preview/shape-of-data.svg
 importance: 2
 category: research

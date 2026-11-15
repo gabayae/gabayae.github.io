@@ -2,6 +2,8 @@
 layout: page
 title: "Geometric ML toolkit"
 description: "Tools and notebooks for geometric and topological machine learning in R and Python."
+title_fr: "Boîte à outils ML géométrique"
+description_fr: "Outils et notebooks pour le machine learning géométrique et topologique en R et Python."
 img: assets/img/publication_preview/interpolative-contractions.svg
 importance: 6
 category: research

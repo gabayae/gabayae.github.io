@@ -2,6 +2,8 @@
 layout: page
 title: "Intelligent resource allocation via deep RL"
 description: "Deep Q-Networks for wireless network resource allocation and optimization."
+title_fr: "Allocation intelligente de ressources par deep RL"
+description_fr: "Deep Q-Networks pour l'allocation et l'optimisation de ressources dans les réseaux sans fil."
 img: assets/img/publication_preview/wireless-drl.svg
 importance: 4
 category: research
