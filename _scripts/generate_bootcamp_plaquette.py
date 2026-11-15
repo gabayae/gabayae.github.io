@@ -105,7 +105,7 @@ HTML_FR = f"""<!DOCTYPE html>
 
 <div class="cohort-box">
 <strong>Cohorte fondatrice :</strong> février – avril 2027 (temps plein, 10 semaines) · février – juin 2027 (temps partiel, 20 semaines). Candidatures ouvertes jusqu'à mi-janvier 2027.<br>
-<strong>Tarif :</strong> Résidents Afrique <strong>€2 000</strong> · International <strong>€3 500</strong> · Cohortes privées d'entreprise : devis sur demande.
+Pour en savoir plus (modalités, tarif, cohortes privées d'entreprise), <a href="mailto:gabayae2@gmail.com?subject=Bootcamp%20ML%20%26%20IA%20%E2%80%94%20renseignements%20cohorte%20fondatrice">me contacter</a>.
 </div>
 
 <h2>Pourquoi ce bootcamp</h2>
@@ -187,7 +187,7 @@ HTML_EN = f"""<!DOCTYPE html>
 
 <div class="cohort-box">
 <strong>Founding cohort:</strong> February – April 2027 (full-time, 10 weeks) · February – June 2027 (part-time, 20 weeks). Applications open until mid-January 2027.<br>
-<strong>Pricing:</strong> Africa residents <strong>€2,000</strong> · International <strong>€3,500</strong> · Private corporate cohorts: on request.
+For more (format, pricing, private corporate cohorts), <a href="mailto:gabayae2@gmail.com?subject=ML%20%26%20AI%20Bootcamp%20%E2%80%94%20founding%20cohort%20inquiry">get in touch</a>.
 </div>
 
 <h2>Why this bootcamp</h2>
