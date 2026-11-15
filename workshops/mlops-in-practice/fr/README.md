@@ -10,6 +10,8 @@ description: "Atelier de 4 jours : Docker, CI/CD, monitoring, MLflow, DVC — du
 instructor: "Dr. Yaé Ulrich Gaba"
 duration: "4 jours (≈ 24 heures)"
 level: "Intermédiaire à Avancé"
+next_session: "juillet – août 2027"
+pricing: "Individuel €1 200 · cohortes privées d'entreprise sur devis"
 format: "Sur site, en ligne en direct, ou hybride"
 languages: "Français &amp; anglais"
 certificate: "Certificat de complétion"
@@ -38,6 +40,21 @@ contact_subject: "Demande d'atelier — MLOps en Pratique"
 .workshop-stack img { max-width: 36px; height: auto; }
 .workshop-stack .toolkit-label { font-size: 0.72rem; margin-top: 0.3rem; color: var(--global-text-color); font-weight: 500; }
 </style>
+
+<div style="background: var(--global-code-bg-color, #f6f8fa); border-left: 3px solid var(--global-theme-color); padding: 0.9rem 1.1rem; margin: 1.5rem 0; border-radius: 0 6px 6px 0;">
+<strong>Prochaine session : juillet – août 2027.</strong> 4 jours intensifs, sur site / en ligne / hybride. <strong>Tarif :</strong> Individuel <strong>€1 200</strong> · cohortes privées d'entreprise : devis sur demande.<br>
+<a href="mailto:gabayae2@gmail.com?subject=MLOps%20en%20pratique%20%E2%80%94%20pr%C3%A9-inscription%20juillet%202027"><strong>Pré-inscrire son intérêt &rarr;</strong></a>
+</div>
+
+<!--
+Pour remplacer le mailto de pré-inscription par un vrai formulaire embarqué :
+  1. Créer un formulaire Tally gratuit sur https://tally.so avec 5 champs :
+       Nom · Email · Organisation · Taille d'équipe · Fenêtre temporelle souhaitée
+  2. Publier, récupérer l'URL d'embed (https://tally.so/embed/XXXXXX)
+  3. Remplacer l'ancre mailto ci-dessus par :
+       <iframe src="https://tally.so/embed/XXXXXX?hideTitle=1" width="100%" height="420" frameborder="0" title="Pré-inscription"></iframe>
+  Formspree fonctionne pareil avec son propre snippet d'embed.
+-->
 
 ## Présentation du programme
 

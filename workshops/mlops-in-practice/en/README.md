@@ -10,6 +10,8 @@ description: "4-day workshop: Docker, CI/CD, monitoring, MLflow, DVC — from no
 instructor: "Dr. Yaé Ulrich Gaba"
 duration: "4 days (≈ 24 hours)"
 level: "Intermediate to Advanced"
+next_session: "July – August 2027"
+pricing: "Individual €1,200 · Private corporate cohorts on request"
 format: "On-site, live online, or hybrid"
 languages: "English &amp; French"
 certificate: "Certificate of completion"
@@ -38,6 +40,21 @@ contact_subject: "Workshop inquiry — MLOps in Practice"
 .workshop-stack img { max-width: 36px; height: auto; }
 .workshop-stack .toolkit-label { font-size: 0.72rem; margin-top: 0.3rem; color: var(--global-text-color); font-weight: 500; }
 </style>
+
+<div style="background: var(--global-code-bg-color, #f6f8fa); border-left: 3px solid var(--global-theme-color); padding: 0.9rem 1.1rem; margin: 1.5rem 0; border-radius: 0 6px 6px 0;">
+<strong>Next session: July – August 2027.</strong> 4-day intensive, on-site / online / hybrid. <strong>Pricing:</strong> Individual <strong>€1,200</strong> · Private corporate cohorts: on request.<br>
+<a href="mailto:gabayae2@gmail.com?subject=MLOps%20in%20Practice%20%E2%80%94%20pre-register%20interest%20July%202027"><strong>Pre-register your interest &rarr;</strong></a>
+</div>
+
+<!--
+To replace the mailto pre-register link with a real embedded form:
+  1. Create a free Tally form at https://tally.so with 5 fields:
+       Name · Email · Organisation · Team size · Preferred time window
+  2. Publish, grab the embed URL (https://tally.so/embed/XXXXXX)
+  3. Replace the mailto anchor above with:
+       <iframe src="https://tally.so/embed/XXXXXX?hideTitle=1" width="100%" height="420" frameborder="0" title="Pre-register interest"></iframe>
+  Formspree works the same way with its own embed snippet.
+-->
 
 ## Program Overview
 

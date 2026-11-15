@@ -10,6 +10,8 @@ description: "AIRINA Labs cohort program. 10 weeks full-time / 20 weeks part-tim
 instructor: "Dr. Yaé Ulrich Gaba"
 duration: "10 weeks full-time / 20 weeks part-time (≈ 200 course hours)"
 level: "Intermediate to Advanced"
+next_session: "Founding cohort: February – April 2027"
+pricing: "Africa residents €2,000 · International €3,500 · Corporate cohorts on request"
 format: "On-site, live online, or hybrid"
 languages: "English &amp; French"
 certificate: "Certificate of completion"
