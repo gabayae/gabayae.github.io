@@ -11,14 +11,14 @@ ninja.data = [{
     },
   },{id: "nav-publications",
           title: "publications",
-          description: "Publications par catégories en ordre chronologique inversé.",
+          description: "Publications du Dr. Yaé Ulrich Gaba — théorie des points fixes, topologie asymétrique, machine learning géométrique et topologique, IA appliquée. Inclut le livre co-auteur *The Shape of Data* (No Starch Press). Groupées par catégorie en ordre chronologique inversé.",
           section: "Navigation",
           handler: () => {
             window.location.href = "/fr/publications/";
           },
         },{id: "nav-publications",
           title: "publications",
-          description: "Publications by categories in reversed chronological order.",
+          description: "Publications by Dr. Yaé Ulrich Gaba — fixed-point theory, asymmetric topology, geometric and topological machine learning, applied AI. Includes the co-authored book *The Shape of Data* (No Starch Press). Grouped by category in reverse chronological order.",
           section: "Navigation",
           handler: () => {
             window.location.href = "/en/publications/";
