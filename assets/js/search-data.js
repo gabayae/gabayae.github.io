@@ -79,20 +79,6 @@ ninja.data = [{
           handler: () => {
             window.location.href = "/en/supervision/";
           },
-        },{id: "nav-cv",
-          title: "CV",
-          description: "CV académique du Dr. Yaé Ulrich Gaba — formation, expérience, compétences et publications.",
-          section: "Navigation",
-          handler: () => {
-            window.location.href = "/fr/cv/";
-          },
-        },{id: "nav-cv",
-          title: "CV",
-          description: "Academic CV of Dr. Yaé Ulrich Gaba — education, experience, skills, and publications.",
-          section: "Navigation",
-          handler: () => {
-            window.location.href = "/en/cv/";
-          },
         },{id: "nav-repositories",
           title: "repositories",
           description: "Open-source tools, research code, and teaching materials.",
