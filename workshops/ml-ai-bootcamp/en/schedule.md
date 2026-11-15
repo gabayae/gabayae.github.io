@@ -25,7 +25,7 @@ For program rationale, prerequisites, and the ten-module curriculum overview, se
       <td><strong>{{ week.number }}</strong></td>
       <td>{{ week.module }}</td>
       <td><a href="{{ '/workshops/ml-ai-bootcamp/en/week-' | append: week.number | append: '/' | relative_url }}"><strong>{{ week.title }}</strong></a><br><em>{{ week.pitch }}</em></td>
-      <td>{{ week.deliverable | markdownify | remove: "<p>" | remove: "</p>" | truncate: 140 }}</td>
+      <td>{{ week.deliverable | markdownify | strip_html | truncate: 140 }}</td>
       <td><a href="{{ '/workshops/ml-ai-bootcamp/en/week-' | append: week.number | append: '/' | relative_url }}">week {{ week.number }} →</a></td>
     </tr>
   {% endfor %}
