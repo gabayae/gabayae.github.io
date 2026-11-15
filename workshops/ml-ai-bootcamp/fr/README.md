@@ -11,7 +11,6 @@ instructor: "Dr. Yaé Ulrich Gaba"
 duration: "10 semaines temps plein / 20 semaines temps partiel (≈ 200 heures de cours)"
 level: "Intermédiaire à Avancé"
 next_session: "Cohorte fondatrice : février – avril 2027"
-pricing: "Résidents Afrique €2 000 · International €3 500 · Cohortes d'entreprise sur devis"
 format: "Sur site, en ligne en direct, ou hybride"
 languages: "Français &amp; anglais"
 certificate: "Certificat de complétion"
@@ -47,7 +46,7 @@ En janvier 2023, BioNTech a racheté InstaDeep — une entreprise d'apprentissag
 | **Livrable final** | Capstone déployé + pièce de portfolio |
 | **Certificat** | Oui, à l'issue de tous les modules et du capstone |
 | **Prochaine cohorte** | Février – avril 2027 (temps plein, 10 semaines) · février – juin 2027 (temps partiel, 20 semaines) · candidatures jusqu'à mi-janvier 2027 |
-| **Tarif — cohorte fondatrice** | Résidents Afrique : **€2 000** · International : **€3 500** · Cohortes privées d'entreprise : devis sur demande |
+| **Pour en savoir plus** | [me contacter](mailto:gabayae2@gmail.com?subject=Bootcamp%20ML%20%26%20IA%20%E2%80%94%20renseignements) |
 
 Les 200 heures de cours se répartissent environ 60 % en direct (cours magistraux, ateliers, code-along, revues de capstone) et 40 % en travail structuré asynchrone (lectures, notebooks, problèmes). Les 60+ sessions en direct couvrent les cours, les ateliers pratiques, les interventions industriels, les permanences, les revues de capstone et la présentation finale.
 

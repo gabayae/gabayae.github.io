@@ -11,7 +11,6 @@ instructor: "Dr. Yaé Ulrich Gaba"
 duration: "10 weeks full-time / 20 weeks part-time (≈ 200 course hours)"
 level: "Intermediate to Advanced"
 next_session: "Founding cohort: February – April 2027"
-pricing: "Africa residents €2,000 · International €3,500 · Corporate cohorts on request"
 format: "On-site, live online, or hybrid"
 languages: "English &amp; French"
 certificate: "Certificate of completion"
@@ -45,7 +44,7 @@ In January 2023, BioNTech acquired InstaDeep — a machine-learning company foun
 | **Final deliverable** | Deployed capstone + portfolio piece |
 | **Certificate** | Yes, on completion of all modules + capstone |
 | **Next cohort** | February – April 2027 (full-time, 10 weeks) · February – June 2027 (part-time, 20 weeks) · applications until mid-January 2027 |
-| **Pricing — founding cohort** | Africa residents: **€2,000** · International: **€3,500** · Private corporate cohorts: on request |
+| **Learn more** | [get in touch](mailto:gabayae2@gmail.com?subject=ML%20%26%20AI%20Bootcamp%20%E2%80%94%20inquiry) |
 
 The 200 course hours are split roughly 60 % live (lectures, labs, code-along sessions, capstone reviews) and 40 % structured asynchronous work (reading, lab notebooks, problem sets). The 60+ live sessions include lectures, hands-on labs, industry-speaker sessions, office hours, capstone milestone reviews, and the final showcase.
 

@@ -11,7 +11,6 @@ instructor: "Dr. Yaé Ulrich Gaba"
 duration: "4 jours (≈ 24 heures)"
 level: "Intermédiaire à Avancé"
 next_session: "juillet – août 2027"
-pricing: "Individuel €1 200 · cohortes privées d'entreprise sur devis"
 format: "Sur site, en ligne en direct, ou hybride"
 languages: "Français &amp; anglais"
 certificate: "Certificat de complétion"
@@ -42,7 +41,7 @@ contact_subject: "Demande d'atelier — MLOps en Pratique"
 </style>
 
 <div style="background: var(--global-code-bg-color, #f6f8fa); border-left: 3px solid var(--global-theme-color); padding: 0.9rem 1.1rem; margin: 1.5rem 0; border-radius: 0 6px 6px 0;">
-<strong>Prochaine session : juillet – août 2027.</strong> 4 jours intensifs, sur site / en ligne / hybride. <strong>Tarif :</strong> Individuel <strong>€1 200</strong> · cohortes privées d'entreprise : devis sur demande.<br>
+<strong>Prochaine session : juillet – août 2027.</strong> 4 jours intensifs, sur site / en ligne / hybride. Pour en savoir plus, <a href="mailto:gabayae2@gmail.com?subject=MLOps%20en%20pratique%20%E2%80%94%20renseignements">me contacter</a>.<br>
 <a href="mailto:gabayae2@gmail.com?subject=MLOps%20en%20pratique%20%E2%80%94%20pr%C3%A9-inscription%20juillet%202027"><strong>Pré-inscrire son intérêt &rarr;</strong></a>
 </div>
 
