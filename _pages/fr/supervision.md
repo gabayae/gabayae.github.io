@@ -1,11 +1,14 @@
 ---
+# Page Encadrement temporairement désactivée.
+# Pour réactiver : published: true + nav: true. Les données dans _data/supervision.yml restent.
 layout: page
 permalink: /fr/supervision/
 title: encadrement
 description: Mémoires de licence, mémoires de master et thèses de doctorat encadrés ou co-encadrés.
-nav: true
+nav: false
 nav_order: 6.5
 lang: fr
+published: false
 ---
 
 <style>

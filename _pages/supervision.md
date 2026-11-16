@@ -1,11 +1,14 @@
 ---
+# Supervision page temporarily disabled.
+# Flip published: true + nav: true to restore. Data in _data/supervision.yml stays.
 layout: page
 permalink: /en/supervision/
 title: supervision
 description: Honors essays, master's dissertations, and doctoral theses supervised or co-supervised.
-nav: true
+nav: false
 nav_order: 6.5
 lang: en
+published: false
 ---
 
 <style>
