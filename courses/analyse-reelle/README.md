@@ -10,18 +10,14 @@
 analyse-reelle/
 ├── I/
 │   ├── fr/
-│   │   ├── cours.tex          ← Analyse Réelle I (français, conventions Bourbaki)
-│   │   └── figures/
+│   │   └── cours.tex          ← Analyse Réelle I (français, conventions Bourbaki)
 │   └── en/
-│       ├── notes.tex          ← Real Analysis I (English)
-│       └── figures/
+│       └── notes.tex          ← Real Analysis I (English)
 ├── II/
 │   ├── fr/
-│   │   ├── cours.tex          ← Analyse Réelle II (français)
-│   │   └── figures/
+│   │   └── cours.tex          ← Analyse Réelle II (français)
 │   └── en/
-│       ├── notes.tex          ← Real Analysis II (English)
-│       └── figures/
+│       └── notes.tex          ← Real Analysis II (English)
 └── README.md
 ```
 

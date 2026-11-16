@@ -8,12 +8,10 @@
 analyse-complexe/
 ├── fr/
 │   ├── cours.tex          ← Notes de cours en français (8586 lignes)
-│   ├── cours.pdf          ← PDF compilé (141 pages)
-│   └── figures/
+│   └── cours.pdf          ← PDF compilé (141 pages)
 ├── en/
 │   ├── notes.tex          ← English course notes (8411 lines)
-│   ├── notes.pdf          ← Compiled PDF (136 pages)
-│   └── figures/
+│   └── notes.pdf          ← Compiled PDF (136 pages)
 ├── README.md
 ```
 
