@@ -8,12 +8,10 @@
 edo/
 ├── fr/
 │   ├── cours.tex          ← Notes de cours en français (7805 lignes)
-│   ├── cours.pdf          ← PDF compilé (132 pages)
-│   └── figures/
+│   └── cours.pdf          ← PDF compilé (132 pages)
 ├── en/
 │   ├── notes.tex          ← English course notes (7268 lines)
-│   ├── notes.pdf          ← Compiled PDF (123 pages)
-│   └── figures/
+│   └── notes.pdf          ← Compiled PDF (123 pages)
 ├── README.md
 ```
 
