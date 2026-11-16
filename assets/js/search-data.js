@@ -65,20 +65,6 @@ ninja.data = [{
           handler: () => {
             window.location.href = "/en/teaching/";
           },
-        },{id: "nav-encadrement",
-          title: "encadrement",
-          description: "Mémoires de licence, mémoires de master et thèses de doctorat encadrés ou co-encadrés.",
-          section: "Navigation",
-          handler: () => {
-            window.location.href = "/fr/supervision/";
-          },
-        },{id: "nav-supervision",
-          title: "supervision",
-          description: "Honors essays, master&#39;s dissertations, and doctoral theses supervised or co-supervised.",
-          section: "Navigation",
-          handler: () => {
-            window.location.href = "/en/supervision/";
-          },
         },{id: "nav-repositories",
           title: "repositories",
           description: "Open-source tools, research code, and teaching materials.",
