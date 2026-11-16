@@ -14,6 +14,8 @@ I take consulting engagements at the intersection of **topology**, **data scienc
 
 My background is pure mathematics (PhD in topology) plus applied machine learning, which means I can sit on either side of a project: writing the theory and writing the production code. The engagements I take usually involve a team that has data and a real question, and either no clear method, the wrong one, or a method nobody has audited.
 
+When a project needs more than a single consultant, delivery teams are available through [AIRINA Labs](https://airina-labs.github.io/AIRINA-Labs/) — machine learning, computer vision, NLP, deep learning, data engineering, and full-stack engineers, working across health, finance, insurance, logistics, aviation, and retail.
+
 ---
 
 ## Services
@@ -221,7 +223,7 @@ I work across sectors. The constant: I care more about whether the model is righ
 
 I've worked with and through the following organizations:
 
-- **[AIRINA Labs](https://airina-labs.github.io/AIRINA-Labs/)**: AI research and innovation for Africa
+- **[AIRINA Labs](https://airina-labs.github.io/AIRINA-Labs/)**: AI research and innovation for Africa. R&D direction and delivery teams across machine learning, computer vision, NLP, deep learning, data engineering, and full-stack. Applied work in digital transformation, document automation, predictive analytics, demand forecasting, price optimization, object detection, and time-series analysis.
 - **[African Centre for Advanced Studies (ACAS)](https://acas-yde.org/)**: Research and mentoring for African scholars
 
 ---

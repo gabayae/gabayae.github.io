@@ -14,6 +14,8 @@ Je prends des missions de conseil à l'intersection de la **topologie**, de la *
 
 Ma formation est en mathématiques pures (Doctorat en topologie), prolongée par l'apprentissage automatique appliqué. Concrètement, je peux être des deux côtés d'un projet : écrire la théorie et écrire le code de production. Les missions que je prends impliquent généralement une équipe qui a des données et une vraie question, mais soit aucune méthode claire, soit la mauvaise méthode, soit une méthode que personne n'a auditée.
 
+Pour les projets qui dépassent le cadre d'un consultant solo, des équipes de livraison sont mobilisables via [AIRINA Labs](https://airina-labs.github.io/AIRINA-Labs/) — ingénieurs machine learning, vision par ordinateur, NLP, deep learning, data engineering, et full-stack, actifs dans la santé, la finance, l'assurance, la logistique, l'aviation et le retail.
+
 ---
 
 ## Services
@@ -221,7 +223,7 @@ Je travaille dans plusieurs secteurs. La constante : je me soucie davantage de s
 
 J'ai travaillé avec et à travers les organisations suivantes :
 
-- **[AIRINA Labs](https://airina-labs.github.io/AIRINA-Labs/)**: Recherche et innovation en IA pour l'Afrique
+- **[AIRINA Labs](https://airina-labs.github.io/AIRINA-Labs/)**: Recherche et innovation en IA pour l'Afrique. Direction R&D et équipes de livraison en machine learning, vision par ordinateur, NLP, deep learning, data engineering et full-stack. Missions en transformation digitale, automatisation documentaire, analytique prédictive, prévision de la demande, optimisation de prix, détection d'objets et analyse de séries temporelles.
 - **[Centre Africain d'Études Avancées (ACAS)](https://acas-yde.org/)**: Recherche et mentorat pour les chercheurs africains
 
 ---
