@@ -13,8 +13,13 @@ lang: en
 <!-- Google Scholar Link (live metrics on Scholar itself) -->
 <div class="scholar-stats-banner">
   <a href="https://scholar.google.com/citations?user=UTszjV4AAAAJ&hl=en" target="_blank">
-    <i class="fa-brands fa-google-scholar"></i> View live citation metrics on Google Scholar
+    <i class="fa-brands fa-google-scholar"></i> Google Scholar
   </a>
+  <span class="stat">h-index <strong>12</strong></span>
+  <span class="divider">&middot;</span>
+  <span class="stat"><strong>584+</strong> citations</span>
+  <span class="divider">&middot;</span>
+  <span class="stat"><strong>18+</strong> peer-reviewed papers</span>
 </div>
 
 <h2 class="pub-section-header"><i class="fa-solid fa-star"></i> Selected Publications</h2>

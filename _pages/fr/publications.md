@@ -15,11 +15,11 @@ lang: fr
   <a href="https://scholar.google.com/citations?user=UTszjV4AAAAJ&hl=en" target="_blank">
     <i class="fa-brands fa-google-scholar"></i> Google Scholar
   </a>
-  <span class="stat">h-Index = <strong>12</strong></span>
+  <span class="stat">h-index <strong>12</strong></span>
   <span class="divider">&middot;</span>
-  <span class="stat">i10-Index = <strong>17</strong></span>
+  <span class="stat"><strong>584+</strong> citations</span>
   <span class="divider">&middot;</span>
-  <span class="stat">Citations = <strong>584</strong></span>
+  <span class="stat"><strong>18+</strong> articles &eacute;valu&eacute;s par les pairs</span>
 </div>
 
 <h2 class="pub-section-header"><i class="fa-solid fa-star"></i> Publications s&eacute;lectionn&eacute;es</h2>
