@@ -16,8 +16,6 @@ stats:
     text: "Co-author · <em>The Shape of Data</em> (No Starch, 2024)"
   - icon: fa-chart-line
     text: "h-index 12 · 584+ citations · 18+ peer-reviewed papers"
-  - icon: fa-user-graduate
-    text: "39 students supervised · 1 PhD · 28 MSc · 10 honors"
 
 profile:
   align: right

@@ -16,8 +16,6 @@ stats:
     text: "Co-auteur · <em>The Shape of Data</em> (No Starch, 2024)"
   - icon: fa-chart-line
     text: "h-index 12 · 584+ citations · 18+ articles évalués par les pairs"
-  - icon: fa-user-graduate
-    text: "39 étudiants encadrés · 1 doctorat · 28 masters · 10 licences"
 
 profile:
   align: right
