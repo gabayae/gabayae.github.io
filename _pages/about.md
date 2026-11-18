@@ -14,8 +14,6 @@ stats:
     text: Head of R&D · AIRINA Labs
   - icon: fa-book
     text: "Co-author · <em>The Shape of Data</em> (No Starch, 2024)"
-  - icon: fa-chart-line
-    text: "h-index 12 · 584+ citations · 18+ peer-reviewed papers"
 
 profile:
   align: right
