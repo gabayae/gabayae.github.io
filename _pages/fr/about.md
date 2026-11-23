@@ -3,9 +3,9 @@ layout: about
 title: à propos
 permalink: /fr/
 lang: fr
-description: Dr. Yaé Ulrich Gaba — mathématicien et chercheur en IA à l'intersection de la topologie, la géométrie et l'apprentissage automatique. Responsable R&D à AIRINA Labs. Basé à Cotonou, Bénin.
+description: Dr. Yaé Ulrich Gaba — chercheur en IA, apprentissage automatique topologique et géométrique, avec une base mathématique en topologie asymétrique et théorie des points fixes. Directeur R&D à AIRINA Labs. Basé à Cotonou, Bénin.
 subtitle: >
-  Chercheur · Enseignant · Consultant —
+  Apprentissage automatique topologique & géométrique · Métriques asymétriques pour la contraction en RL et la vérification des réseaux neuronaux · Directeur R&D,
   <a href='https://airina-labs.github.io/AIRINA-Labs/'>AIRINA Labs</a> ·
   <a href='https://acas-yde.org/'>Centre Africain d'Études Avancées (ACAS)</a>
 
@@ -18,10 +18,10 @@ stats:
 profile:
   align: right
   image: yae-gaba.jpg
-  image_alt: "Yaé Ulrich Gaba, docteur en topologie et chercheur en IA, Cotonou, Bénin"
+  image_alt: "Yaé Ulrich Gaba — chercheur en IA, apprentissage automatique topologique et géométrique, Cotonou, Bénin"
   image_circular: false
   more_info: >
-    <p>Recherche · Enseignement · Conseil · Cotonou, Bénin</p>
+    <p>ML topologique & géométrique · Cotonou, Bénin</p>
 
 selected_papers: true
 social: true
