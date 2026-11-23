@@ -53,6 +53,8 @@ lang: fr
 
 <p class="pub-full-link"><i class="fa-brands fa-orcid"></i> <a href="https://orcid.org/0000-0001-8128-9704" target="_blank">Voir la liste compl&egrave;te des publications sur ORCID</a></p>
 
+<p class="pub-full-link"><i class="ai ai-scopus"></i> <a href="https://www.scopus.com/authid/detail.uri?authorId=56242613600" target="_blank">Scopus Author ID : 56242613600</a> &nbsp;&middot;&nbsp; <i class="ai ai-researcherid"></i> <a href="https://www.webofscience.com/wos/author/record/Y-2983-2019" target="_blank">Web of Science ResearcherID : Y-2983-2019</a></p>
+
 <h2 class="pub-section-header"><i class="fa-solid fa-file-lines"></i> Top 5 des pr&eacute;publications arXiv</h2>
 
 <ol class="selected-papers">

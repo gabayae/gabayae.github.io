@@ -92,6 +92,8 @@ Co-auteur de <a href="https://nostarch.com/shapeofdata" target="_blank" style="c
 <a href="{{ '/fr/publications/' | relative_url }}"><i class="fa-solid fa-file-lines"></i> Publications</a>
 <a href="https://scholar.google.com/citations?user=UTszjV4AAAAJ&hl=en" target="_blank"><i class="fa-brands fa-google-scholar"></i> Google Scholar</a>
 <a href="https://orcid.org/0000-0001-8128-9704" target="_blank"><i class="fa-brands fa-orcid"></i> ORCID</a>
+<a href="https://www.scopus.com/authid/detail.uri?authorId=56242613600" target="_blank"><i class="ai ai-scopus"></i> Scopus</a>
+<a href="https://www.webofscience.com/wos/author/record/Y-2983-2019" target="_blank"><i class="ai ai-researcherid"></i> Web of Science</a>
 <a href="https://arxiv.org/a/gaba_y_1.html" target="_blank"><i class="fa-solid fa-file-lines"></i> arXiv</a>
 <a href="mailto:gabayae2@gmail.com"><i class="fa-solid fa-handshake"></i> Proposer une collaboration</a>
 </div>
