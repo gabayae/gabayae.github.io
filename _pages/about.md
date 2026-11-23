@@ -4,14 +4,13 @@ title: about
 permalink: /en/
 lang: en
 description: Dr. Yaé Ulrich Gaba — AI researcher in topological and geometric machine learning, with a mathematical foundation in asymmetric topology and fixed-point theory. Head of R&D at AIRINA Labs. Based in Cotonou, Benin.
-subtitle: >
-  Topological & geometric machine learning · Asymmetric metrics for RL contraction and neural-network verification · Head of R&D,
-  <a href='https://airina-labs.github.io/AIRINA-Labs/'>AIRINA Labs</a> ·
-  <a href='https://acas-yde.org/'>African Centre for Advanced Studies (ACAS)</a>
+subtitle: Topological & geometric methods for machine learning and AI safety
 
 stats:
   - icon: fa-building-columns
-    text: Head of R&D · AIRINA Labs
+    text: "Head of R&D · <a href='https://airina-labs.github.io/AIRINA-Labs/'>AIRINA Labs</a>"
+  - icon: fa-earth-africa
+    text: "<a href='https://acas-yde.org/'>African Centre for Advanced Studies</a>"
   - icon: fa-book
     text: "Co-author · <em>The Shape of Data</em> (No Starch, 2024)"
 
